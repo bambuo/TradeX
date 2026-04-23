@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="BscSmartMoneyBot/BscSmartMoneyBot.csproj" />
+  <Project Path="BscSmartMoneyBot.Tests/BscSmartMoneyBot.Tests.csproj" />
+</Solution>

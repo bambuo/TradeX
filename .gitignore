@@ -1,0 +1,11 @@
+bin/
+obj/
+publish/
+logs/
+state/
+.idea/
+.vs/
+*.user
+*.suo
+*.cache
+.DS_Store
