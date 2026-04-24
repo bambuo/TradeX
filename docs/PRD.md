@@ -1,138 +1,521 @@
-# BSC Smart Money Trading Bot PRD
+# TradeX — PRD
 
 ## 1. 文档信息
-- 文档版本: v1.0
-- 文档状态: Draft
-- 更新时间: 2026-04-23
-- 适用项目: `BscSmartMoneyBot`
 
-## 2. 背景与问题
-当前团队需要一个可持续运行、可配置、可观测的自动交易机器人，用于基于链上聪明钱信号执行策略交易。  
-核心痛点：
-1. 信号识别、过滤与下单流程分散，缺少统一闭环。
-2. 风控与退出策略缺乏标准化（止损、止盈、移动止损、分批止盈）。
-3. 状态管理和恢复机制不统一，重启后连续性差。
-4. 发布与运行方式不一致，环境依赖高。
+| 项目 | 内容 |
+|------|------|
+| 文档版本 | v2.2 |
+| 文档状态 | Draft |
+| 更新日期 | 2026-04-24 |
 
-## 3. 产品目标
-1. 建立“信号获取 -> 风控过滤 -> 下单执行 -> 持仓管理 -> 状态持久化”的自动化闭环。
-2. 支持实盘与 `dry-run` 双模式，保证可安全演练。
-3. 在配置可控前提下实现可扩展策略框架（仓位、滑点、退出策略）。
-4. 通过解决方案化工程结构降低维护成本。
+## 2. 产品定位
 
-## 4. 范围定义
-### 4.1 本期范围（In Scope）
-1. 聪明钱信号轮询与新信号识别。
-2. 基础过滤（市值、流动性、卖出比例、聪明钱包数）。
-3. 安全扫描与风险等级拦截。
-4. 买入、卖出、分批卖出执行。
-5. 止损、止盈、分批止盈、动态移动止损。
-6. 状态持久化、备份与恢复。
-7. 配置中心（`appsettings*.json` + CLI 覆盖）。
-8. 单文件发布与本地可运行测试工程。
+TradeX 多交易所现货交易机器人，通过 CEX 市场数据驱动，支持可视化可组合策略，提供 Web 管理后台，Docker 容器化部署的全自动交易系统。
 
-### 4.2 非本期范围（Out of Scope）
-1. 可视化 Web 控制台。
-2. 多策略并行编排与回测系统。
-3. 多账户/多钱包资产分账管理。
-4. 交易所/链路多供应商路由。
+## 3. 技术栈
 
-## 5. 目标用户与使用场景
-### 5.1 用户角色
-1. 交易策略操作者：配置参数并启动机器人。
-2. 运维/开发人员：排查日志、维护状态文件、发布版本。
+| 层 | 技术 | 说明 |
+|---|---|---|
+| 后端框架 | ASP.NET Core 10 + C# 14 | REST API + SignalR + BackgroundService |
+| 前端框架 | Vue 3 + TypeScript + Pinia | Vite 构建，Nginx 容器化 |
+| 配置数据库 | SQLite + EF Core | 用户、交易所、策略、持仓、订单等配置数据 |
+| 时序数据库 | IoTDB | K 线历史数据存储 |
+| 鉴权 | Casbin.NET | RBAC 模型，API 级别权限控制 |
+| MFA | TOTP (Time-based One-Time Password) | 注册时强制绑定，登录必验 |
+| 实时通信 | SignalR | 前端实时推送 |
+| 市场数据 | WebSocket | 交易所实时行情订阅 |
+| 通知 | 供应商 SDK | Telegram / Discord / SMTP |
+| API 文档 | Swagger / Scalar | 仅开发环境暴露 |
+| 部署 | Docker + Docker Compose | 前后端分离 + tsdb 容器 |
 
-### 5.2 核心场景
-1. 日常自动运行：按轮询周期持续发现并处理新信号。
-2. 安全演练：通过 `--dry-run` 观察行为不落链。
-3. 异常恢复：重启后读取状态继续运行。
+## 4. 目标用户与使用场景
 
-## 6. 功能需求（FR）
-### FR-01 信号采集
-1. 系统必须按配置链路采集聪明钱信号。
-2. 系统必须识别“新信号”并去重，避免重复入场。
+### 4.1 用户角色
 
-### FR-02 信号过滤
-1. 系统必须支持市值、流动性、卖出比例、聪明钱包数阈值过滤。
-2. 过滤结果必须可记录日志。
+| 角色 | 权限 | MFA 要求 |
+|------|------|----------|
+| Super Admin | 系统初始化时创建，全部权限，不可删除 | 强制 |
+| Admin | 除系统初始化外的全部权限，含用户管理 | 强制 |
+| Operator | 策略编辑、交易执行、回测 | 强制 |
+| Viewer | 只读查看仪表盘、持仓、订单 | 强制 |
 
-### FR-03 安全扫描
-1. 系统必须执行 token 安全扫描。
-2. 对 `RiskLevelBuyBlock` 的风险等级必须阻断买入。
-3. 对 `RiskLevelBuyPause` 的风险等级必须暂停并记录日志。
+### 4.2 核心场景
 
-### FR-04 买入执行
-1. 系统必须在满足冷却期、最大持仓、余额条件后执行买入。
-2. 系统必须支持策略化推荐买入金额。
-3. 系统必须支持智能滑点计算。
+- **系统首次部署**：前端初始化向导页面配置系统参数、创建 Super Admin 账户
+- **日常自动运行**：每交易所单策略并行交易，无人值守
+- **策略配置**：用户在 Web UI 上选择指标、设置参数、组合条件，创建自定义策略，回测验证后启用
+- **安全运营**：多用户管理，MFA 保护，API 级别权限控制，操作审计日志可追溯
+- **回测验证**：任何策略上线前必须通过回测；回测数据来自时序数据库的历史 K 线
+- **通知告警**：交易执行、风控触发、异常事件通过 Telegram/Discord/Email 实时推送
+- **崩溃恢复**：进程意外终止后重启，自动同步交易所订单信息确保数据一致性
+- **数据管理**：K 线数据存储于时序数据库，订单历史按月归档，支持数据导出
+- **Docker 部署**：一条命令拉起全部服务，环境隔离，内置健康检查
 
-### FR-05 卖出执行
-1. 系统必须支持全量卖出和分批卖出。
-2. 系统必须记录交易后盈亏统计并更新状态。
+## 5. 功能需求
 
-### FR-06 退出策略
-1. 系统必须支持止损触发卖出。
-2. 系统必须支持止盈触发卖出。
-3. 系统必须支持分批止盈策略。
-4. 系统必须支持动态移动止损。
+### FR-01 交易所抽象层
 
-### FR-07 状态管理
-1. 系统必须持久化以下关键状态：已见信号、当前持仓、统计指标。
-2. 系统必须支持状态备份。
-3. 状态损坏时系统必须降级为安全默认状态（新状态）。
+| ID | 需求 |
+|----|------|
+| FR-01.1 | 系统必须提供统一的 `IExchangeClient` 接口，封装所有交易所共同操作 |
+| FR-01.2 | 首批实现：**Binance、OKX、Gate.io、Bybit、HTX** |
+| FR-01.3 | 接口必须支持：WebSocket 订阅行情、获取 K 线、获取订单簿、获取账户余额、市价/限价下单、查询订单、查询持仓、查询交易规则 |
+| FR-01.4 | 每个交易所实例必须支持「测试连接」功能验证 API Key 有效性 |
+| FR-01.5 | 交易所被使用时，系统必须实时从交易所拉取精准交易规则（精度、最小名义价值、最小交易量等），并在前端展示 |
+| FR-01.6 | **统一限流层**：系统必须实现交易所级别的请求限流器（Rate Limiter），防止 API 调用超限被交易所封禁。限流参数按各交易所官方文档配置 |
 
-### FR-08 运行模式
-1. 系统必须支持 `DryRun=true/false`。
-2. 命令行参数必须可以覆盖配置文件关键字段。
+### FR-02 交易所账户管理
 
-## 7. 非功能需求（NFR）
-1. 技术栈：`.NET 10` + `C# preview`（C#14）。
-2. 稳定性：公共边界方法异常可记录并返回可控结果；内部关键链路异常可上抛。
-3. 可维护性：主/测工程独立，解决方案入口统一为 `BscSmartMoneyBot.slnx`。
-4. 可观测性：日志必须使用结构化日志模板。
-5. 可测试性：测试工程可通过 `dotnet test BscSmartMoneyBot.slnx` 执行。
+| ID | 需求 |
+|----|------|
+| FR-02.1 | 用户必须能在 Web UI 上创建/编辑/删除交易所账户配置 |
+| FR-02.2 | 每个交易所账户包含：名称、交易所类型、API Key、Secret Key、Passphrase（如有）等认证信息 |
+| FR-02.3 | API Key / Secret Key 必须使用 AES-256 加密后存入 SQLite |
+| FR-02.4 | 交易所账户必须支持启用/禁用状态切换 |
+| FR-02.5 | 新增或修改 API Key 时，系统必须主动验证 Key 的权限：检查是否具有现货交易权限、建议启用 IP 白名单、确认提现权限已关闭 |
 
-## 8. 业务流程
-1. 启动服务并加载配置与状态。
-2. 周期轮询：
-   - 更新持仓价格
-   - 拉取新信号
-   - 基础过滤
-   - 安全扫描
-   - 执行买入
-   - 管理持仓（止盈止损）
-   - 计算下轮轮询间隔
-3. 停止时保存最终状态。
+### FR-03 可组合策略框架
 
-## 9. 配置与关键参数
-1. 信号参数：`MinMarketCap`、`MinLiquidity`、`MaxSoldRatio`、`MinSmartMoneyWallets`
-2. 交易参数：`MaxOpenPositions`、`CooldownMinutes`、`MinPositionSizeUSD`、`MaxPositionSizeUSD`
-3. 风控参数：`StopLossPercent`、`TakeProfitPercent`、`TrailingStopPercent`
-4. 滑点参数：`MinSlippagePercent`、`MaxSlippagePercent`
-5. 安全参数：`RiskLevelBuyBlock`、`RiskLevelBuyPause`
+| ID | 需求 |
+|----|------|
+| FR-03.1 | 每个策略必须关联 **一个** 交易所 + 一个或多个交易对 |
+| FR-03.2 | **同一交易所同一时间只允许一个策略处于 Active 状态**。尝试启用第二个策略时前端应提示冲突 |
+| FR-03.3 | 策略必须包含入场条件树和出场条件树 |
+| FR-03.4 | 条件树必须支持嵌套 AND / OR / NOT 逻辑门，任意深度 |
+| FR-03.5 | 每个条件节点包含：指标类型、参数、运算符（`>`/`<`/`>=`/`<=`/`==`）、阈值 |
+| FR-03.6 | 策略必须包含执行规则：入场金额（固定值/余额百分比）、滑点容差、止损/止盈、冷却时间 |
+| FR-03.7 | 策略必须绑定时间周期（1m/5m/15m/1h），指标基于该周期的 K 线数据计算 |
+| FR-03.8 | **策略创建后必须先通过回测才能启用**。策略状态流转：Draft → Backtesting → Passed → Active（仅 Passed 可切换为 Active） |
+| FR-03.9 | 策略回测或运行时若 K 线数据拉取失败，策略不得激活，必须给出明确错误提示 |
+| FR-03.10 | 策略评估周期执行过程中若进程意外中断，该次评估视为未执行过，策略状态保持为当前未生效状态 |
 
-## 10. 验收标准（Acceptance Criteria）
-1. 运行 `dotnet build BscSmartMoneyBot.slnx` 无错误。
-2. 运行 `dotnet test BscSmartMoneyBot.slnx` 全通过。
-3. `dry-run` 模式下可完整跑通信号到交易流程，不执行真实链上交易。
-4. 触发止损/止盈/分批止盈/动态移动止损时，行为与配置一致且有日志。
-5. 重启后可读取历史状态继续执行。
+### FR-04 技术指标
 
-## 11. 风险与约束
-1. 外部命令/供应商可用性波动（`onchainos`）。
-2. 链上价格与交易结果可能存在延迟与滑点偏差。
-3. 参数配置不当会放大风险（如仓位过大、阈值过宽）。
+| ID | 需求 |
+|----|------|
+| FR-04.1 | 基于 Trady 封装技术指标库 |
+| FR-04.2 | 首批支持的指标：RSI、MACD、SMA、EMA、Bollinger Bands、Volume SMA、OBV、KDJ |
+| FR-04.3 | 指标是策略的一部分，在策略层面绑定（指标 → 策略，而非全局配置） |
+| FR-04.4 | 指标计算使用策略绑定的 K 线数据（回测时用历史数据，运行时用实时数据） |
 
-## 12. 里程碑建议
-1. M1（已完成）：核心闭环与工程结构稳定化。
-2. M2：补齐异常路径与边界条件测试覆盖。
-3. M3：增强运行监控与操作手册（告警、回滚、恢复演练）。
+### FR-05 实时数据管道
 
-## 13. 当前版本实现映射（代码）
-1. 启动与DI：`BscSmartMoneyBot/Program.cs`、`BscSmartMoneyBot/Configuration/HostBuilderExtensions.cs`
-2. 业务编排：`BscSmartMoneyBot/HostedServices/TradingBotHostedService.cs`
-3. 信号处理：`BscSmartMoneyBot/Services/Implementations/Trading/SignalMonitor.cs`
-4. 执行与风控：`BscSmartMoneyBot/Services/Implementations/Trading/TradeExecutor.cs`、`PositionManager.cs`
-5. 策略：`BscSmartMoneyBot/Services/Implementations/Trading/Strategies/*`
-6. 状态：`BscSmartMoneyBot/Services/Implementations/Persistence/StateManager.cs`
-7. 测试：`BscSmartMoneyBot.Tests/Services/*`
+| ID | 需求 |
+|----|------|
+| FR-05.1 | 系统必须使用 **WebSocket** 订阅交易所实时行情（ticker / kline / depth），禁止使用 REST 轮询获取实时数据 |
+| FR-05.2 | 每个交易所必须有独立的 WebSocket 连接管理器，处理连接、认证（如需）、心跳、重连 |
+| FR-05.3 | WebSocket 数据流入内存缓存，策略引擎从缓存读取而非直接请求交易所 |
+| FR-05.4 | K 线数据同时写入时序数据库作为持久化历史数据 |
+| FR-05.5 | 数据流向：`交易所 WebSocket → 内存缓存 → 指标计算 → 策略评估 → SignalR → 前端` |
+
+### FR-06 交易执行
+
+| ID | 需求 |
+|----|------|
+| FR-06.1 | 策略引擎作为 BackgroundService 定时执行策略评估循环 |
+| FR-06.2 | 入场条件满足时，经风控检查通过后执行买入 |
+| FR-06.3 | 出场条件满足时，执行卖出/止损/止盈 |
+| FR-06.4 | 支持市价单和限价单 |
+| FR-06.5 | 支持手动下单（Web UI 上直接执行买入/卖出） |
+| FR-06.6 | 下单结果必须写入订单记录并更新持仓状态 |
+| FR-06.7 | 限价单需调研各交易所的限制和要求（部分成交处理、超时撤单机制、订单状态同步与 reconcile） |
+| FR-06.8 | **滑点控制**：滑点容差必须作为可配置项（策略级别或全局默认值），允许用户设定最大允许滑点百分比。下单前预估滑点，超过阈值时拒绝下单 |
+
+### FR-07 风控
+
+| ID | 需求 |
+|----|------|
+| FR-07.1 | 系统必须支持仓位级别止损（固定百分比） |
+| FR-07.2 | 系统必须支持仓位级别止盈（固定百分比） |
+| FR-07.3 | 系统必须支持移动止损 |
+| FR-07.4 | 系统必须支持交易冷却期（单策略维度） |
+| FR-07.5 | 系统必须支持最大持仓数限制 |
+| FR-07.6 | **日亏损限额**：当日累计已实现亏损超过阈值时，暂停所有交易，次日 00:00 UTC 自动恢复 |
+| FR-07.7 | **最大回撤暂停**：账户净值从峰值回撤超过阈值时，暂停所有交易并通知 |
+| FR-07.8 | **连续亏损暂停**：连续 N 笔交易亏损时，暂停该策略并通知 |
+| FR-07.9 | **交易频率熔断**：单策略短时间内反复触发买入信号时，系统应合并或限流处理 |
+
+### FR-08 用户与鉴权
+
+| ID | 需求 |
+|----|------|
+| FR-08.1 | 支持用户登录、登出 |
+| FR-08.2 | 密码必须使用 bcrypt 哈希存储 |
+| FR-08.3 | 所有用户（含 Super Admin）登录时必须验证 MFA TOTP 码 |
+| FR-08.4 | 首次绑定 MFA 时生成 8 个恢复码（单次使用） |
+| FR-08.5 | 使用 Casbin.NET 实现 API 级别 RBAC 鉴权：Super Admin / Admin / Operator / Viewer 四级角色 |
+| FR-08.6 | Super Admin 不可删除，不可降级；Admin 可管理普通用户和分配角色 |
+| FR-08.7 | 未登录请求一律返回 401，未授权请求一律返回 403 |
+| FR-08.8 | 用户注册仅通过系统初始化创建 Super Admin，后续用户由 Admin 在管理页面创建 |
+
+#### FR-08-A Casbin 权限策略模型
+
+Casbin 策略以 API 路径 + HTTP 方法为资源单元，按角色授权：
+
+```
+# 模型 (model.conf):
+[request_definition]
+r = sub, obj, act
+
+[policy_definition]
+p = sub, obj, act
+
+[role_definition]
+g = _, _
+
+[matchers]
+m = g(r.sub, p.sub) && keyMatch3(r.obj, p.obj) && regexMatch(r.act, p.act)
+
+# 策略示例:
+p, super_admin, /api/*, (GET)|(POST)|(PUT)|(DELETE)
+p, admin, /api/exchanges/*, (GET)|(POST)|(PUT)|(DELETE)
+p, admin, /api/users/*, (GET)|(POST)|(PUT)|(DELETE)
+p, admin, /api/audit-logs, GET
+p, admin, /api/system/*, (GET)|(POST)
+p, operator, /api/strategies, (GET)|(POST)
+p, operator, /api/strategies/*, (GET)|(PUT)
+p, operator, /api/strategies/*/toggle, POST
+p, operator, /api/orders/manual, POST
+p, operator, /api/backtests, (GET)|(POST)
+p, viewer, /api/*, GET
+
+g, alice, super_admin
+g, bob, admin
+g, charlie, operator
+g, dave, viewer
+```
+
+Casbin 不参与 MFA 验证。MFA 在 JWT 签发前完成，是登录的前置条件。JWT 中包含用户角色，API 层通过 Casbin 鉴权中间件校验。
+
+### FR-09 通知与告警
+
+| ID | 需求 |
+|----|------|
+| FR-09.1 | 系统必须支持多渠道通知：Telegram、Discord、Email |
+| FR-09.2 | 通知渠道配置在 Web UI 上进行（Webhook URL / Bot Token / SMTP 等），配置加密存储 |
+| FR-09.3 | **交易通知**：开仓、平仓、止损/止盈触发时推送到配置的通知渠道 |
+| FR-09.4 | **异常告警**：交易所连接断开、WS 断线重连、API Key 失效时发送告警 |
+| FR-09.5 | **风控告警**：日亏损限额触发、最大回撤暂停、连续亏损暂停时发送告警 |
+| FR-09.6 | 通知模板必须包含关键信息：策略名称、交易对、金额、价格、PnL、时间 |
+| FR-09.7 | 通知渠道必须有健康检查，发送失败应记录日志 |
+
+### FR-10 审计日志
+
+| ID | 需求 |
+|----|------|
+| FR-10.1 | 系统必须记录所有敏感操作的审计日志 |
+| FR-10.2 | 审计范围包括：登录/登出、交易所配置变更（创建/编辑/删除）、策略启用/停用、策略配置修改、手动下单、用户创建/角色变更 |
+| FR-10.3 | 每条审计日志包含：操作时间、操作用户、操作类型、资源类型、资源 ID、操作详情、请求 IP |
+| FR-10.4 | 审计日志存储在 SQLite 的 `AuditLog` 表中 |
+| FR-10.5 | Admin 及以上角色可在 Web UI 上按时间/用户/操作类型查询审计日志 |
+
+### FR-11 Web 仪表盘
+
+| ID | 需求 |
+|----|------|
+| FR-11.1 | **初始化向导页面**（仅首次启动无 Super Admin 时显示）：配置系统参数、创建 Super Admin 账号、绑定 MFA |
+| FR-11.2 | **系统设置页面**（Admin 及以上）：查看/修改系统级配置参数（通知默认值、滑点默认值、风控全局默认值等） |
+| FR-11.3 | 仪表盘页面展示：账户余额汇总、活跃持仓、最近交易、策略状态、风控状态（当日亏损、回撤等） |
+| FR-11.4 | 交易所管理页面：CRUD 交易所账户、查看实时交易规则 |
+| FR-11.5 | 策略编辑器页面：可视化配置策略（指标选择、参数设置、条件组合）、策略状态流转 |
+| FR-11.6 | 策略列表页面：查看/回测/启用/停用策略 |
+| FR-11.7 | 持仓面板：实时持仓详情、PnL |
+| FR-11.8 | 订单历史页面：按时间/策略/交易对筛选，支持数据导出 |
+| FR-11.9 | 回测页面：创建回测任务、查看结果图表（收益曲线、回撤曲线） |
+| FR-11.10 | 通知配置页面：管理 Telegram/Discord/Email 通知渠道 |
+| FR-11.11 | 审计日志页面（Admin 及以上）：查询操作审计日志 |
+| FR-11.12 | 用户管理页面（Admin 及以上）：用户列表、创建用户、角色分配 |
+| FR-11.13 | 所有实时数据通过 SignalR 推送 |
+
+### FR-12 回测引擎
+
+| ID | 需求 |
+|----|------|
+| FR-12.1 | 支持选择策略 + 时间范围创建回测任务 |
+| FR-12.2 | 回测数据来源为时序数据库中的历史 K 线数据 |
+| FR-12.3 | 回测引擎按时间顺序逐根 K 线执行策略评估，模拟交易过程 |
+| FR-12.4 | 回测结果包含：总收益率、年化收益率、最大回撤、胜率、交易次数、Sharpe Ratio、盈亏比 |
+| FR-12.5 | 回测结果以图表展示（收益曲线、回撤曲线、每笔交易标注） |
+| FR-12.6 | 策略只有通过回测（pass）才允许切换为 Active 状态 |
+
+### FR-13 数据管理与生命周期
+
+| ID | 需求 |
+|----|------|
+| FR-13.1 | **配置数据**（用户、交易所、策略、持仓、订单、审计日志）存储在 SQLite |
+| FR-13.2 | **K 线历史数据**存储在 IoTDB，通过 Docker Compose 独立容器运行 |
+| FR-13.3 | **K 线预热**：策略首次启动/启用时，从交易所通过 REST 接口回填至少 3 天的 15 分钟级 K 线数据到时序数据库 |
+| FR-13.4 | **WS 断线重连**：WebSocket 断开重连后，需要调研各交易所是否支持补发断线期间的 K 线数据；若不支持，通过 REST 回填缺失区间 |
+| FR-13.5 | **订单归档**：订单记录超过 1 个月后自动归档为 JSON 文件，按月压缩存储，原 SQLite 记录保留摘要索引 |
+| FR-13.6 | **数据导出**：Web UI 上支持导出订单历史为 CSV / JSON 格式 |
+| FR-13.7 | SQLite 和 IoTDB 数据目录挂载为 Docker 持久卷 |
+
+### FR-14 崩溃恢复与启动同步
+
+| ID | 需求 |
+|----|------|
+| FR-14.1 | 系统启动时（Trading Engine 开始运行前），必须对每个已启用交易所账户执行一次订单同步 reconciliation |
+| FR-14.2 | 同步逻辑：从交易所拉取最近 N 笔订单状态 → 与本地 `Order` 和 `Position` 记录比对 → 修复不一致的订单/持仓状态 |
+| FR-14.3 | 同步完成后记录日志：条数、修复项数 |
+| FR-14.4 | 同步失败不应阻塞系统启动，但必须发出告警通知 |
+
+### FR-15 系统初始化
+
+| ID | 需求 |
+|----|------|
+| FR-15.1 | 系统首次启动且数据库中无 Super Admin 用户时，所有 API 除初始化接口外返回 503 Service Unavailable |
+| FR-15.2 | 前端自动检测初始化状态，跳转到初始化向导页面 |
+| FR-15.3 | 初始化向导页面引导用户完成：设置 JWT Secret（或自动生成）、创建 Super Admin 账户、绑定 MFA、配置通知渠道（可选） |
+| FR-15.4 | 初始化完成后系统恢复正常运行模式 |
+| FR-15.5 | 初始化操作仅允许执行一次；重置需通过特殊维护操作 |
+
+### FR-16 Docker 部署
+
+| ID | 需求 |
+|----|------|
+| FR-16.1 | 后端独立 Dockerfile，多阶段构建，发布为自包含镜像 |
+| FR-16.2 | 前端独立 Dockerfile + Nginx 静态文件服务 |
+| FR-16.3 | docker-compose.yml 编排：backend、frontend、iotdb，配合持久卷 |
+| FR-16.4 | 支持通过环境变量注入关键配置（数据库路径、IoTDB 连接串等） |
+| FR-16.5 | 后端必须提供 `GET /health` 端点，返回数据库连接、IoTDB 连接、各交易所 WS 连接状态 |
+| FR-16.6 | docker-compose.yml 中为 backend 和 iotdb 配置 healthcheck 指令 |
+| FR-16.7 | 前端 Nginx 配置反向代理 `/api` 和 `/hubs` 到后端，统一端口对外 |
+
+## 6. 非功能需求
+
+| NFR | 要求 |
+|-----|------|
+| NFR-01 | .NET 10 + C# 14 (LangVersion=preview)，Nullable 启用 |
+| NFR-02 | 前后端分离，REST API + SignalR 通信 |
+| NFR-03 | 交易所 API Key 在 SQLite 中以 AES-256 加密存储 |
+| NFR-04 | JWT Token 有过期机制 + Refresh Token |
+| NFR-05 | 日志使用 Serilog 结构化日志 |
+| NFR-06 | 测试工程使用 xUnit + NSubstitute，dotnet test 全量通过 |
+| NFR-07 | Docker 镜像体积最小化（多阶段构建） |
+| NFR-08 | 限价单实现前需调研各交易所对限价单的要求和限制 |
+| NFR-09 | WebSocket 断线重连后的 K 线补发能力需逐一调研各交易所 |
+| NFR-10 | API 文档（Swagger / Scalar）仅在 Development 环境中暴露 |
+
+## 7. 业务流程
+
+### 7.1 交易循环（BackgroundService）
+
+```
+1. WebSocket 持续接收各交易所实时行情 → 写入内存缓存 + 时序数据库
+2. 每个评估周期:
+   a. 对每个活跃策略:
+      - 从缓存读取最新的绑定时段 K 线数据
+      - 计算绑定指标值
+      - 评估入场条件树
+      - 条件满足 → 风控检查（日亏损/回撤/连续亏损/熔断/滑点预估）
+        → 通过 → 执行买入
+        → 拒绝 → 记录日志 + 通知
+      - 评估出场条件树
+      - 条件满足 → 执行卖出/止损/止盈
+   b. 更新所有活跃持仓价格 + PnL
+   c. 生成通知（如有新交易/告警）
+3. 通过 SignalR 推送状态变更到前端
+4. 进入下一个评估周期
+```
+
+### 7.2 MFA 注册流程
+
+首次绑定由初始化向导引导，或 Admin 在用户管理页面为用户创建账号后强制用户在首次登录时绑定。
+
+```
+创建用户 (status: PendingMfa)
+  → 用户首次登录 → 要求绑定 MFA
+  → 生成 TOTP Secret (AES 加密存储) → 返回 QR Code URI
+  
+用户扫码绑定 Google Authenticator / Authy 等
+用户输入 6 位 TOTP 码
+
+POST /api/auth/verify-mfa-setup
+  → 验证 TOTP
+  → 通过 → 生成 8 个恢复码 → status: Active → 返回恢复码 + JWT
+  → 失败 → 返回错误，可重试
+```
+
+### 7.3 MFA 登录流程
+
+```
+POST /api/auth/login
+  → 验证用户名+密码
+  → MFA 已绑定 → 返回 mfaRequired: true + mfaToken
+  → MFA 未绑定 → 重定向到 MFA 绑定流程
+
+POST /api/auth/verify-mfa
+  → 验证 TOTP 或恢复码
+  → 通过 → 签发 JWT + Refresh Token
+  → 失败 → 拒绝
+```
+
+### 7.4 策略生命周期
+
+```
+创建策略 (status: Draft, 关联一个交易所 + 交易对列表)
+  → 配置条件树 + 执行规则 + 滑点容差
+  → 提交回测 (status: Backtesting)
+  → 回测完成 → 是否通过？
+     → 通过 (status: Passed)
+     → 不通过 (status: Draft) → 修改后重新回测
+     
+用户尝试启用 Passed 策略 (status → Active)
+  → 检查该交易所是否已有其他 Active 策略？
+     → 有 → 拒绝并提示冲突
+     → 无 → 切换为 Active
+     
+Active 策略可在任何时候停用 (status: Disabled)
+停用的策略可重新提交回测后再次启用
+```
+
+### 7.5 系统启动流程
+
+```
+Docker 容器启动 → ASP.NET Core 启动
+  → 检查数据库中是否有 Super Admin？
+     → 无 → 初始化模式：仅开放初始化 API，其余返回 503
+     → 有 → 正常模式
+  → 加载配置 + 数据库 migrations
+  → 启动 Trading Engine:
+     1. 对每个已启用交易所账户执行订单同步 reconciliation
+     2. 建立 WebSocket 连接
+     3. 启动策略评估循环
+  → 注册健康检查端点
+```
+
+## 8. 项目结构
+
+```
+TradeX/
+├── docker-compose.yml
+├── backend/
+│   ├── TradeX.slnx
+│   ├── TradeX.Api/            # ASP.NET Core Web API
+│   │   ├── Controllers/                 # Auth, Setup, Exchanges, Strategies, Orders, etc.
+│   │   ├── Hubs/                        # TradingHub (SignalR)
+│   │   ├── Middleware/                   # Casbin authorization middleware, Rate limiter
+│   │   ├── Program.cs
+│   │   └── Dockerfile
+│   ├── TradeX.Core/           # 领域模型、接口、枚举
+│   ├── TradeX.Exchange/       # IExchangeClient + 各交易所实现
+│   ├── TradeX.Indicators/     # Trady 封装
+│   ├── TradeX.Trading/        # 策略引擎 + 风控 + 回测 + 订单 reconciliation
+│   ├── TradeX.Infrastructure/ # EF Core + SQLite + Casbin Enforcer + IoTDB Client
+│   ├── TradeX.Notifications/  # Telegram / Discord / Email 通知
+│   └── TradeX.Tests/
+├── frontend/
+│   ├── src/
+│   │   ├── views/
+│   │   │   ├── setup/                   # 初始化向导页面
+│   │   │   ├── dashboard/
+│   │   │   ├── strategies/
+│   │   │   ├── exchanges/
+│   │   │   ├── positions/
+│   │   │   ├── orders/
+│   │   │   ├── backtest/
+│   │   │   ├── notifications/
+│   │   │   ├── audit-log/
+│   │   │   ├── users/
+│   │   │   └── settings/
+│   │   ├── components/
+│   │   ├── stores/
+│   │   ├── api/
+│   │   └── router/
+│   ├── Dockerfile
+│   └── nginx.conf
+└── README.md
+```
+
+## 9. 里程碑
+
+| 里程碑 | 内容 | 阶段 |
+|--------|------|------|
+| M1 基础设施 | 项目框架、初始化向导 + Super Admin、MFA、Casbin 鉴权、SQLite、Docker 化（含 healthcheck） | 核心 |
+| M2 交易所集成 | IExchangeClient 抽象、首批 5 个交易所实现、交易所 CRUD、API Key 加密存储与权限验证、WebSocket 连接管理器、统一限流层 | 核心 |
+| M3 策略引擎 | 指标库封装（Trady）、条件树引擎、策略 CRUD、策略编辑器前端、K 线数据预热 | 核心 |
+| M4 交易执行 | 策略评估循环、下单执行（含滑点控制）、持仓管理、风控（含全部增强风控项）、SignalR 推送、时序数据库集成、启动订单同步 | 核心 |
+| M5 通知与运维 | Telegram/Discord/Email 通知、审计日志、订单归档与导出、通知配置 UI、审计日志 UI、系统设置页 | 后续 |
+| M6 Web 仪表盘 | 监控面板、回测引擎 + UI、用户管理 | 后续 |
+| M7 测试与调研 | 全量测试覆盖、交易所限价单规则调研、WS 断线补发机制调研、边界条件测试 | 贯穿 |
+
+## 10. API 端点总览
+
+| 模块 | 方法 | 路径 | 角色 |
+|------|------|------|------|
+| Health | GET | /health | 公开 |
+| Setup | GET | /api/setup/status | 公开 |
+| Setup | POST | /api/setup/initialize | 公开 |
+| Auth | POST | /api/auth/login | 公开 |
+| Auth | POST | /api/auth/verify-mfa | 公开 |
+| Auth | POST | /api/auth/refresh | 认证 |
+| Auth | POST | /api/auth/verify-mfa-setup | 认证 |
+| Exchanges | GET | /api/exchanges | admin/super_admin |
+| Exchanges | POST | /api/exchanges | admin/super_admin |
+| Exchanges | PUT | /api/exchanges/:id | admin/super_admin |
+| Exchanges | DELETE | /api/exchanges/:id | admin/super_admin |
+| Exchanges | POST | /api/exchanges/:id/test | admin/super_admin |
+| Exchanges | GET | /api/exchanges/:id/rules | admin/super_admin/operator |
+| Strategies | GET | /api/strategies | 全部 |
+| Strategies | POST | /api/strategies | admin/operator |
+| Strategies | PUT | /api/strategies/:id | admin/operator |
+| Strategies | DELETE | /api/strategies/:id | admin/operator |
+| Strategies | POST | /api/strategies/:id/toggle | admin/operator |
+| Positions | GET | /api/positions | 全部 |
+| Orders | GET | /api/orders | 全部 |
+| Orders | POST | /api/orders/manual | admin/operator |
+| Orders | GET | /api/orders/export | admin/operator |
+| Backtests | GET | /api/backtests | 全部 |
+| Backtests | POST | /api/backtests | admin/operator |
+| Backtests | GET | /api/backtests/:id | 全部 |
+| Dashboard | GET | /api/dashboard/summary | 全部 |
+| Notifications | GET | /api/notifications/channels | admin/super_admin |
+| Notifications | POST | /api/notifications/channels | admin/super_admin |
+| Notifications | PUT | /api/notifications/channels/:id | admin/super_admin |
+| Notifications | DELETE | /api/notifications/channels/:id | admin/super_admin |
+| Notifications | POST | /api/notifications/channels/:id/test | admin/super_admin |
+| AuditLog | GET | /api/audit-logs | admin/super_admin |
+| Users | GET | /api/users | admin/super_admin |
+| Users | POST | /api/users | admin/super_admin |
+| Users | PUT | /api/users/:id/role | admin/super_admin |
+| System | GET | /api/settings | admin/super_admin |
+| System | PUT | /api/settings | admin/super_admin |
+
+## 11. 数据模型
+
+```
+SystemConfig   — 系统配置键值对 (Key, Value, 仅初始化时写入)
+User           — 用户账号 (MfaSecret AES 加密, RecoveryCodes JSON, Status, Role)
+Exchange       — 交易所账户 (ApiKey/Secret AES 加密, Type, Status)
+Symbol         — 交易对 (ExchangeId, BaseAsset, QuoteAsset, 精度规则等)
+Strategy       — 策略定义 (ConditionJson, ExecutionRule, ExchangeId, SymbolIds, Status)
+Position       — 运行中持仓 (ExchangeId, SymbolId, StrategyId, 数量, 均价, PnL, Status)
+Order          — 订单记录 (ExchangeId, SymbolId, StrategyId, Type, 金额, 手续费, Status, ExchangeOrderId)
+BacktestTask   — 回测任务 (StrategyId, 时间范围, Status)
+BacktestResult — 回测结果 (TaskId, 收益率/回撤/胜率/次数/Sharpe, 明细JSON)
+NotificationChannel — 通知渠道 (Type, Config加密, Status)
+AuditLog       — 审计日志 (UserId, Action, ResourceType, ResourceId, Detail, IP, Timestamp)
+```
+
+## 12. 验收标准
+
+| AC | 内容 |
+|----|------|
+| AC-01 | docker-compose up 启动后前后端均可访问，IoTDB 正常连接，health 端点返回 OK |
+| AC-02 | 首次访问 → 显示初始化向导 → 创建 Super Admin + 绑定 MFA → 恢复正常 |
+| AC-03 | Super Admin 登录（MFA 验证）→ 签发 JWT |
+| AC-04 | 创建用户 → MFA 绑定 → 完整登录流程 |
+| AC-05 | Viewer 访问 POST API 返回 403 |
+| AC-06 | 添加交易所账户 → 测试连接（含 API Key 权限验证）→ 确认联通，展示实时交易规则 |
+| AC-07 | 创建策略（关联单交易所、多条件嵌套）→ 提交回测 → 通过 → 启用（同交易所无冲突时）|
+| AC-08 | 尝试在同交易所启用第二个策略 → 被拒绝并提示冲突 |
+| AC-09 | 策略引擎实时评估，滑点未超限时正常下单，滑点超限时拒绝 |
+| AC-10 | 止损/止盈/日亏损限额/最大回撤/连续亏损均按配置触发 |
+| AC-11 | 进程崩溃后重启 → 自动同步交易所订单 → 持仓数据一致 |
+| AC-12 | WebSocket 实时数据流入缓存，SignalR 实时推送到前端 |
+| AC-13 | 通知渠道配置后，交易和告警正确推送 |
+| AC-14 | 审计日志记录所有敏感操作，Admin 可查询 |
+| AC-15 | 订单历史可按月归档并导出 CSV/JSON |
+| AC-16 | 回测可运行并产出完整绩效报告 |
+| AC-17 | 开发环境可访问 Swagger，生产环境不可访问 |
+| AC-18 | dotnet test 全量通过 |
