@@ -1,0 +1,10 @@
+<Solution>
+  <Project Path="TradeX.Api/TradeX.Api.csproj" />
+  <Project Path="TradeX.Core/TradeX.Core.csproj" />
+  <Project Path="TradeX.Exchange/TradeX.Exchange.csproj" />
+  <Project Path="TradeX.Indicators/TradeX.Indicators.csproj" />
+  <Project Path="TradeX.Infrastructure/TradeX.Infrastructure.csproj" />
+  <Project Path="TradeX.Notifications/TradeX.Notifications.csproj" />
+  <Project Path="TradeX.Tests/TradeX.Tests.csproj" />
+  <Project Path="TradeX.Trading/TradeX.Trading.csproj" />
+</Solution>

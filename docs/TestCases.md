@@ -42,7 +42,7 @@
 | PRD 验收标准 | 覆盖测试用例 |
 |-------------|-------------|
 | AC-01: docker-compose up 可访问 | TC-DEPLOY-001 ~ TC-DEPLOY-006 |
-| AC-02: 首次访问→初始化向导→恢复正常 | TC-SETUP-001 ~ TC-SETUP-008 |
+| AC-02: 首次访问→初始化向导→恢复正常 | TC-SETUP-001 ~ TC-SETUP-007 |
 | AC-03: Super Admin 登录+MFA | TC-AUTH-001 ~ TC-AUTH-015 |
 | AC-04: 创建用户→MFA 绑定→登录 | TC-AUTH-016 ~ TC-AUTH-025 |
 | AC-05: Viewer 访问 POST API 返回 403 | TC-AUTH-026 ~ TC-AUTH-035 |
@@ -118,7 +118,7 @@ TC-{模块}-{序号}
 ### TC-SETUP-003: 初始化向导 — 正常流程
 - **前置条件**: 数据库为空，无 Super Admin
 - **测试步骤**:
-  1. 发送 `POST /api/setup/initialize`，附带有效参数（userName, password, mfaCode, jwtSecret）
+  1. 发送 `POST /api/setup/initialize`，附带有效参数（userName, password）
 - **预期结果**: 返回 `204 No Content`
 - **关联需求**: FR-15.3, FSD §7.2
 
@@ -133,7 +133,7 @@ TC-{模块}-{序号}
 - **前置条件**: 数据库为空
 - **测试步骤**:
   1. 发送 `POST /api/setup/initialize`，password 为空
-  2. 发送 `POST /api/setup/initialize`，MFA 校验码错误
+  2. 发送 `POST /api/setup/initialize`，userName 少于 3 个字符
 - **预期结果**: 返回 `400 SETUP_INVALID_INPUT`
 - **关联需求**: FSD §7.2
 
@@ -150,13 +150,6 @@ TC-{模块}-{序号}
   1. 发送 `GET /health`
 - **预期结果**: 返回 `200`，status 为 `Ok` 或 `Degraded`
 - **关联需求**: FR-15.1
-
-### TC-SETUP-008: 初始化时 MFA 绑定验证
-- **前置条件**: 数据库为空
-- **测试步骤**:
-  1. 初始化流程中传入错误 MFA 码
-- **预期结果**: 初始化失败，系统仍为 Uninitialized 状态
-- **关联需求**: FR-08.3, FSD §5.1
 
 ---
 
@@ -249,16 +242,16 @@ TC-{模块}-{序号}
 - **前置条件**: 用户状态 PendingMfa
 - **测试步骤**:
   1. 用户登录后引导至 MFA 绑定页面
-  2. 系统生成 TOTP Secret + QR Code URI
+  2. 发送 `POST /api/auth/mfa/setup` → 系统生成 TOTP Secret + QR Code URI + 恢复码
   3. 用户扫码并输入 6 位 TOTP 码
-  4. 发送 `POST /api/auth/verify-mfa-setup`
+  4. 发送 `POST /api/auth/mfa/verify`，body: `{"code": "123456"}`
 - **预期结果**: 返回 8 个恢复码 + JWT，用户状态变为 Active
 - **关联需求**: FR-08.3, FR-08.4, FSD §7.2 (MFA 注册流程)
 
 ### TC-AUTH-014: MFA 绑定 — 错误 TOTP
 - **前置条件**: 用户状态 PendingMfa
 - **测试步骤**:
-  1. 发送 `POST /api/auth/verify-mfa-setup`，传入错误 TOTP
+  1. 发送 `POST /api/auth/mfa/verify`，传入错误 TOTP
 - **预期结果**: 返回 `400 AUTH_MFA_INVALID_CODE`，用户仍为 PendingMfa
 - **关联需求**: FSD §7.3
 

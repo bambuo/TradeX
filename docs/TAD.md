@@ -88,33 +88,25 @@ flowchart TB
 
   ADMIN(["用户<br/>浏览器"]):::person
 
-  NGINX[Nginx<br/>反向代理]:::container
-  SPA[Vue 3 SPA<br/>Vite + Pinia]:::container
   SQLITE[("SQLite<br/>EF Core")]:::db
-  API[ASP.NET Core 10<br/>REST + SignalR + BackgroundService]:::container
+  TRADEX[ASP.NET Core 10<br/>REST + SPA + SignalR + BackgroundService]:::container
   IOTDB[("IoTDB<br/>时序数据库")]:::db
 
   EXCHANGES[交易所集群<br/>Binance / OKX / Gate / Bybit / HTX]:::ext
   NOTIF[通知渠道<br/>Telegram / Discord / Email]:::ext
 
-  ADMIN -->|"HTTPS (80/443)"| NGINX
-  NGINX -->|"静态文件"| SPA
-  NGINX -->|"反向代理 /api /hubs (8080)"| API
-
-  API -->|"EF Core (ADO.NET)"| SQLITE
-  API -->|"IoTDB Session (Thrift/REST)"| IOTDB
-
-  API -->|"行情 WSS + 交易 REST"| EXCHANGES
-  API -->|"告警推送 (HTTPS/SMTP)"| NOTIF
+  ADMIN -->|"HTTP :80"| TRADEX
+  TRADEX -->|"EF Core (ADO.NET)"| SQLITE
+  TRADEX -->|"IoTDB REST (Thrift)"| IOTDB
+  TRADEX -->|"行情 WSS + 交易 REST"| EXCHANGES
+  TRADEX -->|"告警推送 (HTTPS/SMTP)"| NOTIF
 ```
 
 #### 3.2.1 容器职责矩阵
 
 | 容器 | 技术 | 实例数 | 状态持久化 | 扩缩容 |
 |------|------|--------|-----------|--------|
-| Nginx | nginx:alpine | 1 | 无状态 | 水平（需前置 LB） |
-| Vue SPA | Vue 3 + TS | 1 | 无状态（浏览器端） | 水平（CDN 可缓存） |
-| Backend | ASP.NET Core 10 | 1 | 有状态（内存 K 线缓存） | 仅垂直（单实例 Trading Engine） |
+| Backend (API+SPA) | ASP.NET Core 10 | 1 | 有状态（内存 K 线缓存） | 仅垂直（单实例 Trading Engine） |
 | SQLite | Microsoft.Data.Sqlite | 1 | 文件持久卷 | N/A（单实例写） |
 | IoTDB | apache/iotdb:1.3.3 | 1 | 文件持久卷 | 仅垂直（单实例） |
 
@@ -912,13 +904,8 @@ flowchart TB
   end
 
   subgraph NETWORK["tradex-network (bridge)"]
-    subgraph FE["frontend"]
-      NGINX[Nginx :80]
-      SPA[Vue SPA 静态文件]
-    end
-
-    subgraph BE["backend"]
-      API[ASP.NET Core :8080]
+    subgraph APP["tradex — 统一容器"]
+      API[ASP.NET Core 10<br/>REST + SPA + SignalR + BackgroundService<br/>:80]
     end
 
     subgraph TSDB["iotdb"]
@@ -930,10 +917,7 @@ flowchart TB
     VOL_IOTDB_WAL[(iotdb-wal)]:::volume
   end
 
-  USER --> NGINX
-  NGINX --> SPA
-  NGINX --> API
-
+  USER --> API
   API --> VOL_DATA
   API --> IOTDB
   API --> EXS
@@ -942,44 +926,24 @@ flowchart TB
   IOTDB --> VOL_IOTDB_WAL
 ```
 
-### 7.2 Nginx 反向代理配置
+### 7.2 静态文件服务配置
 
-```nginx
-server {
-    listen 80;
-    server_name _;
+ASP.NET Core 通过 `UseDefaultFiles()` + `UseStaticFiles()` 提供前端 SPA 静态文件，`MapFallbackToFile("index.html")` 处理 Vue Router 历史模式路由回退。无需独立 Nginx 容器。
 
-    root /usr/share/nginx/html;
-    index index.html;
+```csharp
+// Program.cs
+app.UseDefaultFiles();
+app.UseStaticFiles();
+app.MapFallbackToFile("index.html");
+```
 
-    # SPA 路由
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    # API 反代
-    location /api/ {
-        proxy_pass http://backend:8080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    }
-
-    # SignalR WebSocket 反代（必须支持长连接）
-    location /hubs/ {
-        proxy_pass http://backend:8080;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_read_timeout 86400;
-    }
-
-    # Health 反代
-    location /health {
-        proxy_pass http://backend:8080;
-    }
-}
+所有请求流向：
+```
+/:80
+  ├── /api/*         → Controllers
+  ├── /hubs/trading  → SignalR Hub
+  ├── /health        → Health Check
+  └── /*              → SPA 静态文件 / index.html 回退
 ```
 
 ### 7.3 环境变量配置清单
@@ -987,7 +951,7 @@ server {
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `ASPNETCORE_ENVIRONMENT` | Production | 运行环境 |
-| `ASPNETCORE_URLS` | http://+:8080 | 监听地址 |
+| `ASPNETCORE_URLS` | http://+:80 | 监听地址（统一端口） |
 | `ConnectionStrings__Sqlite` | Data Source=/data/tradex.db | SQLite 路径 |
 | `Jwt__Secret` | — | **必填**，JWT 签名密钥 |
 | `Jwt__AccessTokenExpiresMinutes` | 30 | AccessToken 有效期 |

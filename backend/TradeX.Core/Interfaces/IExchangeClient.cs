@@ -1,0 +1,73 @@
+using TradeX.Core.Enums;
+
+namespace TradeX.Core.Interfaces;
+
+public interface IExchangeClient
+{
+    ExchangeType Type { get; }
+
+    IAsyncEnumerable<Candle> SubscribeKlinesAsync(string symbol, string interval, CancellationToken ct = default);
+    Task<Candle[]> GetKlinesAsync(string symbol, string interval, DateTime start, DateTime end, CancellationToken ct = default);
+    Task<OrderBook> GetOrderBookAsync(string symbol, int limit, CancellationToken ct = default);
+
+    Task<AccountBalance> GetBalanceAsync(CancellationToken ct = default);
+    Task<ExchangePosition[]> GetPositionsAsync(CancellationToken ct = default);
+
+    Task<OrderResult> PlaceOrderAsync(OrderRequest request, CancellationToken ct = default);
+    Task<OrderResult> CancelOrderAsync(string exchangeOrderId, CancellationToken ct = default);
+    Task<OrderResult> GetOrderAsync(string exchangeOrderId, CancellationToken ct = default);
+    Task<OrderResult[]> GetRecentOrdersAsync(DateTime since, CancellationToken ct = default);
+
+    Task<ConnectionTestResult> TestConnectionAsync(CancellationToken ct = default);
+
+    Task<SymbolRule[]> GetSymbolRulesAsync(CancellationToken ct = default);
+}
+
+public record Candle(DateTime Timestamp, decimal Open, decimal High, decimal Low, decimal Close, decimal Volume);
+
+public record OrderBook(
+    decimal[,] Bids,
+    decimal[,] Asks,
+    DateTime Timestamp);
+
+public record AccountBalance(
+    decimal Total,
+    decimal Available,
+    decimal Locked);
+
+public record OrderRequest(
+    string Symbol,
+    OrderSide Side,
+    OrderType Type,
+    decimal Quantity,
+    decimal? Price = null,
+    decimal? StopPrice = null);
+
+public record OrderResult(
+    bool Success,
+    string? ExchangeOrderId,
+    decimal FilledQuantity,
+    decimal AvgPrice,
+    decimal Fee,
+    string? Error);
+
+public record ExchangePosition(
+    string Symbol,
+    decimal Quantity,
+    decimal EntryPrice,
+    decimal CurrentPrice,
+    decimal UnrealizedPnl);
+
+public record SymbolRule(
+    string Symbol,
+    int PricePrecision,
+    int QuantityPrecision,
+    decimal MinNotional,
+    decimal MinQuantity,
+    decimal TickSize,
+    decimal StepSize);
+
+public record ConnectionTestResult(
+    bool Success,
+    Dictionary<string, bool>? Permissions,
+    string? Message);

@@ -462,19 +462,15 @@ Running ──> Failed
 ```json
 {
   "userName": "superadmin",
-  "password": "<secret>",
-  "mfaCode": "123456",
-  "jwtSecret": "...",
-  "notification": {
-    "type": "telegram",
-    "config": {}
-  }
+  "password": "<secret>"
 }
 ```
 - Success: `204 No Content`
+  - 创建 Super Admin（状态 `PendingMfa`），写入默认系统配置
+  - Super Admin 后续通过标准 MFA 绑定流程激活：`login → mfa/setup → mfa/verify`
 - Error:
   - `409 SETUP_ALREADY_INITIALIZED` — 已初始化
-  - `400 SETUP_INVALID_INPUT` — 参数非法 / MFA 校验失败
+  - `400 SETUP_INVALID_INPUT` — 参数非法
 
 ### 7.3 Auth
 
@@ -540,13 +536,25 @@ Running ──> Failed
 - Error:
   - `401 AUTH_REFRESH_TOKEN_INVALID`
 
-#### `POST /api/auth/verify-mfa-setup`
-- Auth: Bearer（需临时 token，由 Admin 创建用户后返回）
+#### `POST /api/auth/mfa/setup`
+- Auth: Bearer（需临时 token，Login 返回）
+- Request: 无请求体
+- Response:
+```json
+{
+  "secretKey": "JBSWY3DPEHPK3PXP",
+  "qrCodeUrl": "otpauth://totp/TradeX:user?secret=...",
+  "qrCodeImage": "data:image/png;base64,...",
+  "recoveryCodes": ["xxxx-xxxx", "..."]
+}
+```
+
+#### `POST /api/auth/mfa/verify`
+- Auth: Bearer（需临时 token，Login 返回）
 - Request:
 ```json
 {
-  "userId": "guid",
-  "totpCode": "123456"
+  "code": "123456"
 }
 ```
 - Response:
@@ -2054,44 +2062,55 @@ _logger.LogInformation("Order {OrderId} filled for {Quantity} {Symbol} at {Price
 
 ```yaml
 services:
-  backend:
-    build: ./backend
-    ports: ["5000:8080"]
+  tradex:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tradex
+    ports: ["80:80"]
     environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
       - ConnectionStrings__Sqlite=Data Source=/data/tradex.db
       - IoTDB__Host=iotdb
+      - Jwt__Secret=${JWT_SECRET:?JWT_SECRET is required}
     volumes: ["tradex-data:/data"]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-
-  frontend:
-    build: ./frontend
-    ports: ["80:80"]
-    depends_on: [backend]
+      start_period: 15s
 
   iotdb:
     image: apache/iotdb:1.3.3-standalone
-    volumes: ["iotdb-data:/iotdb/data"]
+    container_name: tradex-iotdb
+    ports: ["6667:6667", "8181:8181"]
+    volumes: ["iotdb-data:/iotdb/data", "iotdb-wal:/iotdb/wal"]
+    environment:
+      - cn_iotdb_rest_service_enable=true
     healthcheck:
-      test: ["CMD", "bash", "-c", "exec 6<>/dev/tcp/127.0.0.1/6667"]
+      test: ["CMD", "curl", "-f", "http://localhost:8181/"]
       interval: 30s
       timeout: 10s
-      retries: 3
+      retries: 5
+      start_period: 30s
 
 volumes:
   tradex-data:
   iotdb-data:
+  iotdb-wal:
 ```
 
 ### 23.2 构建要求
 
-- 后端：多阶段构建，`dotnet publish --self-contained -c Release -o /app`
-- 前端：`npm run build` → Nginx 静态服务，反代 `/api`、`/hubs` 到后端
+- 统一 Dockerfile（根级），3 阶段构建：
+  1. `node:22-alpine` — `npm ci + npm run build` 构建 Vue SPA
+  2. `mcr.microsoft.com/dotnet/sdk:10.0-preview` — `dotnet publish -c Release` 构建后端
+  3. `mcr.microsoft.com/dotnet/aspnet:10.0-preview` — 合并后端产物 + 前端 dist 到 `wwwroot/`
+- 前端 SPA 由 ASP.NET Core 内嵌静态文件服务提供（`UseDefaultFiles()` + `UseStaticFiles()` + `MapFallbackToFile("index.html")`）
 - docker-compose.yml 中配置 healthcheck 指令
-- 环境变量注入关键配置（数据库路径、IoTDB 连接串）
+- 环境变量注入关键配置（数据库路径、IoTDB 连接串、JWT Secret）
 
 ---
 
