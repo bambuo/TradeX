@@ -464,7 +464,9 @@ function formatPercent(v: number): string {
 
         <div v-if="detailLoading" class="loading-hint">加载结果中...</div>
 
-        <template v-if="selectedTask.status !== 'Failed'">
+        <div v-else-if="selectedTask.status === 'Failed'" class="error-msg">回测执行失败</div>
+
+        <template v-else>
           <div class="tab-bar">
             <button
               class="tab-btn"
@@ -571,8 +573,6 @@ function formatPercent(v: number): string {
             <div v-else class="loading-hint">没有可用的 K 线分析数据</div>
           </div>
         </template>
-
-        <div v-if="selectedTask.status === 'Failed'" class="error-msg">回测执行失败</div>
 
         <div class="modal-actions">
           <button class="btn-primary" @click="showDetail = false; stopReplay()">关闭</button>
