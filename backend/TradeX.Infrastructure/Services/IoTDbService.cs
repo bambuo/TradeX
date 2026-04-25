@@ -1,62 +1,56 @@
-using System.Globalization;
-using System.Net.Http.Json;
-using System.Text;
-using System.Text.Json;
+using Apache.IoTDB;
+using Apache.IoTDB.DataStructure;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using TradeX.Core.Interfaces;
+using TradeX.Infrastructure.Settings;
 
 namespace TradeX.Infrastructure.Services;
 
 public class IoTDbService(
-    HttpClient http,
-    ILogger<IoTDbService> logger) : IIoTDbService
+    IOptions<IoTDbOptions> options,
+    ILogger<IoTDbService> logger) : IIoTDbService, IAsyncDisposable
 {
+    private SessionPool? _pool;
+    private readonly SemaphoreSlim _lock = new(1, 1);
     private const string StorageGroup = "root.tradex";
+
+    private string SeriesPath(string exchange, string symbol, string interval)
+        => $"{StorageGroup}.{exchange.ToLowerInvariant()}.{symbol.ToLowerInvariant()}.{interval}";
+
+    private async Task<SessionPool> GetPoolAsync()
+    {
+        if (_pool is not null) return _pool;
+
+        await _lock.WaitAsync();
+        try
+        {
+            if (_pool is not null) return _pool;
+            _pool = new SessionPool(options.Value.Host, options.Value.Port, 2);
+            _pool.Open(false);
+            await _pool.SetStorageGroup(StorageGroup);
+            return _pool;
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
 
     public async Task WriteKlinesAsync(string exchange, string symbol, string interval, IReadOnlyList<Candle> candles, CancellationToken ct = default)
     {
         if (candles.Count == 0) return;
-
         try
         {
-            var points = new List<object>();
+            var pool = await GetPoolAsync();
+            var deviceId = SeriesPath(exchange, symbol, interval);
+
             foreach (var c in candles)
             {
-                var timestamp = new DateTimeOffset(c.Timestamp).ToUnixTimeMilliseconds();
-                var path = $"{StorageGroup}.{exchange}.{symbol}.{interval}";
-                points.Add(new
-                {
-                    timestamp,
-                    measurements = new[]
-                    {
-                        new { name = "open", dataType = "DOUBLE", value = c.Open },
-                        new { name = "high", dataType = "DOUBLE", value = c.High },
-                        new { name = "low", dataType = "DOUBLE", value = c.Low },
-                        new { name = "close", dataType = "DOUBLE", value = c.Close },
-                        new { name = "volume", dataType = "DOUBLE", value = c.Volume }
-                    }
-                });
-            }
-
-            var payload = new
-            {
-                timestamps = points.Select(p => ((dynamic)p).timestamp).ToArray(),
-                measurements = new[] { "open", "high", "low", "close", "volume" },
-                dataTypes = new[] { "DOUBLE", "DOUBLE", "DOUBLE", "DOUBLE", "DOUBLE" },
-                values = candles.Select(c => new[] { c.Open, c.High, c.Low, c.Close, c.Volume }).ToArray()
-            };
-
-            var seriesPath = $"{StorageGroup}.{exchange}.{symbol}.{interval}";
-            var body = JsonSerializer.Serialize(new
-            {
-                paths = new[] { seriesPath },
-                payload
-            });
-
-            var resp = await http.PostAsync("/api/v1/insert", new StringContent(body, Encoding.UTF8, "application/json"), ct);
-            if (!resp.IsSuccessStatusCode)
-            {
-                logger.LogWarning("IoTDB 写入失败: {Status}, Path={Path}", resp.StatusCode, seriesPath);
+                var ts = new DateTimeOffset(c.Timestamp).ToUnixTimeMilliseconds();
+                var measures = new List<string> { "open", "high", "low", "close", "volume" };
+                var values = new List<object> { (double)c.Open, (double)c.High, (double)c.Low, (double)c.Close, (double)c.Volume };
+                await pool.InsertRecordAsync(deviceId, new RowRecord(ts, values, measures));
             }
         }
         catch (Exception ex)
@@ -69,45 +63,27 @@ public class IoTDbService(
     {
         try
         {
-            var seriesPath = $"{StorageGroup}.{exchange}.{symbol}.{interval}";
+            var pool = await GetPoolAsync();
+            var path = SeriesPath(exchange, symbol, interval);
             var startMs = new DateTimeOffset(start).ToUnixTimeMilliseconds();
             var endMs = new DateTimeOffset(end).ToUnixTimeMilliseconds();
 
-            var sql = $"SELECT open, high, low, close, volume FROM {seriesPath} WHERE time >= {startMs} AND time <= {endMs} ORDER BY time ASC";
-            var resp = await http.PostAsJsonAsync("/api/v1/query", new { sql }, ct);
-            if (!resp.IsSuccessStatusCode) return [];
-
-            var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
-            if (doc is null) return [];
-
-            var expressions = doc.RootElement.GetProperty("expressions").EnumerateArray().Select(e => e.GetString()).ToArray();
-            var timestamps = doc.RootElement.GetProperty("timestamps").EnumerateArray().Select(t => t.GetInt64()).ToArray();
-            var values = doc.RootElement.GetProperty("values").EnumerateArray().ToArray();
-
-            var openIdx = Array.IndexOf(expressions, "open");
-            var highIdx = Array.IndexOf(expressions, "high");
-            var lowIdx = Array.IndexOf(expressions, "low");
-            var closeIdx = Array.IndexOf(expressions, "close");
-            var volumeIdx = Array.IndexOf(expressions, "volume");
+            var sql = $"SELECT open, high, low, close, volume FROM {path} WHERE time >= {startMs} AND time <= {endMs} ORDER BY time ASC";
+            using var dataSet = await pool.ExecuteQueryStatementAsync(sql);
 
             var result = new List<Candle>();
-            for (var i = 0; i < timestamps.Length; i++)
+            while (dataSet.HasNext())
             {
-                var getVal = (int idx) =>
-                {
-                    if (idx < 0) return 0m;
-                    var arr = values[idx].EnumerateArray().ToArray();
-                    return i < arr.Length && arr[i].ValueKind != JsonValueKind.Null
-                        ? decimal.Parse(arr[i].GetString()!, CultureInfo.InvariantCulture)
-                        : 0m;
-                };
-
+                var row = dataSet.Next();
                 result.Add(new Candle(
-                    DateTimeOffset.FromUnixTimeMilliseconds(timestamps[i]).UtcDateTime,
-                    getVal(openIdx), getVal(highIdx), getVal(lowIdx),
-                    getVal(closeIdx), getVal(volumeIdx)));
+                    DateTimeOffset.FromUnixTimeMilliseconds(row.Timestamps).UtcDateTime,
+                    Convert.ToDecimal(row.Values[0]),
+                    Convert.ToDecimal(row.Values[1]),
+                    Convert.ToDecimal(row.Values[2]),
+                    Convert.ToDecimal(row.Values[3]),
+                    Convert.ToDecimal(row.Values[4])
+                ));
             }
-
             return result.ToArray();
         }
         catch (Exception ex)
@@ -121,12 +97,21 @@ public class IoTDbService(
     {
         try
         {
-            var resp = await http.GetAsync("/api/v1/health", ct);
-            return resp.IsSuccessStatusCode;
+            var pool = await GetPoolAsync();
+            return true;
         }
         catch
         {
             return false;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_pool is not null)
+        {
+            _pool.Close();
+            _pool = null;
         }
     }
 }

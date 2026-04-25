@@ -128,8 +128,13 @@ public class TradeXDbContext(DbContextOptions<TradeXDbContext> options) : DbCont
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.StrategyId);
+            e.HasIndex(x => x.ExchangeId);
             e.HasIndex(x => x.Status);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Phase).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.StrategyName).HasMaxLength(200);
+            e.Property(x => x.SymbolId).HasMaxLength(50);
+            e.Property(x => x.Timeframe).HasMaxLength(10);
         });
 
         modelBuilder.Entity<BacktestResult>(e =>

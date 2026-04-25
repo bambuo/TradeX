@@ -238,7 +238,7 @@ onMounted(load)
           <td class="cond-cell">{{ humanizeCondition(s.exitConditionJson) }}</td>
           <td>{{ humanizeExecutionRule(s.executionRuleJson) }}</td>
           <td>{{ s.version }}</td>
-          <td>{{ new Date(s.updatedAtUtc).toLocaleString() }}</td>
+          <td>{{ new Date(s.updatedAt_utc).toLocaleString() }}</td>
           <td class="actions">
             <button class="btn-small" @click="openEdit(s)">编辑</button>
             <button class="btn-small btn-danger" @click="remove(s.id)">删除</button>

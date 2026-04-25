@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 
@@ -33,7 +34,7 @@ public class StrategyDeploymentRepository(TradeXDbContext context) : IStrategyDe
             .Where(s => s.ExchangeId == exchangeId && s.Status == Core.Enums.StrategyStatus.Active)
             .ToListAsync(ct);
 
-        return deployments.Where(s => s.SymbolIds.Split(',', StringSplitOptions.RemoveEmptyEntries).Contains(symbolId)).ToList();
+        return deployments.Where(s => ParseSymbolIds(s.SymbolIds).Contains(symbolId)).ToList();
     }
 
     public async Task<bool> ExistsActiveAsync(Guid traderId, Guid exchangeId, string symbolId, Guid? excludeId = null, CancellationToken ct = default)
@@ -45,11 +46,14 @@ public class StrategyDeploymentRepository(TradeXDbContext context) : IStrategyDe
             query = query.Where(s => s.Id != excludeId.Value);
 
         var deployments = await query.ToListAsync(ct);
-        return deployments.Any(s =>
-        {
-            var symbols = s.SymbolIds.Split(',', StringSplitOptions.RemoveEmptyEntries);
-            return symbols.Contains(symbolId);
-        });
+        return deployments.Any(s => ParseSymbolIds(s.SymbolIds).Contains(symbolId));
+    }
+
+    private static string[] ParseSymbolIds(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw) || raw == "[]") return [];
+        try { return JsonSerializer.Deserialize<string[]>(raw) ?? []; }
+        catch { return raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries); }
     }
 
     public async Task AddAsync(StrategyDeployment deployment, CancellationToken ct = default)

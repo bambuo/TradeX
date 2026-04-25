@@ -17,7 +17,7 @@ const editId = ref<string | null>(null)
 const toggleLoading = ref<string | null>(null)
 
 const scope = ref<'Trader' | 'Exchange' | 'Symbol'>('Symbol')
-const formStrategyId = ref('')
+const formStrategyId = ref(route.query.strategyId as string || '')
 const formExchangeId = ref('')
 const formSymbolIds = ref<string[]>([])
 const formTimeframe = ref('15m')
@@ -234,11 +234,16 @@ async function remove(id: string) {
   await load()
 }
 
+const errorMsg = ref('')
+
 async function toggle(d: StrategyDeployment) {
   toggleLoading.value = d.id
+  errorMsg.value = ''
   try {
     await strategiesApi.toggle(traderId, d.id, d.status !== 'Active')
     await load()
+  } catch (e: any) {
+    errorMsg.value = e.response?.data?.message || e.response?.data?.error || '操作失败'
   } finally {
     toggleLoading.value = null
   }
@@ -379,19 +384,20 @@ onMounted(load)
     </div>
 
     <div v-if="loading">加载中...</div>
-    <table v-else class="table">
-      <thead>
-        <tr>
-          <th>作用域</th>
-          <th>策略</th>
-          <th>交易所</th>
-          <th>交易对</th>
-          <th>周期</th>
-          <th>状态</th>
-          <th>更新时间</th>
-          <th>操作</th>
-        </tr>
-      </thead>
+    <div v-if="errorMsg && !loading" class="error-banner">{{ errorMsg }}</div>
+    <table v-if="!loading" class="table">
+        <thead>
+          <tr>
+            <th>作用域</th>
+            <th>策略</th>
+            <th>交易所</th>
+            <th>交易对</th>
+            <th>周期</th>
+            <th>状态</th>
+            <th>更新时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
       <tbody>
         <tr v-for="d in deployments" :key="d.id">
           <td>
@@ -408,7 +414,7 @@ onMounted(load)
               {{ statusLabels[d.status] }}
             </span>
           </td>
-          <td>{{ new Date(d.updatedAtUtc).toLocaleString() }}</td>
+          <td>{{ new Date(d.updatedAt_utc).toLocaleString() }}</td>
           <td class="actions">
             <button class="btn-small" :class="d.status === 'Active' ? 'btn-warn' : 'btn-ok'"
               :disabled="toggleLoading === d.id || d.status === 'Draft'" @click="toggle(d)">
@@ -446,6 +452,7 @@ onMounted(load)
 .symbol-cell { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .actions { display: flex; gap: 0.375rem; flex-wrap: wrap; }
 .empty { text-align: center; color: #64748b; padding: 2rem; }
+.error-banner { padding: 0.5rem 0.75rem; margin-bottom: 0.75rem; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; color: #ef4444; font-size: 0.85rem; }
 .status-badge, .scope-badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 999px; color: #0f172a; font-size: 0.75rem; font-weight: 600; }
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 100; }
 .modal { background: #1e293b; padding: 2rem; border-radius: 8px; width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto; }

@@ -9,19 +9,22 @@ public class BacktestEngine(
     IIndicatorService indicatorService,
     IConditionEvaluator conditionEvaluator)
 {
-    public (BacktestResult Result, List<BacktestTrade> Trades) Run(
+    public (BacktestResult Result, List<BacktestTrade> Trades, List<BacktestCandleAnalysis> Analysis) Run(
         Strategy strategy,
-        IReadOnlyList<Candle> candles)
+        IReadOnlyList<Candle> candles,
+        decimal initialCapital = 1000m,
+        Action<BacktestCandleAnalysis>? onAnalysis = null)
     {
         if (candles.Count < 50)
-            return (CreateEmptyResult("数据不足，至少需要 50 根 K 线"), []);
+            return (CreateEmptyResult("数据不足，至少需要 50 根 K 线"), [], []);
 
         var trades = new List<BacktestTrade>();
+        var analysis = new List<BacktestCandleAnalysis>();
         var prices = candles.Select(c => c.Close).ToArray();
         var volumes = candles.Select(c => (long)c.Volume).ToArray();
         var entryPrice = 0m;
         var entryIndex = 0;
-        var quantity = 100m;
+        var workedCapital = initialCapital;
         var inPosition = false;
 
         for (var i = 50; i < prices.Length; i++)
@@ -54,59 +57,99 @@ public class BacktestEngine(
                 ["MACD_SIGNAL"] = indicatorService.CalculateMacd(prevWindow).SignalLine,
             };
 
+            var candle = candles[i];
+            var action = "none";
+
             if (!inPosition)
             {
                 var shouldEnter = conditionEvaluator.Evaluate(strategy.EntryConditionJson, currentValues, previousValues);
                 if (shouldEnter)
                 {
                     inPosition = true;
-                    entryPrice = candles[i].Close;
+                    action = "enter";
+                    entryPrice = candle.Close;
                     entryIndex = i;
-                    quantity = 100m / entryPrice;
                 }
+
+                analysis.Add(new BacktestCandleAnalysis(
+                    i, candle.Timestamp, candle.Open, candle.High, candle.Low, candle.Close, candle.Volume,
+                    currentValues, shouldEnter, null, inPosition, action));
             }
             else
             {
                 var shouldExit = conditionEvaluator.Evaluate(strategy.ExitConditionJson, currentValues, previousValues);
                 if (shouldExit || i == prices.Length - 1)
                 {
-                    var exitPrice = candles[i].Close;
-                    var pnl = (exitPrice - entryPrice) * quantity;
+                    var exitPrice = candle.Close;
+                    var qty = workedCapital / entryPrice;
+                    var pnl = (exitPrice - entryPrice) * qty;
                     var pnlPercent = (exitPrice - entryPrice) / entryPrice * 100;
 
                     trades.Add(new BacktestTrade(
                         entryIndex, i,
-                        candles[entryIndex].Timestamp, candles[i].Timestamp,
-                        entryPrice, exitPrice, quantity, pnl, pnlPercent));
+                        candles[entryIndex].Timestamp, candle.Timestamp,
+                        entryPrice, exitPrice, qty, pnl, pnlPercent));
 
                     inPosition = false;
+                    action = "exit";
                 }
+
+                analysis.Add(new BacktestCandleAnalysis(
+                    i, candle.Timestamp, candle.Open, candle.High, candle.Low, candle.Close, candle.Volume,
+                    currentValues, null, shouldExit, inPosition, action));
             }
+
+            onAnalysis?.Invoke(analysis[^1]);
         }
 
         if (inPosition)
         {
             var lastIdx = prices.Length - 1;
             var exitPrice = candles[lastIdx].Close;
-            var pnl = (exitPrice - entryPrice) * quantity;
+            var qty = workedCapital / entryPrice;
+            var pnl = (exitPrice - entryPrice) * qty;
             var pnlPercent = (exitPrice - entryPrice) / entryPrice * 100;
             trades.Add(new BacktestTrade(
                 entryIndex, lastIdx,
                 candles[entryIndex].Timestamp, candles[lastIdx].Timestamp,
-                entryPrice, exitPrice, quantity, pnl, pnlPercent));
+                entryPrice, exitPrice, qty, pnl, pnlPercent));
         }
 
-        var result = CalculateMetrics(trades, candles, prices);
-        return (result, trades);
+        var result = CalculateMetrics(trades, candles, prices, analysis);
+        return (result, trades, analysis);
     }
 
     private static BacktestResult CalculateMetrics(
         List<BacktestTrade> trades,
         IReadOnlyList<Candle> candles,
-        decimal[] prices)
+        decimal[] prices,
+        List<BacktestCandleAnalysis> analysis)
     {
+        var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
+        var analysisJson = JsonSerializer.Serialize(analysis.Select(a => new
+        {
+            a.Index, a.Timestamp, a.Open, a.High, a.Low, a.Close, a.Volume,
+            indicators = a.IndicatorValues,
+            entry = a.EntryConditionResult,
+            exit = a.ExitConditionResult,
+            inPosition = a.InPosition,
+            a.Action
+        }), jsonOptions);
+
         if (trades.Count == 0)
-            return CreateEmptyResult("无交易产生");
+            return new BacktestResult
+            {
+                TotalReturnPercent = 0,
+                AnnualizedReturnPercent = 0,
+                MaxDrawdownPercent = 0,
+                WinRate = 0,
+                TotalTrades = 0,
+                SharpeRatio = 0,
+                ProfitLossRatio = 0,
+                DetailJson = $"{{\"message\":\"无交易产生\"}}",
+                AnalysisJson = analysisJson
+            };
 
         var wins = trades.Count(t => t.Pnl > 0);
         var winRate = (decimal)wins / trades.Count * 100;
@@ -140,7 +183,7 @@ public class BacktestEngine(
         {
             t.EntryTime, t.ExitTime, t.EntryPrice, t.ExitPrice,
             t.Quantity, t.Pnl, t.PnlPercent
-        }));
+        }), jsonOptions);
 
         return new BacktestResult
         {
@@ -151,7 +194,8 @@ public class BacktestEngine(
             TotalTrades = trades.Count,
             SharpeRatio = Math.Round(sharpe, 2),
             ProfitLossRatio = Math.Round(profitLossRatio, 2),
-            DetailJson = detailJson
+            DetailJson = detailJson,
+            AnalysisJson = analysisJson
         };
     }
 
@@ -165,6 +209,7 @@ public class BacktestEngine(
             TotalTrades = 0,
             SharpeRatio = 0,
             ProfitLossRatio = 0,
-            DetailJson = $"{{\"message\":\"{reason}\"}}"
+            DetailJson = $"{{\"message\":\"{reason}\"}}",
+            AnalysisJson = "[]"
         };
 }

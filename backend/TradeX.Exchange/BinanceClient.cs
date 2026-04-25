@@ -262,7 +262,7 @@ public class BinanceClient : IExchangeClient
     {
         var startMs = new DateTimeOffset(start).ToUnixTimeMilliseconds();
         var endMs = new DateTimeOffset(end).ToUnixTimeMilliseconds();
-        var resp = await _http.GetAsync($"/api/v3/klines?symbol={symbol}&interval={interval}&startTime={startMs}&endTime={endMs}&limit=500", ct);
+        var resp = await _http.GetAsync($"/api/v3/klines?symbol={symbol}&interval={interval}&startTime={startMs}&endTime={endMs}&limit=1000", ct);
         if (!resp.IsSuccessStatusCode) return [];
 
         var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);

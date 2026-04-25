@@ -11,6 +11,7 @@ services:
       - ASPNETCORE_URLS=http://+:80
       - ConnectionStrings__Sqlite=Data Source=/data/tradex.db
       - Jwt__Secret=${JWT_SECRET:?JWT_SECRET is required}
+      - IoTDb__Host=iotdb
     volumes:
       - tradex-data:/data
     healthcheck:
@@ -20,6 +21,9 @@ services:
       retries: 3
       start_period: 15s
     restart: unless-stopped
+    depends_on:
+      iotdb:
+        condition: service_healthy
 
   iotdb:
     image: apache/iotdb:1.3.3-standalone

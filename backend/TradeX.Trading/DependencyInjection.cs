@@ -14,6 +14,9 @@ public static class DependencyInjection
         services.AddScoped<IOrderReconciler, OrderReconciler>();
         services.AddScoped<IBacktestService, BacktestService>();
         services.AddScoped<BacktestEngine>();
+        services.AddSingleton<IBacktestTaskQueue, BacktestTaskQueue>();
+        services.AddSingleton<TaskAnalysisStore>();
+        services.AddHostedService<BacktestWorker>();
 
         services.AddScoped<DailyLossHandler>();
         services.AddScoped<DrawdownHandler>();

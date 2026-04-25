@@ -2,7 +2,7 @@ import client from './client'
 
 export interface Position {
   id: string
-  traderId: string
+  trader_id: string
   exchangeId: string
   strategyId: string
   symbolId: string
@@ -14,7 +14,7 @@ export interface Position {
   status: string
   openedAtUtc: string
   closedAtUtc: string | null
-  updatedAtUtc: string
+  updatedAt_utc: string
 }
 
 export const positionsApi = {

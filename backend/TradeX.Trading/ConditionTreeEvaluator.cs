@@ -43,12 +43,17 @@ public class ConditionTreeEvaluator : IConditionTreeEvaluator
 
 public class ConditionEvaluator(IConditionTreeEvaluator treeEvaluator) : IConditionEvaluator
 {
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     public bool Evaluate(string conditionJson, Dictionary<string, decimal> indicatorValues, Dictionary<string, decimal> previousValues)
     {
         if (string.IsNullOrWhiteSpace(conditionJson) || conditionJson == "{}")
             return true;
 
-        var node = JsonSerializer.Deserialize<ConditionNode>(conditionJson);
+        var node = JsonSerializer.Deserialize<ConditionNode>(conditionJson, JsonOptions);
         if (node is null)
             return true;
 

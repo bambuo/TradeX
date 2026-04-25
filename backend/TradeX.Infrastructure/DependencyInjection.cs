@@ -31,11 +31,10 @@ public static class DependencyInjection
 
         services.AddSingleton<IEncryptionService, EncryptionService>();
 
-        services.AddSingleton<IIoTDbService>(sp =>
-        {
-            var http = new HttpClient { BaseAddress = new Uri("http://localhost:8181"), Timeout = TimeSpan.FromSeconds(5) };
-            return new IoTDbService(http, sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<IoTDbService>>());
-        });
+        services.AddOptions<IoTDbOptions>()
+            .BindConfiguration("IoTDb");
+
+        services.AddSingleton<IIoTDbService, IoTDbService>();
 
         services.AddSingleton<CasbinEnforcer>();
 

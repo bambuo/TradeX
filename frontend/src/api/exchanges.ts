@@ -2,7 +2,7 @@ import client from './client'
 
 export interface ExchangeAccount {
   id: string
-  traderId?: string
+  trader_id?: string
   exchangeType: string
   label: string
   isTestnet: boolean

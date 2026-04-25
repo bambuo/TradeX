@@ -885,6 +885,19 @@ sequenceDiagram
 | **后果** | 密钥管理在 `jwt.secret` 派生（或独立密钥），需密钥轮换策略；密钥丢失 = 数据不可恢复 |
 | **替代否决** | AES-CBC + HMAC（需要手动组合，易出错）；RSA（性能差，不适合大批量加解密） |
 
+### ADR-009: JSON 字段命名统一为小驼峰 (camelCase)
+
+| 属性 | 值 |
+|------|-----|
+| **状态** | **Accepted** |
+| **上下文** | 前后端通过 HTTP JSON 通信，后端 `Ok(new { ... })` 匿名对象默认 C# PascalCase，前端接口字段定义风格不统一导致多次修复（camelCase → snake_case → camelCase） |
+| **决策** | 全系统 JSON 序列化统一使用 camelCase（小驼峰） |
+| **理由** | (1) camelCase 是 JavaScript/TypeScript 社区标准，前端可直接使用 `response.dataField` 无需映射； (2) ASP.NET Core `AddJsonOptions(o => o.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase)` 一行配置即可全局生效； (3) 匿名对象和 DTO 均自动转换，无需逐个加 `[JsonPropertyName]` |
+| **实施方式** | (1) 后端 `Program.cs` 中 `AddJsonOptions` 配置 `PropertyNamingPolicy = JsonNamingPolicy.CamelCase`； (2) 手动 `JsonSerializer.Serialize` 处（如 `BacktestEngine.cs`）显式传入相同 options； (3) 前端 API 接口定义（`.ts` 文件）使用 camelCase 字段名； (4) Vue 组件模板中引用 API 字段时直接使用 camelCase |
+| **例外** | Controller 查询参数（`[FromQuery]`）不受影响，仍可按 C# 命名 |
+| **后果** | 所有 HTTP JSON 响应字段均为小驼峰；新增 API 端点时前后端字段命名需保持一致 |
+| **替代否决** | PascalCase（C# 默认，前端需要额外映射层）；snake_case（Python 友好但 JSON 社区不占优势） |
+
 ---
 
 ## 7. 部署架构

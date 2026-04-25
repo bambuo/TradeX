@@ -11,3 +11,4 @@ state/
 .DS_Store
 backend/TradeX.Api/tradex.db
 backend/TradeX.Api/tradex.db-shm
+backend/TradeX.Api/tradex.db-wal

@@ -8,20 +8,21 @@ export interface Strategy {
   executionRuleJson: string
   version: number
   createdAtUtc: string
-  updatedAtUtc: string
+  updatedAt_utc: string
 }
 
 export interface StrategyDeployment {
   id: string
   strategyId: string
-  traderId: string
+  name?: string
+  trader_id: string
   exchangeId: string
   symbolIds: string
   timeframe: string
   status: string
   scope: string
   createdAtUtc: string
-  updatedAtUtc: string
+  updatedAt_utc: string
 }
 
 export interface GlobalDeployment extends StrategyDeployment {
@@ -55,7 +56,6 @@ export interface UpdateStrategyRequest {
 }
 
 export const strategiesApi = {
-  // Pure strategy template API
   getAllPure() {
     return client.get<{ data: Strategy[] }>('/strategies')
   },
@@ -72,7 +72,6 @@ export const strategiesApi = {
     return client.delete(`/strategies/${id}`)
   },
 
-  // Strategy deployment (per-trader) API
   getAll(traderId: string) {
     return client.get<StrategyDeployment[]>(`/traders/${traderId}/strategies`)
   },
@@ -89,7 +88,7 @@ export const strategiesApi = {
     return client.delete<{ message: string }>(`/traders/${traderId}/strategies/${id}`)
   },
   toggle(traderId: string, id: string, enable: boolean) {
-    return client.post<{ id: string; status: string; updatedAtUtc: string }>(
+    return client.post<{ id: string; status: string; updatedAt_utc: string }>(
       `/traders/${traderId}/strategies/${id}/toggle`, { enable }
     )
   }

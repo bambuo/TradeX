@@ -2,7 +2,7 @@ import client from './client'
 
 export interface Order {
   id: string
-  traderId: string
+  trader_id: string
   exchangeOrderId: string | null
   exchangeId: string
   strategyId: string | null
@@ -19,7 +19,7 @@ export interface Order {
   feeAsset: string | null
   isManual: boolean
   placedAtUtc: string
-  updatedAtUtc: string
+  updatedAt_utc: string
 }
 
 export interface CreateManualOrderRequest {

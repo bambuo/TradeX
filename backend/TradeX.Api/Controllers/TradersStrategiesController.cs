@@ -56,7 +56,7 @@ public class TradersStrategiesController(
 
         return Ok(new
         {
-            deployment.Id, deployment.StrategyId, deployment.TraderId, deployment.ExchangeId,
+            deployment.Id, deployment.StrategyId, deployment.Name, deployment.TraderId, deployment.ExchangeId,
             deployment.SymbolIds, deployment.Timeframe, deployment.Status,
             scope = ResolveScope(deployment.SymbolIds, deployment.ExchangeId),
             deployment.CreatedAtUtc, deployment.UpdatedAtUtc
@@ -161,7 +161,7 @@ public class TradersStrategiesController(
             if (deployment.Status == StrategyStatus.Draft)
                 return BadRequest(new { message = "草稿策略必须先通过回测才能启用" });
 
-            var symbolIds = deployment.SymbolIds.Split(',', StringSplitOptions.RemoveEmptyEntries);
+            var symbolIds = ParseSymbolIds(deployment.SymbolIds);
             foreach (var symbolId in symbolIds)
             {
                 var hasConflict = await deploymentRepo.ExistsActiveAsync(traderId, deployment.ExchangeId, symbolId, id, ct);
@@ -184,4 +184,18 @@ public class TradersStrategiesController(
     public record CreateDeploymentRequest(Guid StrategyId, Guid? ExchangeId, string? SymbolIds = null, string? Timeframe = null);
     public record UpdateDeploymentRequest(string? SymbolIds = null, string? Timeframe = null);
     public record ToggleDeploymentRequest(bool Enable);
+
+    private static string[] ParseSymbolIds(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw) || raw == "[]") return [];
+        try
+        {
+            var parsed = System.Text.Json.JsonSerializer.Deserialize<string[]>(raw);
+            return parsed ?? [];
+        }
+        catch
+        {
+            return raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        }
+    }
 }

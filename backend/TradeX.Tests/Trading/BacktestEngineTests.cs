@@ -28,7 +28,7 @@ public class BacktestEngineTests
         };
 
         var candles = GenerateCandles(100, 50000);
-        var (result, trades) = _engine.Run(strategy, candles);
+        var (result, trades, _) = _engine.Run(strategy, candles);
 
         Assert.Empty(trades);
         Assert.Equal(0, result.TotalTrades);
@@ -44,7 +44,7 @@ public class BacktestEngineTests
         };
 
         var candles = GenerateCandles(200, 50000);
-        var (result, trades) = _engine.Run(strategy, candles);
+        var (result, trades, _) = _engine.Run(strategy, candles);
 
         Assert.True(result.TotalTrades >= 1);
         Assert.NotEqual(0, result.TotalReturnPercent);
@@ -60,7 +60,7 @@ public class BacktestEngineTests
         };
 
         var candles = GenerateCandles(10, 50000);
-        var (result, trades) = _engine.Run(strategy, candles);
+        var (result, trades, _) = _engine.Run(strategy, candles);
 
         Assert.Equal(0, result.TotalTrades);
         Assert.Empty(trades);
@@ -76,7 +76,7 @@ public class BacktestEngineTests
         };
 
         var candles = GenerateCandles(200, 50000);
-        var (result, trades) = _engine.Run(strategy, candles);
+        var (result, trades, _) = _engine.Run(strategy, candles);
 
         Assert.True(result.TotalTrades >= 1);
         var lastTrade = trades[^1];
@@ -93,7 +93,7 @@ public class BacktestEngineTests
         };
 
         var candles = GenerateCandles(300, 50000);
-        var (result, trades) = _engine.Run(strategy, candles);
+        var (result, trades, _) = _engine.Run(strategy, candles);
 
         Assert.Equal(trades.Count, result.TotalTrades);
         Assert.InRange(result.TotalReturnPercent, -1000m, 1000m);

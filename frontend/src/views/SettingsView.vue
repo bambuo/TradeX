@@ -17,11 +17,11 @@ const groupLabels: Record<string, string> = {
 
 const keyLabels: Record<string, string> = {
   'jwt.secret': 'JWT 密钥',
-  'jwt.access_token_expires_minutes': '访问令牌过期时间（分钟）',
-  'jwt.refresh_token_expires_days': '刷新令牌过期时间（天）',
+  'jwt.accessToken_expires_minutes': '访问令牌过期时间（分钟）',
+  'jwt.refreshToken_expires_days': '刷新令牌过期时间（天）',
   'risk.default_slippage_percent': '默认滑点（%）',
   'risk.max_daily_loss_percent': '每日最大亏损（%）',
-  'risk.max_drawdown_percent': '最大回撤（%）',
+  'risk.maxDrawdownPercent': '最大回撤（%）',
   'risk.cooldown_seconds': '冷却时间（秒）',
   'risk.consecutive_loss_limit': '连续亏损上限',
   'data.kline_warmup_days': 'K 线预热天数',
