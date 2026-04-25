@@ -14,6 +14,7 @@ public class TradeXDbContext(DbContextOptions<TradeXDbContext> options) : DbCont
     public DbSet<ExchangeAccount> ExchangeAccounts => Set<ExchangeAccount>();
     public DbSet<AuditLogEntry> AuditLogs => Set<AuditLogEntry>();
     public DbSet<Strategy> Strategies => Set<Strategy>();
+    public DbSet<StrategyDeployment> StrategyDeployments => Set<StrategyDeployment>();
     public DbSet<Position> Positions => Set<Position>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<BacktestTask> BacktestTasks => Set<BacktestTask>();
@@ -79,8 +80,7 @@ public class TradeXDbContext(DbContextOptions<TradeXDbContext> options) : DbCont
         modelBuilder.Entity<ExchangeAccount>(e =>
         {
             e.HasKey(x => x.Id);
-            e.HasIndex(x => new { x.TraderId, x.Name }).IsUnique();
-            e.HasIndex(x => x.TraderId);
+            e.HasIndex(x => x.Name).IsUnique();
             e.Property(x => x.Name).HasMaxLength(100).IsRequired();
             e.Property(x => x.ApiKeyEncrypted).IsRequired();
             e.Property(x => x.SecretKeyEncrypted).IsRequired();
@@ -103,9 +103,15 @@ public class TradeXDbContext(DbContextOptions<TradeXDbContext> options) : DbCont
         modelBuilder.Entity<Strategy>(e =>
         {
             e.HasKey(x => x.Id);
-            e.HasIndex(x => new { x.TraderId, x.Name }).IsUnique();
-            e.HasIndex(x => x.Status);
+            e.HasIndex(x => x.Name).IsUnique();
             e.Property(x => x.Name).HasMaxLength(100).IsRequired();
+        });
+
+        modelBuilder.Entity<StrategyDeployment>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TraderId, x.StrategyId }).IsUnique();
+            e.HasIndex(x => x.Status);
             e.Property(x => x.Timeframe).HasMaxLength(10).IsRequired();
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
             e.Property(x => x.SymbolIds).HasMaxLength(500);

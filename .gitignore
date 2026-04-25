@@ -9,3 +9,5 @@ state/
 *.suo
 *.cache
 .DS_Store
+backend/TradeX.Api/tradex.db
+backend/TradeX.Api/tradex.db-shm

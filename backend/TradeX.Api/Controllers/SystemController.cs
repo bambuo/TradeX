@@ -39,8 +39,9 @@ public class SystemController(
 
                     disabledCount++;
 
-                    await eventBus.RiskAlertAsync(account.TraderId, "Critical", "EmergencyStop", null,
-                        $"系统紧急停止: 交易所 {account.Name} 已禁用", ct);
+                    if (account.TraderId is not null)
+                        await eventBus.RiskAlertAsync(account.TraderId.Value, "Critical", "EmergencyStop", null,
+                            $"系统紧急停止: 交易所 {account.Name} 已禁用", ct);
                 }
                 catch (Exception ex)
                 {

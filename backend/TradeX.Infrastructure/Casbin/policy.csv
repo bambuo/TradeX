@@ -10,6 +10,10 @@ p, admin, /api/traders/*/exchanges, (GET)|(POST)
 p, admin, /api/traders/*/exchanges/*, (GET)|(PUT)|(DELETE)
 p, admin, /api/traders/*/exchanges/*/test, POST
 p, admin, /api/traders/*/exchanges/*/rules, GET
+p, admin, /api/exchanges, (GET)|(POST)
+p, admin, /api/exchanges/*, (GET)|(PUT)|(DELETE)
+p, admin, /api/exchanges/*/test, POST
+p, admin, /api/strategies, GET
 p, admin, /api/traders/*/strategies, (GET)|(POST)
 p, admin, /api/traders/*/strategies/*, (GET)|(PUT)|(DELETE)
 p, admin, /api/traders/*/strategies/*/toggle, POST
@@ -44,6 +48,10 @@ p, operator, /api/traders/*/exchanges, (GET)|(POST)
 p, operator, /api/traders/*/exchanges/*, (GET)|(PUT)|(DELETE)
 p, operator, /api/traders/*/exchanges/*/test, POST
 p, operator, /api/traders/*/exchanges/*/rules, GET
+p, operator, /api/exchanges, GET
+p, operator, /api/exchanges/*, GET
+p, operator, /api/exchanges/*/test, POST
+p, operator, /api/strategies, GET
 p, operator, /api/traders/*/strategies, (GET)|(POST)
 p, operator, /api/traders/*/strategies/*, (GET)|(PUT)|(DELETE)
 p, operator, /api/traders/*/strategies/*/toggle, POST
@@ -68,6 +76,9 @@ p, viewer, /api/traders, GET
 p, viewer, /api/traders/*, GET
 p, viewer, /api/traders/*/exchanges, GET
 p, viewer, /api/traders/*/exchanges/*, GET
+p, viewer, /api/exchanges, GET
+p, viewer, /api/exchanges/*, GET
+p, viewer, /api/strategies, GET
 p, viewer, /api/traders/*/strategies, GET
 p, viewer, /api/traders/*/strategies/*, GET
 p, viewer, /api/traders/*/strategies/*/backtests/tasks, GET

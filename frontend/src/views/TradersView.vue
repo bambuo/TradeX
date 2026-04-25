@@ -85,7 +85,6 @@ onMounted(loadTraders)
           <td>{{ t.status }}</td>
           <td>{{ new Date(t.createdAt).toLocaleDateString() }}</td>
           <td class="actions">
-            <button class="btn-small" @click="router.push(`/traders/${t.id}/exchanges`)">交易所</button>
             <button class="btn-small" @click="router.push(`/traders/${t.id}/strategies`)">策略</button>
             <button class="btn-small" @click="router.push(`/traders/${t.id}/positions`)">持仓</button>
             <button class="btn-small" @click="router.push(`/traders/${t.id}/orders`)">订单</button>

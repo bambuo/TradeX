@@ -21,6 +21,7 @@ public interface IExchangeClient
     Task<ConnectionTestResult> TestConnectionAsync(CancellationToken ct = default);
 
     Task<SymbolRule[]> GetSymbolRulesAsync(CancellationToken ct = default);
+    Task<TickerPrice[]> GetTickerPricesAsync(CancellationToken ct = default);
 }
 
 public record Candle(DateTime Timestamp, decimal Open, decimal High, decimal Low, decimal Close, decimal Volume);
@@ -71,3 +72,11 @@ public record ConnectionTestResult(
     bool Success,
     Dictionary<string, bool>? Permissions,
     string? Message);
+
+public record TickerPrice(
+    string Symbol,
+    decimal Price,
+    decimal PriceChangePercent,
+    decimal Volume,
+    decimal HighPrice,
+    decimal LowPrice);

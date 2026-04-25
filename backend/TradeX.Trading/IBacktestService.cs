@@ -15,7 +15,7 @@ public record BacktestTrade(
 
 public interface IBacktestService
 {
-    Task<BacktestTask> StartBacktestAsync(Guid strategyId, DateTime startUtc, DateTime endUtc, CancellationToken ct = default);
+    Task<BacktestTask> StartBacktestAsync(Guid strategyId, Guid exchangeId, string symbolId, string timeframe, DateTime startUtc, DateTime endUtc, CancellationToken ct = default);
     Task<BacktestTask?> GetTaskAsync(Guid taskId, CancellationToken ct = default);
     Task<BacktestResult?> GetResultAsync(Guid taskId, CancellationToken ct = default);
     Task<List<BacktestTask>> GetTasksByStrategyAsync(Guid strategyId, CancellationToken ct = default);

@@ -24,9 +24,7 @@ public class BacktestEngineTests
         var strategy = new Strategy
         {
             EntryConditionJson = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":100}""",
-            ExitConditionJson = "{}",
-            SymbolIds = "BTCUSDT",
-            Timeframe = "1h"
+            ExitConditionJson = "{}"
         };
 
         var candles = GenerateCandles(100, 50000);
@@ -42,9 +40,7 @@ public class BacktestEngineTests
         var strategy = new Strategy
         {
             EntryConditionJson = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":0}""",
-            ExitConditionJson = """{"Operator":"","Indicator":"RSI","Comparison":"<","Value":100}""",
-            SymbolIds = "BTCUSDT",
-            Timeframe = "1h"
+            ExitConditionJson = """{"Operator":"","Indicator":"RSI","Comparison":"<","Value":100}"""
         };
 
         var candles = GenerateCandles(200, 50000);
@@ -60,9 +56,7 @@ public class BacktestEngineTests
         var strategy = new Strategy
         {
             EntryConditionJson = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":30}""",
-            ExitConditionJson = "{}",
-            SymbolIds = "BTCUSDT",
-            Timeframe = "1h"
+            ExitConditionJson = "{}"
         };
 
         var candles = GenerateCandles(10, 50000);
@@ -78,15 +72,12 @@ public class BacktestEngineTests
         var strategy = new Strategy
         {
             EntryConditionJson = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":0}""",
-            ExitConditionJson = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":100}""",
-            SymbolIds = "BTCUSDT",
-            Timeframe = "1h"
+            ExitConditionJson = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":100}"""
         };
 
         var candles = GenerateCandles(200, 50000);
         var (result, trades) = _engine.Run(strategy, candles);
 
-        // Only enters once, exits at end (auto-close)
         Assert.True(result.TotalTrades >= 1);
         var lastTrade = trades[^1];
         Assert.Equal(candles[^1].Timestamp, lastTrade.ExitTime);
@@ -98,9 +89,7 @@ public class BacktestEngineTests
         var strategy = new Strategy
         {
             EntryConditionJson = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":30}""",
-            ExitConditionJson = """{"Operator":"","Indicator":"RSI","Comparison":"<","Value":70}""",
-            SymbolIds = "BTCUSDT",
-            Timeframe = "1h"
+            ExitConditionJson = """{"Operator":"","Indicator":"RSI","Comparison":"<","Value":70}"""
         };
 
         var candles = GenerateCandles(300, 50000);
@@ -120,7 +109,6 @@ public class BacktestEngineTests
 
         for (var i = 0; i < count; i++)
         {
-            // Sine wave with random noise
             var trend = (decimal)Math.Sin(i / 10.0) * 500;
             var noise = (decimal)(random.NextDouble() - 0.5) * 200;
             price += noise;

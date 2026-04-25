@@ -210,6 +210,23 @@ public class OkxClient : IExchangeClient
         )).ToArray();
     }
 
+    public async Task<TickerPrice[]> GetTickerPricesAsync(CancellationToken ct = default)
+    {
+        var resp = await _http.GetAsync("/api/v5/market/tickers?instType=SPOT", ct);
+        if (!resp.IsSuccessStatusCode) return [];
+        var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
+        if (doc is null || doc.RootElement.GetProperty("code").GetString() != "0") return [];
+
+        return doc.RootElement.GetProperty("data").EnumerateArray().Select(t => new TickerPrice(
+            t.GetProperty("instId").GetString()!,
+            TryParseDecimal(t.GetProperty("last").GetString()),
+            TryParseDecimal(t.GetProperty("changePercent").GetString()),
+            TryParseDecimal(t.GetProperty("volCcy24h").GetString()),
+            TryParseDecimal(t.GetProperty("high24h").GetString()),
+            TryParseDecimal(t.GetProperty("low24h").GetString())
+        )).ToArray();
+    }
+
     private async Task<JsonDocument?> SignedGetAsync(string path, string? query, CancellationToken ct)
     {
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -255,6 +272,13 @@ public class OkxClient : IExchangeClient
     {
         var hash = _hmac.ComputeHash(Encoding.UTF8.GetBytes(payload));
         return Convert.ToBase64String(hash);
+    }
+
+    private static decimal TryParseDecimal(string? s)
+    {
+        if (s is null) return 0;
+        decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var v);
+        return v;
     }
 
     private static decimal[,] ParseDepthEntries(JsonElement entries)

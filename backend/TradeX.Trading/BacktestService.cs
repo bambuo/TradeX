@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 
@@ -14,7 +13,7 @@ public class BacktestService(
     BacktestEngine engine,
     ILogger<BacktestService> logger) : IBacktestService
 {
-    public async Task<BacktestTask> StartBacktestAsync(Guid strategyId, DateTime startUtc, DateTime endUtc, CancellationToken ct = default)
+    public async Task<BacktestTask> StartBacktestAsync(Guid strategyId, Guid exchangeId, string symbolId, string timeframe, DateTime startUtc, DateTime endUtc, CancellationToken ct = default)
     {
         var strategy = await strategyRepo.GetByIdAsync(strategyId, ct);
         if (strategy is null)
@@ -40,16 +39,15 @@ public class BacktestService(
             task.Status = BacktestTaskStatus.Running;
             await taskRepo.UpdateAsync(task, ct);
 
-            var account = await accountRepo.GetByIdAsync(strategy.ExchangeId, ct);
+            var account = await accountRepo.GetByIdAsync(exchangeId, ct);
             if (account is null)
-                throw new InvalidOperationException($"交易所账户不存在: {strategy.ExchangeId}");
+                throw new InvalidOperationException($"交易所账户不存在: {exchangeId}");
 
             var apiKey = encryptionService.Decrypt(account.ApiKeyEncrypted);
             var secretKey = encryptionService.Decrypt(account.SecretKeyEncrypted);
             var client = clientFactory.CreateClient(account.Type, apiKey, secretKey);
 
-            var symbolId = strategy.SymbolIds.Split(',', StringSplitOptions.RemoveEmptyEntries)[0];
-            var klines = await client.GetKlinesAsync(symbolId, strategy.Timeframe, startUtc, endUtc, ct);
+            var klines = await client.GetKlinesAsync(symbolId, timeframe, startUtc, endUtc, ct);
             var candles = klines.Select(k => new Candle(k.Timestamp, k.Open, k.High, k.Low, k.Close, k.Volume)).ToList();
 
             var (result, trades) = engine.Run(strategy, candles);

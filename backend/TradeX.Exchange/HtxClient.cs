@@ -206,6 +206,23 @@ public class HtxClient : IExchangeClient
         )).ToArray();
     }
 
+    public async Task<TickerPrice[]> GetTickerPricesAsync(CancellationToken ct = default)
+    {
+        var resp = await _http.GetAsync("/market/tickers", ct);
+        if (!resp.IsSuccessStatusCode) return [];
+        var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
+        if (doc is null || doc.RootElement.GetProperty("status").GetString() != "ok") return [];
+
+        return doc.RootElement.GetProperty("data").EnumerateArray().Select(t => new TickerPrice(
+            t.GetProperty("symbol").GetString()!,
+            TryParseDecimal(t.GetProperty("close").GetString()),
+            TryParseDecimal(t.GetProperty("percentChange").GetString()),
+            TryParseDecimal(t.GetProperty("vol").GetString()),
+            TryParseDecimal(t.GetProperty("high").GetString()),
+            TryParseDecimal(t.GetProperty("low").GetString())
+        )).ToArray();
+    }
+
     private async Task<JsonDocument?> SignedGetAsync(string path, CancellationToken ct)
     {
         var timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture);
@@ -245,6 +262,13 @@ public class HtxClient : IExchangeClient
     {
         var hash = _hmac.ComputeHash(Encoding.UTF8.GetBytes(payload));
         return Convert.ToBase64String(hash);
+    }
+
+    private static decimal TryParseDecimal(string? s)
+    {
+        if (s is null) return 0;
+        decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var v);
+        return v;
     }
 
     private static decimal[,] ParseDepthEntries(JsonElement entries)

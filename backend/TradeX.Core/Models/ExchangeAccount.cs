@@ -11,7 +11,7 @@ public enum ExchangeAccountStatus
 public class ExchangeAccount
 {
     public Guid Id { get; init; } = Guid.NewGuid();
-    public Guid TraderId { get; init; }
+    public Guid? TraderId { get; init; }
     public string Name { get; set; } = string.Empty;
     public ExchangeType Type { get; set; }
     public string ApiKeyEncrypted { get; set; } = string.Empty;

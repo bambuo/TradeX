@@ -186,6 +186,30 @@ public class GateIoClient : IExchangeClient
             )).ToArray();
     }
 
+    public async Task<TickerPrice[]> GetTickerPricesAsync(CancellationToken ct = default)
+    {
+        var resp = await _http.GetAsync("/api/v4/spot/tickers", ct);
+        if (!resp.IsSuccessStatusCode) return [];
+        var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
+        if (doc is null) return [];
+
+        return doc.RootElement.EnumerateArray().Select(t => new TickerPrice(
+            t.GetProperty("currency_pair").GetString()!,
+            TryParseDecimal(t.GetProperty("last").GetString()),
+            TryParseDecimal(t.GetProperty("change_percentage").GetString()),
+            TryParseDecimal(t.GetProperty("base_volume").GetString()),
+            TryParseDecimal(t.GetProperty("high_24h").GetString()),
+            TryParseDecimal(t.GetProperty("low_24h").GetString())
+        )).ToArray();
+    }
+
+    private static decimal TryParseDecimal(string? s)
+    {
+        if (s is null) return 0;
+        decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var v);
+        return v;
+    }
+
     private async Task<JsonDocument?> SignedGetAsync(string path, string? query, CancellationToken ct)
     {
         var url = query is not null ? $"{path}?{query}" : path;

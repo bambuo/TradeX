@@ -37,11 +37,6 @@ const router = createRouter({
           component: () => import('../views/TradersView.vue')
         },
         {
-          path: 'traders/:traderId/exchanges',
-          name: 'ExchangeAccounts',
-          component: () => import('../views/ExchangeAccountsView.vue')
-        },
-        {
           path: 'traders/:traderId/strategies',
           name: 'Strategies',
           component: () => import('../views/StrategyView.vue')
@@ -60,6 +55,16 @@ const router = createRouter({
           path: 'traders/:traderId/strategies/:strategyId/backtest',
           name: 'Backtest',
           component: () => import('../views/BacktestView.vue')
+        },
+        {
+          path: 'exchanges',
+          name: 'Exchanges',
+          component: () => import('../views/ExchangesView.vue')
+        },
+        {
+          path: 'strategies',
+          name: 'GlobalStrategies',
+          component: () => import('../views/StrategiesView.vue')
         },
         {
           path: 'audit-logs',

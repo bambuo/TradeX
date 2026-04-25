@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using NSubstitute;
 using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
@@ -44,7 +43,7 @@ public class BacktestServiceTests
             .Returns((Strategy?)null);
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            _service.StartBacktestAsync(Guid.NewGuid(), DateTime.UtcNow.AddDays(-30), DateTime.UtcNow));
+            _service.StartBacktestAsync(Guid.NewGuid(), Guid.NewGuid(), "BTCUSDT", "1h", DateTime.UtcNow.AddDays(-30), DateTime.UtcNow));
     }
 
     [Fact]
@@ -53,13 +52,11 @@ public class BacktestServiceTests
         _strategyRepo.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(new Strategy
             {
-                EntryConditionJson = "{}",
-                SymbolIds = "BTCUSDT",
-                Timeframe = "1h"
+                EntryConditionJson = "{}"
             });
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            _service.StartBacktestAsync(Guid.NewGuid(), DateTime.UtcNow.AddDays(-30), DateTime.UtcNow));
+            _service.StartBacktestAsync(Guid.NewGuid(), Guid.NewGuid(), "BTCUSDT", "1h", DateTime.UtcNow.AddDays(-30), DateTime.UtcNow));
     }
 
     [Fact]
@@ -71,16 +68,13 @@ public class BacktestServiceTests
             {
                 Id = strategyId,
                 EntryConditionJson = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":30}""",
-                SymbolIds = "BTCUSDT",
-                Timeframe = "1h",
-                ExchangeId = Guid.NewGuid(),
                 CreatedBy = Guid.NewGuid()
             });
 
         _accountRepo.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns((ExchangeAccount?)null);
 
-        var result = await _service.StartBacktestAsync(strategyId, DateTime.UtcNow.AddDays(-30), DateTime.UtcNow);
+        var result = await _service.StartBacktestAsync(strategyId, Guid.NewGuid(), "BTCUSDT", "1h", DateTime.UtcNow.AddDays(-30), DateTime.UtcNow);
 
         Assert.Equal(BacktestTaskStatus.Failed, result.Status);
         await _taskRepo.Received(1).AddAsync(Arg.Any<BacktestTask>(), Arg.Any<CancellationToken>());

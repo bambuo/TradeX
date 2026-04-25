@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ordersApi, type Order } from '../api/orders'
-import { exchangeAccountsApi, type ExchangeAccount } from '../api/exchangeAccounts'
+import { exchangesApi, type ExchangeAccount } from '../api/exchanges'
 
 const route = useRoute()
 const router = useRouter()
@@ -42,10 +42,10 @@ async function load() {
   try {
     const [orderRes, accRes] = await Promise.all([
       ordersApi.getAll(traderId),
-      exchangeAccountsApi.getAll(traderId)
+      exchangesApi.getAll()
     ])
-    orders.value = orderRes.data
-    accounts.value = accRes.data
+    orders.value = orderRes.data ?? []
+    accounts.value = accRes.data.data ?? []
   } finally {
     loading.value = false
   }

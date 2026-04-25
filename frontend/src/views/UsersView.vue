@@ -13,7 +13,7 @@ async function load() {
   loading.value = true
   try {
     const { data } = await usersApi.getAll()
-    users.value = data.data
+    users.value = data.data ?? []
   } finally {
     loading.value = false
   }

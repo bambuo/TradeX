@@ -9,14 +9,16 @@ public class ExchangeAccountRepository(TradeXDbContext db) : IExchangeAccountRep
     public async Task<ExchangeAccount?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
         await db.ExchangeAccounts.FirstOrDefaultAsync(x => x.Id == id, ct);
 
-    public async Task<List<ExchangeAccount>> GetByTraderIdAsync(Guid traderId, CancellationToken ct = default) =>
-        await db.ExchangeAccounts.Where(x => x.TraderId == traderId).ToListAsync(ct);
-
     public async Task<List<ExchangeAccount>> GetAllEnabledAsync(CancellationToken ct = default) =>
         await db.ExchangeAccounts.Where(x => x.Status == ExchangeAccountStatus.Enabled).ToListAsync(ct);
 
-    public async Task<bool> IsNameUniqueAsync(Guid traderId, string name, CancellationToken ct = default) =>
-        !await db.ExchangeAccounts.AnyAsync(x => x.TraderId == traderId && x.Name == name, ct);
+    public async Task<List<ExchangeAccount>> GetAllByUserIdAsync(Guid userId, CancellationToken ct = default) =>
+        await db.ExchangeAccounts
+            .Where(ea => ea.TraderId == null || db.Traders.Any(t => t.Id == ea.TraderId && t.UserId == userId))
+            .ToListAsync(ct);
+
+    public async Task<bool> IsNameUniqueAsync(string name, CancellationToken ct = default) =>
+        !await db.ExchangeAccounts.AnyAsync(x => x.Name == name, ct);
 
     public async Task AddAsync(ExchangeAccount account, CancellationToken ct = default)
     {

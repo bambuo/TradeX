@@ -52,7 +52,7 @@ public class TradingEngine(
         var cycleStart = DateTime.UtcNow;
         using var cycle = new TradingCycleScope(scopeFactory);
 
-        var activeStrategies = await cycle.StrategyRepo.GetAllActiveAsync(ct);
+        var activeStrategies = await cycle.StrategyDeploymentRepo.GetAllActiveAsync(ct);
         if (activeStrategies.Count == 0)
             return;
 
@@ -69,14 +69,14 @@ public class TradingEngine(
         }
 
         await UpdateAllPositionsPnlAsync(cycle.PositionRepo, ct);
-        await PushDashboardSummaryAsync(cycle.PositionRepo, cycle.StrategyRepo, ct);
+        await PushDashboardSummaryAsync(cycle.PositionRepo, cycle.StrategyDeploymentRepo, ct);
 
         logger.LogInformation("评估周期完成: {StrategyCount} 个活跃策略, 耗时 {Elapsed:F1}s",
             activeStrategies.Count, (DateTime.UtcNow - cycleStart).TotalSeconds);
     }
 
     private async Task EvaluateStrategyAsync(
-        Core.Models.Strategy strategy,
+        Core.Models.StrategyDeployment strategy,
         TradingCycleScope cycle,
         CancellationToken ct)
     {
@@ -251,12 +251,12 @@ public class TradingEngine(
         }
     }
 
-    private async Task PushDashboardSummaryAsync(IPositionRepository positionRepo, IStrategyRepository strategyRepo, CancellationToken ct)
+    private async Task PushDashboardSummaryAsync(IPositionRepository positionRepo, IStrategyDeploymentRepository strategyDeploymentRepo, CancellationToken ct)
     {
         try
         {
             var allPositions = await positionRepo.GetAllOpenAsync(ct);
-            var activeStrategies = await strategyRepo.GetAllActiveAsync(ct);
+            var activeStrategies = await strategyDeploymentRepo.GetAllActiveAsync(ct);
 
             var traderGroups = allPositions.GroupBy(p => p.TraderId);
             foreach (var group in traderGroups)

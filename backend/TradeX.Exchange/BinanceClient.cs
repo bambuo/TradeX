@@ -223,6 +223,23 @@ public class BinanceClient : IExchangeClient
             .ToArray();
     }
 
+    public async Task<TickerPrice[]> GetTickerPricesAsync(CancellationToken ct = default)
+    {
+        var resp = await _http.GetAsync("/api/v3/ticker/24hr", ct);
+        resp.EnsureSuccessStatusCode();
+        var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
+        if (doc is null) return [];
+
+        return doc.RootElement.EnumerateArray().Select(t => new TickerPrice(
+            t.GetProperty("symbol").GetString()!,
+            decimal.Parse(t.GetProperty("lastPrice").GetString()!, CultureInfo.InvariantCulture),
+            decimal.Parse(t.GetProperty("priceChangePercent").GetString()!, CultureInfo.InvariantCulture),
+            decimal.Parse(t.GetProperty("volume").GetString()!, CultureInfo.InvariantCulture),
+            decimal.Parse(t.GetProperty("highPrice").GetString()!, CultureInfo.InvariantCulture),
+            decimal.Parse(t.GetProperty("lowPrice").GetString()!, CultureInfo.InvariantCulture)
+        )).ToArray();
+    }
+
     private string Sign(string query)
     {
         var hash = _hmac.ComputeHash(Encoding.UTF8.GetBytes(query));

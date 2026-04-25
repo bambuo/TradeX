@@ -40,6 +40,8 @@ async function handleLogout() {
 const navItems = [
   { path: '/', label: '仪表盘' },
   { path: '/traders', label: '交易员' },
+  { path: '/exchanges', label: '交易所' },
+  { path: '/strategies', label: '策略管理' },
   { path: '/audit-logs', label: '审计日志' },
   { path: '/notifications', label: '通知渠道' },
   { path: '/users', label: '用户管理' },

@@ -1,0 +1,73 @@
+using Microsoft.EntityFrameworkCore;
+using TradeX.Core.Interfaces;
+using TradeX.Core.Models;
+
+namespace TradeX.Infrastructure.Data.Repositories;
+
+public class StrategyDeploymentRepository(TradeXDbContext context) : IStrategyDeploymentRepository
+{
+    public async Task<StrategyDeployment?> GetByIdAsync(Guid id, CancellationToken ct = default)
+        => await context.StrategyDeployments.FirstOrDefaultAsync(s => s.Id == id, ct);
+
+    public async Task<List<StrategyDeployment>> GetByTraderIdAsync(Guid traderId, CancellationToken ct = default)
+        => await context.StrategyDeployments
+            .Where(s => s.TraderId == traderId)
+            .OrderByDescending(s => s.UpdatedAtUtc)
+            .ToListAsync(ct);
+
+    public async Task<List<StrategyDeployment>> GetAllByUserIdAsync(Guid userId, CancellationToken ct = default)
+        => await context.StrategyDeployments
+            .Where(s => context.Traders.Any(t => t.Id == s.TraderId && t.UserId == userId))
+            .OrderByDescending(s => s.UpdatedAtUtc)
+            .ToListAsync(ct);
+
+    public async Task<List<StrategyDeployment>> GetAllActiveAsync(CancellationToken ct = default)
+        => await context.StrategyDeployments
+            .Where(s => s.Status == Core.Enums.StrategyStatus.Active)
+            .OrderByDescending(s => s.UpdatedAtUtc)
+            .ToListAsync(ct);
+
+    public async Task<List<StrategyDeployment>> GetActiveByExchangeAndSymbolAsync(Guid exchangeId, string symbolId, CancellationToken ct = default)
+    {
+        var deployments = await context.StrategyDeployments
+            .Where(s => s.ExchangeId == exchangeId && s.Status == Core.Enums.StrategyStatus.Active)
+            .ToListAsync(ct);
+
+        return deployments.Where(s => s.SymbolIds.Split(',', StringSplitOptions.RemoveEmptyEntries).Contains(symbolId)).ToList();
+    }
+
+    public async Task<bool> ExistsActiveAsync(Guid traderId, Guid exchangeId, string symbolId, Guid? excludeId = null, CancellationToken ct = default)
+    {
+        var query = context.StrategyDeployments
+            .Where(s => s.TraderId == traderId && s.ExchangeId == exchangeId && s.Status == Core.Enums.StrategyStatus.Active);
+
+        if (excludeId.HasValue)
+            query = query.Where(s => s.Id != excludeId.Value);
+
+        var deployments = await query.ToListAsync(ct);
+        return deployments.Any(s =>
+        {
+            var symbols = s.SymbolIds.Split(',', StringSplitOptions.RemoveEmptyEntries);
+            return symbols.Contains(symbolId);
+        });
+    }
+
+    public async Task AddAsync(StrategyDeployment deployment, CancellationToken ct = default)
+    {
+        await context.StrategyDeployments.AddAsync(deployment, ct);
+        await context.SaveChangesAsync(ct);
+    }
+
+    public async Task UpdateAsync(StrategyDeployment deployment, CancellationToken ct = default)
+    {
+        deployment.UpdatedAtUtc = DateTime.UtcNow;
+        context.StrategyDeployments.Update(deployment);
+        await context.SaveChangesAsync(ct);
+    }
+
+    public async Task DeleteAsync(StrategyDeployment deployment, CancellationToken ct = default)
+    {
+        context.StrategyDeployments.Remove(deployment);
+        await context.SaveChangesAsync(ct);
+    }
+}

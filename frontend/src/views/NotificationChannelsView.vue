@@ -22,7 +22,7 @@ async function load() {
   loading.value = true
   try {
     const { data } = await notificationChannelsApi.getAll()
-    channels.value = data.data
+    channels.value = data.data ?? []
   } finally {
     loading.value = false
   }

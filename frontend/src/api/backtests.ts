@@ -32,9 +32,9 @@ export interface BacktestTrade {
 }
 
 export const backtestsApi = {
-  start(traderId: string, strategyId: string, startUtc: string, endUtc: string) {
+  start(traderId: string, strategyId: string, exchangeId: string, symbolId: string, timeframe: string, startUtc: string, endUtc: string) {
     return client.post<{ taskId: string; status: string; createdAt: string }>(
-      `/traders/${traderId}/strategies/${strategyId}/backtests?startUtc=${encodeURIComponent(startUtc)}&endUtc=${encodeURIComponent(endUtc)}`
+      `/traders/${traderId}/strategies/${strategyId}/backtests?exchangeId=${exchangeId}&symbolId=${encodeURIComponent(symbolId)}&timeframe=${encodeURIComponent(timeframe)}&startUtc=${encodeURIComponent(startUtc)}&endUtc=${encodeURIComponent(endUtc)}`
     )
   },
   getTasks(traderId: string, strategyId: string) {
