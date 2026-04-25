@@ -1911,6 +1911,82 @@ interface TradingHub {
 | 用户管理 | `/users` | admin+ | 否 |
 | 系统设置 | `/settings` | admin+ | 否 |
 
+### 18.1 策略部署对话框 UI 规格
+
+部署对话框通过交易员详情页的「新建部署」按钮触发，提供三层作用域选择和数据可视化。
+
+**作用域选择（Tab 切换）**：
+- 交易员级（Trader）：全局作用于交易员账号，仅需选择策略模板
+- 交易所级（Exchange）：绑定交易所生效，需选择策略模板 + 交易所账户
+- 交易对级（Symbol）：绑定具体交易对，需选择策略模板 + 交易所账户 + 交易对列表
+
+**交易对选择表格（仅 Symbol 作用域）**：
+- 切换交易所账户后自动调用 `GET /api/exchanges/{id}/symbols` 实时拉取 USDT 交易对
+- 响应包含：`symbol`, `price`, `priceChangePercent`, `volume`, `highPrice`, `lowPrice`, `pricePrecision`, `minNotional`
+- 交易对显示：基础币种白色高亮（`BTC`），计价币种灰色小字（`USDT`），不可见分隔
+- 表格列：`交易对 | 价格 | 24h 涨跌 | 24h 量`
+- 表头可点击排序（点击切换正序/倒序），默认按 24h 量倒序
+- 表头粘性定位，滚动时不消失
+- 筛选栏位于搜索框下方，三列网格布局：
+  | 价格范围 | 方向选择 | 成交量下限 |
+  | `≥___` ~ `≤___` | 全部/上涨/下跌 | `≥___` |
+- 搜索框按交易对名称模糊过滤，与筛选条件联动
+- 整行可点击选中/取消勾选，checkbox 区域独立事件处理
+
+**时间周期选择**：
+- 固定选项：1m / 5m / 15m / 30m / 1h / 4h / 1d
+
+### 18.2 策略模板编辑器 UI 规格
+
+**新建策略弹窗**：
+- 首次打开显示预设模板卡片（网格策略、趋势追踪、无限网格）
+- 点击预设自动填充名称 + 入场/出场条件树 + 执行规则表单
+- 预设选中后在上方展示蓝色最佳实践提示框
+
+**入场/出场条件编辑**（ConditionTreeEditor）：
+- 使用条件树组件，图形化构建 AND / OR / NOT 逻辑树
+- 叶子节点：选择指标（RSI / SMA_20 / SMA_50 / EMA_20 / MACD_LINE / MACD_SIGNAL / BB / OBV / VolumeSMA）+ 比较符（> / < / >= / <= / == / CrossAbove / CrossBelow）+ 阈值输入
+- 逻辑节点：AND / OR / NOT，可递归添加子条件
+- 支持添加条件组（子逻辑节点）+ 条件（叶子节点）
+
+**执行规则编辑**（ExecutionRuleEditor）：
+- 选择规则类型（网格 / 趋势追踪 / 无限网格）后动态展示对应参数表
+- 标签在上、组件在下的纵向布局，参数按两列网格排列
+- 底部可折叠展开「原始 JSON」查看
+
+**策略模板列表表格**：
+- 列：`名称 | 入场条件 | 出场条件 | 类型 | 版本 | 更新时间 | 操作`
+- 入场/出场条件显示为可读文本（如 `RSI < 30`，`(MACD_LINE 上穿 0 且 RSI > 50)`）
+- 类型列显示执行规则类型中文名
+
+### 18.3 审计日志页面 UI 规格
+
+**表格布局**：
+- 列：`时间 | 操作 | 资源`
+- 时间：完整本地化时间戳
+- 操作：中文操作描述（如 `新建交易员`、`启用/禁用`）
+- 资源：资源类型中文名 + 截断 ID（`#a1b2c3d4`）
+- 点击行弹出操作详情弹窗
+
+**操作详情弹窗**：
+- 摘要行显示时间 + 操作 + 资源
+- 2×2 网格技术详情：
+  | HTTP 方法 | 完整路径 |
+  | 状态码 | IP 地址 |
+  | 用户 ID | — |
+- 底部可折叠展开「原始 JSON」
+- 点击弹窗背景或关闭按钮关闭
+
+### 18.4 全局 UI 风格
+
+**滚动条**：细 6px，半透明灰色滑块，3px 圆角，透明轨道
+```css
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.25); border-radius: 3px; }
+* { scrollbar-width: thin; scrollbar-color: rgba(148, 163, 184, 0.25) transparent; }
+```
+
 ---
 
 ## 19. 权限模型（Casbin）
@@ -2096,6 +2172,12 @@ _logger.LogInformation("Order {OrderId} filled for {Quantity} {Symbol} at {Price
 - 手动下单
 - 系统设置变更
 - 通知渠道 CRUD
+
+**审计日志 Action 自动解析规则**（AuditLogMiddleware）：
+- 路径解析为中文可读名称：`POST /api/traders` → 操作="新建交易员"，资源="交易员"
+- 已知资源名映射：`traders`→交易员, `exchanges`→交易所, `strategies`→策略, `users`→用户, `auth`→认证, `orders`→订单, `settings`→系统设置, `notifications`→通知渠道, `positions`→持仓
+- 已知子操作：`toggle`→启用/禁用, `test`→测试连接, `backtests`→回测
+- Detail 字段存储技术信息 JSON：`{ method, path, statusCode, ip }`
 
 ### 22.3 审计日志存储
 
