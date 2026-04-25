@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { strategiesApi, type StrategyDeployment } from '../api/strategies'
 import { backtestsApi, type BacktestTask, type BacktestResult, type BacktestCandleAnalysis } from '../api/backtests'
@@ -34,7 +34,6 @@ const error = ref('')
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let analysisAbort: AbortController | null = null
 let replayTimer: ReturnType<typeof setInterval> | null = null
-
 const analysisItems = computed(() =>
   replayBuffer.value.slice(0, replayIndex.value)
 )
@@ -64,6 +63,26 @@ onMounted(async () => {
   }
 })
 
+// Sync selectedTask with polling updates and re-trigger replay when status changes
+watch(tasks, (newTasks) => {
+  const old = selectedTask.value
+  if (!old) return
+  const updated = newTasks.find(t => t.id === old.id)
+  if (!updated) return
+
+  const oldStatus = old.status
+  selectedTask.value = updated
+
+  if (activeTab.value !== 'analysis' || analysisViewMode.value !== 'chart') return
+
+  if (oldStatus === 'Pending' && updated.status === 'Running') {
+    startReplay()
+  } else if (oldStatus === 'Running' && updated.status === 'Completed') {
+    stopReplay()
+    startReplay()
+  }
+})
+
 onUnmounted(() => { stopPolling(); stopReplay() })
 
 function startPolling(templateId: string) {
@@ -78,6 +97,7 @@ function stopPolling() {
 }
 
 function closeAnalysisStream() {
+  if (retryTimeout) { clearTimeout(retryTimeout); retryTimeout = null }
   if (analysisAbort) {
     analysisAbort.abort()
     analysisAbort = null
@@ -238,19 +258,22 @@ function openAnalysisStream() {
   const token = localStorage.getItem('accessToken')
   analysisAbort = new AbortController()
 
-  replayBuffer.value = []
-  replayIndex.value = 0
-  replayTotal.value = 0
-
   fetch(url, {
     signal: analysisAbort.signal,
     headers: token ? { Authorization: `Bearer ${token}` } : {}
   }).then(async (response) => {
-    if (!response.ok) return
+    if (!response.ok) {
+      scheduleStreamRetry()
+      return
+    }
     const reader = response.body?.getReader()
-    if (!reader) return
+    if (!reader) {
+      scheduleStreamRetry()
+      return
+    }
     const decoder = new TextDecoder()
     let buffer = ''
+    let gotAnyData = false
 
     while (true) {
       const { done, value } = await reader.read()
@@ -264,26 +287,45 @@ function openAnalysisStream() {
         try {
           const msg = JSON.parse(line.slice(6))
           if (msg.type === 'batch') {
+            gotAnyData = true
             replayBuffer.value = msg.items ?? []
             replayTotal.value = msg.total ?? 0
             replayPlaying.value = true
             startReplayTimer()
           } else if (msg.type === 'item') {
+            gotAnyData = true
             replayBuffer.value = [...replayBuffer.value, msg]
             replayTotal.value = replayBuffer.value.length
             if (!replayPlaying.value) {
               replayIndex.value = replayBuffer.value.length
             }
-          } else if (msg.type === 'complete') {
-            if (!replayPlaying.value) {
-              replayIndex.value = replayBuffer.value.length
-            }
-            closeAnalysisStream()
           }
         } catch {}
       }
     }
+
+    // Stream ended — retry if no data and task still running
+    if (!gotAnyData && selectedTask.value?.status === 'Running') {
+      onReplayRetry()
+    }
   }).catch(() => {})
+}
+
+let retryTimeout: ReturnType<typeof setTimeout> | null = null
+
+function scheduleStreamRetry() {
+  if (retryTimeout) return
+  retryTimeout = setTimeout(() => {
+    retryTimeout = null
+    if (selectedTask.value?.status === 'Running') onReplayRetry()
+  }, 3000)
+}
+
+function onReplayRetry() {
+  retryTimeout = null
+  if (analysisAbort?.signal.aborted) return
+  if (!selectedTask.value || selectedTask.value.status !== 'Running') return
+  openAnalysisStream()
 }
 
 function loadTableView() {
@@ -422,7 +464,7 @@ function formatPercent(v: number): string {
 
         <div v-if="detailLoading" class="loading-hint">加载结果中...</div>
 
-        <template v-else-if="selectedResult">
+        <template v-if="selectedTask.status !== 'Failed'">
           <div class="tab-bar">
             <button
               class="tab-btn"
@@ -436,7 +478,7 @@ function formatPercent(v: number): string {
             >K 线分析 ({{ selectedResult?.analysisCount ?? replayTotal ?? 0 }})</button>
           </div>
 
-          <div v-if="activeTab === 'overview'" class="result-grid">
+          <div v-if="activeTab === 'overview' && selectedResult" class="result-grid">
             <div class="result-item">
               <span class="result-label">总收益率</span>
               <span class="result-value" :class="selectedResult.totalReturnPercent >= 0 ? 'up' : 'down'">
@@ -476,6 +518,7 @@ function formatPercent(v: number): string {
               </span>
             </div>
           </div>
+          <div v-else-if="activeTab === 'overview' && selectedTask.status === 'Running'" class="loading-hint">回测执行中，完成后将显示统计指标</div>
 
           <div v-if="activeTab === 'analysis' && analysisViewMode === 'chart'" class="replay-section">
             <div class="replay-bar">
@@ -529,7 +572,7 @@ function formatPercent(v: number): string {
           </div>
         </template>
 
-        <div v-else-if="selectedTask.status === 'Failed'" class="error-msg">回测执行失败</div>
+        <div v-if="selectedTask.status === 'Failed'" class="error-msg">回测执行失败</div>
 
         <div class="modal-actions">
           <button class="btn-primary" @click="showDetail = false; stopReplay()">关闭</button>

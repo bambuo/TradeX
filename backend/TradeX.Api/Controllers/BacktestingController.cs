@@ -186,6 +186,31 @@ public class BacktestingController(
 
         // Check if running task — live stream from channel
         var runningList = analysisStore.Get(taskId);
+        if (runningList is null)
+        {
+            // Race: Worker may not have called Init() yet — wait for store to be ready
+            // Also handles case: Worker completed and called Remove() while we waited
+            var btTask = await backtestService.GetTaskAsync(taskId, ct);
+            if (btTask?.Status == BacktestTaskStatus.Running)
+            {
+                using var waitCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                waitCts.CancelAfter(TimeSpan.FromSeconds(60));
+                try
+                {
+                    while (!waitCts.Token.IsCancellationRequested)
+                    {
+                        await Task.Delay(200, waitCts.Token);
+                        runningList = analysisStore.Get(taskId);
+                        if (runningList is not null) break;
+                        // Fall back to DB if task completed while waiting
+                        btTask = await backtestService.GetTaskAsync(taskId, ct);
+                        if (btTask?.Status != BacktestTaskStatus.Running) break;
+                    }
+                }
+                catch (OperationCanceledException) { }
+            }
+        }
+
         if (runningList is not null)
         {
             var initialCount = runningList.Count;
