@@ -1749,6 +1749,50 @@ public interface IBacktestEngine
 }
 ```
 
+
+
+### 14.5 K 线实时回放
+
+回测结束时前端一次性能查看到完整的绩效报告（概览标签），同时支持 K 线级别的逐根回放查看策略执行过程。
+
+#### 14.5.1 数据流
+
+| 阶段 | 数据源 | 传输方式 | 前端行为 |
+|------|--------|---------|---------|
+| 回测进行中 | `TaskAnalysisStore`（内存缓存） | SSE（Server-Sent Events） | 每根 K 线完成后即时推送，前端定时器控制显示进度 |
+| 回测已完成 | SQLite `BacktestResult.AnalysisJson` | REST API 一次性拉取全部数据 | 前端全量缓存，客户端定时器控制逐根显示 |
+
+#### 14.5.2 架构组件
+
+- **`TaskAnalysisStore`**（单例）: 内存中维护 `ConcurrentDictionary<Guid, List<CandleAnalysis>>` + 每个任务对应的 `Channel<CandleAnalysis>`。`Push()` 同时写入字典和 Channel。
+- **`BacktestEngine.Run()`**: 新增 `onAnalysis` 回调参数，每根 K 线分析后触发 `onAnalysis?.Invoke(item)`，由 Worker 写入 Store。
+- **`GET /analysis/stream`**（SSE 端点）:
+  - 运行中任务：从 Store Channel 实时读取推送，Store 未就绪时等待循环（每 200ms 检查）
+  - 已完成任务：从 `AnalysisJson` 反序列化后以 `300ms/speed` 间隔逐根推送
+- **`GET /analysis?page=&pageSize=`**（REST 分页端点）: 供表格模式使用，支持运行中（走 Store）和已完成（走 DB）统一分页。
+
+#### 14.5.3 SSE 消息格式
+
+| type | 时机 | 载荷 |
+|------|------|------|
+| `meta` | 回放开始时 | `{ total: number }` |
+| `item` | 每根 K 线 | `{ index, timestamp, open, high, low, close, volume, indicators, entry, exit, inPosition, action }` |
+| `batch` | 连接建立时已有的全量数据 | `{ items: [...], total: number }` |
+| `complete` | 回放结束 | `{ type: "complete" }` |
+
+#### 14.5.4 回放控制
+
+- 速度：1x（300ms/根）/ 2x / 4x / 8x / 16x，改间隔即时生效，无需重建连接
+- 暂停/继续：`clearInterval` / `setInterval`
+- 重新回放：`replayIndex = 0` + 重启定时器
+- 图/表切换：图表模式使用客户端缓存逐根回放，表格模式使用分页 REST API
+
+#### 14.5.5 竞态处理
+
+- Worker 初始化 Store 与前端 SSE 连接存在竞态：SSE 端点到 Store 未就绪时查 DB 确认为 Running 任务后进入等待循环，直到 Store 就绪
+- 前端 `watch(tasks)` 自动同步 `selectedTask` 状态：Pending → Running / Running → Completed 时自动触发切换回放方式
+- SSE 流无数据结束时自动 3 秒后重连
+
 ---
 
 ## 15. 数据生命周期管理规格
@@ -2352,6 +2396,10 @@ volumes:
 - 回测引擎完整实现（异步执行 + 绩效计算）
 - 回测 API + 前端页面（新建、列表、详情）
 - 绩效报告可视化（图表展示）
+- K 线逐根回放（已完成任务 SSE 回放 + 运行中任务实时推送）
+- 回放速度控制（1x/2x/4x/8x/16x）+ 暂停/继续/重放
+- 表格模式分页查询
+- 回测任务状态 watch 自动同步
 
 ### M6-C 仪表盘完善
 - 13 个前端页面全部完成 + 路由 + 角色守卫
@@ -2406,4 +2454,5 @@ volumes:
 | v1.1 | 2026-04-24 | 领域修正：引入 Trader 核心实体。新增 Trader 数据模型 + CRUD API；Exchange/Strategy/Position/Order 增加 TraderId FK；增加活跃策略冲突约束（同一 Trader 在同一 Exchange 上对同一 Symbol 仅一个 Active 策略）；更新权限模型与错误码；里程碑新增 M1-C |
 | v1.2 | 2026-04-24 | 领域修正：重构 ExchangeAccount → Exchange，消除「交易所账户」中间抽象。Exchange 直属于 Trader，为用户配置交易所的关键实体。约束范围细化至同一 Trader × 同一 Exchange × 同一 Symbol |
 | v1.3 | 2026-04-24 | 技术选型更新：Exchange SDK 确认 JKorf 系列正式包名（Binance.Net / JK.OKX.Net / GateIo.Net / Bybit.Net / JKorf.HTX.Net）；指标库从 Trady（不活跃）迁移至 Skender.Stock.Indicators（50+ 指标，net10.0 完美兼容） |
-| v1.4 | 2026-04-24 | 资金安全与组合风控补充：新增 §9.5 多层级组合风控（系统级/交易员级/交易所级/币种级）；新增 §20 IP 白名单开关；新增 Kill Switch 紧急停止机制；扩展 RiskContext 含 PortfolioRiskSnapshot 层级上下文；更新 M2-A/M4-B 里程碑
+| v1.4 | 2026-04-24 | 资金安全与组合风控补充：新增 §9.5 多层级组合风控（系统级/交易员级/交易所级/币种级）；新增 §20 IP 白名单开关；新增 Kill Switch 紧急停止机制；扩展 RiskContext 含 PortfolioRiskSnapshot 层级上下文；更新 M2-A/M4-B 里程碑 |
+| v1.5 | 2026-04-25 | K 线实时回放功能：新增 §14.5 K 线实时回放规格；新增 `TaskAnalysisStore` 内存缓存 + Channel 推送机制；新增 SSE 端点 `/analysis/stream`；回放控制（1x~16x 速度切换、暂停/继续/重放）；表格模式分页；运行中任务 SSE 实时推送；回测任务状态 watch 自动同步 |

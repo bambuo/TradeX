@@ -898,6 +898,18 @@ sequenceDiagram
 | **后果** | 所有 HTTP JSON 响应字段均为小驼峰；新增 API 端点时前后端字段命名需保持一致 |
 | **替代否决** | PascalCase（C# 默认，前端需要额外映射层）；snake_case（Python 友好但 JSON 社区不占优势） |
 
+### ADR-010: SSE 为回测 K 线实时推送协议
+
+| 属性 | 值 |
+|------|-----|
+| **状态** | **Accepted** |
+| **上下文** | 回测执行时前端需实时查看 K 线分析过程，完成后支持回放；SignalR 已集成但 SSE 更轻量 |
+| **决策** | 使用 SSE（Server-Sent Events）作为回测分析数据的实时推送协议，已完成任务通过 REST + 客户端定时器实现回放 |
+| **理由** | (1) SSE 基于 HTTP 长连接，天然携带 `Authorization` 头（对比 EventSource 无法自定义请求头）；(2) 只需后端写入，无需双向通信，SSE 比 SignalR 更轻量（无额外帧协议）；(3) `fetch + ReadableStream` 解析 SSE 行协议即可兼容 JWT 认证；(4) 已完成任务的回放不依赖 SSE，使用 REST 全量拉取后客户端逐根显示，架构更简单 |
+| **实施方式** | (1) `TaskAnalysisStore` 为每个任务维护 `List<T> + Channel<T>`，`Push` 时同时写入；(2) SSE 端点 `GET /tasks/{id}/analysis/stream` 运行中走 Channel，已完成走 DB 反序列化后 `Task.Delay` 控制速度；(3) 前端 `fetch + ReadableStream` 解析 `data: {...}\n\n` 格式；(4) 运行时增量推送，已完成全量拉取后客户端 `setInterval` 自增 index |
+| **后果** | SSE 断连需前端重试；Channel 在 Worker 完成后 `TryComplete()` |
+| **替代否决** | SignalR（已集成但推荐 SSE）；WebSocket（过度设计）；轮询（浪费带宽、延迟大） |
+
 ---
 
 ## 7. 部署架构
