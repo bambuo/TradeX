@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { exchangesApi, type ExchangeAccount as Exchange, type ExchangeOrder } from '../api/exchanges'
+import { exchangesApi, type Exchange, type ExchangeOrder } from '../api/exchanges'
 import { getExchangeInfo } from '../api/exchangeInfo'
 import ExchangeTypeSelect from '../components/ExchangeTypeSelect.vue'
 

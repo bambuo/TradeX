@@ -115,7 +115,7 @@ public class CooldownCheck(ILogger<CooldownCheck> logger) : RiskCheckHandler
 
 public class ExchangeHealthHandler(
     IExchangeClientFactory clientFactory,
-    IExchangeRepository accountRepo,
+    IExchangeRepository exchangeRepo,
     IEncryptionService encryptionService,
     ILogger<ExchangeHealthHandler> logger) : RiskCheckHandler
 {
@@ -137,18 +137,18 @@ public class ExchangeHealthHandler(
 
         try
         {
-            var account = await accountRepo.GetByIdAsync(context.ExchangeId, ct);
-            if (account is null)
+            var exchange = await exchangeRepo.GetByIdAsync(context.ExchangeId, ct);
+            if (exchange is null)
             {
-                logger.LogWarning("交易所账户不存在, ExchangeId={ExchangeId}", context.ExchangeId);
+                logger.LogWarning("交易所不存在, ExchangeId={ExchangeId}", context.ExchangeId);
                 _healthCache[context.ExchangeId] = (false, DateTime.UtcNow);
-                context.Deny("交易所账户不存在");
+                context.Deny("交易所不存在");
                 return await base.CheckAsync(context, ct);
             }
 
-            var apiKey = encryptionService.Decrypt(account.ApiKeyEncrypted);
-            var secretKey = encryptionService.Decrypt(account.SecretKeyEncrypted);
-            var client = clientFactory.CreateClient(account.Type, apiKey, secretKey);
+            var apiKey = encryptionService.Decrypt(exchange.ApiKeyEncrypted);
+            var secretKey = encryptionService.Decrypt(exchange.SecretKeyEncrypted);
+            var client = clientFactory.CreateClient(exchange.Type, apiKey, secretKey);
             var result = await client.TestConnectionAsync(ct);
 
             _healthCache[context.ExchangeId] = (result.Success, DateTime.UtcNow);

@@ -2,7 +2,7 @@
 import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { strategiesApi, type Strategy, type StrategyDeployment } from '../api/strategies'
-import { exchangesApi, type ExchangeAccount } from '../api/exchanges'
+import { exchangesApi, type Exchange } from '../api/exchanges'
 import { formatSmallNumber } from '../utils/format'
 import AppSelect from '../components/AppSelect.vue'
 
@@ -12,7 +12,7 @@ const traderId = route.params.traderId as string
 
 const deployments = ref<StrategyDeployment[]>([])
 const templates = ref<Strategy[]>([])
-const accounts = ref<ExchangeAccount[]>([])
+const exchanges = ref<Exchange[]>([])
 const loading = ref(true)
 const showForm = ref(false)
 const editId = ref<string | null>(null)
@@ -136,14 +136,14 @@ async function load() {
     ])
     deployments.value = depRes.data ?? []
     templates.value = tmplRes.data.data ?? []
-    accounts.value = accRes.data.data ?? []
+    exchanges.value = accRes.data.data ?? []
   } finally {
     loading.value = false
   }
 }
 
 function getExchangeLabel(exchangeId: string): string {
-  return accounts.value.find(a => a.id === exchangeId)?.label ?? exchangeId
+  return exchanges.value.find(a => a.id === exchangeId)?.label ?? exchangeId
 }
 
 function getTemplateName(strategyId: string): string {
@@ -195,7 +195,7 @@ function openCreate() {
   editId.value = null
   scope.value = 'Symbol'
   formStrategyId.value = templates.value[0]?.id ?? ''
-  formExchangeId.value = accounts.value[0]?.id ?? ''
+  formExchangeId.value = exchanges.value[0]?.id ?? ''
   formSymbolIds.value = []
   formTimeframe.value = '15m'
   symbolSearch.value = ''
@@ -241,10 +241,10 @@ function swapScope(newScope: 'Trader' | 'Exchange' | 'Symbol') {
     formExchangeId.value = ''
     formSymbolIds.value = []
   } else if (newScope === 'Exchange') {
-    formExchangeId.value = accounts.value[0]?.id ?? ''
+    formExchangeId.value = exchanges.value[0]?.id ?? ''
     formSymbolIds.value = []
   } else {
-    formExchangeId.value = (formExchangeId.value || accounts.value[0]?.id) ?? ''
+    formExchangeId.value = (formExchangeId.value || exchanges.value[0]?.id) ?? ''
     formSymbolIds.value = []
     if (formExchangeId.value) fetchSymbols(formExchangeId.value)
   }
@@ -332,7 +332,7 @@ onMounted(load)
           <div v-if="scope !== 'Trader'" class="form-group full">
             <label>交易所账户</label>
             <AppSelect
-              :options="accounts.map(a => ({ label: `${a.label} (${a.exchangeType})`, value: a.id }))"
+              :options="exchanges.map(a => ({ label: `${a.label} (${a.exchangeType})`, value: a.id }))"
               :model-value="formExchangeId"
               :disabled="!!editId"
               full

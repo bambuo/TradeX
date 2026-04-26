@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ordersApi, type Order } from '../api/orders'
-import { exchangesApi, type ExchangeAccount } from '../api/exchanges'
+import { exchangesApi, type Exchange } from '../api/exchanges'
 import { formatSmallNumber } from '../utils/format'
 import AppSelect from '../components/AppSelect.vue'
 
@@ -11,7 +11,7 @@ const router = useRouter()
 const traderId = route.params.traderId as string
 
 const orders = ref<Order[]>([])
-const accounts = ref<ExchangeAccount[]>([])
+const exchanges = ref<Exchange[]>([])
 const loading = ref(true)
 const showForm = ref(false)
 const submitting = ref(false)
@@ -47,14 +47,14 @@ async function load() {
       exchangesApi.getAll()
     ])
     orders.value = orderRes.data ?? []
-    accounts.value = accRes.data.data ?? []
+    exchanges.value = accRes.data.data ?? []
   } finally {
     loading.value = false
   }
 }
 
 function openCreate() {
-  formExchangeId.value = accounts.value[0]?.id ?? ''
+  formExchangeId.value = exchanges.value[0]?.id ?? ''
   formSymbolId.value = ''
   formSide.value = 'Buy'
   formType.value = 'Market'
@@ -96,7 +96,7 @@ onMounted(load)
 
     <AppModal v-model="showForm" title="手动下单" width="sm">
       <AppSelect
-        :options="accounts.map(a => ({ label: `${a.label} (${a.exchangeType})`, value: a.id }))"
+        :options="exchanges.map(a => ({ label: `${a.label} (${a.exchangeType})`, value: a.id }))"
         :model-value="formExchangeId"
         full
         form

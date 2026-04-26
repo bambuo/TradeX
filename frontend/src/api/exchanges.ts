@@ -1,6 +1,6 @@
 import client from './client'
 
-export interface ExchangeAccount {
+export interface Exchange {
   id: string
   traderId?: string
   exchangeType: string
@@ -44,13 +44,13 @@ export interface UpdateExchangeRequest {
 
 export const exchangesApi = {
   getAll() {
-    return client.get<{ data: ExchangeAccount[] }>('/exchanges')
+    return client.get<{ data: Exchange[] }>('/exchanges')
   },
   create(data: CreateExchangeRequest) {
-    return client.post<ExchangeAccount>('/exchanges', data)
+    return client.post<Exchange>('/exchanges', data)
   },
   update(id: string, data: UpdateExchangeRequest) {
-    return client.put<ExchangeAccount>(`/exchanges/${id}`, data)
+    return client.put<Exchange>(`/exchanges/${id}`, data)
   },
   delete(id: string) {
     return client.delete(`/exchanges/${id}`)

@@ -28,8 +28,8 @@ public class PortfolioRiskManagerTests
             CooldownSeconds = 300
         });
 
-        var accountRepo = Substitute.For<IExchangeRepository>();
-        accountRepo.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+        var exchangeRepo = Substitute.For<IExchangeRepository>();
+        exchangeRepo.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<TradeX.Core.Models.Exchange?>(new TradeX.Core.Models.Exchange
             {
                 Type = ExchangeType.Binance,
@@ -56,7 +56,7 @@ public class PortfolioRiskManagerTests
             new CooldownCheck(Substitute.For<ILogger<CooldownCheck>>()),
             new PositionLimitHandler(Substitute.For<ILogger<PositionLimitHandler>>()),
             new SlippageHandler(Substitute.For<ILogger<SlippageHandler>>()),
-            new ExchangeHealthHandler(clientFactory, accountRepo, encryption, Substitute.For<ILogger<ExchangeHealthHandler>>()),
+            new ExchangeHealthHandler(clientFactory, exchangeRepo, encryption, Substitute.For<ILogger<ExchangeHealthHandler>>()),
             _settings);
     }
 

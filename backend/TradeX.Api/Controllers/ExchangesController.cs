@@ -24,20 +24,20 @@ public class ExchangesController(
         var traders = await traderRepo.GetByUserIdAsync(UserId, ct);
         var traderMap = traders.ToDictionary(t => t.Id, t => t.Name);
 
-        var accounts = await exchangeRepo.GetAllByUserIdAsync(UserId, ct);
+        var exchanges = await exchangeRepo.GetAllByUserIdAsync(UserId, ct);
 
-        var result = accounts.Select(a => new
+        var result = exchanges.Select(e => new
         {
-            a.Id,
-            a.TraderId,
-            traderName = a.TraderId.HasValue ? traderMap.GetValueOrDefault(a.TraderId.Value, "未知") : "全局",
-            label = a.Name,
-            exchangeType = a.Type.ToString(),
-            isEnabled = a.Status == ExchangeStatus.Enabled,
-            a.LastTestedAt,
-            testResult = a.TestResult,
-            createdAt = a.CreatedAt,
-            updatedAt = a.UpdatedAt
+            e.Id,
+            e.TraderId,
+            traderName = e.TraderId.HasValue ? traderMap.GetValueOrDefault(e.TraderId.Value, "未知") : "全局",
+            label = e.Name,
+            exchangeType = e.Type.ToString(),
+            isEnabled = e.Status == ExchangeStatus.Enabled,
+            e.LastTestedAt,
+            testResult = e.TestResult,
+            createdAt = e.CreatedAt,
+            updatedAt = e.UpdatedAt
         });
 
         return Ok(new { data = result });
@@ -83,49 +83,49 @@ public class ExchangesController(
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateExchangeRequest request, CancellationToken ct)
     {
-        var account = await exchangeRepo.GetByIdAsync(id, ct);
-        if (account is null)
+        var exchange = await exchangeRepo.GetByIdAsync(id, ct);
+        if (exchange is null)
             return NotFound(new { code = "EXCHANGE_NOT_FOUND", message = "交易所不存在" });
 
         if (!string.IsNullOrWhiteSpace(request.Name))
         {
-            if (account.Name != request.Name && !await exchangeRepo.IsNameUniqueAsync(request.Name, ct))
+            if (exchange.Name != request.Name && !await exchangeRepo.IsNameUniqueAsync(request.Name, ct))
                 return Conflict(new { code = "VALIDATION_ERROR", message = "交易所名称已存在" });
-            account.Name = request.Name;
+            exchange.Name = request.Name;
         }
         if (!string.IsNullOrWhiteSpace(request.ApiKey))
-            account.ApiKeyEncrypted = encryption.Encrypt(request.ApiKey);
+            exchange.ApiKeyEncrypted = encryption.Encrypt(request.ApiKey);
         if (!string.IsNullOrWhiteSpace(request.SecretKey))
-            account.SecretKeyEncrypted = encryption.Encrypt(request.SecretKey);
+            exchange.SecretKeyEncrypted = encryption.Encrypt(request.SecretKey);
         if (request.Passphrase is not null)
-            account.PassphraseEncrypted = encryption.Encrypt(request.Passphrase);
+            exchange.PassphraseEncrypted = encryption.Encrypt(request.Passphrase);
 
-        await exchangeRepo.UpdateAsync(account, ct);
-        return Ok(new { account.Id, account.Name, account.UpdatedAt });
+        await exchangeRepo.UpdateAsync(exchange, ct);
+        return Ok(new { exchange.Id, exchange.Name, exchange.UpdatedAt });
     }
 
     [HttpPost("{id:guid}/test")]
     public async Task<IActionResult> TestConnection(Guid id, CancellationToken ct)
     {
-        var account = await exchangeRepo.GetByIdAsync(id, ct);
-        if (account is null)
+        var exchange = await exchangeRepo.GetByIdAsync(id, ct);
+        if (exchange is null)
             return NotFound(new { code = "EXCHANGE_NOT_FOUND", message = "交易所不存在" });
 
-        if (account.Status == ExchangeStatus.Disabled)
+        if (exchange.Status == ExchangeStatus.Disabled)
             return BadRequest(new { code = "VALIDATION_ERROR", message = "交易所已禁用" });
 
         try
         {
-            var apiKey = encryption.Decrypt(account.ApiKeyEncrypted);
-            var secretKey = encryption.Decrypt(account.SecretKeyEncrypted);
-            var passphrase = account.PassphraseEncrypted is not null ? encryption.Decrypt(account.PassphraseEncrypted) : null;
+            var apiKey = encryption.Decrypt(exchange.ApiKeyEncrypted);
+            var secretKey = encryption.Decrypt(exchange.SecretKeyEncrypted);
+            var passphrase = exchange.PassphraseEncrypted is not null ? encryption.Decrypt(exchange.PassphraseEncrypted) : null;
 
-            var client = clientFactory.CreateClient(account.Type, apiKey, secretKey, passphrase);
+            var client = clientFactory.CreateClient(exchange.Type, apiKey, secretKey, passphrase);
             var result = await client.TestConnectionAsync(ct);
 
-            account.LastTestedAt = DateTime.UtcNow;
-            account.TestResult = result.Message;
-            await exchangeRepo.UpdateAsync(account, ct);
+            exchange.LastTestedAt = DateTime.UtcNow;
+            exchange.TestResult = result.Message;
+            await exchangeRepo.UpdateAsync(exchange, ct);
 
             return Ok(new { connected = result.Success, error = result.Success ? null : result.Message });
         }
@@ -138,20 +138,20 @@ public class ExchangesController(
     [HttpGet("{id:guid}/orders")]
     public async Task<IActionResult> GetOrders(Guid id, [FromQuery] string type = "open", CancellationToken ct = default)
     {
-        var account = await exchangeRepo.GetByIdAsync(id, ct);
-        if (account is null)
+        var exchange = await exchangeRepo.GetByIdAsync(id, ct);
+        if (exchange is null)
             return NotFound(new { code = "EXCHANGE_NOT_FOUND", message = "交易所不存在" });
 
-        if (account.Status == ExchangeStatus.Disabled)
+        if (exchange.Status == ExchangeStatus.Disabled)
             return BadRequest(new { code = "VALIDATION_ERROR", message = "交易所已禁用" });
 
         try
         {
-            var apiKey = encryption.Decrypt(account.ApiKeyEncrypted);
-            var secretKey = encryption.Decrypt(account.SecretKeyEncrypted);
-            var passphrase = account.PassphraseEncrypted is not null ? encryption.Decrypt(account.PassphraseEncrypted) : null;
+            var apiKey = encryption.Decrypt(exchange.ApiKeyEncrypted);
+            var secretKey = encryption.Decrypt(exchange.SecretKeyEncrypted);
+            var passphrase = exchange.PassphraseEncrypted is not null ? encryption.Decrypt(exchange.PassphraseEncrypted) : null;
 
-            var client = clientFactory.CreateClient(account.Type, apiKey, secretKey, passphrase);
+            var client = clientFactory.CreateClient(exchange.Type, apiKey, secretKey, passphrase);
 
             var orders = type == "history"
                 ? await client.GetOrderHistoryAsync(ct)
@@ -168,44 +168,44 @@ public class ExchangesController(
     [HttpPost("{id:guid}/toggle")]
     public async Task<IActionResult> ToggleStatus(Guid id, CancellationToken ct)
     {
-        var account = await exchangeRepo.GetByIdAsync(id, ct);
-        if (account is null)
+        var exchange = await exchangeRepo.GetByIdAsync(id, ct);
+        if (exchange is null)
             return NotFound(new { code = "EXCHANGE_NOT_FOUND", message = "交易所不存在" });
 
-        account.Status = account.Status == ExchangeStatus.Enabled ? ExchangeStatus.Disabled : ExchangeStatus.Enabled;
-        await exchangeRepo.UpdateAsync(account, ct);
+        exchange.Status = exchange.Status == ExchangeStatus.Enabled ? ExchangeStatus.Disabled : ExchangeStatus.Enabled;
+        await exchangeRepo.UpdateAsync(exchange, ct);
 
-        return Ok(new { account.Id, isEnabled = account.Status == ExchangeStatus.Enabled });
+        return Ok(new { exchange.Id, isEnabled = exchange.Status == ExchangeStatus.Enabled });
     }
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
-        var account = await exchangeRepo.GetByIdAsync(id, ct);
-        if (account is null)
+        var exchange = await exchangeRepo.GetByIdAsync(id, ct);
+        if (exchange is null)
             return NotFound(new { code = "EXCHANGE_NOT_FOUND", message = "交易所不存在" });
 
-        await exchangeRepo.DeleteAsync(account, ct);
+        await exchangeRepo.DeleteAsync(exchange, ct);
         return NoContent();
     }
 
     [HttpGet("{id:guid}/assets")]
     public async Task<IActionResult> GetAssets(Guid id, CancellationToken ct)
     {
-        var account = await exchangeRepo.GetByIdAsync(id, ct);
-        if (account is null)
+        var exchange = await exchangeRepo.GetByIdAsync(id, ct);
+        if (exchange is null)
             return NotFound(new { code = "EXCHANGE_NOT_FOUND", message = "交易所不存在" });
 
-        if (account.Status == ExchangeStatus.Disabled)
+        if (exchange.Status == ExchangeStatus.Disabled)
             return BadRequest(new { code = "VALIDATION_ERROR", message = "交易所已禁用" });
 
         try
         {
-            var apiKey = encryption.Decrypt(account.ApiKeyEncrypted);
-            var secretKey = encryption.Decrypt(account.SecretKeyEncrypted);
-            var passphrase = account.PassphraseEncrypted is not null ? encryption.Decrypt(account.PassphraseEncrypted) : null;
+            var apiKey = encryption.Decrypt(exchange.ApiKeyEncrypted);
+            var secretKey = encryption.Decrypt(exchange.SecretKeyEncrypted);
+            var passphrase = exchange.PassphraseEncrypted is not null ? encryption.Decrypt(exchange.PassphraseEncrypted) : null;
 
-            var client = clientFactory.CreateClient(account.Type, apiKey, secretKey, passphrase);
+            var client = clientFactory.CreateClient(exchange.Type, apiKey, secretKey, passphrase);
 
             var assets = await client.GetAssetBalancesAsync(ct);
             var list = assets.Select(a => new { currency = a.Key, balance = a.Value }).OrderByDescending(a => a.balance).ToArray();
@@ -220,20 +220,20 @@ public class ExchangesController(
     [HttpGet("{id:guid}/symbols")]
     public async Task<IActionResult> GetSymbols(Guid id, CancellationToken ct)
     {
-        var account = await exchangeRepo.GetByIdAsync(id, ct);
-        if (account is null)
+        var exchange = await exchangeRepo.GetByIdAsync(id, ct);
+        if (exchange is null)
             return NotFound(new { code = "EXCHANGE_NOT_FOUND", message = "交易所不存在" });
 
-        if (account.Status == ExchangeStatus.Disabled)
+        if (exchange.Status == ExchangeStatus.Disabled)
             return BadRequest(new { code = "VALIDATION_ERROR", message = "交易所已禁用" });
 
         try
         {
-            var apiKey = encryption.Decrypt(account.ApiKeyEncrypted);
-            var secretKey = encryption.Decrypt(account.SecretKeyEncrypted);
-            var passphrase = account.PassphraseEncrypted is not null ? encryption.Decrypt(account.PassphraseEncrypted) : null;
+            var apiKey = encryption.Decrypt(exchange.ApiKeyEncrypted);
+            var secretKey = encryption.Decrypt(exchange.SecretKeyEncrypted);
+            var passphrase = exchange.PassphraseEncrypted is not null ? encryption.Decrypt(exchange.PassphraseEncrypted) : null;
 
-            var client = clientFactory.CreateClient(account.Type, apiKey, secretKey, passphrase);
+            var client = clientFactory.CreateClient(exchange.Type, apiKey, secretKey, passphrase);
 
             var rulesTask = client.GetSymbolRulesAsync(ct);
             var tickerTask = client.GetTickerPricesAsync(ct);

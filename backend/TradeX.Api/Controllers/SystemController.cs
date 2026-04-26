@@ -10,7 +10,7 @@ namespace TradeX.Api.Controllers;
 [Route("api/system")]
 public class SystemController(
     ITradingEventBus eventBus,
-    IExchangeRepository accountRepo,
+    IExchangeRepository exchangeRepo,
     IExchangeClientFactory clientFactory,
     IEncryptionService encryptionService,
     ILogger<SystemController> logger) : ControllerBase
@@ -25,27 +25,27 @@ public class SystemController(
 
         try
         {
-            var accounts = await accountRepo.GetAllEnabledAsync(ct);
-            foreach (var account in accounts)
+            var exchanges = await exchangeRepo.GetAllEnabledAsync(ct);
+            foreach (var exchange in exchanges)
             {
                 try
                 {
-                    var apiKey = encryptionService.Decrypt(account.ApiKeyEncrypted);
-                    var secretKey = encryptionService.Decrypt(account.SecretKeyEncrypted);
-                    var client = clientFactory.CreateClient(account.Type, apiKey, secretKey);
+                    var apiKey = encryptionService.Decrypt(exchange.ApiKeyEncrypted);
+                    var secretKey = encryptionService.Decrypt(exchange.SecretKeyEncrypted);
+                    var client = clientFactory.CreateClient(exchange.Type, apiKey, secretKey);
 
-                    account.Status = Core.Models.ExchangeStatus.Disabled;
-                    await accountRepo.UpdateAsync(account, ct);
+                    exchange.Status = TradeX.Core.Models.ExchangeStatus.Disabled;
+                    await exchangeRepo.UpdateAsync(exchange, ct);
 
                     disabledCount++;
 
-                    if (account.TraderId is not null)
-                        await eventBus.RiskAlertAsync(account.TraderId.Value, "Critical", "EmergencyStop", null,
-                            $"系统紧急停止: 交易所 {account.Name} 已禁用", ct);
+                    if (exchange.TraderId is not null)
+                        await eventBus.RiskAlertAsync(exchange.TraderId.Value, "Critical", "EmergencyStop", null,
+                            $"系统紧急停止: 交易所 {exchange.Name} 已禁用", ct);
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError(ex, "紧急停止: 禁用交易所失败, ExchangeId={ExchangeId}", account.Id);
+                    logger.LogError(ex, "紧急停止: 禁用交易所失败, ExchangeId={ExchangeId}", exchange.Id);
                 }
             }
         }

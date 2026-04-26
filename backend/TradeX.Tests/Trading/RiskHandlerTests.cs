@@ -223,8 +223,8 @@ public class RiskChainIntegrationTests
         var positionLimit = new PositionLimitHandler(Substitute.For<ILogger<PositionLimitHandler>>());
         var slippage = new SlippageHandler(Substitute.For<ILogger<SlippageHandler>>());
 
-        var accountRepo = Substitute.For<IExchangeRepository>();
-        accountRepo.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+        var exchangeRepo = Substitute.For<IExchangeRepository>();
+        exchangeRepo.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(new TradeX.Core.Models.Exchange
             {
                 Type = Core.Enums.ExchangeType.Binance,
@@ -245,7 +245,7 @@ public class RiskChainIntegrationTests
             .Returns(exchangeClient);
 
         var exchangeHealth = new ExchangeHealthHandler(
-            clientFactory, accountRepo, encryptionService,
+            clientFactory, exchangeRepo, encryptionService,
             Substitute.For<ILogger<ExchangeHealthHandler>>());
 
         dailyLoss.SetNext(drawdown)

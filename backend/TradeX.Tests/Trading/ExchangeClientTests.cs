@@ -70,20 +70,20 @@ public class TradeExecutorTests
     [Fact]
     public async Task ExecuteMarketOrderAsync_MissingAccount_ReturnsError()
     {
-        var accountRepo = Substitute.For<IExchangeRepository>();
-        accountRepo.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+        var exchangeRepo = Substitute.For<IExchangeRepository>();
+        exchangeRepo.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<TradeX.Core.Models.Exchange?>(null));
 
         var executor = new TradeExecutor(
             Substitute.For<IExchangeClientFactory>(),
-            accountRepo,
+            exchangeRepo,
             Substitute.For<IEncryptionService>(),
             Substitute.For<ILogger<TradeExecutor>>());
 
         var result = await executor.ExecuteMarketOrderAsync(new Order { ExchangeId = Guid.NewGuid() });
 
         Assert.False(result.Success);
-        Assert.Contains("账户不存在", result.Error);
+        Assert.Contains("交易所不存在", result.Error);
     }
 
     [Fact]
@@ -119,7 +119,7 @@ public class TradeExecutorTests
     [Fact]
     public async Task ExecuteMarketOrderAsync_WithAccount_CallsPlaceOrder()
     {
-        var account = new TradeX.Core.Models.Exchange
+        var exchange = new TradeX.Core.Models.Exchange
         {
             Id = Guid.NewGuid(),
             Type = ExchangeType.Binance,
@@ -127,9 +127,9 @@ public class TradeExecutorTests
             SecretKeyEncrypted = "enc-secret"
         };
 
-        var accountRepo = Substitute.For<IExchangeRepository>();
-        accountRepo.GetByIdAsync(account.Id, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<TradeX.Core.Models.Exchange?>(account));
+        var exchangeRepo = Substitute.For<IExchangeRepository>();
+        exchangeRepo.GetByIdAsync(exchange.Id, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<TradeX.Core.Models.Exchange?>(exchange));
 
         var encryption = Substitute.For<IEncryptionService>();
         encryption.Decrypt("enc-key").Returns("key");
@@ -144,12 +144,12 @@ public class TradeExecutorTests
             .Returns(exchangeClient);
 
         var executor = new TradeExecutor(
-            clientFactory, accountRepo, encryption,
+            clientFactory, exchangeRepo, encryption,
             Substitute.For<ILogger<TradeExecutor>>());
 
         var order = new Order
         {
-            ExchangeId = account.Id,
+            ExchangeId = exchange.Id,
             SymbolId = "BTCUSDT",
             Side = OrderSide.Buy,
             Quantity = 1,

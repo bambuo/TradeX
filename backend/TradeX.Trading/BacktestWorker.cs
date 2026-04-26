@@ -96,7 +96,7 @@ public class BacktestScheduler(
 
         var taskRepo = scope.ServiceProvider.GetRequiredService<IBacktestTaskRepository>();
         var strategyRepo = scope.ServiceProvider.GetRequiredService<IStrategyRepository>();
-        var accountRepo = scope.ServiceProvider.GetRequiredService<IExchangeRepository>();
+        var exchangeRepo = scope.ServiceProvider.GetRequiredService<IExchangeRepository>();
         var clientFactory = scope.ServiceProvider.GetRequiredService<IExchangeClientFactory>();
         var encryptionService = scope.ServiceProvider.GetRequiredService<IEncryptionService>();
         var indicatorService = scope.ServiceProvider.GetRequiredService<IIndicatorService>();
@@ -123,11 +123,11 @@ public class BacktestScheduler(
         if (strategy is null)
             throw new InvalidOperationException($"策略不存在: {task.StrategyId}");
 
-        var account = await accountRepo.GetByIdAsync(task.ExchangeId, ct);
-        if (account is null)
-            throw new InvalidOperationException($"交易所账户不存在: {task.ExchangeId}");
+        var exchange = await exchangeRepo.GetByIdAsync(task.ExchangeId, ct);
+        if (exchange is null)
+            throw new InvalidOperationException($"交易所不存在: {task.ExchangeId}");
 
-        var exchangeName = account.Type.ToString();
+        var exchangeName = exchange.Type.ToString();
 
         task.Phase = BacktestPhase.FetchingData;
         await taskRepo.UpdateAsync(task, ct);
@@ -142,9 +142,9 @@ public class BacktestScheduler(
 
         var iotdbTask = iotdb.GetKlinesAsync(exchangeName, symbolId, timeframe, startUtc, endUtc, ct);
         var exchangeClient = clientFactory.CreateClient(
-            account.Type,
-            encryptionService.Decrypt(account.ApiKeyEncrypted),
-            encryptionService.Decrypt(account.SecretKeyEncrypted));
+            exchange.Type,
+            encryptionService.Decrypt(exchange.ApiKeyEncrypted),
+            encryptionService.Decrypt(exchange.SecretKeyEncrypted));
         var exchangeTask = exchangeClient.GetKlinesAsync(symbolId, timeframe, startUtc, endUtc, ct);
 
         var completedTask = await Task.WhenAny(iotdbTask, exchangeTask);

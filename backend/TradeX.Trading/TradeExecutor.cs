@@ -7,7 +7,7 @@ namespace TradeX.Trading;
 
 public class TradeExecutor(
     IExchangeClientFactory exchangeFactory,
-    IExchangeRepository accountRepo,
+    IExchangeRepository exchangeRepo,
     IEncryptionService encryptionService,
     ILogger<TradeExecutor> logger) : ITradeExecutor
 {
@@ -36,15 +36,15 @@ public class TradeExecutor(
     {
         try
         {
-            var account = await accountRepo.GetByIdAsync(order.ExchangeId, ct);
-            if (account is null)
-                return new OrderResult(false, null, 0, 0, 0, "交易所账户不存在");
+            var exchange = await exchangeRepo.GetByIdAsync(order.ExchangeId, ct);
+            if (exchange is null)
+                return new OrderResult(false, null, 0, 0, 0, "交易所不存在");
 
             var client = exchangeFactory.CreateClient(
-                account.Type,
-                encryptionService.Decrypt(account.ApiKeyEncrypted),
-                encryptionService.Decrypt(account.SecretKeyEncrypted),
-                account.PassphraseEncrypted is not null ? encryptionService.Decrypt(account.PassphraseEncrypted) : null);
+                exchange.Type,
+                encryptionService.Decrypt(exchange.ApiKeyEncrypted),
+                encryptionService.Decrypt(exchange.SecretKeyEncrypted),
+                exchange.PassphraseEncrypted is not null ? encryptionService.Decrypt(exchange.PassphraseEncrypted) : null);
 
             var symbol = order.SymbolId;
             var quantity = order.Side == OrderSide.Buy ? order.QuoteQuantity : order.Quantity;
