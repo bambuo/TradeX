@@ -11,7 +11,7 @@ export interface BacktestTask {
   phase?: string
   startAtUtc: string
   endAtUtc: string
-  createdAtUtc: string
+  createdAt: string
   completedAtUtc: string | null
 }
 

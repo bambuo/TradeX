@@ -12,7 +12,7 @@ public class BacktestTaskRepository(TradeXDbContext context) : IBacktestTaskRepo
     public async Task<List<BacktestTask>> GetByStrategyIdAsync(Guid strategyId, CancellationToken ct = default)
         => await context.BacktestTasks
             .Where(t => t.StrategyId == strategyId)
-            .OrderByDescending(t => t.CreatedAtUtc)
+            .OrderByDescending(t => t.CreatedAt)
             .ToListAsync(ct);
 
     public async Task AddAsync(BacktestTask task, CancellationToken ct = default)

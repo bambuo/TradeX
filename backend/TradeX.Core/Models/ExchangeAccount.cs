@@ -21,6 +21,6 @@ public class ExchangeAccount
     public DateTime? LastTestedAtUtc { get; set; }
     public string? TestResult { get; set; }
     public Guid CreatedBy { get; init; }
-    public DateTime CreatedAtUtc { get; init; } = DateTime.UtcNow;
-    public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

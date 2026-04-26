@@ -7,7 +7,7 @@ export interface NotificationChannel {
   status: string
   isDefault: boolean
   lastTestedAtUtc: string | null
-  createdAtUtc: string
+  createdAt: string
 }
 
 export const notificationChannelsApi = {

@@ -5,7 +5,7 @@ export interface User {
   userName: string
   role: string
   status: string
-  createdAtUtc: string
+  createdAt: string
 }
 
 export const usersApi = {

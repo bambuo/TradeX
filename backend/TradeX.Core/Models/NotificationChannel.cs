@@ -22,6 +22,6 @@ public class NotificationChannel
     public bool IsDefault { get; set; }
     public NotificationChannelStatus Status { get; set; } = NotificationChannelStatus.Enabled;
     public DateTime? LastTestedAtUtc { get; set; }
-    public DateTime CreatedAtUtc { get; init; } = DateTime.UtcNow;
-    public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

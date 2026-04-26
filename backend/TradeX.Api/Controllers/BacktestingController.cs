@@ -32,7 +32,7 @@ public class BacktestingController(
             {
                 taskId = task.Id,
                 status = task.Status.ToString(),
-                createdAt = task.CreatedAtUtc,
+                createdAt = task.CreatedAt,
                 strategyName = task.StrategyName,
                 symbolId = task.SymbolId,
                 timeframe = task.Timeframe
@@ -54,7 +54,7 @@ public class BacktestingController(
             status = t.Status.ToString(),
             phase = t.Phase?.ToString(),
             t.StartAtUtc, t.EndAtUtc,
-            t.CreatedAtUtc, t.CompletedAtUtc
+            t.CreatedAt, t.CompletedAtUtc
         }));
     }
 
@@ -69,7 +69,7 @@ public class BacktestingController(
             status = task.Status.ToString(),
             phase = task.Phase?.ToString(),
             task.StartAtUtc, task.EndAtUtc,
-            task.CreatedAtUtc, task.CompletedAtUtc
+            task.CreatedAt, task.CompletedAtUtc
         });
     }
 

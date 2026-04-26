@@ -29,7 +29,7 @@ public class PositionsController(
         {
             p.Id, p.TraderId, p.ExchangeId, p.StrategyId, p.SymbolId,
             p.Quantity, p.EntryPrice, p.CurrentPrice, p.UnrealizedPnl, p.RealizedPnl,
-            p.Status, p.OpenedAtUtc, p.ClosedAtUtc, p.UpdatedAtUtc
+            p.Status, p.OpenedAtUtc, p.ClosedAtUtc, p.UpdatedAt
         }));
     }
 
@@ -48,7 +48,7 @@ public class PositionsController(
         {
             position.Id, position.TraderId, position.ExchangeId, position.StrategyId, position.SymbolId,
             position.Quantity, position.EntryPrice, position.CurrentPrice, position.UnrealizedPnl, position.RealizedPnl,
-            position.Status, position.OpenedAtUtc, position.ClosedAtUtc, position.UpdatedAtUtc
+            position.Status, position.OpenedAtUtc, position.ClosedAtUtc, position.UpdatedAt
         });
     }
 }

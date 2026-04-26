@@ -10,7 +10,7 @@ public class StrategyRepository(TradeXDbContext context) : IStrategyRepository
         => await context.Strategies.FirstOrDefaultAsync(s => s.Id == id, ct);
 
     public async Task<List<Strategy>> GetAllAsync(CancellationToken ct = default)
-        => await context.Strategies.OrderByDescending(s => s.UpdatedAtUtc).ToListAsync(ct);
+        => await context.Strategies.OrderByDescending(s => s.UpdatedAt).ToListAsync(ct);
 
     public async Task AddAsync(Strategy strategy, CancellationToken ct = default)
     {
@@ -20,7 +20,7 @@ public class StrategyRepository(TradeXDbContext context) : IStrategyRepository
 
     public async Task UpdateAsync(Strategy strategy, CancellationToken ct = default)
     {
-        strategy.UpdatedAtUtc = DateTime.UtcNow;
+        strategy.UpdatedAt = DateTime.UtcNow;
         context.Strategies.Update(strategy);
         await context.SaveChangesAsync(ct);
     }

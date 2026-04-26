@@ -13,19 +13,19 @@ public class StrategyDeploymentRepository(TradeXDbContext context) : IStrategyDe
     public async Task<List<StrategyDeployment>> GetByTraderIdAsync(Guid traderId, CancellationToken ct = default)
         => await context.StrategyDeployments
             .Where(s => s.TraderId == traderId)
-            .OrderByDescending(s => s.UpdatedAtUtc)
+            .OrderByDescending(s => s.UpdatedAt)
             .ToListAsync(ct);
 
     public async Task<List<StrategyDeployment>> GetAllByUserIdAsync(Guid userId, CancellationToken ct = default)
         => await context.StrategyDeployments
             .Where(s => context.Traders.Any(t => t.Id == s.TraderId && t.UserId == userId))
-            .OrderByDescending(s => s.UpdatedAtUtc)
+            .OrderByDescending(s => s.UpdatedAt)
             .ToListAsync(ct);
 
     public async Task<List<StrategyDeployment>> GetAllActiveAsync(CancellationToken ct = default)
         => await context.StrategyDeployments
             .Where(s => s.Status == Core.Enums.StrategyStatus.Active)
-            .OrderByDescending(s => s.UpdatedAtUtc)
+            .OrderByDescending(s => s.UpdatedAt)
             .ToListAsync(ct);
 
     public async Task<List<StrategyDeployment>> GetActiveByExchangeAndSymbolAsync(Guid exchangeId, string symbolId, CancellationToken ct = default)
@@ -64,7 +64,7 @@ public class StrategyDeploymentRepository(TradeXDbContext context) : IStrategyDe
 
     public async Task UpdateAsync(StrategyDeployment deployment, CancellationToken ct = default)
     {
-        deployment.UpdatedAtUtc = DateTime.UtcNow;
+        deployment.UpdatedAt = DateTime.UtcNow;
         context.StrategyDeployments.Update(deployment);
         await context.SaveChangesAsync(ct);
     }

@@ -24,7 +24,7 @@ public class NotificationChannelsController(
             {
                 c.Id, c.Name, type = c.Type.ToString(),
                 status = c.Status.ToString(), c.IsDefault,
-                c.LastTestedAtUtc, c.CreatedAtUtc
+                c.LastTestedAtUtc, c.CreatedAt
             })
         });
     }
@@ -46,7 +46,7 @@ public class NotificationChannelsController(
         {
             channel.Id, channel.Name, type = channel.Type.ToString(),
             status = channel.Status.ToString(), channel.IsDefault,
-            channel.CreatedAtUtc
+            channel.CreatedAt
         });
     }
 

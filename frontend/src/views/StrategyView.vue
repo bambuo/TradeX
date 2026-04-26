@@ -54,6 +54,14 @@ const statusColors: Record<string, string> = {
   Draft: '#94a3b8', Backtesting: '#f59e0b', Passed: '#22c55e', Active: '#38bdf8', Disabled: '#ef4444'
 }
 
+const statusByCode: Record<number, string> = {
+  0: 'Draft',
+  1: 'Backtesting',
+  2: 'Passed',
+  3: 'Active',
+  4: 'Disabled'
+}
+
 const sortedSymbols = computed(() => {
   let list = symbols.value
   if (symbolSearch.value) {
@@ -82,6 +90,38 @@ function toggleSort(key: typeof sortKey.value) {
 function sortArrow(key: typeof sortKey.value): string {
   if (sortKey.value !== key) return ''
   return sortDesc.value ? ' ▼' : ' ▲'
+}
+
+function normalizeStatus(status: unknown): string {
+  if (typeof status === 'number') return statusByCode[status] ?? String(status)
+  if (typeof status === 'string' && /^\d+$/.test(status)) {
+    const code = Number(status)
+    return statusByCode[code] ?? status
+  }
+  return String(status ?? '')
+}
+
+function getStatusLabel(status: unknown): string {
+  const normalized = normalizeStatus(status)
+  if (statusLabels[normalized]) return statusLabels[normalized]
+  return normalized || '-'
+}
+
+function getStatusColor(status: unknown): string {
+  const normalized = normalizeStatus(status)
+  return statusColors[normalized] ?? '#94a3b8'
+}
+
+function isActive(status: unknown): boolean {
+  return normalizeStatus(status) === 'Active'
+}
+
+function formatUtcTime(value: string): string {
+  if (!value) return '-'
+  const normalized = /[zZ]$|[+-]\d{2}:\d{2}$/.test(value) ? value : `${value}Z`
+  const date = new Date(normalized)
+  if (Number.isNaN(date.getTime())) return '-'
+  return date.toLocaleString('zh-CN', { hour12: false })
 }
 
 async function load() {
@@ -240,7 +280,7 @@ async function toggle(d: StrategyDeployment) {
   toggleLoading.value = d.id
   errorMsg.value = ''
   try {
-    await strategiesApi.toggle(traderId, d.id, d.status !== 'Active')
+    await strategiesApi.toggle(traderId, d.id, !isActive(d.status))
     await load()
   } catch (e: any) {
     errorMsg.value = e.response?.data?.message || e.response?.data?.error || '操作失败'
@@ -410,19 +450,19 @@ onMounted(load)
           <td class="symbol-cell">{{ d.scope === 'Symbol' ? parseSymbolIds(d.symbolIds).join(', ') : '-' }}</td>
           <td>{{ d.timeframe }}</td>
           <td>
-            <span class="status-badge" :style="{ background: statusColors[d.status] }">
-              {{ statusLabels[d.status] }}
+            <span class="status-badge" :style="{ background: getStatusColor(d.status) }">
+              {{ getStatusLabel(d.status) }}
             </span>
           </td>
-          <td>{{ new Date(d.updatedAt_utc).toLocaleString() }}</td>
+          <td>{{ formatUtcTime(d.updatedAt) }}</td>
           <td class="actions">
-            <button class="btn-small" :class="d.status === 'Active' ? 'btn-warn' : 'btn-ok'"
-              :disabled="toggleLoading === d.id || d.status === 'Draft'" @click="toggle(d)">
-              {{ toggleLoading === d.id ? '...' : d.status === 'Active' ? '禁用' : '启用' }}
+            <button class="btn-small" :class="isActive(d.status) ? 'btn-warn' : 'btn-ok'"
+              :disabled="toggleLoading === d.id || normalizeStatus(d.status) === 'Draft'" @click="toggle(d)">
+              {{ toggleLoading === d.id ? '...' : isActive(d.status) ? '禁用' : '启用' }}
             </button>
-            <button class="btn-small" :disabled="d.status === 'Active'" @click="openEdit(d)">编辑</button>
+            <button class="btn-small" :disabled="isActive(d.status)" @click="openEdit(d)">编辑</button>
             <button class="btn-small" @click="router.push(`/traders/${traderId}/strategies/${d.id}/backtest`)">回测</button>
-            <button class="btn-small btn-danger" :disabled="d.status === 'Active'" @click="remove(d.id)">删除</button>
+            <button class="btn-small btn-danger" :disabled="isActive(d.status)" @click="remove(d.id)">删除</button>
           </td>
         </tr>
         <tr v-if="deployments.length === 0">

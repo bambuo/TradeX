@@ -22,5 +22,5 @@ public class Order
     public string? FeeAsset { get; set; }
     public bool IsManual { get; set; }
     public DateTime PlacedAtUtc { get; init; } = DateTime.UtcNow;
-    public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

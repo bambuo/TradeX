@@ -19,7 +19,7 @@ export interface Order {
   feeAsset: string | null
   isManual: boolean
   placedAtUtc: string
-  updatedAt_utc: string
+  updatedAt: string
 }
 
 export interface CreateManualOrderRequest {

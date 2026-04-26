@@ -16,6 +16,6 @@ public class StrategyDeployment
     public string ExecutionRuleJson { get; set; } = "{}";
     public StrategyStatus Status { get; set; } = StrategyStatus.Draft;
     public Guid CreatedBy { get; init; }
-    public DateTime CreatedAtUtc { get; init; } = DateTime.UtcNow;
-    public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

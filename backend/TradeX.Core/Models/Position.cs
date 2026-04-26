@@ -17,5 +17,5 @@ public class Position
     public PositionStatus Status { get; set; } = PositionStatus.Open;
     public DateTime OpenedAtUtc { get; init; } = DateTime.UtcNow;
     public DateTime? ClosedAtUtc { get; set; }
-    public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

@@ -30,7 +30,7 @@ public class OrderReconciler(
                 if (order.Status == Core.Enums.OrderStatus.Pending && order.PlacedAtUtc < DateTime.UtcNow.AddMinutes(-5))
                 {
                     order.Status = Core.Enums.OrderStatus.Failed;
-                    order.UpdatedAtUtc = DateTime.UtcNow;
+                    order.UpdatedAt = DateTime.UtcNow;
                     await orderRepo.UpdateAsync(order, ct);
                     totalFixed++;
                     logger.LogWarning("Reconciliation: 订单超时标记为失败, OrderId={OrderId}, ExchangeId={ExchangeId}",

@@ -28,7 +28,7 @@ public class ExchangeAccountRepository(TradeXDbContext db) : IExchangeAccountRep
 
     public async Task UpdateAsync(ExchangeAccount account, CancellationToken ct = default)
     {
-        account.UpdatedAtUtc = DateTime.UtcNow;
+        account.UpdatedAt = DateTime.UtcNow;
         db.ExchangeAccounts.Update(account);
         await db.SaveChangesAsync(ct);
     }

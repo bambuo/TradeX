@@ -10,7 +10,7 @@ public class NotificationChannelRepository(TradeXDbContext context) : INotificat
         => await context.NotificationChannels.FirstOrDefaultAsync(x => x.Id == id, ct);
 
     public async Task<List<NotificationChannel>> GetAllAsync(CancellationToken ct = default)
-        => await context.NotificationChannels.OrderByDescending(x => x.CreatedAtUtc).ToListAsync(ct);
+        => await context.NotificationChannels.OrderByDescending(x => x.CreatedAt).ToListAsync(ct);
 
     public async Task AddAsync(NotificationChannel channel, CancellationToken ct = default)
     {
@@ -20,7 +20,7 @@ public class NotificationChannelRepository(TradeXDbContext context) : INotificat
 
     public async Task UpdateAsync(NotificationChannel channel, CancellationToken ct = default)
     {
-        channel.UpdatedAtUtc = DateTime.UtcNow;
+        channel.UpdatedAt = DateTime.UtcNow;
         context.NotificationChannels.Update(channel);
         await context.SaveChangesAsync(ct);
     }

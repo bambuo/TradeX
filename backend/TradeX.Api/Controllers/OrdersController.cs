@@ -28,7 +28,7 @@ public class OrdersController(
         {
             o.Id, o.TraderId, o.ExchangeOrderId, o.ExchangeId, o.StrategyId, o.PositionId,
             o.SymbolId, o.Side, o.Type, o.Status, o.Price, o.Quantity, o.FilledQuantity,
-            o.QuoteQuantity, o.Fee, o.FeeAsset, o.IsManual, o.PlacedAtUtc, o.UpdatedAtUtc
+            o.QuoteQuantity, o.Fee, o.FeeAsset, o.IsManual, o.PlacedAtUtc, o.UpdatedAt
         }));
     }
 
@@ -47,7 +47,7 @@ public class OrdersController(
         {
             order.Id, order.TraderId, order.ExchangeOrderId, order.ExchangeId, order.StrategyId, order.PositionId,
             order.SymbolId, order.Side, order.Type, order.Status, order.Price, order.Quantity, order.FilledQuantity,
-            order.QuoteQuantity, order.Fee, order.FeeAsset, order.IsManual, order.PlacedAtUtc, order.UpdatedAtUtc
+            order.QuoteQuantity, order.Fee, order.FeeAsset, order.IsManual, order.PlacedAtUtc, order.UpdatedAt
         });
     }
 

@@ -427,7 +427,7 @@ function formatPercent(v: number): string {
               <td>{{ t.symbolId || '-' }} {{ t.timeframe }}</td>
               <td>${{ t.initialCapital?.toLocaleString() ?? 1000 }}</td>
               <td class="date-cell">{{ new Date(t.startAtUtc).toLocaleDateString() }} ~ {{ new Date(t.endAtUtc).toLocaleDateString() }}</td>
-              <td class="date-cell">{{ new Date(t.createdAtUtc).toLocaleString() }}</td>
+              <td class="date-cell">{{ new Date(t.createdAt).toLocaleString() }}</td>
             </tr>
           </tbody>
         </table>
@@ -454,7 +454,7 @@ function formatPercent(v: number): string {
           </div>
           <div class="meta-item">
             <span class="meta-label">创建时间</span>
-            <span class="meta-value">{{ new Date(selectedTask.createdAtUtc).toLocaleString() }}</span>
+            <span class="meta-value">{{ new Date(selectedTask.createdAt).toLocaleString() }}</span>
           </div>
           <div v-if="selectedTask.completedAtUtc" class="meta-item">
             <span class="meta-label">完成时间</span>

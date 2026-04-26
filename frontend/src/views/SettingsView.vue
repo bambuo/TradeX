@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { settingsApi, type Setting } from '../api/settings'
 
 const settings = ref<Setting[]>([])
@@ -12,23 +12,33 @@ const messageType = ref<'success' | 'error'>('success')
 const groupLabels: Record<string, string> = {
   jwt: 'JWT 认证',
   risk: '风控参数',
-  data: '数据配置'
+  data: '数据配置',
+  model: '模型参数',
+  deepseek: 'DeepSeek'
 }
 
 const keyLabels: Record<string, string> = {
   'jwt.secret': 'JWT 密钥',
-  'jwt.accessToken_expires_minutes': '访问令牌过期时间（分钟）',
-  'jwt.refreshToken_expires_days': '刷新令牌过期时间（天）',
+  'jwt.access_token_expires_minutes': '访问令牌过期时间（分钟）',
+  'jwt.refresh_token_expires_days': '刷新令牌过期时间（天）',
   'risk.default_slippage_percent': '默认滑点（%）',
   'risk.max_daily_loss_percent': '每日最大亏损（%）',
-  'risk.maxDrawdownPercent': '最大回撤（%）',
+  'risk.max_drawdown_percent': '最大回撤（%）',
   'risk.cooldown_seconds': '冷却时间（秒）',
   'risk.consecutive_loss_limit': '连续亏损上限',
   'data.kline_warmup_days': 'K 线预热天数',
-  'data.kline_warmup_interval': 'K 线预热间隔'
+  'data.kline_warmup_interval': 'K 线预热间隔',
+  'model.provider': '模型提供商',
+  'model.default_provider': '默认模型提供商',
+  'model.default_model': '默认模型',
+  'deepseek.base_url': 'DeepSeek 接口地址',
+  'deepseek.api_key': 'DeepSeek API Key',
+  'deepseek.model': 'DeepSeek 模型',
+  'deepseek.timeout_seconds': 'DeepSeek 超时（秒）'
 }
 
 const readOnlyKeys = ['jwt.secret']
+const preferredGroupOrder = ['jwt', 'risk', 'data', 'model', 'deepseek']
 
 function getGroup(key: string): string {
   return key.split('.')[0]
@@ -40,6 +50,26 @@ function isReadOnly(key: string): boolean {
 
 function hasChanges(): boolean {
   return settings.value.some(s => (edited.value[s.key] ?? s.value) !== s.value)
+}
+
+const groups = computed(() => {
+  const dynamicGroups = Array.from(new Set(settings.value.map(s => getGroup(s.key))))
+  return dynamicGroups.sort((a, b) => {
+    const ai = preferredGroupOrder.indexOf(a)
+    const bi = preferredGroupOrder.indexOf(b)
+    if (ai >= 0 && bi >= 0) return ai - bi
+    if (ai >= 0) return -1
+    if (bi >= 0) return 1
+    return a.localeCompare(b)
+  })
+})
+
+function getGroupLabel(group: string): string {
+  return groupLabels[group] ?? group.toUpperCase()
+}
+
+function getInputType(key: string): 'text' | 'password' {
+  return /(secret|token|api_?key|password)/i.test(key) ? 'password' : 'text'
 }
 
 async function load() {
@@ -99,11 +129,11 @@ onMounted(load)
     <div v-if="loading">加载中...</div>
     <div v-else class="settings-groups">
       <div
-        v-for="group in ['jwt', 'risk', 'data']"
+        v-for="group in groups"
         :key="group"
         class="group-card"
       >
-        <h3 class="group-title">{{ groupLabels[group] }}</h3>
+        <h3 class="group-title">{{ getGroupLabel(group) }}</h3>
         <div class="group-items">
           <div
             v-for="s in settings.filter(s => getGroup(s.key) === group)"
@@ -115,19 +145,21 @@ onMounted(load)
               <span class="setting-key">{{ s.key }}</span>
             </div>
             <div class="setting-control">
-              <input
-                v-if="isReadOnly(s.key)"
-                class="input readonly"
-                :value="s.value"
-                readonly
-              />
-              <input
-                v-else
-                class="input"
-                :class="{ edited: (edited[s.key] ?? s.value) !== s.value }"
-                :value="edited[s.key] ?? s.value"
-                @input="(e) => { const t = e.target as HTMLInputElement; edited[s.key] = t.value; }"
-              />
+                <input
+                  v-if="isReadOnly(s.key)"
+                  class="input readonly"
+                  type="password"
+                  :value="s.value"
+                  readonly
+                />
+                <input
+                  v-else
+                  class="input"
+                  :class="{ edited: (edited[s.key] ?? s.value) !== s.value }"
+                  :type="getInputType(s.key)"
+                  :value="edited[s.key] ?? s.value"
+                  @input="(e) => { const t = e.target as HTMLInputElement; edited[s.key] = t.value; }"
+                />
             </div>
           </div>
         </div>

@@ -7,22 +7,22 @@ export interface Strategy {
   exitConditionJson: string
   executionRuleJson: string
   version: number
-  createdAtUtc: string
-  updatedAt_utc: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface StrategyDeployment {
   id: string
   strategyId: string
   name?: string
-  trader_id: string
+  traderId: string
   exchangeId: string
   symbolIds: string
   timeframe: string
   status: string
   scope: string
-  createdAtUtc: string
-  updatedAt_utc: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface GlobalDeployment extends StrategyDeployment {
@@ -88,7 +88,7 @@ export const strategiesApi = {
     return client.delete<{ message: string }>(`/traders/${traderId}/strategies/${id}`)
   },
   toggle(traderId: string, id: string, enable: boolean) {
-    return client.post<{ id: string; status: string; updatedAt_utc: string }>(
+    return client.post<{ id: string; status: string; updatedAt: string }>(
       `/traders/${traderId}/strategies/${id}/toggle`, { enable }
     )
   }

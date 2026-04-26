@@ -193,7 +193,7 @@ public class TradingEngine(
                     {
                         position.Status = PositionStatus.Closed;
                         position.ClosedAtUtc = DateTime.UtcNow;
-                        position.UpdatedAtUtc = DateTime.UtcNow;
+                        position.UpdatedAt = DateTime.UtcNow;
                         await cycle.PositionRepo.UpdateAsync(position, ct);
 
                         logger.LogInformation("策略 {StrategyName}: 卖出平仓 {Symbol} {Quantity}, PnL={PnL}",
@@ -202,7 +202,7 @@ public class TradingEngine(
                         await eventBus.PositionUpdatedAsync(strategy.TraderId, position.Id, position.ExchangeId,
                             position.StrategyId, position.SymbolId, position.Quantity, position.EntryPrice,
                             position.UnrealizedPnl, position.RealizedPnl, position.Status.ToString(),
-                            position.UpdatedAtUtc, ct);
+                            position.UpdatedAt, ct);
 
                         await eventBus.OrderPlacedAsync(strategy.TraderId, sellOrder.Id, sellOrder.ExchangeId,
                             sellOrder.StrategyId, sellOrder.SymbolId, sellOrder.Side.ToString(),
@@ -232,7 +232,7 @@ public class TradingEngine(
 
                 position.CurrentPrice = lastPrice;
                 position.UnrealizedPnl = (lastPrice - position.EntryPrice) * position.Quantity;
-                position.UpdatedAtUtc = DateTime.UtcNow;
+                position.UpdatedAt = DateTime.UtcNow;
 
                 await positionRepo.UpdateAsync(position, ct);
 
@@ -241,7 +241,7 @@ public class TradingEngine(
                     await eventBus.PositionUpdatedAsync(position.TraderId, position.Id, position.ExchangeId,
                         position.StrategyId, position.SymbolId, position.Quantity, position.EntryPrice,
                         position.UnrealizedPnl, position.RealizedPnl, position.Status.ToString(),
-                        position.UpdatedAtUtc, ct);
+                        position.UpdatedAt, ct);
                 }
             }
         }

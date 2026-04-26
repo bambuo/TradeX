@@ -39,7 +39,7 @@ public class TradersStrategiesController(
         {
             d.Id, d.StrategyId, d.TraderId, d.ExchangeId, d.SymbolIds,
             d.Timeframe, d.Status, scope = ResolveScope(d.SymbolIds, d.ExchangeId),
-            d.CreatedAtUtc, d.UpdatedAtUtc
+            d.CreatedAt, d.UpdatedAt
         }));
     }
 
@@ -59,7 +59,7 @@ public class TradersStrategiesController(
             deployment.Id, deployment.StrategyId, deployment.Name, deployment.TraderId, deployment.ExchangeId,
             deployment.SymbolIds, deployment.Timeframe, deployment.Status,
             scope = ResolveScope(deployment.SymbolIds, deployment.ExchangeId),
-            deployment.CreatedAtUtc, deployment.UpdatedAtUtc
+            deployment.CreatedAt, deployment.UpdatedAt
         });
     }
 
@@ -93,7 +93,7 @@ public class TradersStrategiesController(
         {
             deployment.Id, deployment.StrategyId, deployment.TraderId, deployment.ExchangeId,
             deployment.SymbolIds, deployment.Timeframe, deployment.Status, scope,
-            deployment.CreatedAtUtc
+            deployment.CreatedAt
         });
     }
 
@@ -123,7 +123,7 @@ public class TradersStrategiesController(
             deployment.Id, deployment.StrategyId, deployment.TraderId, deployment.ExchangeId,
             deployment.SymbolIds, deployment.Timeframe, deployment.Status,
             scope = ResolveScope(deployment.SymbolIds, deployment.ExchangeId),
-            deployment.UpdatedAtUtc
+            deployment.UpdatedAt
         });
     }
 
@@ -178,7 +178,7 @@ public class TradersStrategiesController(
 
         await deploymentRepo.UpdateAsync(deployment, ct);
 
-        return Ok(new { deployment.Id, deployment.Status, deployment.UpdatedAtUtc });
+        return Ok(new { deployment.Id, deployment.Status, deployment.UpdatedAt });
     }
 
     public record CreateDeploymentRequest(Guid StrategyId, Guid? ExchangeId, string? SymbolIds = null, string? Timeframe = null);

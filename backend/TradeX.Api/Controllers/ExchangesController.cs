@@ -36,8 +36,8 @@ public class ExchangesController(
             isEnabled = a.Status == ExchangeAccountStatus.Enabled,
             a.LastTestedAtUtc,
             testResult = a.TestResult,
-            createdAt = a.CreatedAtUtc,
-            updatedAt = a.UpdatedAtUtc
+            createdAt = a.CreatedAt,
+            updatedAt = a.UpdatedAt
         });
 
         return Ok(new { data = result });
@@ -75,8 +75,8 @@ public class ExchangesController(
             label = account.Name,
             exchangeType = account.Type.ToString(),
             isEnabled = account.Status == ExchangeAccountStatus.Enabled,
-            createdAt = account.CreatedAtUtc,
-            updatedAt = account.UpdatedAtUtc
+            createdAt = account.CreatedAt,
+            updatedAt = account.UpdatedAt
         });
     }
 
@@ -101,7 +101,7 @@ public class ExchangesController(
             account.PassphraseEncrypted = encryption.Encrypt(request.Passphrase);
 
         await exchangeRepo.UpdateAsync(account, ct);
-        return Ok(new { account.Id, account.Name, account.UpdatedAtUtc });
+        return Ok(new { account.Id, account.Name, account.UpdatedAt });
     }
 
     [HttpPost("{id:guid}/test")]

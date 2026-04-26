@@ -87,7 +87,7 @@ onMounted(load)
           <td>{{ u.userName }}</td>
           <td><span class="role-badge" :style="{ color: roleColors[u.role] }">{{ u.role }}</span></td>
           <td>{{ u.status }}</td>
-          <td>{{ new Date(u.createdAtUtc).toLocaleDateString() }}</td>
+          <td>{{ new Date(u.createdAt).toLocaleDateString() }}</td>
           <td class="actions">
             <select class="role-select" :value="u.role" @change="(e) => changeRole(u.id, (e.target as HTMLSelectElement).value)">
               <option value="Admin">Admin</option>

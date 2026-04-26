@@ -20,7 +20,7 @@ public class StrategiesController(
             data = strategies.Select(s => new
             {
                 s.Id, s.Name, s.EntryConditionJson, s.ExitConditionJson,
-                s.ExecutionRuleJson, s.Version, s.CreatedAtUtc, s.UpdatedAtUtc
+                s.ExecutionRuleJson, s.Version, s.CreatedAt, s.UpdatedAt
             })
         });
     }
@@ -36,7 +36,7 @@ public class StrategiesController(
         {
             strategy.Id, strategy.Name, strategy.EntryConditionJson,
             strategy.ExitConditionJson, strategy.ExecutionRuleJson,
-            strategy.Version, strategy.CreatedAtUtc, strategy.UpdatedAtUtc
+            strategy.Version, strategy.CreatedAt, strategy.UpdatedAt
         });
     }
 
@@ -58,7 +58,7 @@ public class StrategiesController(
 
         return CreatedAtAction(nameof(GetById), new { id = strategy.Id }, new
         {
-            strategy.Id, strategy.Name, strategy.Version, strategy.CreatedAtUtc
+            strategy.Id, strategy.Name, strategy.Version, strategy.CreatedAt
         });
     }
 
@@ -81,7 +81,7 @@ public class StrategiesController(
         strategy.Version++;
         await strategyRepo.UpdateAsync(strategy, ct);
 
-        return Ok(new { strategy.Id, strategy.Name, strategy.Version, strategy.UpdatedAtUtc });
+        return Ok(new { strategy.Id, strategy.Name, strategy.Version, strategy.UpdatedAt });
     }
 
     [HttpDelete("{id:guid}")]

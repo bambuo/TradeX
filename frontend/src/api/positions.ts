@@ -14,7 +14,7 @@ export interface Position {
   status: string
   openedAtUtc: string
   closedAtUtc: string | null
-  updatedAt_utc: string
+  updatedAt: string
 }
 
 export const positionsApi = {

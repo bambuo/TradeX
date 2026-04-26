@@ -8,7 +8,7 @@ public class Symbol
     public string BaseAsset { get; set; } = string.Empty;
     public string QuoteAsset { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
-    public DateTime CreatedAtUtc { get; init; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
 }
 
 public class ExchangeSymbolRuleSnapshot

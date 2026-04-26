@@ -32,7 +32,7 @@ public class BacktestTask
     public DateTime StartAtUtc { get; init; }
     public DateTime EndAtUtc { get; init; }
     public Guid CreatedBy { get; init; }
-    public DateTime CreatedAtUtc { get; init; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
     public DateTime? CompletedAtUtc { get; set; }
 }
 
@@ -49,5 +49,5 @@ public class BacktestResult
     public decimal ProfitLossRatio { get; set; }
     public string DetailJson { get; set; } = "[]";
     public string? AnalysisJson { get; set; }
-    public DateTime CreatedAtUtc { get; init; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
 }
