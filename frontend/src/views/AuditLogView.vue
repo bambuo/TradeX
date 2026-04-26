@@ -7,7 +7,7 @@ const logs = ref<AuditLogEntry[]>([])
 const total = ref(0)
 const loading = ref(true)
 const page = ref(1)
-const pageSize = 20
+const pageSize = 15
 const filterResource = ref('')
 const selectedLog = ref<AuditLogEntry | null>(null)
 
@@ -168,6 +168,7 @@ onMounted(load)
 
     <div class="filters">
       <AppSelect
+        form
         :options="[
           { label: '全部资源', value: '' },
           { label: '交易员', value: '交易员' },
@@ -189,13 +190,15 @@ onMounted(load)
     <table v-else class="table">
       <thead>
         <tr>
+          <th class="row-num">#</th>
           <th>时间</th>
           <th>操作</th>
           <th>资源</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="log in logs" :key="log.id" class="log-row" @click="openDetail(log)">
+        <tr v-for="(log, index) in logs" :key="log.id" class="log-row" @click="openDetail(log)">
+          <td class="row-num">{{ (page - 1) * pageSize + index + 1 }}</td>
           <td class="time-cell">{{ new Date(log.timestamp).toLocaleString() }}</td>
           <td><span class="badge">{{ formatAction(log) }}</span></td>
           <td>
@@ -204,55 +207,57 @@ onMounted(load)
           </td>
         </tr>
         <tr v-if="logs.length === 0">
-          <td colspan="3" class="empty">暂无审计日志</td>
+          <td colspan="4" class="empty">暂无审计日志</td>
         </tr>
       </tbody>
     </table>
 
     <div v-if="total > pageSize" class="pagination">
-      <AppButton icon="back" :disabled="page <= 1" @click="page--; load()">上一页</AppButton>
-      <span>{{ page }} / {{ Math.ceil(total / pageSize) }}</span>
-      <AppButton :disabled="page * pageSize >= total" @click="page++; load()">下一页<AppIcon name="back" class="icon-next" /></AppButton>
+      <AppButton size="sm" icon="back" :disabled="page <= 1" @click="page--; load()">上一页</AppButton>
+      <span class="page-info">{{ page }} / {{ Math.ceil(total / pageSize) }}</span>
+      <AppButton size="sm" :disabled="page * pageSize >= total" @click="page++; load()">下一页</AppButton>
     </div>
 
     <AppModal :model-value="!!selectedLog" title="操作详情" width="md" @update:model-value="handleDetailOpenChange" @close="closeDetail">
-      <div v-if="selectedLog" class="summary-row">
-        <span>{{ new Date(selectedLog.timestamp).toLocaleString() }}</span>
-        <span class="badge">{{ formatAction(selectedLog) }}</span>
-        <span class="resource-text">{{ selectedLog.resource }}</span>
-        <span v-if="selectedLog.resourceId" class="resource-id">#{{ selectedLog.resourceId.slice(0, 8) }}</span>
-      </div>
+      <template v-if="selectedLog">
+        <div class="detail-grid">
+          <div class="detail-field">
+            <span class="detail-label">时间</span>
+            <span class="detail-value"><code>{{ new Date(selectedLog.timestamp).toLocaleString() }}</code></span>
+          </div>
+          <div class="detail-field">
+            <span class="detail-label">资源</span>
+            <span class="detail-value">
+              <code>{{ selectedLog.resource }}</code>
+              <span v-if="selectedLog.resourceId" class="resource-id">#{{ selectedLog.resourceId.slice(0, 8) }}</span>
+            </span>
+          </div>
+          <div class="detail-field">
+            <span class="detail-label">HTTP 方法</span>
+            <span class="detail-value"><code>{{ parseDetail(selectedLog).method || '-' }}</code></span>
+          </div>
+          <div class="detail-field">
+            <span class="detail-label">状态码</span>
+            <span class="detail-value"><code>{{ parseDetail(selectedLog).statusCode ?? '-' }}</code></span>
+          </div>
+          <div class="detail-field detail-field--full">
+            <span class="detail-label">完整路径</span>
+            <span class="detail-value detail-value--path"><code>{{ parseDetail(selectedLog).path || '-' }}</code></span>
+          </div>
+          <div class="detail-field">
+            <span class="detail-label">IP 地址</span>
+            <span class="detail-value"><code>{{ selectedLog.ipAddress }}</code></span>
+          </div>
+          <div class="detail-field">
+            <span class="detail-label">用户 ID</span>
+            <span class="detail-value"><code>{{ selectedLog.userId ? selectedLog.userId.slice(0, 8) + '...' : '-' }}</code></span>
+          </div>
+        </div>
 
-      <div v-if="selectedLog" class="tech-grid">
-        <div class="tech-item">
-          <span class="tech-label">HTTP 方法</span>
-          <span class="tech-value"><code>{{ parseDetail(selectedLog).method || '-' }}</code></span>
-        </div>
-        <div class="tech-item">
-          <span class="tech-label">完整路径</span>
-          <span class="tech-value"><code>{{ parseDetail(selectedLog).path || '-' }}</code></span>
-        </div>
-        <div class="tech-item">
-          <span class="tech-label">状态码</span>
-          <span class="tech-value"><code>{{ parseDetail(selectedLog).statusCode ?? '-' }}</code></span>
-        </div>
-        <div class="tech-item">
-          <span class="tech-label">IP 地址</span>
-          <span class="tech-value"><code>{{ selectedLog.ipAddress }}</code></span>
-        </div>
-        <div class="tech-item">
-          <span class="tech-label">用户 ID</span>
-          <span class="tech-value"><code>{{ selectedLog.userId ? selectedLog.userId.slice(0, 8) + '...' : '-' }}</code></span>
-        </div>
-      </div>
-
-      <details v-if="selectedLog" class="raw-toggle">
-        <summary>查看原始 JSON</summary>
-        <pre class="raw-json">{{ JSON.stringify(parseDetail(selectedLog), null, 2) }}</pre>
-      </details>
-
-      <template #footer>
-        <AppButton variant="primary" icon="close" @click="closeDetail">关闭</AppButton>
+        <details v-if="selectedLog" class="raw-toggle">
+          <summary>查看原始 JSON</summary>
+          <pre class="raw-json">{{ JSON.stringify(parseDetail(selectedLog), null, 2) }}</pre>
+        </details>
       </template>
     </AppModal>
   </div>
@@ -262,28 +267,28 @@ onMounted(load)
 .audit-page { padding: 2rem; }
 h2 { margin: 0 0 1rem; color: var(--text-primary); }
 .filters { display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; }
-.btn-primary { padding: 0.5rem 1rem; background: var(--accent-blue); color: var(--text-primary); border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
 .table { width: 100%; border-collapse: collapse; }
 .table th, .table td { padding: 0.625rem 0.75rem; text-align: left; border-bottom: 1px solid var(--glass-border); color: var(--text-primary); font-size: 0.85rem; }
 .table th { color: var(--text-muted); font-weight: 600; }
 .log-row { cursor: pointer; transition: background 0.1s; }
 .log-row:hover { background: rgba(79, 126, 201, 0.04); }
 .time-cell { color: var(--text-muted); white-space: nowrap; }
+.row-num { width: 2.5rem; text-align: center; color: var(--text-muted); font-size: 0.8rem; }
 .badge { display: inline-block; padding: 0.15rem 0.5rem; background: rgba(56,189,248,0.1); color: var(--accent-blue); border-radius: 4px; font-size: 0.8rem; }
 .resource-text { color: var(--text-muted); }
 .resource-id { color: var(--accent-blue); font-family: monospace; font-size: 0.8rem; margin-left: 0.375rem; }
 .empty { text-align: center; color: var(--text-muted); padding: 2rem; }
-.pagination { display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: 1rem; }
-.pagination button { padding: 0.4rem 0.8rem; background: #334155; color: var(--text-primary); border: 1px solid var(--glass-border-strong); border-radius: 4px; cursor: pointer; }
-.pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
-.pagination span { color: var(--text-muted); font-size: 0.85rem; }
-.summary-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.25rem; padding: 0.5rem 0.75rem; background: rgba(255,255,255,0.35); border-radius: 6px; font-size: 0.85rem; }
-.tech-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
-.tech-item { display: flex; flex-direction: column; gap: 0.25rem; }
-.tech-label { color: var(--text-muted); font-size: 0.75rem; }
-.tech-value { color: var(--text-primary); font-size: 0.85rem; }
-.tech-value code { color: var(--accent-blue); background: rgba(56,189,248,0.08); padding: 0.125rem 0.375rem; border-radius: 3px; font-size: 0.8rem; }
-.raw-toggle { color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1rem; }
+.pagination { display: flex; justify-content: center; align-items: center; gap: 0.75rem; margin-top: 1rem; }
+.page-info { color: var(--text-muted); font-size: 0.85rem; }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem 1rem; margin-bottom: 1rem; }
+.detail-field { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.detail-field--full { grid-column: 1 / -1; }
+.detail-label { color: var(--text-muted); font-size: 0.75rem; }
+.detail-value { color: var(--text-primary); font-size: 0.85rem; }
+.detail-value code { color: var(--accent-blue); background: rgba(56,189,248,0.08); padding: 0.125rem 0.375rem; border-radius: 3px; font-size: 0.8rem; }
+.detail-value--path { overflow: hidden; }
+.detail-value--path code { display: inline-block; max-width: 100%; overflow-x: auto; white-space: nowrap; }
+.raw-toggle { color: var(--text-muted); font-size: 0.8rem; margin-top: 0.5rem; }
 .raw-toggle summary { cursor: pointer; }
 .raw-json { background: rgba(255,255,255,0.35); border: 1px solid var(--glass-border); border-radius: 4px; padding: 0.75rem; font-family: monospace; font-size: 0.8rem; color: var(--text-muted); overflow-x: auto; margin-top: 0.5rem; }
 </style>

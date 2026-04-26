@@ -146,7 +146,9 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
 }
 
 .form .app-select-trigger {
-  padding: 0.5rem 0.625rem;
+  min-height: 2.45rem;
+  padding: 0.5rem 0.75rem;
   font-size: 0.85rem;
+  box-sizing: border-box;
 }
 </style>

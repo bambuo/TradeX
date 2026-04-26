@@ -75,34 +75,83 @@ onMounted(load)
     </div>
 
     <AppModal v-model="showForm" title="添加通知渠道" width="md">
-      <input v-model="formName" placeholder="渠道名称" class="input" />
-      <AppSelect
-        :options="[
-          { label: 'Telegram', value: 'Telegram' },
-          { label: 'Discord', value: 'Discord' },
-          { label: 'Email', value: 'Email' },
-        ]"
-        :model-value="formType"
-        full
-        form
-        @update:model-value="(v: string | number) => formType = String(v)"
-      />
+      <div class="form-body">
+        <div class="form-group">
+          <label class="form-label">渠道名称</label>
+          <input v-model="formName" placeholder="输入渠道名称" class="input" />
+        </div>
 
-      <template v-if="formType === 'Telegram'">
-        <input v-model="formBotToken" placeholder="Bot Token" class="input" />
-        <input v-model="formChatId" placeholder="Chat ID" class="input" />
-      </template>
-      <template v-else-if="formType === 'Discord'">
-        <input v-model="formWebhookUrl" placeholder="Webhook URL" class="input" />
-      </template>
-      <template v-else>
-        <input v-model="formHost" placeholder="SMTP Host" class="input" />
-        <input v-model="formPort" placeholder="Port" class="input" />
-        <input v-model="formUsername" placeholder="Username" class="input" />
-        <input v-model="formPassword" type="password" placeholder="Password" class="input" />
-        <input v-model="formFromAddress" placeholder="From Address" class="input" />
-        <input v-model="formToAddress" placeholder="To Address" class="input" />
-      </template>
+        <div class="form-group">
+          <label class="form-label">渠道类型</label>
+          <AppSelect
+            :options="[
+              { label: 'Telegram', value: 'Telegram' },
+              { label: 'Discord', value: 'Discord' },
+              { label: 'Email', value: 'Email' },
+            ]"
+            :model-value="formType"
+            full
+            form
+            @update:model-value="(v: string | number) => formType = String(v)"
+          />
+        </div>
+
+        <template v-if="formType === 'Telegram'">
+          <div class="form-section">Telegram 配置</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Bot Token</label>
+              <input v-model="formBotToken" placeholder="输入 Bot Token" class="input" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Chat ID</label>
+              <input v-model="formChatId" placeholder="输入 Chat ID" class="input" />
+            </div>
+          </div>
+        </template>
+
+        <template v-else-if="formType === 'Discord'">
+          <div class="form-section">Discord 配置</div>
+          <div class="form-group">
+            <label class="form-label">Webhook URL</label>
+            <input v-model="formWebhookUrl" placeholder="输入 Webhook URL" class="input" />
+          </div>
+        </template>
+
+        <template v-else>
+          <div class="form-section">SMTP 配置</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">SMTP Host</label>
+              <input v-model="formHost" placeholder="smtp.example.com" class="input" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">端口</label>
+              <input v-model="formPort" placeholder="587" class="input" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">用户名</label>
+              <input v-model="formUsername" placeholder="输入用户名" class="input" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">密码</label>
+              <input v-model="formPassword" type="password" placeholder="输入密码" class="input" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">发件地址</label>
+              <input v-model="formFromAddress" placeholder="from@example.com" class="input" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">收件地址</label>
+              <input v-model="formToAddress" placeholder="to@example.com" class="input" />
+            </div>
+          </div>
+        </template>
+      </div>
 
       <template #footer>
         <AppButton icon="close" @click="showForm = false">取消</AppButton>
@@ -157,5 +206,10 @@ onMounted(load)
 .badge { padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.8rem; background: rgba(56,189,248,0.1); color: var(--accent-blue); }
 .actions { display: flex; gap: 0.5rem; }
 .empty { text-align: center; color: var(--text-muted); padding: 2rem; }
+.form-body { display: flex; flex-direction: column; gap: 1rem; }
+.form-section { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.25rem; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.form-group { display: flex; flex-direction: column; gap: 0.3rem; }
+.form-label { font-size: 0.8rem; font-weight: 500; color: var(--text-primary); }
 .input { width: 100%; padding: 0.6rem; border: 1px solid var(--glass-border); border-radius: 4px; background: rgba(255,255,255,0.35); color: var(--text-primary); box-sizing: border-box; }
 </style>
