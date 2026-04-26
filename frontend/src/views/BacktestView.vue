@@ -446,7 +446,7 @@ function formatPercent(v: number): string {
           <span class="detail-status" :style="{ background: statusColors[selectedTask.status] }">
             {{ statusLabels[selectedTask.status] || selectedTask.status }}
           </span>
-          <span>{{ selectedTask.strategy_name || selectedTask.strategyId }}</span>
+          <span>{{ selectedTask.strategyName || selectedTask.strategyId }}</span>
           <span>{{ selectedTask.symbolId }} {{ selectedTask.timeframe }}</span>
           <span>初始资金 ${{ selectedTask.initialCapital?.toLocaleString() ?? 1000 }}</span>
         </div>

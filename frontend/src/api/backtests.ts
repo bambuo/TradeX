@@ -3,7 +3,7 @@ import client from './client'
 export interface BacktestTask {
   id: string
   strategyId: string
-  strategy_name?: string
+  strategyName?: string
   symbolId?: string
   timeframe?: string
   initialCapital?: number
@@ -64,7 +64,7 @@ export const backtestsApi = {
   start(traderId: string, strategyId: string, deploymentId: string, exchangeId: string, symbolId: string, timeframe: string, startUtc: string, endUtc: string, initialCapital?: number) {
     let url = `/traders/${traderId}/strategies/${strategyId}/backtests?deploymentId=${deploymentId}&exchangeId=${exchangeId}&symbolId=${encodeURIComponent(symbolId)}&timeframe=${encodeURIComponent(timeframe)}&startUtc=${encodeURIComponent(startUtc)}&endUtc=${encodeURIComponent(endUtc)}`
     if (initialCapital) url += `&initialCapital=${initialCapital}`
-    return client.post<{ taskId: string; status: string; createdAt: string; strategy_name?: string; symbolId?: string; timeframe?: string }>(url)
+    return client.post<{ taskId: string; status: string; createdAt: string; strategyName?: string; symbolId?: string; timeframe?: string }>(url)
   },
   getTasks(traderId: string, strategyId: string) {
     return client.get<BacktestTask[]>(`/traders/${traderId}/strategies/${strategyId}/backtests/tasks`)
