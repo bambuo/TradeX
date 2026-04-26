@@ -28,9 +28,9 @@ public class IndicatorService : IIndicatorService
             return (0, 0, 0);
 
         return (
-            Math.Round((decimal)(last.Macd ?? 0), 4),
-            Math.Round((decimal)(last.Signal ?? 0), 4),
-            Math.Round((decimal)(last.Histogram ?? 0), 4)
+            (decimal)(last.Macd ?? 0),
+            (decimal)(last.Signal ?? 0),
+            (decimal)(last.Histogram ?? 0)
         );
     }
 
@@ -41,7 +41,7 @@ public class IndicatorService : IIndicatorService
 
         var quotes = ToQuotes(prices);
         var results = quotes.GetSma(period);
-        return Math.Round((decimal)(results.LastOrDefault()?.Sma ?? 0), 4);
+        return (decimal)(results.LastOrDefault()?.Sma ?? 0);
     }
 
     public decimal CalculateEma(IReadOnlyList<decimal> prices, int period)
@@ -51,7 +51,7 @@ public class IndicatorService : IIndicatorService
 
         var quotes = ToQuotes(prices);
         var results = quotes.GetEma(period);
-        return Math.Round((decimal)(results.LastOrDefault()?.Ema ?? 0), 4);
+        return (decimal)(results.LastOrDefault()?.Ema ?? 0);
     }
 
     public (decimal UpperBand, decimal MiddleBand, decimal LowerBand) CalculateBollingerBands(
@@ -67,9 +67,9 @@ public class IndicatorService : IIndicatorService
             return (0, 0, 0);
 
         return (
-            Math.Round((decimal)(last.UpperBand ?? 0), 4),
-            Math.Round((decimal)(last.Sma ?? 0), 4),
-            Math.Round((decimal)(last.LowerBand ?? 0), 4)
+            (decimal)(last.UpperBand ?? 0),
+            (decimal)(last.Sma ?? 0),
+            (decimal)(last.LowerBand ?? 0)
         );
     }
 

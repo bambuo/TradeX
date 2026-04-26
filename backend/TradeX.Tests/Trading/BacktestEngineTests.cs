@@ -1,3 +1,4 @@
+using System.Text.Json;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 using TradeX.Indicators;
@@ -99,6 +100,35 @@ public class BacktestEngineTests
         Assert.InRange(result.TotalReturnPercent, -1000m, 1000m);
         Assert.InRange(result.MaxDrawdownPercent, 0m, 100m);
         Assert.InRange(result.WinRate, 0m, 100m);
+    }
+
+    [Fact]
+    public void Run_AnalysisJson_HasNonZeroIndicators()
+    {
+        var strategy = new Strategy
+        {
+            EntryConditionJson = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":0}""",
+            ExitConditionJson = """{"Operator":"","Indicator":"RSI","Comparison":"<","Value":100}"""
+        };
+
+        var candles = GenerateCandles(300, 50000);
+        var (result, _, _) = _engine.Run(strategy, candles);
+
+        Assert.NotNull(result.AnalysisJson);
+        Assert.NotEqual("[]", result.AnalysisJson);
+
+        var items = JsonSerializer.Deserialize<List<JsonElement>>(result.AnalysisJson);
+        Assert.NotEmpty(items);
+
+        var first = items[^1];
+        Assert.True(first.TryGetProperty("indicators", out var indicators));
+        var keys = new[] { "SMA_20", "SMA_50", "EMA_20", "MACD_LINE", "MACD_SIGNAL", "BB_UPPER", "BB_LOWER" };
+        foreach (var key in keys)
+        {
+            var hasValue = indicators.TryGetProperty(key, out var val);
+            Assert.True(hasValue, $"缺少指标: {key}");
+            Assert.NotEqual(0, val.GetDecimal());
+        }
     }
 
     private static List<Candle> GenerateCandles(int count, decimal basePrice)

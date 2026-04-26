@@ -4,10 +4,10 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档版本 | v1.4 |
+| 文档版本 | v1.5 |
 | 文档状态 | Draft / 待共识 |
 | 基于 PRD | `docs/PRD.md` v2.3 (2026-04-24) |
-| 更新时间 | 2026-04-24 |
+| 更新时间 | 2026-04-26 |
 
 ---
 
@@ -96,19 +96,18 @@ Disabled ──[Admin 启用]──> Active
 ### 5.3 策略状态机
 
 ```
-Draft ──[提交回测]──> Backtesting ──[通过]──> Passed ──[启用]──> Active
+Draft ──[首次回测完成]──> Passed ──[启用]──> Active
 Active ──[停用]──> Disabled
-Disabled ──[提交回测]──> Backtesting
+Disabled ──[启用]──> Active
 Passed ──[修改]──> Draft
-Backtesting ──[未通过]──> Draft
 ```
 
 约束：
+- 部署状态仅在**首次**回测完成后由 `Draft` 切换为 `Passed`。后续回测不再更新状态
 - 仅 `Passed` 状态可切换为 `Active`
 - 同一 Trader 在同一 Exchange 上对同一 Symbol 同时仅允许一个 `Active` 策略
 - `Active → Disabled` 可在任意时间由用户触发
-- K 线数据拉取失败时，回测/激活操作必须拒绝并给出明确错误提示
-- 进程意外中断时，该次评估视为未执行，策略状态不产生变化
+- 删除部署时，级联删除关联的回测任务和回测结果数据
 
 #### 5.3.1 策略部署作用域与优先级
 
@@ -205,8 +204,8 @@ Running ──> Failed
 | Status | enum | PendingMfa / Active / Disabled | |
 | MfaSecretEncrypted | string? | AES-256-GCM | |
 | RecoveryCodesJson | string | not null, default [] | 8 个哈希值 JSON 数组 |
-| CreatedAtUtc | datetimeoffset | required | |
-| UpdatedAtUtc | datetimeoffset | required | |
+| CreatedAt | datetimeoffset | required | |
+| UpdatedAt | datetimeoffset | required | |
 | CreatedBy | Guid? | nullable | Admin 创建时记录 |
 
 ### 6.2 SystemConfig
@@ -242,8 +241,8 @@ Running ──> Failed
 | Name | string(100) | unique, required | 交易员名称 |
 | Status | enum | Active / Disabled | |
 | CreatedBy | Guid | required | 创建者 UserId |
-| CreatedAtUtc | datetimeoffset | required | |
-| UpdatedAtUtc | datetimeoffset | required | |
+| CreatedAt | datetimeoffset | required | |
+| UpdatedAt | datetimeoffset | required | |
 
 ### 6.4 Exchange
 
@@ -257,11 +256,11 @@ Running ──> Failed
 | SecretKeyEncrypted | string | required | AES-256-GCM |
 | PassphraseEncrypted | string? | nullable | 部分交易所需要 |
 | Status | enum | Enabled / Disabled | |
-| LastTestedAtUtc | datetimeoffset? | nullable | 最近测试连接时间 |
+| LastTestedAt | datetimeoffset? | nullable | 最近测试连接时间 |
 | TestResult | string(500)? | nullable | 最近测试结果摘要 |
 | CreatedBy | Guid | required | |
-| CreatedAtUtc | datetimeoffset | required | |
-| UpdatedAtUtc | datetimeoffset | required | |
+| CreatedAt | datetimeoffset | required | |
+| UpdatedAt | datetimeoffset | required | |
 
 ### 6.5 ExchangeSymbolRuleSnapshot
 
@@ -294,8 +293,8 @@ Running ──> Failed
 | Status | enum | Draft / Backtesting / Passed / Active / Disabled | |
 | Version | int | default 1 | 乐观并发版本号 |
 | CreatedBy | Guid | required | |
-| CreatedAtUtc | datetimeoffset | required | |
-| UpdatedAtUtc | datetimeoffset | required | |
+| CreatedAt | datetimeoffset | required | |
+| UpdatedAt | datetimeoffset | required | |
 
 **ExecutionRuleJson 结构**:
 
@@ -331,7 +330,7 @@ Running ──> Failed
 | Status | enum | Open / Closed | |
 | OpenedAtUtc | datetimeoffset | required | |
 | ClosedAtUtc | datetimeoffset? | nullable | |
-| UpdatedAtUtc | datetimeoffset | required | |
+| UpdatedAt | datetimeoffset | required | |
 
 ### 6.8 Order
 
@@ -354,19 +353,25 @@ Running ──> Failed
 | FeeAsset | string(20) | nullable | |
 | IsManual | bool | default false | 手动下单标记 |
 | PlacedAtUtc | datetimeoffset | required | |
-| UpdatedAtUtc | datetimeoffset | required | |
+| UpdatedAt | datetimeoffset | required | |
 
 ### 6.9 BacktestTask
 
 | 字段 | 类型 | 约束 | 说明 |
 |---|---|---|---|
 | Id | Guid | PK | |
+| DeploymentId | Guid | FK, required | 所属策略部署 ID，删除部署时级联删除 |
 | StrategyId | Guid | FK, required | |
+| ExchangeId | Guid | FK, required | |
+| SymbolId | string(50) | required | 回测交易对 |
+| Timeframe | string(10) | required | K 线周期 |
+| InitialCapital | decimal | default 1000 | 初始资金 |
 | StartAtUtc | datetimeoffset | required | 回测开始时间 |
 | EndAtUtc | datetimeoffset | required | 回测结束时间 |
-| Status | enum | Pending / Running / Completed / Failed | |
+| Status | enum | Pending / Running / Completed / Failed / Cancelled | |
+| Phase | enum? | Queued / FetchingData / Running | 运行阶段 |
 | CreatedBy | Guid | required | |
-| CreatedAtUtc | datetimeoffset | required | |
+| CreatedAt | datetimeoffset | required | |
 | CompletedAtUtc | datetimeoffset? | nullable | |
 
 ### 6.10 BacktestResult
@@ -383,7 +388,7 @@ Running ──> Failed
 | SharpeRatio | decimal(18,6) | | Sharpe Ratio |
 | ProfitLossRatio | decimal(18,6) | | 盈亏比 |
 | DetailJson | string | | 每笔交易明细 JSON 数组 |
-| CreatedAtUtc | datetimeoffset | required | |
+| CreatedAt | datetimeoffset | required | |
 
 ### 6.11 NotificationChannel
 
@@ -395,9 +400,9 @@ Running ──> Failed
 | ConfigEncrypted | string | required | AES-256-GCM 加密 |
 | IsDefault | bool | default false | |
 | Status | enum | Enabled / Disabled | |
-| LastTestedAtUtc | datetimeoffset? | nullable | |
-| CreatedAtUtc | datetimeoffset | required | |
-| UpdatedAtUtc | datetimeoffset | required | |
+| LastTestedAt | datetimeoffset? | nullable | |
+| CreatedAt | datetimeoffset | required | |
+| UpdatedAt | datetimeoffset | required | |
 
 ### 6.12 AuditLog
 
@@ -456,7 +461,7 @@ Running ──> Failed
 | BaseAsset | string(20) | required | e.g. BTC |
 | QuoteAsset | string(20) | required | e.g. USDT |
 | IsActive | bool | default true | |
-| CreatedAtUtc | datetimeoffset | required | |
+| CreatedAt | datetimeoffset | required | |
 
 ---
 
@@ -641,7 +646,7 @@ Running ──> Failed
       "userName": "string",
       "role": "Admin",
       "status": "Active",
-      "createdAtUtc": "2026-04-24T00:00:00Z"
+      "createdAt": "2026-04-24T00:00:00Z"
     }
   ],
   "total": 10
@@ -704,7 +709,7 @@ Running ──> Failed
       "status": "Enabled",
       "lastTestedAtUtc": null,
       "testResult": null,
-      "createdAtUtc": "2026-04-24T00:00:00Z"
+      "createdAt": "2026-04-24T00:00:00Z"
     }
   ],
   "total": 5
@@ -799,7 +804,7 @@ Running ──> Failed
       "timeframe": "15m",
       "status": "Active",
       "version": 3,
-      "createdAtUtc": "2026-04-24T00:00:00Z"
+      "createdAt": "2026-04-24T00:00:00Z"
     }
   ],
   "total": 10
@@ -952,60 +957,45 @@ Running ──> Failed
 
 ### 7.9 Backtests
 
-#### `GET /api/backtests`
+#### `GET /api/traders/{traderId}/strategies/{strategyId}/backtests/tasks`
 - Role: all authenticated
-- 翻页，支持筛选：`?strategyId=guid&status=Completed`
-- Response:
-```json
-{
-  "data": [
-    {
-      "id": "guid",
-      "strategyId": "guid",
-      "strategyName": "RSI Strategy",
-      "status": "Completed",
-      "startAtUtc": "2026-01-01T00:00:00Z",
-      "endAtUtc": "2026-03-31T00:00:00Z",
-      "createdAtUtc": "2026-04-24T00:00:00Z"
-    }
-  ],
-  "total": 5
-}
-```
+- 按 StrategyId 查询回测任务列表
+- Response: BacktestTask[]
 
-#### `POST /api/backtests`
+#### `POST /api/traders/{traderId}/strategies/{strategyId}/backtests`
 - Role: admin / operator
-- Request:
-```json
-{
-  "strategyId": "guid",
-  "startAtUtc": "2026-01-01T00:00:00Z",
-  "endAtUtc": "2026-03-31T00:00:00Z"
-}
-```
-- Response: `201` + BacktestTask 对象
-- 自动启动回测任务（异步执行）
-- 策略状态同步切换为 `Backtesting`
+- Query: `?deploymentId=guid&exchangeId=guid&symbolId=string&timeframe=string&startUtc=datetime&endUtc=datetime&initialCapital=1000`
+- Response: `200` + `{ taskId, status, createdAt, strategyName, symbolId, timeframe }`
+- 回测完成后，关联部署状态从 `Draft` → `Passed`（仅首次生效）
+- 异步执行（BacktestWorker 后台消费队列）
 
-#### `GET /api/backtests/:id`
+#### `GET /api/traders/{traderId}/strategies/{strategyId}/backtests/tasks/{taskId}/result`
 - Role: all authenticated
 - Response:
 ```json
 {
-  "task": { ... },
-  "result": {
-    "totalReturnPercent": 12.5,
-    "annualizedReturnPercent": 18.2,
-    "maxDrawdownPercent": 8.3,
-    "winRate": 65.0,
-    "totalTrades": 40,
-    "sharpeRatio": 1.85,
-    "profitLossRatio": 2.1,
-    "detailUrl": "/api/backtests/:id/details"
-  }
+  "totalReturnPercent": 12.5,
+  "annualizedReturnPercent": 18.2,
+  "maxDrawdownPercent": 8.3,
+  "winRate": 65.0,
+  "totalTrades": 40,
+  "sharpeRatio": 1.85,
+  "profitLossRatio": 2.1,
+  "analysisCount": 594,
+  "trades": [...]
 }
 ```
-- 若回测尚未完成，result 为 null
+
+#### `GET /api/traders/{traderId}/strategies/{strategyId}/backtests/tasks/{taskId}/analysis`
+- Role: all authenticated
+- Query: `?page=1&pageSize=100`
+- Response: 分页 K 线分析数据（含指标值），使用 `JsonElement` 保留原始 JSON 结构
+
+#### `GET /api/traders/{traderId}/strategies/{strategyId}/backtests/tasks/{taskId}/analysis/stream`
+- Role: all authenticated
+- SSE 端点，支持运行中任务实时推送和已完成任务回放
+- Query: `?speed=1`（1x~16x，仅对已完成任务有效）
+- 消息格式见 §14.6.3
 
 ### 7.10 Dashboard
 
@@ -1142,7 +1132,7 @@ Running ──> Failed
       "exchangeCount": 2,
       "strategyCount": 3,
       "createdBy": "guid",
-      "createdAtUtc": "2026-04-24T00:00:00Z"
+      "createdAt": "2026-04-24T00:00:00Z"
     }
   ],
   "total": 5
@@ -1186,7 +1176,7 @@ Running ──> Failed
   ],
   "exchangeCount": 2,
   "strategyCount": 3,
-  "createdAtUtc": "2026-04-24T00:00:00Z"
+  "createdAt": "2026-04-24T00:00:00Z"
 }
 ```
 
@@ -1731,38 +1721,76 @@ POST /api/backtests → 创建 BacktestTask (Pending)
 
 ### 14.3 回测约束
 
-- 回测数据必须覆盖至少 30 根 K 线（不足则拒绝）
+- 回测数据必须覆盖至少 50 根 K 线（不足则返回空结果）
 - 回测模拟市价单（不考虑流动性不足场景）
 - 滑点按 `executionRule.slippageTolerancePercent` 模拟
 - 回测中不考虑手续费率（不同交易所/VIP 等级费率不同，后期可配置）
+- **指标精度**：`IndicatorService` 中 SMA、EMA、MACD、Bollinger Bands 不进行 `Math.Round` 截断，保留 Skender 库原始精度。RSI、StochRSI 因自身为百分比值（0~100），保留 `Math.Round(..., 2)` 截断
 
-### 14.4 合约
+### 14.4 分析数据 JSON 格式
+
+每根 K 线的分析数据包含以下字段，序列化为 JSON 存储在 `BacktestResult.AnalysisJson`：
+
+```json
+{
+  "index": 50,
+  "timestamp": "2026-04-19T04:30:00Z",
+  "open": 0.00000372,
+  "high": 0.00000375,
+  "low": 0.00000371,
+  "close": 0.00000375,
+  "volume": 168657514668.00,
+  "indicators": {
+    "RSI": 41.33,
+    "SMA_20": 0.00000373,
+    "SMA_50": 0.00000374,
+    "EMA_20": 0.00000372,
+    "MACD_LINE": 0.00000001,
+    "MACD_SIGNAL": 0.00000001,
+    "BB_UPPER": 0.00000376,
+    "BB_LOWER": 0.00000370,
+    "OBV": 0,
+    "VOLUME_SMA": 150000000
+  },
+  "entry": null,
+  "exit": null,
+  "inPosition": false,
+  "action": "none"
+}
+```
+
+指标值不做小数位截断，以适配 PEPE 等极小价格代币。前端 `fmt()` 函数根据数值大小自适应精度：
+ - `>= 1`：2 位小数
+ - `>= 0.01`：6 位小数
+ - `>= 0.0001`：8 位小数
+ - `< 0.0001`：科学计数法 4 位有效数字
+
+### 14.5 合约
 
 ```csharp
-public interface IBacktestEngine
+public interface IBacktestService
 {
-    Task<BacktestResult> RunAsync(
-        Strategy strategy,
-        DateTime startUtc,
-        DateTime endUtc,
-        CancellationToken ct);
+    Task<BacktestTask> StartBacktestAsync(Guid deploymentId, Guid strategyId, Guid exchangeId, string symbolId, string timeframe, DateTime startUtc, DateTime endUtc, decimal initialCapital = 1000m, CancellationToken ct = default);
+    Task<BacktestTask?> GetTaskAsync(Guid taskId, CancellationToken ct = default);
+    Task<BacktestResult?> GetResultAsync(Guid taskId, CancellationToken ct = default);
+    Task<List<BacktestTask>> GetTasksByStrategyAsync(Guid strategyId, CancellationToken ct = default);
 }
 ```
 
 
 
-### 14.5 K 线实时回放
+### 14.6 K 线实时回放
 
 回测结束时前端一次性能查看到完整的绩效报告（概览标签），同时支持 K 线级别的逐根回放查看策略执行过程。
 
-#### 14.5.1 数据流
+#### 14.6.1 数据流
 
 | 阶段 | 数据源 | 传输方式 | 前端行为 |
 |------|--------|---------|---------|
 | 回测进行中 | `TaskAnalysisStore`（内存缓存） | SSE（Server-Sent Events） | 每根 K 线完成后即时推送，前端定时器控制显示进度 |
 | 回测已完成 | SQLite `BacktestResult.AnalysisJson` | REST API 一次性拉取全部数据 | 前端全量缓存，客户端定时器控制逐根显示 |
 
-#### 14.5.2 架构组件
+#### 14.6.2 架构组件
 
 - **`TaskAnalysisStore`**（单例）: 内存中维护 `ConcurrentDictionary<Guid, List<CandleAnalysis>>` + 每个任务对应的 `Channel<CandleAnalysis>`。`Push()` 同时写入字典和 Channel。
 - **`BacktestEngine.Run()`**: 新增 `onAnalysis` 回调参数，每根 K 线分析后触发 `onAnalysis?.Invoke(item)`，由 Worker 写入 Store。
@@ -1771,7 +1799,7 @@ public interface IBacktestEngine
   - 已完成任务：从 `AnalysisJson` 反序列化后以 `300ms/speed` 间隔逐根推送
 - **`GET /analysis?page=&pageSize=`**（REST 分页端点）: 供表格模式使用，支持运行中（走 Store）和已完成（走 DB）统一分页。
 
-#### 14.5.3 SSE 消息格式
+#### 14.6.3 SSE 消息格式
 
 | type | 时机 | 载荷 |
 |------|------|------|
@@ -1780,14 +1808,14 @@ public interface IBacktestEngine
 | `batch` | 连接建立时已有的全量数据 | `{ items: [...], total: number }` |
 | `complete` | 回放结束 | `{ type: "complete" }` |
 
-#### 14.5.4 回放控制
+#### 14.6.4 回放控制
 
 - 速度：1x（300ms/根）/ 2x / 4x / 8x / 16x，改间隔即时生效，无需重建连接
 - 暂停/继续：`clearInterval` / `setInterval`
 - 重新回放：`replayIndex = 0` + 重启定时器
 - 图/表切换：图表模式使用客户端缓存逐根回放，表格模式使用分页 REST API
 
-#### 14.5.5 竞态处理
+#### 14.6.5 竞态处理
 
 - Worker 初始化 Store 与前端 SSE 连接存在竞态：SSE 端点到 Store 未就绪时查 DB 确认为 Running 任务后进入等待循环，直到 Store 就绪
 - 前端 `watch(tasks)` 自动同步 `selectedTask` 状态：Pending → Running / Running → Completed 时自动触发切换回放方式
@@ -1822,7 +1850,7 @@ public interface IBacktestEngine
 ### 15.4 订单归档
 
 - 触发时机：每日 00:00 UTC 检查
-- 行为：`UpdatedAtUtc > archiveAfterMonths` 的 Filled/Closed 订单
+- 行为：`UpdatedAt > archiveAfterMonths` 的 Filled/Closed 订单
   1. 从 SQLite 读取完整记录
   2. 写入压缩 JSON 文件（gzip，按年月分文件）
   3. SQLite 中仅保留摘要（ID + ExchangeOrderId + Status + Archived=true）
@@ -1842,7 +1870,7 @@ public interface IBacktestEngine
 
 ```
 ASP.NET Core 启动
-  → 数据库 Migrations
+  → Database.MigrateAsync() — 自动执行未应用的 EF Core 迁移
   → 加载配置 / 初始化 Casbin
   → 检查 Super Admin → 初始化模式决策
   → Trading Engine 启动:
@@ -1853,7 +1881,17 @@ ASP.NET Core 启动
   → Health 端点就绪
 ```
 
-### 16.2 Reconciliation 流程
+### 16.2 数据库迁移策略
+
+| 项 | 规格 |
+|---|---|
+| 迁移工具 | EF Core Migrations（`dotnet ef migrations add`） |
+| 自动执行 | 启动时 `Database.MigrateAsync()` 自动应用未处理迁移 |
+| 设计时工厂 | `TradeXDbContextFactory` 提供设计时 DbContext 创建，避免 `dotnet ef` 命令需启动完整应用 |
+| 迁移文件 | 存储在 `TradeX.Infrastructure/Data/Migrations/`，需提交至 Git 仓库 |
+| 后续变更 | 修改模型 → `dotnet ef migrations add 描述性名称 -p TradeX.Infrastructure -s TradeX.Api` → 重启应用自动应用 |
+
+### 16.3 Reconciliation 流程
 
 ```
 For each Enabled Exchange:
@@ -1868,7 +1906,7 @@ For each Enabled Exchange:
   5. 失败 → 记录告警，不阻塞启动继续
 ```
 
-### 16.3 合约
+### 16.4 合约
 
 ```csharp
 public interface IOrderReconciler
@@ -2305,7 +2343,7 @@ volumes:
 - 审计日志基础设施（`AuditLog` 表 + 自动记录中间件）
 
 ### M1-C Trader 核心实体
-- Trader 数据模型 + EF Core 配置（Id, Name, Status, CreatedBy, CreatedAtUtc, UpdatedAtUtc）
+- Trader 数据模型 + EF Core 配置（Id, Name, Status, CreatedBy, CreatedAt, UpdatedAt）
 - Trader CRUD API（POST/GET/PUT/DELETE/status toggle）
 - Trader 级联删除逻辑（级联 Exchange、Strategy、Position、Order）
 - Trader 名称唯一性约束
@@ -2455,4 +2493,5 @@ volumes:
 | v1.2 | 2026-04-24 | 领域修正：重构 ExchangeAccount → Exchange，消除「交易所账户」中间抽象。Exchange 直属于 Trader，为用户配置交易所的关键实体。约束范围细化至同一 Trader × 同一 Exchange × 同一 Symbol |
 | v1.3 | 2026-04-24 | 技术选型更新：Exchange SDK 确认 JKorf 系列正式包名（Binance.Net / JK.OKX.Net / GateIo.Net / Bybit.Net / JKorf.HTX.Net）；指标库从 Trady（不活跃）迁移至 Skender.Stock.Indicators（50+ 指标，net10.0 完美兼容） |
 | v1.4 | 2026-04-24 | 资金安全与组合风控补充：新增 §9.5 多层级组合风控（系统级/交易员级/交易所级/币种级）；新增 §20 IP 白名单开关；新增 Kill Switch 紧急停止机制；扩展 RiskContext 含 PortfolioRiskSnapshot 层级上下文；更新 M2-A/M4-B 里程碑 |
-| v1.5 | 2026-04-25 | K 线实时回放功能：新增 §14.5 K 线实时回放规格；新增 `TaskAnalysisStore` 内存缓存 + Channel 推送机制；新增 SSE 端点 `/analysis/stream`；回放控制（1x~16x 速度切换、暂停/继续/重放）；表格模式分页；运行中任务 SSE 实时推送；回测任务状态 watch 自动同步 |
+| v1.5 | 2026-04-25 | K 线实时回放功能：新增 §14.6 K 线实时回放规格；新增 `TaskAnalysisStore` 内存缓存 + Channel 推送机制；新增 SSE 端点 `/analysis/stream`；回放控制（1x~16x 速度切换、暂停/继续/重放）；表格模式分页；运行中任务 SSE 实时推送；回测任务状态 watch 自动同步 |
+| v1.6 | 2026-04-26 | 时间字段统一命名：`CreatedAtUtc`/`UpdatedAtUtc` → `CreatedAt`/`UpdatedAt`，`LastTestedAtUtc` → `LastTestedAt`（前后端同步修改）。数据库迁移策略：`EnsureCreatedAsync` → EF Core Migrations（`Database.MigrateAsync`），新增 `TradeXDbContextFactory` 设计时工厂。策略部署级联删除：`BacktestTask.DeploymentId` 新增，删除部署时级联清理关联回测数据。策略状态机简化：首次回测完成 `Draft` → `Passed`（后续回测不改变状态）。指标精度修复：移除 `Math.Round(..., 4)` 截断，适配 PEPE 等极小价格代币 |

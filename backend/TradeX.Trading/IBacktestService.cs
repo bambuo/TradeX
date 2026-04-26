@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using TradeX.Core.Models;
 
 namespace TradeX.Trading;
@@ -21,9 +22,9 @@ public record BacktestCandleAnalysis(
     decimal Low,
     decimal Close,
     decimal Volume,
-    Dictionary<string, decimal> IndicatorValues,
-    bool? EntryConditionResult,
-    bool? ExitConditionResult,
+    [property: JsonPropertyName("indicators")] Dictionary<string, decimal> IndicatorValues,
+    [property: JsonPropertyName("entry")] bool? EntryConditionResult,
+    [property: JsonPropertyName("exit")] bool? ExitConditionResult,
     bool InPosition,
     string Action);
 
