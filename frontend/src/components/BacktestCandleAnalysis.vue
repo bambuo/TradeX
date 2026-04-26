@@ -97,12 +97,12 @@ const actionColors: Record<string, string> = {
           >
             <td class="cell-index">{{ a.index }}</td>
             <td class="cell-date">{{ new Date(a.timestamp).toLocaleString() }}</td>
-            <td>{{ fmt(a.open) }}</td>
-            <td>{{ fmt(a.high) }}</td>
-            <td>{{ fmt(a.low) }}</td>
-            <td class="cell-close">{{ fmt(a.close) }}</td>
-            <td>{{ fmt(a.volume) }}</td>
-            <td v-for="k in indicatorKeys" :key="k" class="indicator-value">{{ fmt(a.indicators[k] ?? 0) }}</td>
+            <td :title="String(a.open)">{{ fmt(a.open) }}</td>
+            <td :title="String(a.high)">{{ fmt(a.high) }}</td>
+            <td :title="String(a.low)">{{ fmt(a.low) }}</td>
+            <td class="cell-close" :title="String(a.close)">{{ fmt(a.close) }}</td>
+            <td :title="String(a.volume)">{{ fmt(a.volume) }}</td>
+            <td v-for="k in indicatorKeys" :key="k" class="indicator-value" :title="String(a.indicators[k] ?? 0)">{{ fmt(a.indicators[k] ?? 0) }}</td>
             <td>
               <span :class="a.inPosition ? 'badge-in' : 'badge-out'">
                 {{ a.inPosition ? '持仓' : '空仓' }}

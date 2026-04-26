@@ -4,6 +4,15 @@ function toSubscript(n: number): string {
   return String(n).split('').map(d => SUBSCRIPT_DIGITS[parseInt(d)] || d).join('')
 }
 
+function toExponential(value: number): string {
+  const expStr = value.toExponential(6)
+  const [base, exp] = expStr.split('e')
+  const sign = exp.startsWith('-') ? '⁻' : ''
+  const expAbs = exp.replace(/^[+-]/, '')
+  const expSub = toSubscript(parseInt(expAbs))
+  return `${base}×10${sign}${expSub}`
+}
+
 export function formatSmallNumber(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return '-'
   if (value === 0) return '0'
@@ -39,6 +48,10 @@ export function formatSmallNumber(value: number | null | undefined): string {
     return sign + abs.toFixed(decimals)
   }
 
+  if (zeroCount > 6) {
+    return sign + toExponential(abs)
+  }
+
   const truncatedRest = rest.length > 6 ? rest.slice(0, 6) : rest
-  return `${sign}0.0${toSubscript(zeroCount)}${truncatedRest}`
+  return `${sign}0.0${toSubscript(zeroCount - 1)}${truncatedRest}`
 }

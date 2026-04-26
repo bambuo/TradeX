@@ -2,6 +2,7 @@
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { createChart, ColorType, CandlestickSeries, HistogramSeries, type IChartApi, type ISeriesApi, type CandlestickData, type HistogramData, type Time } from 'lightweight-charts'
 import type { BacktestCandleAnalysis } from '../api/backtests'
+import { formatSmallNumber } from '../utils/format'
 
 const props = defineProps<{
   analysis: BacktestCandleAnalysis[]
@@ -61,10 +62,7 @@ function render() {
       },
       handleScroll: { vertTouchDrag: false },
       localization: {
-        priceFormatter: (price: number) => {
-          if (price === 0) return '0'
-          return price.toFixed(precision)
-        }
+        priceFormatter: (price: number) => formatSmallNumber(price)
       }
     })
 
