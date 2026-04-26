@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { usersApi, type User } from '../api/users'
+import AppSelect from '../components/AppSelect.vue'
 
 const users = ref<User[]>([])
 const loading = ref(true)
@@ -57,11 +58,17 @@ onMounted(load)
     <AppModal v-model="showForm" title="创建用户" width="sm">
       <input v-model="formUsername" placeholder="用户名" class="input" />
       <input v-model="formPassword" type="password" placeholder="密码" class="input" />
-      <select v-model="formRole" class="input">
-        <option value="Admin">Admin</option>
-        <option value="Operator">Operator</option>
-        <option value="Viewer">Viewer</option>
-      </select>
+      <AppSelect
+        :options="[
+          { label: 'Admin', value: 'Admin' },
+          { label: 'Operator', value: 'Operator' },
+          { label: 'Viewer', value: 'Viewer' },
+        ]"
+        :model-value="formRole"
+        full
+        form
+        @update:model-value="(v: string | number) => formRole = v as 'Admin' | 'Operator' | 'Viewer'"
+      />
       <template #footer>
         <AppButton icon="close" @click="showForm = false">取消</AppButton>
         <AppButton variant="primary" icon="user" @click="create">创建</AppButton>
@@ -86,11 +93,15 @@ onMounted(load)
           <td>{{ u.status }}</td>
           <td>{{ new Date(u.createdAt).toLocaleDateString() }}</td>
           <td class="actions">
-            <select class="role-select" :value="u.role" @change="(e) => changeRole(u.id, (e.target as HTMLSelectElement).value)">
-              <option value="Admin">Admin</option>
-              <option value="Operator">Operator</option>
-              <option value="Viewer">Viewer</option>
-            </select>
+            <AppSelect
+              :options="[
+                { label: 'Admin', value: 'Admin' },
+                { label: 'Operator', value: 'Operator' },
+                { label: 'Viewer', value: 'Viewer' },
+              ]"
+              :model-value="u.role"
+              @update:model-value="(v: string | number) => changeRole(u.id, v as 'Admin' | 'Operator' | 'Viewer')"
+            />
           </td>
         </tr>
         <tr v-if="users.length === 0">
@@ -112,7 +123,6 @@ onMounted(load)
 .table th { color: var(--text-muted); font-weight: 600; }
 .role-badge { font-weight: 600; font-size: 0.85rem; }
 .actions { display: flex; gap: 0.5rem; }
-.role-select { padding: 0.25rem; background: rgba(255,255,255,0.35); color: var(--text-primary); border: 1px solid var(--glass-border); border-radius: 4px; }
 .empty { text-align: center; color: var(--text-muted); padding: 2rem; }
 .input { width: 100%; padding: 0.6rem; border: 1px solid var(--glass-border); border-radius: 4px; background: rgba(255,255,255,0.35); color: var(--text-primary); box-sizing: border-box; }
 </style>

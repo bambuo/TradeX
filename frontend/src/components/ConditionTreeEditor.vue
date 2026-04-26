@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import AppSelect from './AppSelect.vue'
 
 export interface ConditionNode {
   operator?: string
@@ -52,10 +53,13 @@ function updateField(field: string, value: any) {
     <!-- Logical operator node -->
     <template v-if="!isLeaf">
       <div class="node-header">
-        <select :value="node.operator" class="op-select" @change="(e) => updateField('operator', (e.target as HTMLSelectElement).value)">
-          <option v-for="op in operators" :key="op" :value="op">{{ op }}</option>
-        </select>
-        <button class="btn-icon" title="删除" @click="removeFromParent">✕</button>
+        <AppSelect
+          :options="operators.map(o => ({ label: o, value: o }))"
+          :model-value="node.operator ?? 'AND'"
+          class="op-select"
+          @update:model-value="(v: string) => updateField('operator', v)"
+        />
+        <AppButton size="sm" variant="ghost" icon="close" title="删除" @click="removeFromParent" />
       </div>
       <div class="children">
         <ConditionTreeEditor
@@ -67,22 +71,27 @@ function updateField(field: string, value: any) {
         />
       </div>
       <div class="add-actions">
-        <button class="btn-sm" @click="node.conditions!.push({ operator: 'AND', conditions: [] })">＋ 条件组</button>
-        <button class="btn-sm" @click="node.conditions!.push({ indicator: 'RSI', comparison: '>', value: 50 })">＋ 条件</button>
+        <AppButton size="sm" icon="plus" @click="node.conditions!.push({ operator: 'AND', conditions: [] })">条件组</AppButton>
+        <AppButton size="sm" icon="plus" @click="node.conditions!.push({ indicator: 'RSI', comparison: '>', value: 50 })">条件</AppButton>
       </div>
     </template>
 
     <!-- Leaf condition node -->
     <template v-else>
       <div class="leaf-editor">
-        <select :value="node.indicator" class="field-select" @change="(e) => updateField('indicator', (e.target as HTMLSelectElement).value)">
-          <option v-for="ind in indicators" :key="ind" :value="ind">{{ ind }}</option>
-        </select>
-        <select :value="node.comparison" class="field-select narrow" @change="(e) => updateField('comparison', (e.target as HTMLSelectElement).value)">
-          <option v-for="cmp in comparisons" :key="cmp" :value="cmp">{{ cmp }}</option>
-        </select>
+        <AppSelect
+          :options="indicators.map(i => ({ label: i, value: i }))"
+          :model-value="node.indicator ?? indicators[0]"
+          @update:model-value="(v: string) => updateField('indicator', v)"
+        />
+        <AppSelect
+          :options="comparisons.map(c => ({ label: c, value: c }))"
+          :model-value="node.comparison ?? comparisons[0]"
+          narrow
+          @update:model-value="(v: string) => updateField('comparison', v)"
+        />
         <input :value="node.value" type="number" step="any" class="field-input" placeholder="值" @input="(e) => updateField('value', parseFloat((e.target as HTMLInputElement).value) || 0)" />
-        <button class="btn-icon" title="删除" @click="removeFromParent">✕</button>
+        <AppButton size="sm" variant="ghost" icon="close" title="删除" @click="removeFromParent" />
       </div>
     </template>
   </div>
@@ -98,7 +107,6 @@ function updateField(field: string, value: any) {
 }
 .condition-node.leaf {
   background: rgba(255,255,255,0.35);
-  border-color: #475569;
 }
 .node-header {
   display: flex;
@@ -106,15 +114,11 @@ function updateField(field: string, value: any) {
   gap: 6px;
   margin-bottom: 8px;
 }
-.op-select {
-  padding: 3px 6px;
-  background: rgba(255,255,255,0.35);
-  color: var(--accent-blue);
-  border: 1px solid var(--accent-blue);
-  border-radius: 4px;
+.op-select :deep(.app-select-trigger) {
   font-weight: 700;
   font-size: 0.85rem;
-  cursor: pointer;
+  color: var(--accent-blue);
+  border-color: var(--accent-blue);
 }
 .children {
   display: flex;
@@ -126,47 +130,14 @@ function updateField(field: string, value: any) {
   gap: 6px;
   margin-top: 8px;
 }
-.btn-sm {
-  padding: 3px 10px;
-  background: #334155;
-  color: var(--text-muted);
-  border: 1px dashed #475569;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.75rem;
-}
-.btn-sm:hover { color: var(--text-primary); border-color: var(--accent-blue); }
-.btn-icon {
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  color: var(--accent-red);
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.8rem;
-  margin-left: auto;
-}
-.btn-icon:hover { background: rgba(239,68,68,0.1); }
+
 .leaf-editor {
   display: flex;
   gap: 6px;
   align-items: center;
   flex-wrap: wrap;
 }
-.field-select {
-  padding: 4px 6px;
-  background: rgba(255,255,255,0.55);
-  color: var(--text-primary);
-  border: 1px solid var(--glass-border-strong);
-  border-radius: 4px;
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-.field-select.narrow { width: 100px; }
+
 .field-input {
   width: 80px;
   padding: 4px 6px;

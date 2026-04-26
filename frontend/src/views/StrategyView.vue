@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { strategiesApi, type Strategy, type StrategyDeployment } from '../api/strategies'
 import { exchangesApi, type ExchangeAccount } from '../api/exchanges'
 import { formatSmallNumber } from '../utils/format'
+import AppSelect from '../components/AppSelect.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -318,18 +319,26 @@ onMounted(load)
       <div class="form-grid">
           <div class="form-group full">
             <label>策略模板</label>
-            <select v-model="formStrategyId" :disabled="!!editId">
-              <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}</option>
-            </select>
+            <AppSelect
+              :options="templates.map(t => ({ label: t.name, value: t.id }))"
+              :model-value="formStrategyId"
+              :disabled="!!editId"
+              full
+              form
+              @update:model-value="(v: string | number) => formStrategyId = String(v)"
+            />
           </div>
 
           <div v-if="scope !== 'Trader'" class="form-group full">
             <label>交易所账户</label>
-            <select v-model="formExchangeId" :disabled="!!editId">
-              <option v-for="a in accounts" :key="a.id" :value="a.id">
-                {{ a.label }} ({{ a.exchangeType }})
-              </option>
-            </select>
+            <AppSelect
+              :options="accounts.map(a => ({ label: `${a.label} (${a.exchangeType})`, value: a.id }))"
+              :model-value="formExchangeId"
+              :disabled="!!editId"
+              full
+              form
+              @update:model-value="(v: string | number) => formExchangeId = String(v)"
+            />
           </div>
 
           <div v-if="scope === 'Symbol'" class="form-group full">
@@ -347,11 +356,11 @@ onMounted(load)
               </div>
               <div class="filter-item">
                 <span class="filter-item-label">方向</span>
-                <select v-model="changeDirection" class="filter-select">
-                  <option value="all">全部</option>
-                  <option value="up">上涨</option>
-                  <option value="down">下跌</option>
-                </select>
+                <AppSelect
+                  :options="[{ label: '全部', value: 'all' }, { label: '上涨', value: 'up' }, { label: '下跌', value: 'down' }]"
+                  :model-value="changeDirection"
+                  @update:model-value="(v: string | number) => changeDirection = v as 'all' | 'up' | 'down'"
+                />
               </div>
               <div class="filter-item">
                 <span class="filter-item-label">成交量</span>
@@ -406,9 +415,13 @@ onMounted(load)
 
           <div class="form-group">
             <label>时间周期</label>
-            <select v-model="formTimeframe">
-              <option v-for="tf in timeframes" :key="tf" :value="tf">{{ tf }}</option>
-            </select>
+            <AppSelect
+              :options="timeframes.map(tf => ({ label: tf, value: tf }))"
+              :model-value="formTimeframe"
+              full
+              form
+              @update:model-value="(v: string | number) => formTimeframe = String(v)"
+            />
           </div>
       </div>
 
@@ -531,23 +544,7 @@ onMounted(load)
   border-radius: 4px;
   font-size: 0.75rem;
 }
-.filter-select {
-  padding: 0.3rem 0.4rem;
-  background: rgba(255, 255, 255, 0.45);
-  color: var(--text-primary);
-  border: 1px solid var(--glass-border);
-  border-radius: 4px;
-  font-size: 0.75rem;
-}
 .filter-sep { color: #475569; font-size: 0.75rem; }
-.filter-select {
-  padding: 0.3rem 0.4rem;
-  background: rgba(255,255,255,0.35);
-  color: var(--text-primary);
-  border: 1px solid var(--glass-border);
-  border-radius: 4px;
-  font-size: 0.75rem;
-}
 .symbol-table-wrap {
   border: 1px solid var(--glass-border); border-radius: 4px; background: rgba(255, 255, 255, 0.35);
   max-height: 200px; overflow-y: auto;

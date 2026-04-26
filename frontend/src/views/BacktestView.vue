@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { strategiesApi, type StrategyDeployment } from '../api/strategies'
 import { backtestsApi, type BacktestTask, type BacktestResult, type BacktestCandleAnalysis } from '../api/backtests'
 import BacktestCandleAnalysisView from '../components/BacktestCandleAnalysis.vue'
+import AppSelect from '../components/AppSelect.vue'
 
 const route = useRoute()
 const traderId = route.params.traderId as string
@@ -378,14 +379,19 @@ function formatPercent(v: number): string {
         <div class="config-row">
           <div class="config-field">
             <label>回测天数</label>
-            <select v-model.number="days">
-              <option :value="7">7 天</option>
-              <option :value="30">30 天</option>
-              <option :value="60">60 天</option>
-              <option :value="90">90 天</option>
-              <option :value="180">180 天</option>
-              <option :value="365">365 天</option>
-            </select>
+            <AppSelect
+              :options="[
+                { label: '7 天', value: 7 },
+                { label: '30 天', value: 30 },
+                { label: '60 天', value: 60 },
+                { label: '90 天', value: 90 },
+                { label: '180 天', value: 180 },
+                { label: '365 天', value: 365 },
+              ]"
+              :model-value="days"
+              form
+              @update:model-value="(v: string | number) => days = Number(v)"
+            />
           </div>
           <div class="config-field">
             <label>初始资金 ($)</label>

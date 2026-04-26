@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ordersApi, type Order } from '../api/orders'
 import { exchangesApi, type ExchangeAccount } from '../api/exchanges'
 import { formatSmallNumber } from '../utils/format'
+import AppSelect from '../components/AppSelect.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -94,21 +95,29 @@ onMounted(load)
     </header>
 
     <AppModal v-model="showForm" title="手动下单" width="sm">
-      <select v-model="formExchangeId" class="input">
-        <option v-for="a in accounts" :key="a.id" :value="a.id">
-          {{ a.label }} ({{ a.exchangeType }})
-        </option>
-      </select>
+      <AppSelect
+        :options="accounts.map(a => ({ label: `${a.label} (${a.exchangeType})`, value: a.id }))"
+        :model-value="formExchangeId"
+        full
+        form
+        @update:model-value="(v: string | number) => formExchangeId = String(v)"
+      />
       <input v-model="formSymbolId" placeholder="交易对，如 BTCUSDT" class="input" />
       <div class="form-row">
-        <select v-model="formSide" class="input">
-          <option value="Buy">买入</option>
-          <option value="Sell">卖出</option>
-        </select>
-        <select v-model="formType" class="input">
-          <option value="Market">市价</option>
-          <option value="Limit">限价</option>
-        </select>
+        <AppSelect
+          :options="[{ label: '买入', value: 'Buy' }, { label: '卖出', value: 'Sell' }]"
+          :model-value="formSide"
+          full
+          form
+          @update:model-value="(v: string | number) => formSide = v as 'Buy' | 'Sell'"
+        />
+        <AppSelect
+          :options="[{ label: '市价', value: 'Market' }, { label: '限价', value: 'Limit' }]"
+          :model-value="formType"
+          full
+          form
+          @update:model-value="(v: string | number) => formType = v as 'Market' | 'Limit'"
+        />
       </div>
       <input v-model.number="formQuantity" type="number" step="0.0001" placeholder="数量" class="input" />
       <input v-if="formType === 'Limit'" v-model.number="formPrice" type="number" step="0.01" placeholder="价格" class="input" />

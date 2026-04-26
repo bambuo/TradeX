@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { auditLogApi, type AuditLogEntry } from '../api/auditLog'
+import AppSelect from '../components/AppSelect.vue'
 
 const logs = ref<AuditLogEntry[]>([])
 const total = ref(0)
@@ -166,17 +167,21 @@ onMounted(load)
     <h2>审计日志</h2>
 
     <div class="filters">
-      <select v-model="filterResource" class="filter-select">
-        <option value="">全部资源</option>
-        <option value="交易员">交易员</option>
-        <option value="交易所">交易所</option>
-        <option value="策略">策略</option>
-        <option value="系统设置">系统设置</option>
-        <option value="用户">用户</option>
-        <option value="认证">认证</option>
-        <option value="订单">订单</option>
-        <option value="通知渠道">通知渠道</option>
-      </select>
+      <AppSelect
+        :options="[
+          { label: '全部资源', value: '' },
+          { label: '交易员', value: '交易员' },
+          { label: '交易所', value: '交易所' },
+          { label: '策略', value: '策略' },
+          { label: '系统设置', value: '系统设置' },
+          { label: '用户', value: '用户' },
+          { label: '认证', value: '认证' },
+          { label: '订单', value: '订单' },
+          { label: '通知渠道', value: '通知渠道' },
+        ]"
+        :model-value="filterResource"
+        @update:model-value="(v: string | number) => filterResource = String(v)"
+      />
       <AppButton variant="primary" icon="filter" @click="load">筛选</AppButton>
     </div>
 
@@ -257,7 +262,6 @@ onMounted(load)
 .audit-page { padding: 2rem; }
 h2 { margin: 0 0 1rem; color: var(--text-primary); }
 .filters { display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; }
-.filter-select { padding: 0.5rem; background: rgba(255,255,255,0.35); color: var(--text-primary); border: 1px solid var(--glass-border); border-radius: 4px; min-width: 180px; }
 .btn-primary { padding: 0.5rem 1rem; background: var(--accent-blue); color: var(--text-primary); border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
 .table { width: 100%; border-collapse: collapse; }
 .table th, .table td { padding: 0.625rem 0.75rem; text-align: left; border-bottom: 1px solid var(--glass-border); color: var(--text-primary); font-size: 0.85rem; }

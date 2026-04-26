@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { notificationChannelsApi, type NotificationChannel } from '../api/notificationChannels'
+import AppSelect from '../components/AppSelect.vue'
 
 const channels = ref<NotificationChannel[]>([])
 const loading = ref(true)
@@ -75,11 +76,17 @@ onMounted(load)
 
     <AppModal v-model="showForm" title="添加通知渠道" width="md">
       <input v-model="formName" placeholder="渠道名称" class="input" />
-      <select v-model="formType" class="input">
-        <option value="Telegram">Telegram</option>
-        <option value="Discord">Discord</option>
-        <option value="Email">Email</option>
-      </select>
+      <AppSelect
+        :options="[
+          { label: 'Telegram', value: 'Telegram' },
+          { label: 'Discord', value: 'Discord' },
+          { label: 'Email', value: 'Email' },
+        ]"
+        :model-value="formType"
+        full
+        form
+        @update:model-value="(v: string | number) => formType = String(v)"
+      />
 
       <template v-if="formType === 'Telegram'">
         <input v-model="formBotToken" placeholder="Bot Token" class="input" />

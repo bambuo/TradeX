@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import type { BacktestCandleAnalysis } from '../api/backtests'
 import BacktestKlineChart from './BacktestKlineChart.vue'
+import AppSelect from './AppSelect.vue'
 import { formatSmallNumber } from '../utils/format'
 
 const props = defineProps<{
@@ -52,11 +53,15 @@ const actionColors: Record<string, string> = {
           <span class="toolbar-label">共 {{ analysis.length }} 根 K 线</span>
           <span class="toolbar-divider">|</span>
           <label class="toolbar-label">筛选</label>
-          <select v-model="filterAction" class="toolbar-select">
-            <option value="all">全部</option>
-            <option value="enter">仅入场</option>
-            <option value="exit">仅出场</option>
-          </select>
+          <AppSelect
+            :options="[
+              { label: '全部', value: 'all' },
+              { label: '仅入场', value: 'enter' },
+              { label: '仅出场', value: 'exit' },
+            ]"
+            :model-value="filterAction"
+            @update:model-value="(v: string | number) => filterAction = String(v)"
+          />
         </div>
         <button class="sort-btn" @click="sortAsc = !sortAsc">
           {{ sortAsc ? '↑ 正序' : '↓ 倒序' }}
@@ -125,10 +130,6 @@ const actionColors: Record<string, string> = {
 .toolbar-left { display: flex; align-items: center; gap: 0.5rem; }
 .toolbar-label { color: var(--text-muted); font-size: 0.8rem; }
 .toolbar-divider { color: #334155; }
-.toolbar-select {
-  padding: 0.25rem 0.5rem; background: rgba(255,255,255,0.35); color: var(--text-primary);
-  border: 1px solid var(--glass-border); border-radius: 4px; font-size: 0.8rem;
-}
 .sort-btn {
   padding: 0.25rem 0.5rem; background: rgba(255,255,255,0.55); color: var(--text-muted);
   border: 1px solid var(--glass-border); border-radius: 4px; cursor: pointer; font-size: 0.8rem;

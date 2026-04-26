@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
+import AppSelect from './AppSelect.vue'
 
 export interface ExecutionRule {
   type: string
@@ -73,19 +74,32 @@ const ruleFields: Record<string, { key: string; label: string; type: string; ste
 }
 
 const currentFields = computed(() => ruleFields[rule.value.type] || ruleFields.custom)
+
+const rawText = ref('')
+watch(() => props.modelValue, (v) => { rawText.value = formatJson(v) }, { immediate: true })
+
+function formatJson(json: string): string {
+  try { return JSON.stringify(JSON.parse(json), null, 2) }
+  catch { return json }
+}
+
+function onRawInput(e: Event) {
+  rawText.value = (e.target as HTMLTextAreaElement).value
+  emit('update:modelValue', (e.target as HTMLTextAreaElement).value)
+}
 </script>
 
 <template>
   <div class="rule-editor">
     <div class="rule-type-row">
       <label class="rule-label">执行规则类型</label>
-      <select
-        :value="rule.type"
-        class="rule-select"
-        @change="(e) => setField('type', (e.target as HTMLSelectElement).value)"
-      >
-        <option v-for="(label, key) in ruleTypes" :key="key" :value="key">{{ label }}</option>
-      </select>
+      <AppSelect
+        :options="Object.entries(ruleTypes).map(([value, label]) => ({ label, value }))"
+        :model-value="rule.type"
+        full
+        form
+        @update:model-value="(v: string | number) => setField('type', String(v))"
+      />
     </div>
 
     <div v-if="currentFields.length" class="fields-grid">
@@ -114,10 +128,10 @@ const currentFields = computed(() => ruleFields[rule.value.type] || ruleFields.c
     <details class="raw-toggle">
       <summary>查看/编辑原始 JSON</summary>
       <textarea
-        :value="props.modelValue"
+        :value="rawText"
         class="raw-input"
-        rows="4"
-        @input="(e) => emit('update:modelValue', (e.target as HTMLTextAreaElement).value)"
+        rows="6"
+        @input="onRawInput"
       ></textarea>
     </details>
   </div>
@@ -138,15 +152,6 @@ const currentFields = computed(() => ruleFields[rule.value.type] || ruleFields.c
   color: var(--text-muted);
   font-size: 0.85rem;
   margin-bottom: 0.25rem;
-}
-.rule-select {
-  width: 100%;
-  padding: 0.5rem 0.625rem;
-  background: rgba(255,255,255,0.35);
-  color: var(--text-primary);
-  border: 1px solid var(--glass-border-strong);
-  border-radius: 4px;
-  font-size: 0.85rem;
 }
 .fields-grid {
   display: grid;
@@ -189,12 +194,11 @@ const currentFields = computed(() => ruleFields[rule.value.type] || ruleFields.c
 .raw-toggle summary { cursor: pointer; }
 .raw-input {
   width: 100%;
-  margin-top: 0.5rem;
   padding: 0.5rem;
   background: rgba(255,255,255,0.35);
   color: var(--text-primary);
-  border: 1px solid var(--glass-border-strong);
-  border-radius: 4px;
+  border: 1px solid var(--glass-border);
+  border-radius: 0 0 4px 4px;
   font-family: monospace;
   font-size: 0.8rem;
   box-sizing: border-box;

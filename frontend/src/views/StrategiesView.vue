@@ -209,42 +209,50 @@ onMounted(load)
       </div>
 
       <template #footer>
-        <AppButton icon="close" @click="showForm = false">取消</AppButton>
         <AppButton variant="primary" icon="save" @click="save">保存</AppButton>
       </template>
     </AppModal>
 
-    <div v-if="loading">加载中...</div>
-    <table v-else class="table">
-      <thead>
-        <tr>
-          <th>名称</th>
-          <th>入场条件</th>
-          <th>出场条件</th>
-          <th>类型</th>
-          <th>版本</th>
-          <th>更新时间</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="s in strategies" :key="s.id">
-          <td>{{ s.name }}</td>
-          <td class="cond-cell">{{ humanizeCondition(s.entryConditionJson) }}</td>
-          <td class="cond-cell">{{ humanizeCondition(s.exitConditionJson) }}</td>
-          <td>{{ humanizeExecutionRule(s.executionRuleJson) }}</td>
-          <td>{{ s.version }}</td>
-          <td>{{ new Date(s.updatedAt).toLocaleString('zh-CN', { hour12: false }) }}</td>
-          <td class="actions">
-            <AppButton size="sm" icon="edit" @click="openEdit(s)">编辑</AppButton>
-            <AppButton size="sm" variant="danger" icon="trash" @click="remove(s.id)">删除</AppButton>
-          </td>
-        </tr>
-        <tr v-if="strategies.length === 0">
-          <td colspan="7" class="empty">暂无策略模板</td>
-        </tr>
-      </tbody>
-    </table>
+    <div v-if="loading" class="loading">加载中...</div>
+    <div v-else-if="strategies.length === 0" class="empty">暂无策略模板</div>
+    <div v-else class="card-grid">
+      <div
+        v-for="s in strategies"
+        :key="s.id"
+        class="strategy-card"
+        style="border-top-color: var(--accent-blue)"
+      >
+        <div class="card-header">
+          <div class="card-title-area">
+            <h3>{{ s.name }}</h3>
+            <span class="card-badge">{{ humanizeExecutionRule(s.executionRuleJson) }}</span>
+          </div>
+          <div class="card-header-actions">
+            <span class="card-meta">v{{ s.version }}</span>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div class="info-row">
+            <span class="info-label">入场</span>
+            <span class="info-value cond-text">{{ humanizeCondition(s.entryConditionJson) }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">出场</span>
+            <span class="info-value cond-text">{{ humanizeCondition(s.exitConditionJson) }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">更新</span>
+            <span class="info-value">{{ new Date(s.updatedAt).toLocaleString('zh-CN', { hour12: false }) }}</span>
+          </div>
+        </div>
+
+        <div class="card-footer">
+          <AppButton size="sm" icon="edit" @click="openEdit(s)">编辑</AppButton>
+          <AppButton size="sm" variant="danger" icon="trash" @click="remove(s.id)">删除</AppButton>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -257,12 +265,112 @@ onMounted(load)
 .btn-small { padding: 0.25rem 0.75rem; background: #334155; color: var(--text-primary); border: 1px solid var(--glass-border-strong); border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
 .btn-small:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-danger { color: var(--accent-red); border-color: var(--accent-red); background: transparent; }
-.table { width: 100%; border-collapse: collapse; }
-.table th, .table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--glass-border); color: var(--text-primary); }
-.table th { color: var(--text-muted); font-weight: 600; }
-.actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-.cond-cell { font-size: 0.8rem; color: var(--text-muted); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .empty { text-align: center; color: var(--text-muted); padding: 2rem; }
+.loading { text-align: center; color: var(--text-muted); padding: 2rem; }
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 1rem;
+}
+
+.strategy-card {
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--glass-border);
+  border-top: 3px solid;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.strategy-card:hover {
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.06);
+  transform: translateY(-2px);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem 0.5rem;
+}
+
+.card-title-area {
+  flex: 1;
+  min-width: 0;
+}
+.card-title-area h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  color: var(--text-primary);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.card-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  align-self: flex-start;
+}
+
+.card-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.5;
+  background: rgba(79, 126, 201, 0.10);
+  color: var(--accent-blue);
+}
+
+.card-meta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.card-body {
+  padding: 0.5rem 1.25rem 0.75rem;
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.3rem 0;
+  font-size: 0.85rem;
+}
+
+.info-label {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.info-value {
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.cond-text {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-footer {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem 1rem;
+  border-top: 1px solid var(--glass-border);
+}
+.card-footer :deep(.app-button) {
+  flex: 1;
+}
 .input { width: 100%; padding: 0.75rem; margin-bottom: 1rem; border: 1px solid var(--glass-border); border-radius: 4px; background: rgba(255,255,255,0.35); color: var(--text-primary); box-sizing: border-box; font-family: inherit; }
 .form-body { max-height: 65vh; overflow-y: auto; margin-bottom: 1rem; }
 .section { margin-bottom: 1rem; }

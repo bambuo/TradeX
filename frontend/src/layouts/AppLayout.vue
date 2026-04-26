@@ -41,7 +41,7 @@ const navItems = [
   { path: '/', label: '仪表盘', icon: 'dashboard' },
   { path: '/traders', label: '交易员', icon: 'traders' },
   { path: '/exchanges', label: '交易所', icon: 'exchange' },
-  { path: '/strategies', label: '策略管理', icon: 'strategy' },
+  { path: '/strategies', label: '策略', icon: 'strategy' },
   { path: '/audit-logs', label: '审计日志', icon: 'audit' },
   { path: '/notifications', label: '通知渠道', icon: 'notification' },
   { path: '/users', label: '用户管理', icon: 'users' },
