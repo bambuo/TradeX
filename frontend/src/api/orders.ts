@@ -2,7 +2,7 @@ import client from './client'
 
 export interface Order {
   id: string
-  trader_id: string
+  traderId: string
   exchangeOrderId: string | null
   exchangeId: string
   strategyId: string | null

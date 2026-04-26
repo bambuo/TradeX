@@ -2,7 +2,7 @@ import client from './client'
 
 export interface Position {
   id: string
-  trader_id: string
+  traderId: string
   exchangeId: string
   strategyId: string
   symbolId: string
