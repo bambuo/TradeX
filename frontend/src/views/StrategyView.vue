@@ -3,6 +3,7 @@ import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { strategiesApi, type Strategy, type StrategyDeployment } from '../api/strategies'
 import { exchangesApi, type ExchangeAccount } from '../api/exchanges'
+import { formatSmallNumber } from '../utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -150,9 +151,7 @@ function getTemplateName(strategyId: string): string {
 
 function formatPrice(price: number): string {
   if (price === 0) return '-'
-  if (price >= 1000) return price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  if (price >= 1) return price.toFixed(4)
-  return price.toFixed(6)
+  return formatSmallNumber(price)
 }
 
 function formatVolume(vol: number): string {

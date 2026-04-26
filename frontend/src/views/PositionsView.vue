@@ -2,6 +2,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { positionsApi, type Position } from '../api/positions'
+import { formatSmallNumber } from '../utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -66,8 +67,8 @@ function formatPnl(pnl: number): string {
         <tr v-for="p in positions" :key="p.id">
           <td>{{ p.symbolId }}</td>
           <td>{{ p.quantity }}</td>
-          <td>{{ p.entryPrice.toFixed(4) }}</td>
-          <td>{{ p.currentPrice.toFixed(4) }}</td>
+          <td>{{ formatSmallNumber(p.entryPrice) }}</td>
+          <td>{{ formatSmallNumber(p.currentPrice) }}</td>
           <td :class="pnlClass(p.unrealizedPnl)">{{ formatPnl(p.unrealizedPnl) }}</td>
           <td :class="pnlClass(p.realizedPnl)">{{ formatPnl(p.realizedPnl) }}</td>
           <td>

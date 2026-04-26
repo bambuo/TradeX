@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import type { BacktestCandleAnalysis } from '../api/backtests'
 import BacktestKlineChart from './BacktestKlineChart.vue'
+import { formatSmallNumber } from '../utils/format'
 
 const props = defineProps<{
   analysis: BacktestCandleAnalysis[]
@@ -14,12 +15,7 @@ const filterAction = ref('all')
 
 function fmt(v: unknown): string {
   if (typeof v !== 'number' || isNaN(v)) return '0.00'
-  const abs = Math.abs(v)
-  if (abs === 0) return '0.00'
-  if (abs < 0.0001) return v.toExponential(4)
-  if (abs < 0.01) return v.toFixed(8)
-  if (abs < 1) return v.toFixed(6)
-  return v.toFixed(2)
+  return formatSmallNumber(v)
 }
 
 const filtered = computed(() => {

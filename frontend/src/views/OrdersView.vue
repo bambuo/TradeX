@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ordersApi, type Order } from '../api/orders'
 import { exchangesApi, type ExchangeAccount } from '../api/exchanges'
+import { formatSmallNumber } from '../utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -152,10 +153,10 @@ onMounted(load)
               {{ statusLabels[o.status] }}
             </span>
           </td>
-          <td>{{ o.price ?? '-' }}</td>
-          <td>{{ o.quantity }}</td>
-          <td>{{ o.filledQuantity }}</td>
-          <td>{{ o.fee }} {{ o.feeAsset ?? '' }}</td>
+          <td>{{ o.price != null ? formatSmallNumber(o.price) : '-' }}</td>
+          <td>{{ formatSmallNumber(o.quantity) }}</td>
+          <td>{{ formatSmallNumber(o.filledQuantity) }}</td>
+          <td>{{ formatSmallNumber(o.fee) }} {{ o.feeAsset ?? '' }}</td>
           <td>{{ o.isManual ? '是' : '否' }}</td>
           <td>{{ new Date(o.placedAtUtc).toLocaleString() }}</td>
         </tr>
