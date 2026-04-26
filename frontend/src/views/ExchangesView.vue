@@ -80,7 +80,16 @@ async function loadAll() {
   await fetchAssets()
 }
 
-async function fetchAssets() {
+async function fetchAssets(exchangeId?: string) {
+  if (exchangeId) {
+    try {
+      const { data } = await exchangesApi.getAssets(exchangeId)
+      assets.value[exchangeId] = data.data ?? []
+    } catch {
+      showToast('获取资产失败', 'error')
+    }
+    return
+  }
   const enabled = accounts.value.filter(a => a.isEnabled)
   if (!enabled.length) return
   assetLoading.value = true
@@ -90,7 +99,7 @@ async function fetchAssets() {
     )
     for (const r of results) {
       if (r.status === 'fulfilled') {
-        assets.value[r.value.id] = r.value.items
+        assets.value[r.value.id] = r.value.items ?? []
       }
     }
   } finally {
@@ -334,7 +343,7 @@ onMounted(loadAll)
                 <span class="expand-arrow" :class="{ expanded: expandedAssets[a.id] }">▶</span>
               </span>
               <span v-else-if="assetLoading" class="balance-loading">加载中...</span>
-              <AppButton v-else size="sm" variant="ghost" @click="fetchAssets">加载</AppButton>
+              <AppButton v-else size="sm" variant="ghost" @click="fetchAssets(a.id)">加载</AppButton>
             </template>
             <span v-else class="info-value">-</span>
           </div>
@@ -409,6 +418,7 @@ onMounted(loadAll)
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
   gap: 1rem;
+  align-items: start;
 }
 
 .exchange-card {

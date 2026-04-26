@@ -2,11 +2,15 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TradeX.Core.Interfaces;
 using TradeX.Infrastructure.Data;
+using TradeX.Trading;
 
 namespace TradeX.Api.Controllers;
 
 [ApiController]
-public class HealthController(TradeXDbContext db, IIoTDbService iotdb) : ControllerBase
+public class HealthController(
+    TradeXDbContext db,
+    IIoTDbService iotdb,
+    ResourceMonitor resourceMonitor) : ControllerBase
 {
     [HttpGet("/health")]
     public async Task<IActionResult> GetHealth(CancellationToken ct)
@@ -30,7 +34,14 @@ public class HealthController(TradeXDbContext db, IIoTDbService iotdb) : Control
             status,
             database = dbConnected ? "Connected" : "Disconnected",
             iotdb = iotdbConnected ? "Connected" : "Disconnected",
-            timestamp = DateTime.UtcNow
+            timestamp = DateTime.UtcNow,
+            backtestScheduler = new
+            {
+                runningCount = resourceMonitor.RunningCount,
+                allowedConcurrency = resourceMonitor.AllowedConcurrency,
+                currentMemoryMb = resourceMonitor.CurrentMemoryMb,
+                currentCpuPercent = resourceMonitor.CurrentCpuPercent
+            }
         });
     }
 }

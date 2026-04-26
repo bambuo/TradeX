@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
@@ -8,64 +9,64 @@ using TradeX.Indicators;
 
 namespace TradeX.Trading;
 
-public class BacktestWorker(
+public class BacktestScheduler(
     IServiceScopeFactory scopeFactory,
     IBacktestTaskQueue queue,
-    ILogger<BacktestWorker> logger,
+    ResourceMonitor resourceMonitor,
+    IOptions<BacktestSchedulerSettings> settings,
+    ILogger<BacktestScheduler> logger,
     TaskAnalysisStore analysisStore) : BackgroundService
 {
-    private static readonly TimeSpan TaskTimeout = TimeSpan.FromMinutes(30);
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        logger.LogInformation("BacktestWorker 启动");
+        logger.LogInformation("BacktestScheduler 启动, MaxConcurrency={Max}", settings.Value.MaxConcurrency);
 
         await RecoverStuckTasksAsync(stoppingToken);
 
-        await foreach (var taskId in queue.ReadAllAsync(stoppingToken))
+        var workers = new Task[settings.Value.MaxConcurrency];
+        for (var i = 0; i < workers.Length; i++)
         {
-            logger.LogInformation("BacktestWorker 开始处理任务: TaskId={TaskId}", taskId);
-            await ProcessTaskWithTimeoutAsync(taskId, stoppingToken);
+            var workerIndex = i;
+            workers[i] = RunWorkerLoopAsync(workerIndex, stoppingToken);
+        }
+
+        await Task.WhenAny(workers);
+    }
+
+    private async Task RunWorkerLoopAsync(int workerIndex, CancellationToken stoppingToken)
+    {
+        logger.LogDebug("Worker[{Index}] 启动", workerIndex);
+
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            while (!resourceMonitor.TryAcquire())
+            {
+                if (stoppingToken.IsCancellationRequested) return;
+                await Task.Delay(200, stoppingToken);
+            }
+
+            Guid taskId;
+            try
+            {
+                taskId = await queue.ReadAsync(stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                resourceMonitor.Release();
+                return;
+            }
+
+            logger.LogInformation("Worker[{Index}] 开始处理任务: TaskId={TaskId}", workerIndex, taskId);
+            await ProcessTaskWithTimeoutAsync(taskId, workerIndex, stoppingToken);
+
+            resourceMonitor.Release();
         }
     }
 
-    private async Task RecoverStuckTasksAsync(CancellationToken ct)
+    private async Task ProcessTaskWithTimeoutAsync(Guid taskId, int workerIndex, CancellationToken stoppingToken)
     {
-        try
-        {
-            using var scope = scopeFactory.CreateScope();
-            var taskRepo = scope.ServiceProvider.GetRequiredService<IBacktestTaskRepository>();
-
-            var strategyRepo = scope.ServiceProvider.GetRequiredService<IStrategyRepository>();
-            var deployments = await strategyRepo.GetAllAsync(ct);
-            var stuckTasks = new List<BacktestTask>();
-
-            foreach (var dep in deployments)
-            {
-                var tasks = await taskRepo.GetByStrategyIdAsync(dep.Id, ct);
-                stuckTasks.AddRange(tasks.Where(t => t.Status == BacktestTaskStatus.Running));
-            }
-
-            foreach (var task in stuckTasks)
-            {
-                logger.LogWarning("恢复卡死的回测任务: TaskId={TaskId}, Strategy={Strategy}", task.Id, task.StrategyName);
-                task.Status = BacktestTaskStatus.Pending;
-                await taskRepo.UpdateAsync(task, ct);
-                await queue.EnqueueAsync(task.Id, ct);
-            }
-
-            if (stuckTasks.Count > 0)
-                logger.LogInformation("已恢复 {Count} 个卡死的回测任务", stuckTasks.Count);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "恢复卡死任务失败");
-        }
-    }
-
-    private async Task ProcessTaskWithTimeoutAsync(Guid taskId, CancellationToken stoppingToken)
-    {
-        using var timeoutCts = new CancellationTokenSource(TaskTimeout);
+        var timeout = TimeSpan.FromMinutes(settings.Value.TaskTimeoutMinutes);
+        using var timeoutCts = new CancellationTokenSource(timeout);
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, timeoutCts.Token);
         var ct = linkedCts.Token;
 
@@ -75,16 +76,16 @@ public class BacktestWorker(
         }
         catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
         {
-            logger.LogWarning("回测任务超时: TaskId={TaskId}, Timeout={Timeout}", taskId, TaskTimeout);
+            logger.LogWarning("Worker[{Index}] 回测任务超时: TaskId={TaskId}, Timeout={Timeout}", workerIndex, taskId, timeout);
             await FailTaskAsync(taskId, "回测执行超时");
         }
         catch (OperationCanceledException)
         {
-            logger.LogInformation("回测任务被取消: TaskId={TaskId}", taskId);
+            logger.LogInformation("Worker[{Index}] 回测任务被取消: TaskId={TaskId}", workerIndex, taskId);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "回测任务异常: TaskId={TaskId}", taskId);
+            logger.LogError(ex, "Worker[{Index}] 回测任务异常: TaskId={TaskId}", workerIndex, taskId);
             await FailTaskAsync(taskId, ex.Message);
         }
     }
@@ -92,8 +93,9 @@ public class BacktestWorker(
     private async Task ProcessTaskAsync(Guid taskId, CancellationToken ct)
     {
         using var scope = scopeFactory.CreateScope();
-        var strategyRepo = scope.ServiceProvider.GetRequiredService<IStrategyRepository>();
+
         var taskRepo = scope.ServiceProvider.GetRequiredService<IBacktestTaskRepository>();
+        var strategyRepo = scope.ServiceProvider.GetRequiredService<IStrategyRepository>();
         var accountRepo = scope.ServiceProvider.GetRequiredService<IExchangeRepository>();
         var clientFactory = scope.ServiceProvider.GetRequiredService<IExchangeClientFactory>();
         var encryptionService = scope.ServiceProvider.GetRequiredService<IEncryptionService>();
@@ -209,8 +211,41 @@ public class BacktestWorker(
 
         analysisStore.Remove(task.Id);
 
-        logger.LogInformation("回测完成: StrategyId={StrategyId}, TaskId={TaskId}, Trades={TradeCount}, Return={Return}%",
-            task.StrategyId, task.Id, result.TotalTrades, result.TotalReturnPercent);
+        logger.LogInformation("回测完成: TaskId={TaskId}, Trades={TradeCount}, Return={Return}%",
+            task.Id, result.TotalTrades, result.TotalReturnPercent);
+    }
+
+    private async Task RecoverStuckTasksAsync(CancellationToken ct)
+    {
+        try
+        {
+            using var scope = scopeFactory.CreateScope();
+            var taskRepo = scope.ServiceProvider.GetRequiredService<IBacktestTaskRepository>();
+            var strategyRepo = scope.ServiceProvider.GetRequiredService<IStrategyRepository>();
+            var deployments = await strategyRepo.GetAllAsync(ct);
+            var stuckTasks = new List<BacktestTask>();
+
+            foreach (var dep in deployments)
+            {
+                var tasks = await taskRepo.GetByStrategyIdAsync(dep.Id, ct);
+                stuckTasks.AddRange(tasks.Where(t => t.Status == BacktestTaskStatus.Running));
+            }
+
+            foreach (var task in stuckTasks)
+            {
+                logger.LogWarning("恢复卡死的回测任务: TaskId={TaskId}, Strategy={Strategy}", task.Id, task.StrategyName);
+                task.Status = BacktestTaskStatus.Pending;
+                await taskRepo.UpdateAsync(task, ct);
+                await queue.EnqueueAsync(task.Id, ct);
+            }
+
+            if (stuckTasks.Count > 0)
+                logger.LogInformation("已恢复 {Count} 个卡死的回测任务", stuckTasks.Count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "恢复卡死任务失败");
+        }
     }
 
     private async Task FailTaskAsync(Guid taskId, string reason)
@@ -247,12 +282,11 @@ public class BacktestWorker(
     private static long GetIntervalMs(string timeframe) =>
         IntervalMs.TryGetValue(timeframe, out var ms) ? ms : 60_000;
 
-    private async Task<List<Candle>> FetchAllCandlesAsync(IExchangeClient client, string symbol, string timeframe, DateTime startUtc, DateTime endUtc, CancellationToken ct)
+    private static async Task<List<Candle>> FetchAllCandlesAsync(IExchangeClient client, string symbol, string timeframe, DateTime startUtc, DateTime endUtc, CancellationToken ct)
     {
         var allCandles = new List<Candle>();
         var currentStart = startUtc;
         var intervalMs = GetIntervalMs(timeframe);
-        var totalExpected = (int)((endUtc - startUtc).TotalMilliseconds / intervalMs) + 1;
 
         while (currentStart < endUtc && !ct.IsCancellationRequested)
         {
@@ -275,7 +309,6 @@ public class BacktestWorker(
             currentStart = lastTime.AddMilliseconds(intervalMs);
         }
 
-        logger.LogInformation("从交易所 API 拉取 K 线数据: {Count} 条 (期望 {Expected} 条)", allCandles.Count, totalExpected);
         return allCandles;
     }
 }

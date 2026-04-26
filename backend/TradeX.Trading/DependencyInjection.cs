@@ -16,7 +16,12 @@ public static class DependencyInjection
         services.AddScoped<BacktestEngine>();
         services.AddSingleton<IBacktestTaskQueue, BacktestTaskQueue>();
         services.AddSingleton<TaskAnalysisStore>();
-        services.AddHostedService<BacktestWorker>();
+
+        // Backtest 并发调度
+        services.AddSingleton<IResourceProvider, SystemResourceProvider>();
+        services.AddSingleton<ResourceMonitor>();
+        services.AddHostedService<ResourceMonitor>(sp => sp.GetRequiredService<ResourceMonitor>());
+        services.AddHostedService<BacktestScheduler>();
 
         services.AddScoped<DailyLossHandler>();
         services.AddScoped<DrawdownHandler>();
