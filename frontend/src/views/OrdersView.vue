@@ -87,41 +87,36 @@ onMounted(load)
   <div class="orders-page">
     <header class="page-header">
       <div class="header-left">
-        <button class="btn-back" @click="router.push(`/traders/${traderId}/positions`)">← 持仓</button>
+        <AppButton variant="ghost" size="sm" icon="back" @click="router.push(`/traders/${traderId}/positions`)">持仓</AppButton>
         <h2>订单记录</h2>
       </div>
-      <button class="btn-primary" @click="openCreate">手动下单</button>
+      <AppButton variant="primary" icon="orders" @click="openCreate">手动下单</AppButton>
     </header>
 
-    <div v-if="showForm" class="modal-overlay" @click.self="showForm = false">
-      <div class="modal">
-        <h3>手动下单</h3>
-        <select v-model="formExchangeId">
-          <option v-for="a in accounts" :key="a.id" :value="a.id">
-            {{ a.label }} ({{ a.exchangeType }})
-          </option>
+    <AppModal v-model="showForm" title="手动下单" width="sm">
+      <select v-model="formExchangeId" class="input">
+        <option v-for="a in accounts" :key="a.id" :value="a.id">
+          {{ a.label }} ({{ a.exchangeType }})
+        </option>
+      </select>
+      <input v-model="formSymbolId" placeholder="交易对，如 BTCUSDT" class="input" />
+      <div class="form-row">
+        <select v-model="formSide" class="input">
+          <option value="Buy">买入</option>
+          <option value="Sell">卖出</option>
         </select>
-        <input v-model="formSymbolId" placeholder="交易对，如 BTCUSDT" />
-        <div class="form-row">
-          <select v-model="formSide">
-            <option value="Buy">买入</option>
-            <option value="Sell">卖出</option>
-          </select>
-          <select v-model="formType">
-            <option value="Market">市价</option>
-            <option value="Limit">限价</option>
-          </select>
-        </div>
-        <input v-model.number="formQuantity" type="number" step="0.0001" placeholder="数量" />
-        <input v-if="formType === 'Limit'" v-model.number="formPrice" type="number" step="0.01" placeholder="价格" />
-        <div class="modal-actions">
-          <button class="btn-secondary" @click="showForm = false">取消</button>
-          <button class="btn-primary" :disabled="submitting" @click="submitOrder">
-            {{ submitting ? '提交中...' : '提交订单' }}
-          </button>
-        </div>
+        <select v-model="formType" class="input">
+          <option value="Market">市价</option>
+          <option value="Limit">限价</option>
+        </select>
       </div>
-    </div>
+      <input v-model.number="formQuantity" type="number" step="0.0001" placeholder="数量" class="input" />
+      <input v-if="formType === 'Limit'" v-model.number="formPrice" type="number" step="0.01" placeholder="价格" class="input" />
+      <template #footer>
+        <AppButton icon="close" @click="showForm = false">取消</AppButton>
+        <AppButton variant="primary" icon="play" :disabled="submitting" @click="submitOrder">{{ submitting ? '提交中...' : '提交订单' }}</AppButton>
+      </template>
+    </AppModal>
 
     <div v-if="loading">加载中...</div>
     <table v-else class="table">
@@ -184,11 +179,7 @@ onMounted(load)
 .side-buy { color: #22c55e; font-weight: 600; }
 .side-sell { color: #ef4444; font-weight: 600; }
 .status-badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 999px; color: #0f172a; font-size: 0.8rem; font-weight: 600; }
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 100; }
-.modal { background: #1e293b; padding: 2rem; border-radius: 8px; width: 100%; max-width: 400px; }
-.modal h3 { margin: 0 0 1rem; color: #e2e8f0; }
-.modal input, .modal select { width: 100%; padding: 0.75rem; margin-bottom: 0.75rem; border: 1px solid #334155; border-radius: 4px; background: #0f172a; color: #e2e8f0; box-sizing: border-box; }
+.input { width: 100%; padding: 0.75rem; margin-bottom: 0.75rem; border: 1px solid #334155; border-radius: 4px; background: #0f172a; color: #e2e8f0; box-sizing: border-box; }
 .form-row { display: flex; gap: 0.75rem; }
 .form-row select { flex: 1; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem; }
 </style>

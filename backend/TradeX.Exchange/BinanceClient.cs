@@ -80,6 +80,29 @@ public class BinanceClient : IExchangeClient
         return new AccountBalance(total, total, 0);
     }
 
+    public async Task<Dictionary<string, decimal>> GetAssetBalancesAsync(CancellationToken ct = default)
+    {
+        var query = $"timestamp={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+        var request = new HttpRequestMessage(HttpMethod.Get, $"/api/v3/account?{query}&signature={Sign(query)}");
+        request.Headers.Add("X-MBX-APIKEY", _apiKey);
+
+        var resp = await _http.SendAsync(request, ct);
+        resp.EnsureSuccessStatusCode();
+        var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
+        if (doc is null) return [];
+
+        var result = new Dictionary<string, decimal>();
+        foreach (var b in doc.RootElement.GetProperty("balances").EnumerateArray())
+        {
+            var asset = b.GetProperty("asset").GetString()!;
+            var free = decimal.Parse(b.GetProperty("free").GetString()!, CultureInfo.InvariantCulture);
+            var locked = decimal.Parse(b.GetProperty("locked").GetString()!, CultureInfo.InvariantCulture);
+            var total = free + locked;
+            if (total > 0) result[asset] = total;
+        }
+        return result;
+    }
+
     public async Task<ExchangePosition[]> GetPositionsAsync(CancellationToken ct = default)
     {
         var query = $"timestamp={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";

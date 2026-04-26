@@ -391,9 +391,9 @@ function formatPercent(v: number): string {
             <label>初始资金 ($)</label>
             <input v-model.number="initialCapital" type="number" min="100" step="100" />
           </div>
-          <button class="btn-primary" :disabled="running" @click="startBacktest">
+          <AppButton variant="primary" icon="chart" :disabled="running" @click="startBacktest">
             {{ running ? '提交中...' : '开始回测' }}
-          </button>
+          </AppButton>
         </div>
         <div v-if="error" class="error-msg">{{ error }}</div>
       </div>
@@ -434,10 +434,8 @@ function formatPercent(v: number): string {
       </div>
     </template>
 
-    <div v-if="showDetail && selectedTask" class="modal-overlay" @click.self="showDetail = false; stopReplay()">
-      <div class="modal modal-wide">
-        <h3>回测详情</h3>
-
+    <AppModal v-model="showDetail" title="回测详情" width="xl" @close="stopReplay">
+      <template v-if="selectedTask">
         <div class="detail-summary">
           <span class="detail-status" :style="{ background: statusColors[selectedTask.status] }">
             {{ statusLabels[selectedTask.status] || selectedTask.status }}
@@ -472,12 +470,12 @@ function formatPercent(v: number): string {
               class="tab-btn"
               :class="{ active: activeTab === 'overview' }"
               @click="switchTab('overview')"
-            >概览</button>
+            ><AppIcon name="chart" />概览</button>
             <button
               class="tab-btn"
               :class="{ active: activeTab === 'analysis' }"
               @click="switchTab('analysis')"
-            >K 线分析 ({{ selectedResult?.analysisCount ?? replayTotal ?? 0 }})</button>
+            ><AppIcon name="table" />K 线分析 ({{ selectedResult?.analysisCount ?? replayTotal ?? 0 }})</button>
           </div>
 
           <div v-if="activeTab === 'overview' && selectedResult" class="result-grid">
@@ -524,12 +522,8 @@ function formatPercent(v: number): string {
 
           <div v-if="activeTab === 'analysis' && analysisViewMode === 'chart'" class="replay-section">
             <div class="replay-bar">
-              <button class="replay-btn" @click="restartReplay" title="重新回放">
-                ↺
-              </button>
-              <button class="replay-btn primary" @click="toggleReplay">
-                {{ replayPlaying ? '⏸' : (replayIndex >= (replayBuffer.length || 0) ? '↺' : '▶') }}
-              </button>
+              <AppButton variant="ghost" size="sm" icon="refresh" title="重新回放" @click="restartReplay" />
+              <AppButton variant="primary" size="sm" :icon="replayPlaying ? 'pause' : (replayIndex >= (replayBuffer.length || 0) ? 'refresh' : 'play')" @click="toggleReplay" />
               <span class="replay-progress">
                 {{ replayIndex }} / {{ replayTotal || '?' }}
               </span>
@@ -545,7 +539,7 @@ function formatPercent(v: number): string {
                 >{{ s }}x</button>
               </div>
               <span class="replay-divider">|</span>
-              <button class="replay-btn" @click="onViewModeChange('table')">表格</button>
+              <AppButton size="sm" icon="table" @click="onViewModeChange('table')">表格</AppButton>
             </div>
             <BacktestCandleAnalysisView
               v-if="analysisItems.length > 0"
@@ -560,25 +554,24 @@ function formatPercent(v: number): string {
           <div v-if="activeTab === 'analysis' && analysisViewMode === 'table'" class="analysis-table-section">
             <div class="table-bar">
               <span class="table-label">共 {{ analysisTotal }} 根 K 线</span>
-              <button class="replay-btn" @click="onViewModeChange('chart')">K 线图</button>
+              <AppButton size="sm" icon="chart" @click="onViewModeChange('chart')">K 线图</AppButton>
             </div>
             <div v-if="analysisItems.length > 0">
               <BacktestCandleAnalysisView :analysis="analysisItems" table-only />
               <div v-if="replayBuffer.length < analysisTotal" class="load-more-wrap">
-                <button class="load-more-btn" @click="loadMoreTable">
-                  加载更多 ({{ replayBuffer.length }}/{{ analysisTotal }})
-                </button>
+                <AppButton icon="plus" @click="loadMoreTable">加载更多 ({{ replayBuffer.length }}/{{ analysisTotal }})</AppButton>
               </div>
             </div>
             <div v-else class="loading-hint">没有可用的 K 线分析数据</div>
           </div>
         </template>
 
-        <div class="modal-actions">
-          <button class="btn-primary" @click="showDetail = false; stopReplay()">关闭</button>
-        </div>
-      </div>
-    </div>
+      </template>
+
+      <template #footer>
+        <AppButton variant="primary" icon="close" @click="showDetail = false; stopReplay()">关闭</AppButton>
+      </template>
+    </AppModal>
   </div>
 </template>
 
@@ -628,10 +621,6 @@ function formatPercent(v: number): string {
 }
 .date-cell { color: #64748b; }
 
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 100; }
-.modal-wide { max-width: 90vw !important; }
-.modal { background: #1e293b; padding: 2rem; border-radius: 8px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; }
-.modal h3 { margin: 0 0 1rem; color: #e2e8f0; }
 .tab-bar { display: flex; gap: 0; margin-bottom: 1rem; border-bottom: 1px solid #334155; }
 .tab-btn {
   padding: 0.5rem 1rem; background: transparent; color: #64748b;
@@ -653,8 +642,6 @@ function formatPercent(v: number): string {
 .result-value { color: #e2e8f0; font-size: 1rem; font-weight: 600; }
 .result-value.up { color: #22c55e; }
 .result-value.down { color: #ef4444; }
-.modal-actions { display: flex; justify-content: flex-end; }
-
 .replay-section { margin-top: 0.5rem; }
 .replay-bar {
   display: flex; align-items: center; gap: 0.5rem;

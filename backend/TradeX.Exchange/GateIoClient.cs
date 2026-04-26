@@ -81,15 +81,57 @@ public class GateIoClient : IExchangeClient
 
     public async Task<AccountBalance> GetBalanceAsync(CancellationToken ct = default)
     {
-        var resp = await SignedGetAsync("/api/v4/wallet/spot", null, ct);
-        if (resp is null) return new AccountBalance(0, 0, 0);
+        var ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var signStr = $"GET\n/api/v4/wallet/total_balance\ncurrency=USDT\n{EmptyBodyHash}\n{ts}";
+        var sign = Sign(signStr);
+        var req = new HttpRequestMessage(HttpMethod.Get, "/api/v4/wallet/total_balance?currency=USDT");
+        AddAuthHeaders(req, sign, ts);
+        var resp = await _http.SendAsync(req, ct);
+        if (!resp.IsSuccessStatusCode)
+        {
+            var errBody = await resp.Content.ReadAsStringAsync(ct);
+            throw new InvalidOperationException($"Gate.io 总余额查询失败: {(int)resp.StatusCode} {(string.IsNullOrWhiteSpace(errBody) ? "(empty)" : errBody[..Math.Min(errBody.Length, 200)])}");
+        }
 
-        var usdt = resp.RootElement.EnumerateArray().FirstOrDefault(b => b.GetProperty("currency").GetString() == "USDT");
-        if (usdt.ValueKind == JsonValueKind.Undefined) return new AccountBalance(0, 0, 0);
+        var bytes = await resp.Content.ReadAsByteArrayAsync(ct);
+        var body = Encoding.UTF8.GetString(bytes);
+        var doc = JsonDocument.Parse(body);
+        var details = doc.RootElement.GetProperty("details");
+        var spotAmount = details.TryGetProperty("spot", out var spot) && spot.TryGetProperty("amount", out var amt)
+            ? decimal.Parse(amt.GetString()!, CultureInfo.InvariantCulture)
+            : 0m;
+        return new AccountBalance(spotAmount, spotAmount, 0);
+    }
 
-        var available = decimal.Parse(usdt.GetProperty("available").GetString()!, CultureInfo.InvariantCulture);
-        var locked = decimal.Parse(usdt.GetProperty("locked").GetString()!, CultureInfo.InvariantCulture);
-        return new AccountBalance(available + locked, available, locked);
+    public async Task<Dictionary<string, decimal>> GetAssetBalancesAsync(CancellationToken ct = default)
+    {
+        var ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var signStr = $"GET\n/api/v4/spot/accounts\n\n{EmptyBodyHash}\n{ts}";
+        var sign = Sign(signStr);
+        var req = new HttpRequestMessage(HttpMethod.Get, "/api/v4/spot/accounts");
+        AddAuthHeaders(req, sign, ts);
+        var resp = await _http.SendAsync(req, ct);
+        if (!resp.IsSuccessStatusCode)
+        {
+            var errBody = await resp.Content.ReadAsStringAsync(ct);
+            throw new InvalidOperationException($"Gate.io 现货余额查询失败: {(int)resp.StatusCode} {(string.IsNullOrWhiteSpace(errBody) ? "(empty)" : errBody[..Math.Min(errBody.Length, 200)])}");
+        }
+
+        var bytes = await resp.Content.ReadAsByteArrayAsync(ct);
+        var body = Encoding.UTF8.GetString(bytes);
+        if (string.IsNullOrWhiteSpace(body)) return [];
+
+        var doc = JsonDocument.Parse(body);
+        var result = new Dictionary<string, decimal>();
+        foreach (var b in doc.RootElement.EnumerateArray())
+        {
+            var currency = b.GetProperty("currency").GetString()!;
+            var available = decimal.Parse(b.GetProperty("available").GetString()!, CultureInfo.InvariantCulture);
+            var locked = decimal.Parse(b.GetProperty("locked").GetString()!, CultureInfo.InvariantCulture);
+            var total = available + locked;
+            if (total > 0) result[currency] = total;
+        }
+        return result;
     }
 
     public async Task<ExchangePosition[]> GetPositionsAsync(CancellationToken ct = default) => [];
@@ -151,12 +193,24 @@ public class GateIoClient : IExchangeClient
         )).ToArray();
     }
 
+    private static readonly string EmptyBodyHash = Convert.ToHexStringLower(SHA512.HashData([]));
+
     public async Task<ConnectionTestResult> TestConnectionAsync(CancellationToken ct = default)
     {
         try
         {
-            var resp = await SignedGetAsync("/api/v4/wallet/spot", null, ct);
-            if (resp is null) return new ConnectionTestResult(false, null, "连接失败");
+            var ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+            var signStr = $"GET\n/api/v4/spot/accounts\n\n{EmptyBodyHash}\n{ts}";
+            var sign = Sign(signStr);
+            var req = new HttpRequestMessage(HttpMethod.Get, "/api/v4/spot/accounts");
+            AddAuthHeaders(req, sign, ts);
+            var resp = await _http.SendAsync(req, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var body = await resp.Content.ReadAsStringAsync(ct);
+                var msg = string.IsNullOrWhiteSpace(body) ? $"HTTP {(int)resp.StatusCode}" : body[..Math.Min(body.Length, 200)];
+                return new ConnectionTestResult(false, null, msg);
+            }
             return new ConnectionTestResult(true, new() { ["spotTrade"] = true }, "Connection successful");
         }
         catch (Exception ex)
@@ -190,9 +244,9 @@ public class GateIoClient : IExchangeClient
     {
         var resp = await _http.GetAsync("/api/v4/spot/tickers", ct);
         if (!resp.IsSuccessStatusCode) return [];
-        var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
-        if (doc is null) return [];
-
+        var body = await resp.Content.ReadAsStringAsync(ct);
+        if (string.IsNullOrWhiteSpace(body)) return [];
+        var doc = JsonDocument.Parse(body);
         return doc.RootElement.EnumerateArray().Select(t => new TickerPrice(
             t.GetProperty("currency_pair").GetString()!,
             TryParseDecimal(t.GetProperty("last").GetString()),
@@ -213,11 +267,12 @@ public class GateIoClient : IExchangeClient
     private async Task<JsonDocument?> SignedGetAsync(string path, string? query, CancellationToken ct)
     {
         var url = query is not null ? $"{path}?{query}" : path;
-        var signStr = $"GET\n{path}\n{query ?? ""}\n";
+        var ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var signStr = $"GET\n{path}\n{query ?? ""}\n{EmptyBodyHash}\n{ts}";
         var sign = Sign(signStr);
 
         var req = new HttpRequestMessage(HttpMethod.Get, url);
-        AddAuthHeaders(req, sign);
+        AddAuthHeaders(req, sign, ts);
 
         var resp = await _http.SendAsync(req, ct);
         if (!resp.IsSuccessStatusCode) return null;
@@ -227,14 +282,15 @@ public class GateIoClient : IExchangeClient
     private async Task<JsonDocument?> SignedPostAsync(string path, string body, CancellationToken ct)
     {
         var sha512 = Convert.ToHexStringLower(SHA512.HashData(Encoding.UTF8.GetBytes(body)));
-        var signStr = $"POST\n{path}\n\n{sha512}";
+        var ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var signStr = $"POST\n{path}\n\n{sha512}\n{ts}";
         var sign = Sign(signStr);
 
         var req = new HttpRequestMessage(HttpMethod.Post, path)
         {
             Content = new StringContent(body, Encoding.UTF8, "application/json")
         };
-        AddAuthHeaders(req, sign);
+        AddAuthHeaders(req, sign, ts);
 
         var resp = await _http.SendAsync(req, ct);
         if (!resp.IsSuccessStatusCode) return null;
@@ -243,21 +299,23 @@ public class GateIoClient : IExchangeClient
 
     private async Task<JsonDocument?> SignedDeleteAsync(string path, CancellationToken ct)
     {
-        var signStr = $"DELETE\n{path}\n\n";
+        var ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var signStr = $"DELETE\n{path}\n\n{EmptyBodyHash}\n{ts}";
         var sign = Sign(signStr);
 
         var req = new HttpRequestMessage(HttpMethod.Delete, path);
-        AddAuthHeaders(req, sign);
+        AddAuthHeaders(req, sign, ts);
 
         var resp = await _http.SendAsync(req, ct);
         if (!resp.IsSuccessStatusCode) return null;
         return await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
     }
 
-    private void AddAuthHeaders(HttpRequestMessage req, string sign)
+    private void AddAuthHeaders(HttpRequestMessage req, string sign, string timestamp)
     {
         req.Headers.Add("KEY", _apiKey);
         req.Headers.Add("SIGN", sign);
+        req.Headers.Add("Timestamp", timestamp);
     }
 
     private string Sign(string payload)

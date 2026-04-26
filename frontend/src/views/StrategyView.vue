@@ -295,17 +295,14 @@ onMounted(load)
   <div class="strategy-page">
     <header class="page-header">
       <div class="header-left">
-        <button class="btn-back" @click="router.push('/traders')">← 返回</button>
+        <AppButton variant="ghost" size="sm" icon="back" @click="router.push('/traders')">返回</AppButton>
         <h2>策略部署</h2>
       </div>
-      <button class="btn-primary" @click="openCreate">新建部署</button>
+      <AppButton variant="primary" icon="plus" @click="openCreate">新建部署</AppButton>
     </header>
 
-    <div v-if="showForm" class="modal-overlay" @click.self="showForm = false">
-      <div class="modal modal-wide">
-        <h3>{{ editId ? '编辑部署' : '新建策略部署' }}</h3>
-
-        <div class="scope-tabs">
+    <AppModal v-model="showForm" :title="editId ? '编辑部署' : '新建策略部署'" width="xl">
+      <div class="scope-tabs">
           <button
             v-for="s in (['Trader', 'Exchange', 'Symbol'] as const)"
             :key="s"
@@ -316,9 +313,9 @@ onMounted(load)
             <span class="scope-name">{{ scopeLabels[s] }}</span>
             <span class="scope-desc">{{ scopeDescriptions[s] }}</span>
           </button>
-        </div>
+      </div>
 
-        <div class="form-grid">
+      <div class="form-grid">
           <div class="form-group full">
             <label>策略模板</label>
             <select v-model="formStrategyId" :disabled="!!editId">
@@ -413,14 +410,13 @@ onMounted(load)
               <option v-for="tf in timeframes" :key="tf" :value="tf">{{ tf }}</option>
             </select>
           </div>
-        </div>
-
-        <div class="modal-actions">
-          <button class="btn-secondary" @click="showForm = false">取消</button>
-          <button class="btn-primary" @click="save">保存</button>
-        </div>
       </div>
-    </div>
+
+      <template #footer>
+        <AppButton icon="close" @click="showForm = false">取消</AppButton>
+        <AppButton variant="primary" icon="save" @click="save">保存</AppButton>
+      </template>
+    </AppModal>
 
     <div v-if="loading">加载中...</div>
     <div v-if="errorMsg && !loading" class="error-banner">{{ errorMsg }}</div>
@@ -455,13 +451,16 @@ onMounted(load)
           </td>
           <td>{{ formatUtcTime(d.updatedAt) }}</td>
           <td class="actions">
-            <button class="btn-small" :class="isActive(d.status) ? 'btn-warn' : 'btn-ok'"
-              :disabled="toggleLoading === d.id || normalizeStatus(d.status) === 'Draft'" @click="toggle(d)">
-              {{ toggleLoading === d.id ? '...' : isActive(d.status) ? '禁用' : '启用' }}
-            </button>
-            <button class="btn-small" :disabled="isActive(d.status)" @click="openEdit(d)">编辑</button>
-            <button class="btn-small" @click="router.push(`/traders/${traderId}/strategies/${d.id}/backtest`)">回测</button>
-            <button class="btn-small btn-danger" :disabled="isActive(d.status)" @click="remove(d.id)">删除</button>
+            <AppButton
+              size="sm"
+              :variant="isActive(d.status) ? 'warning' : 'success'"
+              icon="power"
+              :disabled="toggleLoading === d.id || normalizeStatus(d.status) === 'Draft'"
+              @click="toggle(d)"
+            >{{ toggleLoading === d.id ? '...' : isActive(d.status) ? '禁用' : '启用' }}</AppButton>
+            <AppButton size="sm" icon="edit" :disabled="isActive(d.status)" @click="openEdit(d)">编辑</AppButton>
+            <AppButton size="sm" icon="chart" @click="router.push(`/traders/${traderId}/strategies/${d.id}/backtest`)">回测</AppButton>
+            <AppButton size="sm" variant="danger" icon="trash" :disabled="isActive(d.status)" @click="remove(d.id)">删除</AppButton>
           </td>
         </tr>
         <tr v-if="deployments.length === 0">
@@ -493,10 +492,6 @@ onMounted(load)
 .empty { text-align: center; color: #64748b; padding: 2rem; }
 .error-banner { padding: 0.5rem 0.75rem; margin-bottom: 0.75rem; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; color: #ef4444; font-size: 0.85rem; }
 .status-badge, .scope-badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 999px; color: #0f172a; font-size: 0.75rem; font-weight: 600; }
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 100; }
-.modal { background: #1e293b; padding: 2rem; border-radius: 8px; width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto; }
-.modal-wide { max-width: 640px; }
-.modal h3 { margin: 0 0 1rem; color: #e2e8f0; }
 .scope-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
 .scope-tab {
   flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.25rem;
@@ -578,5 +573,4 @@ onMounted(load)
 .col-chg.down { color: #ef4444; }
 .col-vol { color: #64748b; text-align: right !important; }
 .symbols-hint { color: #64748b; font-size: 0.8rem; padding: 0.5rem; text-align: center; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
 </style>

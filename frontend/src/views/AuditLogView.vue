@@ -17,6 +17,33 @@ interface TechnicalDetail {
   ip?: string
 }
 
+const resourceLabels: Record<string, string> = {
+  traders: '交易员',
+  exchanges: '交易所',
+  strategies: '策略',
+  settings: '系统设置',
+  users: '用户',
+  auth: '认证',
+  orders: '订单',
+  positions: '持仓',
+  notifications: '通知渠道'
+}
+
+const subResourceLabels: Record<string, string> = {
+  strategies: '策略部署',
+  exchanges: '交易所',
+  orders: '订单',
+  positions: '持仓',
+  channels: '通知渠道'
+}
+
+const verbLabels: Record<string, string> = {
+  POST: '创建',
+  PUT: '更新',
+  DELETE: '删除',
+  PATCH: '修改'
+}
+
 function parseDetail(log: AuditLogEntry): TechnicalDetail {
   try { return JSON.parse(log.detail ?? '{}') }
   catch { return {} }
@@ -28,6 +55,93 @@ function openDetail(log: AuditLogEntry) {
 
 function closeDetail() {
   selectedLog.value = null
+}
+
+function handleDetailOpenChange(open: boolean) {
+  if (!open) closeDetail()
+}
+
+function formatAction(log: AuditLogEntry): string {
+  const detail = parseDetail(log)
+  if (detail.path && detail.method) {
+    const parsed = actionFromPath(detail.method, detail.path)
+    if (parsed) return parsed
+  }
+
+  return translateActionText(log.action)
+}
+
+function actionFromPath(method: string, path: string): string | null {
+  const segments = path.split('?')[0].split('/').filter(Boolean)
+  if (segments[0] !== 'api' || segments.length < 2) return null
+
+  const resource = segments[1]
+  const resourceName = resourceLabels[resource] ?? resource
+  const id = segments[2]
+  const sub = segments[3]
+  const subId = segments[4]
+  const action = segments[5]
+
+  if (resource === 'auth') return authActionLabel(segments.slice(2).join('/'))
+  if (sub === 'test') return '测试连接'
+  if (sub === 'backtests') return '执行回测'
+  if (sub === 'manual') return '手动下单'
+  if (action === 'toggle') return `启用/禁用${subResourceLabels[sub] ?? resourceName}`
+  if (sub === 'toggle') return `启用/禁用${resourceName}`
+
+  const verb = verbLabels[method] ?? method
+  if (!verbLabels[method]) return translateActionText(`${method} ${path}`)
+
+  if (sub) {
+    const target = subResourceLabels[sub] ?? sub
+    if (method === 'POST' && !subId) return `新建${target}`
+    if (method === 'DELETE') return `删除${target}`
+    if (method === 'PUT') return `更新${target}`
+    return `${verb}${target}`
+  }
+
+  if (method === 'POST' && !id) return `新建${resourceName}`
+  if (method === 'DELETE') return `删除${resourceName}`
+  if (method === 'PUT') return `更新${resourceName}`
+
+  return `${verb}${resourceName}`
+}
+
+function authActionLabel(path: string): string {
+  const labels: Record<string, string> = {
+    login: '登录',
+    logout: '登出',
+    refresh: '刷新令牌',
+    'mfa/setup': '设置 MFA',
+    'mfa/verify': '验证 MFA',
+    'send-recovery-codes': '发送恢复码'
+  }
+  return labels[path] ?? translateActionText(path)
+}
+
+function translateActionText(action: string): string {
+  return action
+    .replace(/POST/g, '创建')
+    .replace(/PUT/g, '更新')
+    .replace(/DELETE/g, '删除')
+    .replace(/PATCH/g, '修改')
+    .replace(/GET/g, '查询')
+    .replace(/traders/g, '交易员')
+    .replace(/exchanges/g, '交易所')
+    .replace(/strategies/g, '策略')
+    .replace(/settings/g, '系统设置')
+    .replace(/users/g, '用户')
+    .replace(/auth/g, '认证')
+    .replace(/refresh/g, '刷新令牌')
+    .replace(/login/g, '登录')
+    .replace(/logout/g, '登出')
+    .replace(/orders/g, '订单')
+    .replace(/positions/g, '持仓')
+    .replace(/notifications/g, '通知渠道')
+    .replace(/backtests/g, '回测')
+    .replace(/toggle/g, '启用/禁用')
+    .replace(/test/g, '测试连接')
+    .replace(/manual/g, '手动下单')
 }
 
 async function load() {
@@ -63,7 +177,7 @@ onMounted(load)
         <option value="订单">订单</option>
         <option value="通知渠道">通知渠道</option>
       </select>
-      <button class="btn-primary" @click="load">筛选</button>
+      <AppButton variant="primary" icon="filter" @click="load">筛选</AppButton>
     </div>
 
     <div v-if="loading">加载中...</div>
@@ -78,7 +192,7 @@ onMounted(load)
       <tbody>
         <tr v-for="log in logs" :key="log.id" class="log-row" @click="openDetail(log)">
           <td class="time-cell">{{ new Date(log.timestamp).toLocaleString() }}</td>
-          <td><span class="badge">{{ log.action }}</span></td>
+          <td><span class="badge">{{ formatAction(log) }}</span></td>
           <td>
             <span class="resource-text">{{ log.resource }}</span>
             <span v-if="log.resourceId" class="resource-id">#{{ log.resourceId.slice(0, 8) }}</span>
@@ -91,55 +205,51 @@ onMounted(load)
     </table>
 
     <div v-if="total > pageSize" class="pagination">
-      <button :disabled="page <= 1" @click="page--; load()">上一页</button>
+      <AppButton icon="back" :disabled="page <= 1" @click="page--; load()">上一页</AppButton>
       <span>{{ page }} / {{ Math.ceil(total / pageSize) }}</span>
-      <button :disabled="page * pageSize >= total" @click="page++; load()">下一页</button>
+      <AppButton :disabled="page * pageSize >= total" @click="page++; load()">下一页<AppIcon name="back" class="icon-next" /></AppButton>
     </div>
 
-    <div v-if="selectedLog" class="modal-overlay" @click.self="closeDetail">
-      <div class="modal">
-        <h3>操作详情</h3>
+    <AppModal :model-value="!!selectedLog" title="操作详情" width="md" @update:model-value="handleDetailOpenChange" @close="closeDetail">
+      <div v-if="selectedLog" class="summary-row">
+        <span>{{ new Date(selectedLog.timestamp).toLocaleString() }}</span>
+        <span class="badge">{{ formatAction(selectedLog) }}</span>
+        <span class="resource-text">{{ selectedLog.resource }}</span>
+        <span v-if="selectedLog.resourceId" class="resource-id">#{{ selectedLog.resourceId.slice(0, 8) }}</span>
+      </div>
 
-        <div class="summary-row">
-          <span>{{ new Date(selectedLog.timestamp).toLocaleString() }}</span>
-          <span class="badge">{{ selectedLog.action }}</span>
-          <span class="resource-text">{{ selectedLog.resource }}</span>
-          <span v-if="selectedLog.resourceId" class="resource-id">#{{ selectedLog.resourceId.slice(0, 8) }}</span>
+      <div v-if="selectedLog" class="tech-grid">
+        <div class="tech-item">
+          <span class="tech-label">HTTP 方法</span>
+          <span class="tech-value"><code>{{ parseDetail(selectedLog).method || '-' }}</code></span>
         </div>
-
-        <div class="tech-grid">
-          <div class="tech-item">
-            <span class="tech-label">HTTP 方法</span>
-            <span class="tech-value"><code>{{ parseDetail(selectedLog).method || '-' }}</code></span>
-          </div>
-          <div class="tech-item">
-            <span class="tech-label">完整路径</span>
-            <span class="tech-value"><code>{{ parseDetail(selectedLog).path || '-' }}</code></span>
-          </div>
-          <div class="tech-item">
-            <span class="tech-label">状态码</span>
-            <span class="tech-value"><code>{{ parseDetail(selectedLog).statusCode ?? '-' }}</code></span>
-          </div>
-          <div class="tech-item">
-            <span class="tech-label">IP 地址</span>
-            <span class="tech-value"><code>{{ selectedLog.ipAddress }}</code></span>
-          </div>
-          <div class="tech-item">
-            <span class="tech-label">用户 ID</span>
-            <span class="tech-value"><code>{{ selectedLog.userId ? selectedLog.userId.slice(0, 8) + '...' : '-' }}</code></span>
-          </div>
+        <div class="tech-item">
+          <span class="tech-label">完整路径</span>
+          <span class="tech-value"><code>{{ parseDetail(selectedLog).path || '-' }}</code></span>
         </div>
-
-        <details class="raw-toggle">
-          <summary>查看原始 JSON</summary>
-          <pre class="raw-json">{{ JSON.stringify(parseDetail(selectedLog), null, 2) }}</pre>
-        </details>
-
-        <div class="modal-actions">
-          <button class="btn-primary" @click="closeDetail">关闭</button>
+        <div class="tech-item">
+          <span class="tech-label">状态码</span>
+          <span class="tech-value"><code>{{ parseDetail(selectedLog).statusCode ?? '-' }}</code></span>
+        </div>
+        <div class="tech-item">
+          <span class="tech-label">IP 地址</span>
+          <span class="tech-value"><code>{{ selectedLog.ipAddress }}</code></span>
+        </div>
+        <div class="tech-item">
+          <span class="tech-label">用户 ID</span>
+          <span class="tech-value"><code>{{ selectedLog.userId ? selectedLog.userId.slice(0, 8) + '...' : '-' }}</code></span>
         </div>
       </div>
-    </div>
+
+      <details v-if="selectedLog" class="raw-toggle">
+        <summary>查看原始 JSON</summary>
+        <pre class="raw-json">{{ JSON.stringify(parseDetail(selectedLog), null, 2) }}</pre>
+      </details>
+
+      <template #footer>
+        <AppButton variant="primary" icon="close" @click="closeDetail">关闭</AppButton>
+      </template>
+    </AppModal>
   </div>
 </template>
 
@@ -163,9 +273,6 @@ h2 { margin: 0 0 1rem; color: #e2e8f0; }
 .pagination button { padding: 0.4rem 0.8rem; background: #334155; color: #e2e8f0; border: 1px solid #475569; border-radius: 4px; cursor: pointer; }
 .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
 .pagination span { color: #94a3b8; font-size: 0.85rem; }
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 100; }
-.modal { background: #1e293b; padding: 2rem; border-radius: 8px; width: 100%; max-width: 520px; }
-.modal h3 { margin: 0 0 1rem; color: #e2e8f0; }
 .summary-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.25rem; padding: 0.5rem 0.75rem; background: #0f172a; border-radius: 6px; font-size: 0.85rem; }
 .tech-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
 .tech-item { display: flex; flex-direction: column; gap: 0.25rem; }
@@ -175,5 +282,4 @@ h2 { margin: 0 0 1rem; color: #e2e8f0; }
 .raw-toggle { color: #64748b; font-size: 0.8rem; margin-bottom: 1rem; }
 .raw-toggle summary { cursor: pointer; }
 .raw-json { background: #0f172a; border: 1px solid #334155; border-radius: 4px; padding: 0.75rem; font-family: monospace; font-size: 0.8rem; color: #94a3b8; overflow-x: auto; margin-top: 0.5rem; }
-.modal-actions { display: flex; justify-content: flex-end; }
 </style>

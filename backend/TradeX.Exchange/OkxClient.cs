@@ -98,6 +98,8 @@ public class OkxClient : IExchangeClient
         return new AccountBalance(cashBal, cashBal, 0);
     }
 
+    public Task<Dictionary<string, decimal>> GetAssetBalancesAsync(CancellationToken ct = default) => Task.FromResult<Dictionary<string, decimal>>([]);
+
     public async Task<ExchangePosition[]> GetPositionsAsync(CancellationToken ct = default) => [];
 
     public async Task<OrderResult> PlaceOrderAsync(OrderRequest request, CancellationToken ct = default)

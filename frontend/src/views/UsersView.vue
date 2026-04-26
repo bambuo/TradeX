@@ -51,25 +51,22 @@ onMounted(load)
   <div class="users-page">
     <div class="page-header">
       <h2>用户管理</h2>
-      <button class="btn-primary" @click="openCreate">创建用户</button>
+      <AppButton variant="primary" icon="plus" @click="openCreate">创建用户</AppButton>
     </div>
 
-    <div v-if="showForm" class="modal-overlay" @click.self="showForm = false">
-      <div class="modal">
-        <h3>创建用户</h3>
-        <input v-model="formUsername" placeholder="用户名" class="input" />
-        <input v-model="formPassword" type="password" placeholder="密码" class="input" />
-        <select v-model="formRole" class="input">
-          <option value="Admin">Admin</option>
-          <option value="Operator">Operator</option>
-          <option value="Viewer">Viewer</option>
-        </select>
-        <div class="modal-actions">
-          <button class="btn-secondary" @click="showForm = false">取消</button>
-          <button class="btn-primary" @click="create">创建</button>
-        </div>
-      </div>
-    </div>
+    <AppModal v-model="showForm" title="创建用户" width="sm">
+      <input v-model="formUsername" placeholder="用户名" class="input" />
+      <input v-model="formPassword" type="password" placeholder="密码" class="input" />
+      <select v-model="formRole" class="input">
+        <option value="Admin">Admin</option>
+        <option value="Operator">Operator</option>
+        <option value="Viewer">Viewer</option>
+      </select>
+      <template #footer>
+        <AppButton icon="close" @click="showForm = false">取消</AppButton>
+        <AppButton variant="primary" icon="user" @click="create">创建</AppButton>
+      </template>
+    </AppModal>
 
     <div v-if="loading">加载中...</div>
     <table v-else class="table">
@@ -117,9 +114,5 @@ onMounted(load)
 .actions { display: flex; gap: 0.5rem; }
 .role-select { padding: 0.25rem; background: #0f172a; color: #e2e8f0; border: 1px solid #334155; border-radius: 4px; }
 .empty { text-align: center; color: #64748b; padding: 2rem; }
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 100; }
-.modal { background: #1e293b; padding: 2rem; border-radius: 8px; width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 0.75rem; }
-.modal h3 { margin: 0; color: #e2e8f0; }
 .input { width: 100%; padding: 0.6rem; border: 1px solid #334155; border-radius: 4px; background: #0f172a; color: #e2e8f0; box-sizing: border-box; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem; }
 </style>

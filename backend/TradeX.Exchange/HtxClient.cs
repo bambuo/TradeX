@@ -104,6 +104,8 @@ public class HtxClient : IExchangeClient
         return new AccountBalance(trade + frozen, trade, frozen);
     }
 
+    public Task<Dictionary<string, decimal>> GetAssetBalancesAsync(CancellationToken ct = default) => Task.FromResult<Dictionary<string, decimal>>([]);
+
     public async Task<ExchangePosition[]> GetPositionsAsync(CancellationToken ct = default) => [];
 
     public async Task<OrderResult> PlaceOrderAsync(OrderRequest request, CancellationToken ct = default)

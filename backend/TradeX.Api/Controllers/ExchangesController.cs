@@ -146,6 +146,33 @@ public class ExchangesController(
         return NoContent();
     }
 
+    [HttpGet("{id:guid}/balance")]
+    public async Task<IActionResult> GetBalance(Guid id, CancellationToken ct)
+    {
+        var account = await exchangeRepo.GetByIdAsync(id, ct);
+        if (account is null)
+            return NotFound(new { code = "EXCHANGE_NOT_FOUND", message = "交易所不存在" });
+
+        if (account.Status == ExchangeStatus.Disabled)
+            return BadRequest(new { code = "VALIDATION_ERROR", message = "交易所已禁用" });
+
+        try
+        {
+            var apiKey = encryption.Decrypt(account.ApiKeyEncrypted);
+            var secretKey = encryption.Decrypt(account.SecretKeyEncrypted);
+            var passphrase = account.PassphraseEncrypted is not null ? encryption.Decrypt(account.PassphraseEncrypted) : null;
+
+            var client = clientFactory.CreateClient(account.Type, apiKey, secretKey, passphrase);
+
+            var balance = await client.GetBalanceAsync(ct);
+            return Ok(new { totalUsd = Math.Round(balance.Total, 2) });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(502, new { code = "EXCHANGE_ERROR", message = $"获取余额失败: {ex.Message}" });
+        }
+    }
+
     [HttpGet("{id:guid}/symbols")]
     public async Task<IActionResult> GetSymbols(Guid id, CancellationToken ct)
     {

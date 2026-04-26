@@ -12,8 +12,11 @@ namespace TradeX.Api.Controllers;
 public class DashboardController(TradeXDbContext dbContext) : ControllerBase
 {
     [HttpGet("summary")]
+    [HttpGet("stats")]
     public async Task<IActionResult> GetSummary(CancellationToken ct)
     {
+        var traderCount = await dbContext.Traders.CountAsync(ct);
+        var strategyCount = await dbContext.StrategyDeployments.CountAsync(ct);
         var activeStrategyCount = await dbContext.StrategyDeployments.CountAsync(s => s.Status == StrategyStatus.Active, ct);
         var openPositionCount = await dbContext.Positions.CountAsync(p => p.Status == PositionStatus.Open, ct);
         var todayOrderCount = await dbContext.Orders.CountAsync(
@@ -63,6 +66,8 @@ public class DashboardController(TradeXDbContext dbContext) : ControllerBase
 
         return Ok(new
         {
+            traderCount,
+            strategyCount,
             totalBalance,
             totalPnl,
             totalPnlPercent = totalBalance > 0 ? Math.Round(totalPnl / totalBalance * 100, 2) : 0,

@@ -115,13 +115,9 @@ onMounted(load)
   <div class="settings-page">
     <header class="page-header">
       <h2>系统配置</h2>
-      <button
-        class="btn-primary"
-        :disabled="!hasChanges() || saving"
-        @click="save"
-      >
+      <AppButton variant="primary" icon="save" :disabled="!hasChanges() || saving" @click="save">
         {{ saving ? '保存中...' : '保存修改' }}
-      </button>
+      </AppButton>
     </header>
 
     <div v-if="message" :class="['msg', messageType]">{{ message }}</div>

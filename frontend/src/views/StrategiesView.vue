@@ -157,66 +157,62 @@ onMounted(load)
   <div class="strategies-page">
     <header class="page-header">
       <h2>策略模板</h2>
-      <button class="btn-primary" @click="openCreate">新建策略</button>
+      <AppButton variant="primary" icon="plus" @click="openCreate">新建策略</AppButton>
     </header>
 
-    <div v-if="showForm" class="modal-overlay" @click.self="showForm = false">
-      <div class="modal">
-        <h3>{{ editId ? '编辑策略模板' : '新建策略模板' }}</h3>
-
-        <div v-if="showPresets && !editId" class="presets-section">
-          <p class="presets-hint">选择一个预设模板快速创建，或直接编辑下方条件</p>
-          <div class="preset-cards">
-            <div
-              v-for="preset in strategyPresets"
-              :key="preset.name"
-              class="preset-card"
-              @click="applyPreset(preset)"
-            >
-              <strong class="preset-name">{{ preset.name }}</strong>
-              <span class="preset-desc">{{ preset.description }}</span>
-            </div>
+    <AppModal v-model="showForm" :title="editId ? '编辑策略模板' : '新建策略模板'" width="xl">
+      <div v-if="showPresets && !editId" class="presets-section">
+        <p class="presets-hint">选择一个预设模板快速创建，或直接编辑下方条件</p>
+        <div class="preset-cards">
+          <div
+            v-for="preset in strategyPresets"
+            :key="preset.name"
+            class="preset-card"
+            @click="applyPreset(preset)"
+          >
+            <strong class="preset-name">{{ preset.name }}</strong>
+            <span class="preset-desc">{{ preset.description }}</span>
           </div>
-        </div>
-
-        <div class="form-body">
-          <div v-if="activePreset && !showPresets" class="notes-section">
-            <span class="notes-title">最佳实践参考</span>
-            <ul class="notes-list">
-              <li v-for="(note, i) in activePreset.notes" :key="i">{{ note }}</li>
-            </ul>
-          </div>
-
-          <input v-model="formName" placeholder="策略名称" class="input" />
-
-          <div class="section">
-            <span class="section-label">入场条件</span>
-            <ConditionTreeEditor
-              :node="entryNode"
-              @update="(n: ConditionNode) => entryNode = n"
-            />
-          </div>
-
-          <div class="section">
-            <span class="section-label">出场条件</span>
-            <ConditionTreeEditor
-              :node="exitNode"
-              @update="(n: ConditionNode) => exitNode = n"
-            />
-          </div>
-
-          <div class="section">
-            <span class="section-label">执行规则</span>
-            <ExecutionRuleEditor v-model="formExecutionRule" />
-          </div>
-        </div>
-
-        <div class="modal-actions">
-          <button class="btn-secondary" @click="showForm = false">取消</button>
-          <button class="btn-primary" @click="save">保存</button>
         </div>
       </div>
-    </div>
+
+      <div class="form-body">
+        <div v-if="activePreset && !showPresets" class="notes-section">
+          <span class="notes-title">最佳实践参考</span>
+          <ul class="notes-list">
+            <li v-for="(note, i) in activePreset.notes" :key="i">{{ note }}</li>
+          </ul>
+        </div>
+
+        <input v-model="formName" placeholder="策略名称" class="input" />
+
+        <div class="section">
+          <span class="section-label">入场条件</span>
+          <ConditionTreeEditor
+            :node="entryNode"
+            @update="(n: ConditionNode) => entryNode = n"
+          />
+        </div>
+
+        <div class="section">
+          <span class="section-label">出场条件</span>
+          <ConditionTreeEditor
+            :node="exitNode"
+            @update="(n: ConditionNode) => exitNode = n"
+          />
+        </div>
+
+        <div class="section">
+          <span class="section-label">执行规则</span>
+          <ExecutionRuleEditor v-model="formExecutionRule" />
+        </div>
+      </div>
+
+      <template #footer>
+        <AppButton icon="close" @click="showForm = false">取消</AppButton>
+        <AppButton variant="primary" icon="save" @click="save">保存</AppButton>
+      </template>
+    </AppModal>
 
     <div v-if="loading">加载中...</div>
     <table v-else class="table">
@@ -240,8 +236,8 @@ onMounted(load)
           <td>{{ s.version }}</td>
           <td>{{ new Date(s.updatedAt).toLocaleString('zh-CN', { hour12: false }) }}</td>
           <td class="actions">
-            <button class="btn-small" @click="openEdit(s)">编辑</button>
-            <button class="btn-small btn-danger" @click="remove(s.id)">删除</button>
+            <AppButton size="sm" icon="edit" @click="openEdit(s)">编辑</AppButton>
+            <AppButton size="sm" variant="danger" icon="trash" @click="remove(s.id)">删除</AppButton>
           </td>
         </tr>
         <tr v-if="strategies.length === 0">
@@ -267,14 +263,10 @@ onMounted(load)
 .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .cond-cell { font-size: 0.8rem; color: #94a3b8; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .empty { text-align: center; color: #64748b; padding: 2rem; }
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 100; }
-.modal { background: #1e293b; padding: 2rem; border-radius: 8px; width: 100%; max-width: 720px; max-height: 90vh; overflow-y: auto; }
-.modal h3 { margin: 0 0 1rem; color: #e2e8f0; }
 .input { width: 100%; padding: 0.75rem; margin-bottom: 1rem; border: 1px solid #334155; border-radius: 4px; background: #0f172a; color: #e2e8f0; box-sizing: border-box; font-family: inherit; }
 .form-body { max-height: 65vh; overflow-y: auto; margin-bottom: 1rem; }
 .section { margin-bottom: 1rem; }
 .section-label { display: block; color: #94a3b8; font-size: 0.85rem; margin-bottom: 0.375rem; font-weight: 600; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
 .presets-section { margin-bottom: 1rem; }
 .presets-hint { color: #94a3b8; font-size: 0.85rem; margin: 0 0 0.75rem; }
 .preset-cards { display: flex; flex-direction: column; gap: 0.5rem; }

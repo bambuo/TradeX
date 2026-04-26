@@ -131,9 +131,7 @@ function switchToMfa() {
       <div v-if="error" class="error">{{ error }}</div>
       <input v-model="username" placeholder="用户名" required />
       <input v-model="password" type="password" placeholder="密码" required />
-      <button type="submit" :disabled="loading">
-        {{ loading ? '登录中...' : '登录' }}
-      </button>
+      <AppButton type="submit" variant="primary" icon="login" :disabled="loading">{{ loading ? '登录中...' : '登录' }}</AppButton>
       <div class="login-footer">
         <p>管理系统</p>
       </div>
@@ -145,10 +143,8 @@ function switchToMfa() {
       <p class="subtitle">请输入身份验证器中的 6 位代码</p>
       <div v-if="error" class="error">{{ error }}</div>
       <input v-model="totpCode" placeholder="6 位验证码" maxlength="6" required />
-      <button type="submit" :disabled="loading">
-        {{ loading ? '验证中...' : '验证' }}
-      </button>
-      <button type="button" class="link-btn" @click="switchToRecovery">使用恢复码</button>
+      <AppButton type="submit" variant="primary" icon="shield" :disabled="loading">{{ loading ? '验证中...' : '验证' }}</AppButton>
+      <AppButton variant="ghost" icon="key" @click="switchToRecovery">使用恢复码</AppButton>
     </form>
 
     <!-- MFA 绑定流程（首次登录/无 MFA 的用户） -->
@@ -167,9 +163,7 @@ function switchToMfa() {
         </div>
         <p class="subtitle">扫描完成后，输入应用中的 6 位验证码：</p>
         <input v-model="totpCode" placeholder="6 位验证码" maxlength="6" class="totp-input" />
-        <button :disabled="loading || !totpCode" @click="handleVerifyMfaSetup">
-          {{ loading ? '验证中...' : '确认并绑定' }}
-        </button>
+        <AppButton variant="primary" icon="shield" :disabled="loading || !totpCode" @click="handleVerifyMfaSetup">{{ loading ? '验证中...' : '确认并绑定' }}</AppButton>
       </template>
 
       <div v-else class="loading-state">
@@ -184,10 +178,8 @@ function switchToMfa() {
       <p class="subtitle">输入一个恢复码（格式：XXXX-XXXX）</p>
       <div v-if="error" class="error">{{ error }}</div>
       <input v-model="recoveryCode" placeholder="XXXX-XXXX" required />
-      <button type="submit" :disabled="loading">
-        {{ loading ? '验证中...' : '验证' }}
-      </button>
-      <button type="button" class="link-btn" @click="switchToMfa">使用 TOTP 验证码</button>
+      <AppButton type="submit" variant="primary" icon="key" :disabled="loading">{{ loading ? '验证中...' : '验证' }}</AppButton>
+      <AppButton variant="ghost" icon="shield" @click="switchToMfa">使用 TOTP 验证码</AppButton>
     </form>
   </div>
 </template>

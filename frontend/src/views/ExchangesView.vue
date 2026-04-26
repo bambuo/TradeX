@@ -5,10 +5,18 @@ import ExchangeTypeSelect from '../components/ExchangeTypeSelect.vue'
 
 const accounts = ref<Exchange[]>([])
 const loading = ref(true)
+const balances = ref<Record<string, number>>({})
+const balanceLoading = ref(false)
 const showForm = ref(false)
 const editId = ref<string | null>(null)
 const testingId = ref<string | null>(null)
 const testResult = ref<{ id: string; connected: boolean; error?: string } | null>(null)
+const toast = ref({ message: '', type: '' as 'success' | 'error' })
+
+function showToast(message: string, type: 'success' | 'error') {
+  toast.value = { message, type }
+  setTimeout(() => { toast.value.message = '' }, 4000)
+}
 
 const formLabel = ref('')
 const formExchangeType = ref('Binance')
@@ -24,6 +32,25 @@ async function loadAll() {
     accounts.value = data.data ?? []
   } finally {
     loading.value = false
+  }
+  await fetchBalances()
+}
+
+async function fetchBalances() {
+  const enabled = accounts.value.filter(a => a.isEnabled)
+  if (!enabled.length) return
+  balanceLoading.value = true
+  try {
+    const results = await Promise.allSettled(
+      enabled.map(a => exchangesApi.getBalance(a.id).then(r => ({ id: a.id, totalUsd: r.data.totalUsd })))
+    )
+    for (const r of results) {
+      if (r.status === 'fulfilled') {
+        balances.value[r.value.id] = r.value.totalUsd
+      }
+    }
+  } finally {
+    balanceLoading.value = false
   }
 }
 
@@ -81,8 +108,15 @@ async function testConnection(id: string) {
   try {
     const { data } = await exchangesApi.testConnection(id)
     testResult.value = { id, ...data }
+    if (data.connected) {
+      showToast('连接测试成功', 'success')
+    } else {
+      showToast(`连接失败${data.error ? ': ' + data.error : ''}`, 'error')
+    }
+    await loadAll()
   } catch {
     testResult.value = { id, connected: false, error: '请求失败' }
+    showToast('请求失败', 'error')
   } finally {
     testingId.value = null
     setTimeout(() => { testResult.value = null }, 3000)
@@ -96,27 +130,30 @@ onMounted(loadAll)
   <div class="exchanges-page">
     <header class="page-header">
       <h2>交易所管理</h2>
-      <button class="btn-primary" @click="openCreate">添加交易所</button>
+      <AppButton variant="primary" icon="plus" @click="openCreate">添加交易所</AppButton>
     </header>
 
-    <div v-if="showForm" class="modal-overlay" @click.self="showForm = false">
-      <div class="modal">
-        <h3>{{ editId ? '编辑交易所' : '添加交易所' }}</h3>
-        <input v-model="formLabel" placeholder="名称（如：币安主账户）" class="input" />
-        <ExchangeTypeSelect v-model="formExchangeType" :disabled="!!editId" />
-        <input v-model="formApiKey" :placeholder="editId ? '留空则不修改' : 'API Key'" type="password" class="input" />
-        <input v-model="formSecretKey" :placeholder="editId ? '留空则不修改' : 'Secret Key'" type="password" class="input" />
-        <input v-model="formPassphrase" placeholder="Passphrase（选填）" type="password" class="input" />
-        <label class="checkbox-label">
-          <input v-model="formIsTestnet" type="checkbox" />
-          测试网
-        </label>
-        <div class="modal-actions">
-          <button class="btn-secondary" @click="showForm = false">取消</button>
-          <button class="btn-primary" @click="save">保存</button>
-        </div>
+    <Transition name="toast-fade">
+      <div v-if="toast.message" class="toast" :class="`toast--${toast.type}`">
+        {{ toast.message }}
       </div>
-    </div>
+    </Transition>
+
+    <AppModal v-model="showForm" :title="editId ? '编辑交易所' : '添加交易所'" width="sm">
+      <input v-model="formLabel" placeholder="名称（如：币安主账户）" class="input" />
+      <ExchangeTypeSelect v-model="formExchangeType" :disabled="!!editId" />
+      <input v-model="formApiKey" :placeholder="editId ? '留空则不修改' : 'API Key'" type="password" class="input" />
+      <input v-model="formSecretKey" :placeholder="editId ? '留空则不修改' : 'Secret Key'" type="password" class="input" />
+      <input v-model="formPassphrase" placeholder="Passphrase（选填）" type="password" class="input" />
+      <label class="checkbox-label">
+        <input v-model="formIsTestnet" type="checkbox" />
+        测试网
+      </label>
+      <template #footer>
+        <AppButton icon="close" @click="showForm = false">取消</AppButton>
+        <AppButton variant="primary" icon="save" @click="save">保存</AppButton>
+      </template>
+    </AppModal>
 
     <div v-if="loading">加载中...</div>
     <table v-else class="table">
@@ -127,6 +164,8 @@ onMounted(loadAll)
           <th>模式</th>
           <th>状态</th>
           <th>最近测试</th>
+          <th>测试结果</th>
+          <th>资产总额</th>
           <th>创建时间</th>
           <th>操作</th>
         </tr>
@@ -137,21 +176,26 @@ onMounted(loadAll)
           <td>{{ a.exchangeType }}</td>
           <td>{{ a.isTestnet ? '测试网' : '主网' }}</td>
           <td>{{ a.isEnabled ? '启用' : '禁用' }}</td>
-          <td>{{ a.lastTestedAt ? new Date(a.lastTestedAt).toLocaleDateString() : '-' }}</td>
+          <td>{{ a.lastTestedAt ? new Date(a.lastTestedAt).toLocaleString('zh-CN', { hour12: false }) : '-' }}</td>
+          <td>
+            <span :class="['test-badge', a.testResult && !a.testResult.includes('失败') && !a.testResult.includes('error') && !a.testResult.includes('invalid') ? 'test-badge--ok' : 'test-badge--fail']" :title="a.testResult || ''">
+              <span class="test-dot" />
+              {{ a.testResult ? (a.testResult.length > 20 ? a.testResult.slice(0, 20) + '…' : a.testResult) : '-' }}
+            </span>
+          </td>
+          <td class="balance-cell">
+            <template v-if="a.isEnabled">
+              <span v-if="balances[a.id] != null" class="balance-value">${{ balances[a.id].toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</span>
+              <span v-else-if="balanceLoading" class="balance-loading">计算中...</span>
+              <AppButton v-else size="sm" variant="ghost" @click="fetchBalances">加载</AppButton>
+            </template>
+            <span v-else class="balance-muted">-</span>
+          </td>
           <td>{{ new Date(a.createdAt).toLocaleDateString() }}</td>
           <td class="actions">
-            <button class="btn-small" :disabled="testingId === a.id" @click="testConnection(a.id)">
-              {{ testingId === a.id ? '测试中...' : '测试连接' }}
-            </button>
-            <button class="btn-small" @click="openEdit(a)">编辑</button>
-            <button class="btn-small btn-danger" @click="remove(a.id)">删除</button>
-          </td>
-        </tr>
-        <tr v-if="testResult">
-          <td colspan="7">
-            <span :class="testResult.connected ? 'test-ok' : 'test-fail'">
-              {{ testResult.connected ? '✓ 连接成功' : `✗ 连接失败${testResult.error ? ': ' + testResult.error : ''}` }}
-            </span>
+            <AppButton size="sm" icon="test" :disabled="testingId === a.id" @click="testConnection(a.id)">{{ testingId === a.id ? '测试中...' : '测试连接' }}</AppButton>
+            <AppButton size="sm" icon="edit" @click="openEdit(a)">编辑</AppButton>
+            <AppButton size="sm" variant="danger" icon="trash" @click="remove(a.id)">删除</AppButton>
           </td>
         </tr>
         <tr v-if="accounts.length === 0">
@@ -177,14 +221,70 @@ onMounted(loadAll)
 .table th { color: #94a3b8; font-weight: 600; }
 .actions { display: flex; gap: 0.5rem; }
 .empty { text-align: center; color: #64748b; padding: 2rem; }
-.test-ok { color: #22c55e; font-weight: 600; }
-.test-fail { color: #ef4444; font-weight: 600; }
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 100; }
-.modal { background: #1e293b; padding: 2rem; border-radius: 8px; width: 100%; max-width: 400px; }
-.modal h3 { margin: 0 0 1rem; color: #e2e8f0; }
+.toast {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1200;
+  padding: 0.75rem 1.5rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: 0 18px 50px rgba(2, 6, 23, 0.28);
+  pointer-events: none;
+  border-radius: 12px;
+}
+.toast--success {
+  background: rgba(34, 197, 94, 0.18);
+  border: 1px solid rgba(34, 197, 94, 0.38);
+  color: #bbf7d0;
+}
+.toast--error {
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.38);
+  color: #fecaca;
+}
+.toast-fade-enter-active, .toast-fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.toast-fade-enter-from, .toast-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-0.5rem);
+}
+.test-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  max-width: 180px;
+}
+.test-badge--ok {
+  background: rgba(34, 197, 94, 0.10);
+  border: 1px solid rgba(34, 197, 94, 0.26);
+  color: #86efac;
+}
+.test-badge--fail {
+  background: rgba(239, 68, 68, 0.10);
+  border: 1px solid rgba(239, 68, 68, 0.26);
+  color: #fca5a5;
+}
+.test-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: currentColor;
+}
 .input { width: 100%; padding: 0.75rem; margin-bottom: 1rem; border: 1px solid #334155; border-radius: 4px; background: #0f172a; color: #e2e8f0; box-sizing: border-box; }
-.modal select.input { cursor: pointer; }
+.input:is(select) { cursor: pointer; }
+.balance-cell { text-align: right; white-space: nowrap; }
+.balance-value { color: var(--accent-green); font-weight: 600; }
+.balance-loading { color: var(--text-muted); font-size: 0.8rem; }
+.balance-muted { color: var(--text-muted); }
 .checkbox-label { display: flex; align-items: center; gap: 0.5rem; color: #e2e8f0; margin-bottom: 1rem; cursor: pointer; }
 .checkbox-label input { width: auto; margin: 0; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
 </style>

@@ -11,6 +11,7 @@ public interface IExchangeClient
     Task<OrderBook> GetOrderBookAsync(string symbol, int limit, CancellationToken ct = default);
 
     Task<AccountBalance> GetBalanceAsync(CancellationToken ct = default);
+    Task<Dictionary<string, decimal>> GetAssetBalancesAsync(CancellationToken ct = default);
     Task<ExchangePosition[]> GetPositionsAsync(CancellationToken ct = default);
 
     Task<OrderResult> PlaceOrderAsync(OrderRequest request, CancellationToken ct = default);

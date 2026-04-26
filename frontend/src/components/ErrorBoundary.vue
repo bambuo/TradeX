@@ -24,8 +24,8 @@ function reset() {
       <p class="error-message">{{ error.message }}</p>
       <p v-if="errorInfo" class="error-info">{{ errorInfo }}</p>
       <div class="error-actions">
-        <button class="btn-retry" @click="reset">重试</button>
-        <button class="btn-home" @click="$router.push('/')">返回首页</button>
+        <AppButton variant="primary" icon="refresh" @click="reset">重试</AppButton>
+        <AppButton icon="home" @click="$router.push('/')">返回首页</AppButton>
       </div>
     </div>
   </div>

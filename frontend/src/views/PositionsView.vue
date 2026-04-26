@@ -40,7 +40,7 @@ function formatPnl(pnl: number): string {
   <div class="positions-page">
     <header class="page-header">
       <div class="header-left">
-        <button class="btn-back" @click="router.push(`/traders/${traderId}/strategies`)">← 策略</button>
+        <AppButton variant="ghost" size="sm" icon="back" @click="router.push(`/traders/${traderId}/strategies`)">策略</AppButton>
         <h2>持仓管理</h2>
       </div>
       <label class="toggle-label">
