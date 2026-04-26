@@ -295,7 +295,7 @@ onMounted(load)
   <div class="strategy-page">
     <header class="page-header">
       <div class="header-left">
-        <button class="btn-back" @click="router.push(`/traders/${traderId}`)">← 返回</button>
+        <button class="btn-back" @click="router.push('/traders')">← 返回</button>
         <h2>策略部署</h2>
       </div>
       <button class="btn-primary" @click="openCreate">新建部署</button>
