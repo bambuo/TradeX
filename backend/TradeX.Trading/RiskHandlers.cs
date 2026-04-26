@@ -115,7 +115,7 @@ public class CooldownCheck(ILogger<CooldownCheck> logger) : RiskCheckHandler
 
 public class ExchangeHealthHandler(
     IExchangeClientFactory clientFactory,
-    IExchangeAccountRepository accountRepo,
+    IExchangeRepository accountRepo,
     IEncryptionService encryptionService,
     ILogger<ExchangeHealthHandler> logger) : RiskCheckHandler
 {

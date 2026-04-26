@@ -11,7 +11,7 @@ public class TradeXDbContext(DbContextOptions<TradeXDbContext> options) : DbCont
     public DbSet<RecoveryCode> RecoveryCodes => Set<RecoveryCode>();
     public DbSet<SystemConfig> SystemConfigs => Set<SystemConfig>();
     public DbSet<Trader> Traders => Set<Trader>();
-    public DbSet<ExchangeAccount> ExchangeAccounts => Set<ExchangeAccount>();
+    public DbSet<Exchange> Exchanges => Set<Exchange>();
     public DbSet<AuditLogEntry> AuditLogs => Set<AuditLogEntry>();
     public DbSet<Strategy> Strategies => Set<Strategy>();
     public DbSet<StrategyDeployment> StrategyDeployments => Set<StrategyDeployment>();
@@ -77,8 +77,9 @@ public class TradeXDbContext(DbContextOptions<TradeXDbContext> options) : DbCont
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
         });
 
-        modelBuilder.Entity<ExchangeAccount>(e =>
+        modelBuilder.Entity<Exchange>(e =>
         {
+            e.ToTable("Exchanges");
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.Name).IsUnique();
             e.Property(x => x.Name).HasMaxLength(100).IsRequired();

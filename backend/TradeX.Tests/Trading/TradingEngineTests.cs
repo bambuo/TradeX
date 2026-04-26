@@ -24,7 +24,7 @@ public class TradingEngineTests
         services.AddScoped(_ => Substitute.For<ITradeExecutor>());
         services.AddScoped(_ => Substitute.For<IPortfolioRiskManager>());
         services.AddScoped(_ => Substitute.For<IExchangeClientFactory>());
-        services.AddScoped(_ => Substitute.For<IExchangeAccountRepository>());
+        services.AddScoped(_ => Substitute.For<IExchangeRepository>());
         services.AddScoped(_ => Substitute.For<IEncryptionService>());
 
         var serviceProvider = services.BuildServiceProvider();

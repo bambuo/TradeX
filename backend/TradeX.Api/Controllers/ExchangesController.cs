@@ -12,7 +12,7 @@ namespace TradeX.Api.Controllers;
 [Authorize]
 public class ExchangesController(
     ITraderRepository traderRepo,
-    IExchangeAccountRepository exchangeRepo,
+    IExchangeRepository exchangeRepo,
     IExchangeClientFactory clientFactory,
     IEncryptionService encryption) : ControllerBase
 {
@@ -33,7 +33,7 @@ public class ExchangesController(
             traderName = a.TraderId.HasValue ? traderMap.GetValueOrDefault(a.TraderId.Value, "未知") : "全局",
             label = a.Name,
             exchangeType = a.Type.ToString(),
-            isEnabled = a.Status == ExchangeAccountStatus.Enabled,
+            isEnabled = a.Status == ExchangeStatus.Enabled,
             a.LastTestedAt,
             testResult = a.TestResult,
             createdAt = a.CreatedAt,
@@ -55,7 +55,7 @@ public class ExchangesController(
         if (!await exchangeRepo.IsNameUniqueAsync(request.Name, ct))
             return Conflict(new { code = "VALIDATION_ERROR", message = "交易所名称已存在" });
 
-        var account = new ExchangeAccount
+        var exchange = new TradeX.Core.Models.Exchange
         {
             TraderId = null,
             Name = request.Name,
@@ -66,17 +66,17 @@ public class ExchangesController(
             CreatedBy = UserId
         };
 
-        await exchangeRepo.AddAsync(account, ct);
+        await exchangeRepo.AddAsync(exchange, ct);
 
         return CreatedAtAction(nameof(GetAll), null, new
         {
-            account.Id,
+            exchange.Id,
             traderName = "全局",
-            label = account.Name,
-            exchangeType = account.Type.ToString(),
-            isEnabled = account.Status == ExchangeAccountStatus.Enabled,
-            createdAt = account.CreatedAt,
-            updatedAt = account.UpdatedAt
+            label = exchange.Name,
+            exchangeType = exchange.Type.ToString(),
+            isEnabled = exchange.Status == ExchangeStatus.Enabled,
+            createdAt = exchange.CreatedAt,
+            updatedAt = exchange.UpdatedAt
         });
     }
 
@@ -111,7 +111,7 @@ public class ExchangesController(
         if (account is null)
             return NotFound(new { code = "EXCHANGE_NOT_FOUND", message = "交易所不存在" });
 
-        if (account.Status == ExchangeAccountStatus.Disabled)
+        if (account.Status == ExchangeStatus.Disabled)
             return BadRequest(new { code = "VALIDATION_ERROR", message = "交易所已禁用" });
 
         try
@@ -153,7 +153,7 @@ public class ExchangesController(
         if (account is null)
             return NotFound(new { code = "EXCHANGE_NOT_FOUND", message = "交易所不存在" });
 
-        if (account.Status == ExchangeAccountStatus.Disabled)
+        if (account.Status == ExchangeStatus.Disabled)
             return BadRequest(new { code = "VALIDATION_ERROR", message = "交易所已禁用" });
 
         try

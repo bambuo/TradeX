@@ -94,7 +94,7 @@ public class BacktestWorker(
         using var scope = scopeFactory.CreateScope();
         var strategyRepo = scope.ServiceProvider.GetRequiredService<IStrategyRepository>();
         var taskRepo = scope.ServiceProvider.GetRequiredService<IBacktestTaskRepository>();
-        var accountRepo = scope.ServiceProvider.GetRequiredService<IExchangeAccountRepository>();
+        var accountRepo = scope.ServiceProvider.GetRequiredService<IExchangeRepository>();
         var clientFactory = scope.ServiceProvider.GetRequiredService<IExchangeClientFactory>();
         var encryptionService = scope.ServiceProvider.GetRequiredService<IEncryptionService>();
         var indicatorService = scope.ServiceProvider.GetRequiredService<IIndicatorService>();

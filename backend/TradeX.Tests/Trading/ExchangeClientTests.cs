@@ -70,9 +70,9 @@ public class TradeExecutorTests
     [Fact]
     public async Task ExecuteMarketOrderAsync_MissingAccount_ReturnsError()
     {
-        var accountRepo = Substitute.For<IExchangeAccountRepository>();
+        var accountRepo = Substitute.For<IExchangeRepository>();
         accountRepo.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<ExchangeAccount?>(null));
+            .Returns(Task.FromResult<TradeX.Core.Models.Exchange?>(null));
 
         var executor = new TradeExecutor(
             Substitute.For<IExchangeClientFactory>(),
@@ -91,7 +91,7 @@ public class TradeExecutorTests
     {
         var executor = new TradeExecutor(
             Substitute.For<IExchangeClientFactory>(),
-            Substitute.For<IExchangeAccountRepository>(),
+            Substitute.For<IExchangeRepository>(),
             Substitute.For<IEncryptionService>(),
             Substitute.For<ILogger<TradeExecutor>>());
 
@@ -106,7 +106,7 @@ public class TradeExecutorTests
     {
         var executor = new TradeExecutor(
             Substitute.For<IExchangeClientFactory>(),
-            Substitute.For<IExchangeAccountRepository>(),
+            Substitute.For<IExchangeRepository>(),
             Substitute.For<IEncryptionService>(),
             Substitute.For<ILogger<TradeExecutor>>());
 
@@ -119,7 +119,7 @@ public class TradeExecutorTests
     [Fact]
     public async Task ExecuteMarketOrderAsync_WithAccount_CallsPlaceOrder()
     {
-        var account = new ExchangeAccount
+        var account = new TradeX.Core.Models.Exchange
         {
             Id = Guid.NewGuid(),
             Type = ExchangeType.Binance,
@@ -127,9 +127,9 @@ public class TradeExecutorTests
             SecretKeyEncrypted = "enc-secret"
         };
 
-        var accountRepo = Substitute.For<IExchangeAccountRepository>();
+        var accountRepo = Substitute.For<IExchangeRepository>();
         accountRepo.GetByIdAsync(account.Id, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<ExchangeAccount?>(account));
+            .Returns(Task.FromResult<TradeX.Core.Models.Exchange?>(account));
 
         var encryption = Substitute.For<IEncryptionService>();
         encryption.Decrypt("enc-key").Returns("key");

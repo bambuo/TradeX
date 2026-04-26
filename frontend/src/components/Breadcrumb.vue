@@ -6,12 +6,14 @@ const route = useRoute()
 
 const breadcrumbs = computed(() => {
   const pathParts = route.path.split('/').filter(Boolean)
+  const paramValues = new Set(Object.values(route.params).map(v => String(v)))
   const crumbs: { label: string; path: string }[] = []
   let currentPath = ''
 
   for (const part of pathParts) {
     currentPath += `/${part}`
-    const label = route.matched.find(m => m.path === `/${pathParts.slice(0, pathParts.indexOf(part) + 1).join('/')}` || m.path.includes(part))?.meta?.title as string ?? labelFromPath(part)
+    if (paramValues.has(part)) continue
+    const label = labelFromPath(part)
     crumbs.push({ label, path: currentPath })
   }
 

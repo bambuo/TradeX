@@ -223,9 +223,9 @@ public class RiskChainIntegrationTests
         var positionLimit = new PositionLimitHandler(Substitute.For<ILogger<PositionLimitHandler>>());
         var slippage = new SlippageHandler(Substitute.For<ILogger<SlippageHandler>>());
 
-        var accountRepo = Substitute.For<IExchangeAccountRepository>();
+        var accountRepo = Substitute.For<IExchangeRepository>();
         accountRepo.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns(new Core.Models.ExchangeAccount
+            .Returns(new TradeX.Core.Models.Exchange
             {
                 Type = Core.Enums.ExchangeType.Binance,
                 ApiKeyEncrypted = "encrypted-key",

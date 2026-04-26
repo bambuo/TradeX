@@ -36,8 +36,8 @@ public class DashboardController(TradeXDbContext dbContext) : ControllerBase
             winRate = Math.Round((decimal)wins / filledOrders.Count * 100, 1);
         }
 
-        var exchangeTypes = await dbContext.ExchangeAccounts
-            .Where(a => a.Status == TradeX.Core.Models.ExchangeAccountStatus.Enabled)
+        var exchangeTypes = await dbContext.Exchanges
+            .Where(a => a.Status == TradeX.Core.Models.ExchangeStatus.Enabled)
             .Select(a => a.Type)
             .Distinct()
             .ToListAsync(ct);

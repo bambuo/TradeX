@@ -1912,7 +1912,7 @@ For each Enabled Exchange:
 public interface IOrderReconciler
 {
     Task<ReconciliationResult> ReconcileAsync(
-        Exchange account,
+        Exchange exchange,
         CancellationToken ct);
 }
 
@@ -1999,11 +1999,11 @@ interface TradingHub {
 
 **作用域选择（Tab 切换）**：
 - 交易员级（Trader）：全局作用于交易员账号，仅需选择策略模板
-- 交易所级（Exchange）：绑定交易所生效，需选择策略模板 + 交易所账户
-- 交易对级（Symbol）：绑定具体交易对，需选择策略模板 + 交易所账户 + 交易对列表
+- 交易所级（Exchange）：绑定交易所生效，需选择策略模板 + 交易所
+- 交易对级（Symbol）：绑定具体交易对，需选择策略模板 + 交易所 + 交易对列表
 
 **交易对选择表格（仅 Symbol 作用域）**：
-- 切换交易所账户后自动调用 `GET /api/exchanges/{id}/symbols` 实时拉取 USDT 交易对
+- 切换交易所后自动调用 `GET /api/exchanges/{id}/symbols` 实时拉取 USDT 交易对
 - 响应包含：`symbol`, `price`, `priceChangePercent`, `volume`, `highPrice`, `lowPrice`, `pricePrecision`, `minNotional`
 - 交易对显示：基础币种白色高亮（`BTC`），计价币种灰色小字（`USDT`），不可见分隔
 - 表格列：`交易对 | 价格 | 24h 涨跌 | 24h 量`

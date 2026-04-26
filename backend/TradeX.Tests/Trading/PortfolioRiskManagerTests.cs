@@ -28,9 +28,9 @@ public class PortfolioRiskManagerTests
             CooldownSeconds = 300
         });
 
-        var accountRepo = Substitute.For<IExchangeAccountRepository>();
+        var accountRepo = Substitute.For<IExchangeRepository>();
         accountRepo.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<ExchangeAccount?>(new ExchangeAccount
+            .Returns(Task.FromResult<TradeX.Core.Models.Exchange?>(new TradeX.Core.Models.Exchange
             {
                 Type = ExchangeType.Binance,
                 ApiKeyEncrypted = "enc-key",

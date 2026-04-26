@@ -12,14 +12,14 @@ public class OrderReconcilerTests
     [Fact]
     public async Task ReconcileAsync_PendingOrderOlderThan5Minutes_MarksFailed()
     {
-        var exchangeRepo = Substitute.For<IExchangeAccountRepository>();
+        var exchangeRepo = Substitute.For<IExchangeRepository>();
         var orderRepo = Substitute.For<IOrderRepository>();
         var logger = Substitute.For<ILogger<OrderReconciler>>();
         var reconciler = new OrderReconciler(exchangeRepo, orderRepo, logger);
 
         var exchangeId = Guid.NewGuid();
         exchangeRepo.GetAllEnabledAsync(Arg.Any<CancellationToken>())
-            .Returns([new ExchangeAccount { Id = exchangeId, Status = ExchangeAccountStatus.Enabled }]);
+            .Returns([new TradeX.Core.Models.Exchange { Id = exchangeId, Status = ExchangeStatus.Enabled }]);
 
         var staleOrder = new Order
         {
@@ -40,14 +40,14 @@ public class OrderReconcilerTests
     [Fact]
     public async Task ReconcileAsync_RecentPendingOrder_DoesNotChange()
     {
-        var exchangeRepo = Substitute.For<IExchangeAccountRepository>();
+        var exchangeRepo = Substitute.For<IExchangeRepository>();
         var orderRepo = Substitute.For<IOrderRepository>();
         var logger = Substitute.For<ILogger<OrderReconciler>>();
         var reconciler = new OrderReconciler(exchangeRepo, orderRepo, logger);
 
         var exchangeId = Guid.NewGuid();
         exchangeRepo.GetAllEnabledAsync(Arg.Any<CancellationToken>())
-            .Returns([new ExchangeAccount { Id = exchangeId, Status = ExchangeAccountStatus.Enabled }]);
+            .Returns([new TradeX.Core.Models.Exchange { Id = exchangeId, Status = ExchangeStatus.Enabled }]);
 
         var recentOrder = new Order
         {
@@ -68,14 +68,14 @@ public class OrderReconcilerTests
     [Fact]
     public async Task ReconcileAsync_NoPendingOrders_DoesNothing()
     {
-        var exchangeRepo = Substitute.For<IExchangeAccountRepository>();
+        var exchangeRepo = Substitute.For<IExchangeRepository>();
         var orderRepo = Substitute.For<IOrderRepository>();
         var logger = Substitute.For<ILogger<OrderReconciler>>();
         var reconciler = new OrderReconciler(exchangeRepo, orderRepo, logger);
 
         var exchangeId = Guid.NewGuid();
         exchangeRepo.GetAllEnabledAsync(Arg.Any<CancellationToken>())
-            .Returns([new ExchangeAccount { Id = exchangeId, Status = ExchangeAccountStatus.Enabled }]);
+            .Returns([new TradeX.Core.Models.Exchange { Id = exchangeId, Status = ExchangeStatus.Enabled }]);
         orderRepo.GetPendingByExchangeAsync(exchangeId, Arg.Any<CancellationToken>())
             .Returns([]);
 
@@ -87,7 +87,7 @@ public class OrderReconcilerTests
     [Fact]
     public async Task ReconcileAsync_MultipleExchanges_ProcessesEach()
     {
-        var exchangeRepo = Substitute.For<IExchangeAccountRepository>();
+        var exchangeRepo = Substitute.For<IExchangeRepository>();
         var orderRepo = Substitute.For<IOrderRepository>();
         var logger = Substitute.For<ILogger<OrderReconciler>>();
         var reconciler = new OrderReconciler(exchangeRepo, orderRepo, logger);
@@ -96,8 +96,8 @@ public class OrderReconcilerTests
         var exchangeId2 = Guid.NewGuid();
         exchangeRepo.GetAllEnabledAsync(Arg.Any<CancellationToken>())
             .Returns([
-                new ExchangeAccount { Id = exchangeId1, Status = ExchangeAccountStatus.Enabled },
-                new ExchangeAccount { Id = exchangeId2, Status = ExchangeAccountStatus.Enabled }
+                new TradeX.Core.Models.Exchange { Id = exchangeId1, Status = ExchangeStatus.Enabled },
+                new TradeX.Core.Models.Exchange { Id = exchangeId2, Status = ExchangeStatus.Enabled }
             ]);
 
         var staleOrder1 = new Order
@@ -129,7 +129,7 @@ public class OrderReconcilerTests
     [Fact]
     public async Task ReconcileAsync_NoEnabledExchanges_DoesNothing()
     {
-        var exchangeRepo = Substitute.For<IExchangeAccountRepository>();
+        var exchangeRepo = Substitute.For<IExchangeRepository>();
         var orderRepo = Substitute.For<IOrderRepository>();
         var logger = Substitute.For<ILogger<OrderReconciler>>();
         var reconciler = new OrderReconciler(exchangeRepo, orderRepo, logger);

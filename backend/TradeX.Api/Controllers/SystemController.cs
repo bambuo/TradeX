@@ -10,7 +10,7 @@ namespace TradeX.Api.Controllers;
 [Route("api/system")]
 public class SystemController(
     ITradingEventBus eventBus,
-    IExchangeAccountRepository accountRepo,
+    IExchangeRepository accountRepo,
     IExchangeClientFactory clientFactory,
     IEncryptionService encryptionService,
     ILogger<SystemController> logger) : ControllerBase
@@ -34,7 +34,7 @@ public class SystemController(
                     var secretKey = encryptionService.Decrypt(account.SecretKeyEncrypted);
                     var client = clientFactory.CreateClient(account.Type, apiKey, secretKey);
 
-                    account.Status = Core.Models.ExchangeAccountStatus.Disabled;
+                    account.Status = Core.Models.ExchangeStatus.Disabled;
                     await accountRepo.UpdateAsync(account, ct);
 
                     disabledCount++;

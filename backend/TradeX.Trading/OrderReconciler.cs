@@ -4,7 +4,7 @@ using TradeX.Core.Interfaces;
 namespace TradeX.Trading;
 
 public class OrderReconciler(
-    IExchangeAccountRepository exchangeRepo,
+    IExchangeRepository exchangeRepo,
     IOrderRepository orderRepo,
     ILogger<OrderReconciler> logger) : IOrderReconciler
 {

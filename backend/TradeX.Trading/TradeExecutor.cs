@@ -7,7 +7,7 @@ namespace TradeX.Trading;
 
 public class TradeExecutor(
     IExchangeClientFactory exchangeFactory,
-    IExchangeAccountRepository accountRepo,
+    IExchangeRepository accountRepo,
     IEncryptionService encryptionService,
     ILogger<TradeExecutor> logger) : ITradeExecutor
 {

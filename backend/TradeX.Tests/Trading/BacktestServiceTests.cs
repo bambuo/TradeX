@@ -17,7 +17,7 @@ public class BacktestServiceTests
         services.AddLogging();
         var taskRepo = Substitute.For<IBacktestTaskRepository>();
         var strategyRepo = Substitute.For<IStrategyRepository>();
-        var accountRepo = Substitute.For<IExchangeAccountRepository>();
+        var accountRepo = Substitute.For<IExchangeRepository>();
         var clientFactory = Substitute.For<IExchangeClientFactory>();
         var encryption = Substitute.For<IEncryptionService>();
         var queue = Substitute.For<IBacktestTaskQueue>();

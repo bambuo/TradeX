@@ -2,13 +2,13 @@ using TradeX.Core.Enums;
 
 namespace TradeX.Core.Models;
 
-public enum ExchangeAccountStatus
+public enum ExchangeStatus
 {
     Enabled,
     Disabled
 }
 
-public class ExchangeAccount
+public class Exchange
 {
     public Guid Id { get; init; } = Guid.NewGuid();
     public Guid? TraderId { get; init; }
@@ -17,7 +17,7 @@ public class ExchangeAccount
     public string ApiKeyEncrypted { get; set; } = string.Empty;
     public string SecretKeyEncrypted { get; set; } = string.Empty;
     public string? PassphraseEncrypted { get; set; }
-    public ExchangeAccountStatus Status { get; set; } = ExchangeAccountStatus.Enabled;
+    public ExchangeStatus Status { get; set; } = ExchangeStatus.Enabled;
     public DateTime? LastTestedAt { get; set; }
     public string? TestResult { get; set; }
     public Guid CreatedBy { get; init; }
