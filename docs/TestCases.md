@@ -1810,7 +1810,7 @@ TC-{模块}-{序号}
 - **预期结果**: 3 个立即进入 Running，2 个保持 Pending
   2. 其中一个 Running 完成后
 - **预期结果**: 一个 Pending 自动变为 Running
-- **关联需求**: FSD §14.2
+- **关联需求**: FSD §14.7
 
 ### TC-BACKTEST-018: 回测 — 数据不足处理
 - **前置条件**: 数据范围内 K 线数据不足 10 根
@@ -1824,7 +1824,7 @@ TC-{模块}-{序号}
 - **测试步骤**:
   1. 创建并执行回测
 - **预期结果**: 回测正常完成，无 OOM 或内存泄漏，内存峰值 < 1GB
-- **关联需求**: TAD §9.1, FSD §14.2
+- **关联需求**: TAD §9.1, FSD §14.7
 
 ### TC-BACKTEST-020: 回测结果导出
 - **前置条件**: 存在已完成回测
@@ -1872,6 +1872,71 @@ TC-{模块}-{序号}
   2. 点击"加载更多"
 - **预期结果**: 首次显示 100 根，每次加载更多追加 100 根
 - **关联需求**: FSD §14.5.2
+
+### TC-BACKTEST-026: 并发调度 — ResourceMonitor 双维度阈值计算
+- **前置条件**: `ResourceMonitor` 注入 Mock `IResourceProvider`（预设内存和 CPU 返回值）
+- **测试步骤**:
+  1. 模拟内存 = 200MB（低于 512），CPU = 30%（低于 50%）
+- **预期结果**: mem_cap=3, cpu_cap=3, AllowedConcurrency=3
+  2. 模拟内存 = 200MB，CPU = 65%（CpuWarning < cpu < CpuCritical）
+- **预期结果**: mem_cap=3, cpu_cap=2, AllowedConcurrency=min(3,2)=2
+  3. 模拟内存 = 700MB（MemoryWarning < mem < MemoryCritical），CPU = 30%
+- **预期结果**: mem_cap=2, cpu_cap=3, AllowedConcurrency=min(2,3)=2
+  4. 模拟内存 = 1200MB，CPU = 85%（CpuCritical < cpu < CpuAbsolute）
+- **预期结果**: mem_cap=1, cpu_cap=1, AllowedConcurrency=1
+  5. 模拟内存 = 2000MB（MemoryAbsolute 超），CPU = 95%（CpuAbsolute 超）
+- **预期结果**: mem_cap=0, cpu_cap=0, AllowedConcurrency=0
+- **关联需求**: FSD §14.7.2
+
+### TC-BACKTEST-027: 并发调度 — BacktestScheduler acquire/release 并发控制
+- **前置条件**: 系统配置 MaxConcurrency=3，已提交 5 个回测任务
+- **测试步骤**:
+  1. 检查 DB 中状态
+- **预期结果**: 3 个任务状态为 Running，2 个为 Pending
+  2. 其中一个 Running 完成
+- **预期结果**: 一个 Pending 自动变为 Running（所有 Running 完成后全部进入 Completed）
+- **关联需求**: FSD §14.7.1
+
+### TC-BACKTEST-028: 并发调度 — 多 Worker 队列消费
+- **前置条件**: MaxConcurrency=2，同时入队 4 个任务
+- **测试步骤**:
+  1. 等待调度器稳定（Worker 完成初始化并开始消费）
+- **预期结果**: 至少 2 个任务进入 Running，其余保持 Pending（证明 Worker 池动态消费队列，无需断言精确的入队顺序）
+- **关联需求**: FSD §14.7.1
+
+### TC-BACKTEST-029: 并发调度 — 内存水位上升后自动降级
+- **前置条件**: 当前 AllowedConcurrency=3（内存 < 512MB），3 个 Worker 正在执行
+- **测试步骤**:
+  1. 模拟内存飙升到 1200MB
+- **预期结果**: AllowedConcurrency 降为 1；3 个进行中的任务继续执行
+  2. 其中一个任务完成后
+- **预期结果**: 下一任务无法 acquire 槽位（allowed=1 < running=2），停留在等待循环
+- **关联需求**: FSD §14.7.2
+
+### TC-BACKTEST-030: 并发调度 — 内存水位下降后自动恢复
+- **前置条件**: AllowedConcurrency=1，1 个 Worker 执行中，其余 Worker 在 200ms 轮询等待
+- **测试步骤**:
+  1. 模拟内存回落到 300MB
+- **预期结果**: AllowedConcurrency 恢复为 3
+  2. 当前 Worker 完成后
+- **预期结果**: 等待中的 Worker 获取到槽位，开始执行新任务（至多 200ms 延迟）
+- **关联需求**: FSD §14.7.4
+
+### TC-BACKTEST-031: 并发调度 — Health 端点暴露调度指标
+- **前置条件**: 服务运行中
+- **测试步骤**:
+  1. `GET /api/health`
+- **预期结果**: 响应 body 包含 `backtestScheduler.runningCount`、`backtestScheduler.allowedConcurrency`、`backtestScheduler.currentMemoryMb`、`backtestScheduler.currentCpuPercent`
+- **关联需求**: FSD §14.7.5
+
+### TC-BACKTEST-032: 并发调度 — CPU 水位上升后自动降级
+- **前置条件**: 当前内存低位（< MemoryWarningMb），CPU = 30%（低于 CpuWarningPercent=50%），3 个 Worker 正在执行
+- **测试步骤**:
+  1. 模拟 CPU 飙升到 65%（CpuWarning < cpu < CpuCritical），内存保持低位
+- **预期结果**: mem_cap=3, cpu_cap=2, AllowedConcurrency=min(3,2)=2；3 个进行中的任务继续执行
+  2. 其中一个任务完成后
+- **预期结果**: 等待中的 Worker 因 AllowedConcurrency=2 无法 acquire 槽位（running=2），停留在等待循环
+- **关联需求**: FSD §14.7.2
 
 ---
 

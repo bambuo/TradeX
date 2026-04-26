@@ -910,6 +910,18 @@ sequenceDiagram
 | **后果** | SSE 断连需前端重试；Channel 在 Worker 完成后 `TryComplete()` |
 | **替代否决** | SignalR（已集成但推荐 SSE）；WebSocket（过度设计）；轮询（浪费带宽、延迟大） |
 
+### ADR-011: 回测并发调度采用资源感知调度
+
+| 属性 | 值 |
+|------|-----|
+| **状态** | **Proposed** |
+| **上下文** | 默认 `BacktestWorker` 为单消费者（`Channel.SingleReader = true`），逐任务串行处理。随着回测使用增加，单线程成为吞吐瓶颈。但无限制并发会挤压 `TradingEngine` 的 15s 评估周期资源，且有 OOM 风险（大数据量回测峰值接近 1GB 内存） |
+| **决策** | 使用资源感知的并发调度：固定 Worker 池 + `ResourceMonitor` 根据内存 + CPU 水位动态控制活跃并发数 |
+| **理由** | (1) 固定并发上限（硬编码 `MaxConcurrency`）在资源空闲时浪费吞吐，在资源紧张时仍可能压垮系统——动态调度能自适应；(2) 回测是 CPU + IO + 内存密集型操作，`TradingEngine` 每 15 秒跑一次实时策略评估，回测并发必须让路；(3) 联合监控内存（`GC.GetTotalMemory()`）和 CPU（`Process.TotalProcessorTime` 间隔采样），`AllowedConcurrency = min(mem_cap, cpu_cap)`，任一资源紧张即自动降级 |
+| **实施方式** | (1) `BacktestTaskQueue.Channel` 改为 `SingleReader = false`，允许多消费者；(2) 新增 `IResourceProvider` 接口（`GetMemoryMb()`/`GetCpuPercent()`），`SystemResourceProvider` 调 `GC.GetTotalMemory()` + `Process.TotalProcessorTime`，另提供 Mock 实现供测试使用；(3) 新增 `ResourceMonitor`（Singleton + `IHostedService`），注入 `IResourceProvider`，每 5 秒采样内存 + CPU，按双维度四档水位计算 `AllowedConcurrency = min(mem_cap, cpu_cap)`，首个 CPU 采样周期返回 `MaxConcurrency`（无有效差值前不限制）；(4) `BacktestScheduler` 启动 `MaxConcurrency` 个 Worker 任务，每个循环 `TryAcquire()` → `ReadAsync()` → `ProcessTaskAsync()` → `Release()`；(5) acquire/release 使用 `lock` 保护计数器，未获取到槽位时 200ms 轮询重试；(6) 配置走 `IOptions<BacktestSchedulerSettings>`（含内存阈值 + CPU 阈值）；(7) `GET /health` 暴露 `runningCount`、`allowedConcurrency`、`currentMemoryMb`、`currentCpuPercent`（`HealthController` 注入 `ResourceMonitor`）；(8) 启动时 `RecoverStuckTasksAsync` 将 N 个 Running 任务全部重置为 Pending |
+| **后果** | Worker 池大小固定为 `MaxConcurrency`，不会无限增长；进行中的回测不会被中断，完成后才受新水位影响；Channel 多消费者公平竞争；水位下降时 200ms 自动恢复；`TaskAnalysisStore` 累积内存受 `MaxConcurrency` 天然约束；SSE Remove() 竞态为良性（前端已完成状态切换） |
+| **替代否决** | `SemaphoreSlim` 固定并发（静态上限无法自适应）；无限制并发（内存溢出风险）；独立回测进程（IPC + 部署复杂度，不合算） |
+
 ---
 
 ## 7. 部署架构
@@ -1016,6 +1028,7 @@ app.MapFallbackToFile("index.html");
 | 手动下单 vs 策略下单 | 无冲突（共用风控链） | 手动下单同样经过滑点 + 日亏损检查 |
 | 策略编辑 vs 策略评估 | 乐观并发（Version 字段） | `UPDATE ... WHERE Version = @expected` |
 | 订单状态更新 | 幂等更新 | `Order.Status = Filled` 可重复执行，不报错 |
+| 回测多任务同时执行 | 资源感知调度（ResourceMonitor + BacktestScheduler） | Worker 池固定 `MaxConcurrency` 个，`ResourceMonitor` 每 5s 采样内存 + CPU，`AllowedConcurrency = min(mem_cap, cpu_cap)`，按双维度水位动态限制活跃并发数；超过水位的新任务等待槽位释放，不中断进行中的任务 |
 
 ### 8.4 安全边界
 

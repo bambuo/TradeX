@@ -4,7 +4,7 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档版本 | v1.5 |
+| 文档版本 | v1.7 |
 | 文档状态 | Draft / 待共识 |
 | 基于 PRD | `docs/PRD.md` v2.3 (2026-04-24) |
 | 更新时间 | 2026-04-26 |
@@ -1821,6 +1821,179 @@ public interface IBacktestService
 - 前端 `watch(tasks)` 自动同步 `selectedTask` 状态：Pending → Running / Running → Completed 时自动触发切换回放方式
 - SSE 流无数据结束时自动 3 秒后重连
 
+### 14.7 回测并发调度
+
+当前 `BacktestTaskQueue` 的 `Channel<Guid>` 配置为 `SingleReader = true`，`BacktestWorker` 作为单消费者逐一处理回测任务。此设计为阶段性简化实现，需演进为资源感知的并发调度，在保障交易引擎稳定性的前提下最大化回测吞吐。
+
+#### 14.7.1 调度架构
+
+```mermaid
+flowchart TB
+    subgraph Scheduler["BacktestScheduler (BackgroundService)"]
+        direction TB
+        W1["Worker 1"] --> ACQ["TryAcquire"]
+        W2["Worker 2"] --> ACQ
+        WN["Worker N<br/>= MaxConcurrency"] --> ACQ
+        ACQ -->|acquired| READ["Channel.Reader.ReadAsync()"]
+        READ --> PROCESS["ProcessTaskAsync"]
+        PROCESS --> RELEASE["ResourceMonitor.Release()"]
+        PROCESS -->|失败| FAIL["FailTaskAsync"]
+    end
+
+    subgraph Monitor["ResourceMonitor (Singleton, IHostedService)"]
+        direction TB
+        LOOP["Timer 每 5s"] --> SAMPLE["采样内存 + CPU"]
+        SAMPLE --> CALC["计算 AllowedConcurrency<br/>= min(mem_cap, cpu_cap)"]
+        CALC --> UPDATE["更新 _allowedConcurrency"]
+    end
+
+    subgraph Queue["BacktestTaskQueue"]
+        CHANNEL["Channel&lt;Guid&gt;<br/>SingleReader = false"]
+    end
+
+    BacktestService -->|EnqueueAsync| CHANNEL
+    CHANNEL --> W1
+    CHANNEL --> W2
+    CHANNEL --> WN
+```
+
+核心组件：
+
+| 组件 | 角色 | 生命周期 |
+|------|------|----------|
+| `BacktestScheduler` | 替换原 `BacktestWorker`，启动固定数量 Worker 任务，每个循环 acquire → dequeue → process → release | `BackgroundService`（Singleton） |
+| `ResourceMonitor` | Singleton + `IHostedService`，注入 `IResourceProvider`，每 5 秒采样内存 + CPU，按双维度水位计算允许并发数 | Singleton |
+| `IResourceProvider` / `SystemResourceProvider` | 系统资源抽象，封装 `GC.GetTotalMemory()` / `Process.TotalProcessorTime`，支持测试 Mock | Singleton |
+| `BacktestTaskQueue` | Channel 多消费者模式，`SingleReader = false` | Singleton |
+
+#### 14.7.2 ResourceMonitor 调度策略
+
+`AllowedConcurrency` 取内存维度和 CPU 维度的**较小值**，确保任一资源紧张时自动降级：
+
+```
+mem_cap =
+    memory < MemoryWarningMb  → MaxConcurrency     // 绿色：全力运行
+    memory < MemoryCriticalMb → max(1, Max-1)      // 黄色：降级
+    memory < MemoryAbsoluteMb → 1                   // 红色：仅保留 1 个
+    else                        → 0                 // 黑色：暂停新任务
+
+cpu_cap =
+    cpu < CpuWarningPercent    → MaxConcurrency
+    cpu < CpuCriticalPercent   → max(1, Max-1)
+    cpu < CpuAbsolutePercent   → 1
+    else                         → 0
+
+AllowedConcurrency = min(mem_cap, cpu_cap)
+```
+
+CPU 采样方式：通过 `Process.GetCurrentProcess().TotalProcessorTime` 间隔采样，计算 ΔCPU / (Δ实时间 × `Environment.ProcessorCount`)，得到近 5s 窗口的平均 CPU 使用率。
+
+**初始化处理**：首个监视周期无有效差值，`cpu_cap` 默认返回 `MaxConcurrency`（不限制），第 2 个周期起使用实际采样值，确保启动后不会因冷启动数据失真而误触发 CPU 降级。
+
+Worker 内部循环伪代码：
+
+```
+while (!stoppingToken)
+{
+    while (!TryAcquire())           // 检查 currentRunning < AllowedConcurrency
+        await Task.Delay(200ms);    // 未获取到槽位，等待重试
+
+    var taskId = await queue.ReadAsync(stoppingToken);  // 阻塞等待新任务
+    await ProcessTaskWithTimeoutAsync(taskId, stoppingToken);
+    Release();                                          // 释放槽位
+}
+```
+
+- **Worker 池固定**：Worker 数量 = `MaxConcurrency`，不会无限增长
+- **无锁 slot 管理**：`TryAcquire()` / `Release()` 使用 `lock` 保护计数器
+- **执行不中断**：已开始的回测继续执行到完成，`Release()` 后才受新水位影响
+- **Channel 公平竞争**：多 Worker 通过 `ReadAsync` 公平竞争任务，无需额外调度
+- **响应延迟**：资源水位变化后，Worker 最迟在 `monitorIntervalSeconds + 200ms`（约 5.2s）内响应。对于 TradingEngine 的 15s 评估周期，此延迟可接受
+
+#### 14.7.3 配置
+
+```json
+{
+  "BacktestScheduler": {
+    "maxConcurrency": 3,
+    "taskTimeoutMinutes": 30,
+    "monitorIntervalSeconds": 5,
+    "memoryWarningMb": 512,
+    "memoryCriticalMb": 1024,
+    "memoryAbsoluteMb": 1536,
+    "cpuWarningPercent": 50,
+    "cpuCriticalPercent": 75,
+    "cpuAbsolutePercent": 90
+  }
+}
+```
+
+强类型绑定 `BacktestSchedulerSettings`，通过 `IOptions<T>` 注入。配置分为三逻辑组：调度器参数（`maxConcurrency`, `taskTimeoutMinutes`）、内存监控参数（`monitorIntervalSeconds`, `memory*Mb`）和 CPU 监控参数（`cpu*Percent`）。
+
+#### 14.7.4 边界场景
+
+**水位下降恢复**
+当 `ResourceMonitor` 采样到内存回落（如 Worker 完成大面积回测后 `GC` 回收内存），`AllowedConcurrency` 自动上升。Worker 池中等待 `TryAcquire()` 的各线程以 200ms 间隔轮询，水位恢复后自动获取槽位，无需重启或手动干预。
+
+**TaskAnalysisStore 内存累积**
+多 Worker 并发时，每个任务在 `TaskAnalysisStore` 中维护 `List<CandleAnalysis>` + `Channel<CandleAnalysis>`。若 N 个 Worker 同时执行大数据量回测，Store 累积内存 ≈ Σ(每个任务的分析数据 ≈ K 线数 × ~200 bytes)。约束：
+- `MaxConcurrency` 天然限制了最大累积数
+- Worker 完成一个任务后立即调用 `Remove()` 释放该任务的分析数据
+- 当 `AllowedConcurrency = 0`（暂停状态）时不再有新任务入 Store，存量数据随已有 Worker 逐个完成而释放
+- 若 `TC-BACKTEST-019` 约定的单任务内存峰值 < 1GB 成立，`MaxConcurrency=3` 时 Store 峰值 ≤ 3GB（合理边界，超标可进一步收紧 `MemoryWarningMb`）
+
+**优雅停机和卡死恢复**
+`BacktestScheduler` 在启动时继承原 `RecoverStuckTasksAsync` 逻辑：检测所有 `Status == Running` 的任务，重置为 `Pending` 并重新入队。多 Worker 并发后此逻辑不变——崩溃时 N 个 Running 任务全部重置，重启后由 Worker 池公平竞争重试。
+系统停止（`IHostedService.StopAsync`）时，`CancellationToken` 传递到各 Worker 循环：
+
+```
+// Worker 循环中的 stoppingToken 由 StopAsync 触发取消
+// Channel.ReadAsync 收到取消信号立即抛出 OperationCanceledException
+// 进行中的 ProcessTaskAsync 收到 linkedCts 取消信号
+// 任务标记为 Running，重启时由 RecoverStuckTasksAsync 恢复
+```
+
+**SSE Remove() 与活跃连接竞态**
+Worker 在 `ProcessTaskAsync` 末尾调用 `analysisStore.Remove(task.Id)` 时，若仍有前端 SSE 连接在订阅该任务的分析流，`Channel.TryComplete()` 会导致 SSE 流正常结束（`complete` 消息已在前端显示）。这是一个**良性竞态**——前端在任务状态由 Running → Completed 时已自动切换为 REST 回放模式。但需确保 `Remove()` 在标记 `Completed` 之后调用（当前代码顺序正确：先 Update 状态→后 Remove）。
+
+#### 14.7.5 可观测性
+
+`GET /health` 端点暴露回测调度指标供管理员监控：
+
+```json
+{
+  "backtestScheduler": {
+    "runningCount": 2,
+    "allowedConcurrency": 3,
+    "currentMemoryMb": 456,
+    "currentCpuPercent": 42
+  }
+}
+```
+
+| 字段 | 来源 | 说明 |
+|------|------|------|
+| `runningCount` | `ResourceMonitor.RunningCount`（lock 保护计数器） | 当前活跃 Worker 数 |
+| `allowedConcurrency` | `ResourceMonitor.AllowedConcurrency` | 当前内存 + CPU 水位联合允许的并发上限 |
+| `currentMemoryMb` | `GC.GetTotalMemory(false) / 1MB` | 近似内存使用，非精确值 |
+| `currentCpuPercent` | `Process.TotalProcessorTime` 间隔采样均值 | 近 5s 窗口平均 CPU 使用率 |
+
+此信息有助于区分"没任务"（队列空、无 Worker 活跃）与"资源受限"（`runningCount == allowedConcurrency > 0` 或 `allowedConcurrency == 0`）。
+
+#### 14.7.6 组件清单
+
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `BacktestTaskQueue.cs` | 修改 | `SingleReader = true` → `false` |
+| `BacktestWorker.cs` | 重写为 `BacktestScheduler` | 多 Worker 并发 + acquire/release 循环，单文件替换无需新增 |
+| `IResourceProvider.cs` (new) | 新增 | 系统资源抽象接口，含 `GetMemoryMb()`/`GetCpuPercent()`，支持测试 Mock |
+| `SystemResourceProvider.cs` (new) | 新增 | 生产实现，调用 `GC.GetTotalMemory()` + `Process.TotalProcessorTime` |
+| `ResourceMonitor.cs` (new) | 新增 | Singleton + `IHostedService`，注入 `IResourceProvider`，5s 定时采样 + 并发许可计算 |
+| `BacktestSchedulerSettings.cs` (new) | 新增 | 强类型配置 Options |
+| `DependencyInjection.cs` | 修改 | 注册 `IResourceProvider` → `SystemResourceProvider`（Singleton），`ResourceMonitor`（Singleton + `IHostedService` 双注册），`BacktestScheduler`（HostedService 替换原 Worker） |
+| `HealthController.cs` | 修改 | 新增 `IResourceMonitor` 注入，返回体增加 `backtestScheduler` 调度指标块 |
+| `BacktestingController.cs` | 无需改动 | 接口不变化 |
+
 ---
 
 ## 15. 数据生命周期管理规格
@@ -2438,6 +2611,9 @@ volumes:
 - 回放速度控制（1x/2x/4x/8x/16x）+ 暂停/继续/重放
 - 表格模式分页查询
 - 回测任务状态 watch 自动同步
+- **回测并发调度**：[依赖①→③] ① `BacktestTaskQueue` 改 `SingleReader = false`（5min）→ ② `IResourceProvider` + `SystemResourceProvider` 接口/实现 → ③ `ResourceMonitor`（Singleton + `IHostedService`）→ ④ `BacktestScheduler` 替换 `BacktestWorker`
+- **并发调度单元测试**：[依赖②] ResourceMonitor 阈值计算（Mock IResourceProvider）、BacktestScheduler acquire/release 并发控制、多 Worker 恢复
+- **Health 端点调度指标**：[依赖③] `HealthController` 注入 `IResourceMonitor`，暴露 runningCount / allowedConcurrency / currentMemoryMb / currentCpuPercent
 
 ### M6-C 仪表盘完善
 - 13 个前端页面全部完成 + 路由 + 角色守卫
@@ -2495,3 +2671,4 @@ volumes:
 | v1.4 | 2026-04-24 | 资金安全与组合风控补充：新增 §9.5 多层级组合风控（系统级/交易员级/交易所级/币种级）；新增 §20 IP 白名单开关；新增 Kill Switch 紧急停止机制；扩展 RiskContext 含 PortfolioRiskSnapshot 层级上下文；更新 M2-A/M4-B 里程碑 |
 | v1.5 | 2026-04-25 | K 线实时回放功能：新增 §14.6 K 线实时回放规格；新增 `TaskAnalysisStore` 内存缓存 + Channel 推送机制；新增 SSE 端点 `/analysis/stream`；回放控制（1x~16x 速度切换、暂停/继续/重放）；表格模式分页；运行中任务 SSE 实时推送；回测任务状态 watch 自动同步 |
 | v1.6 | 2026-04-26 | 时间字段统一命名：`CreatedAtUtc`/`UpdatedAtUtc` → `CreatedAt`/`UpdatedAt`，`LastTestedAtUtc` → `LastTestedAt`（前后端同步修改）。数据库迁移策略：`EnsureCreatedAsync` → EF Core Migrations（`Database.MigrateAsync`），新增 `TradeXDbContextFactory` 设计时工厂。策略部署级联删除：`BacktestTask.DeploymentId` 新增，删除部署时级联清理关联回测数据。策略状态机简化：首次回测完成 `Draft` → `Passed`（后续回测不改变状态）。指标精度修复：移除 `Math.Round(..., 4)` 截断，适配 PEPE 等极小价格代币 |
+| v1.7 | 2026-04-26 | 回测并发调度：新增 §14.7 回测并发调度规格；引入 `BacktestScheduler` 替换 `BacktestWorker`，支持多 Worker 并发；新增 `ResourceMonitor` 资源感知调度（根据内存 + CPU 双维度水位动态调整并发数）；`BacktestTaskQueue` 改为多消费者模式；新增 ADR-011 资源感知调度决策记录。补充边界场景（水位恢复/Store 内存累积/优雅停机/SSE 竞态）及 Health 端点调度指标。团队审查后修正：组件清单统一为直接重写 BacktestWorker；新增 `IResourceProvider` 接口层保障可测试性；补充 CPU 首次采样初始化处理说明；补充响应延迟说明；HealthController 列入组件清单；补充 CPU 单边降级测试用例；修正公平竞争测试为弱断言 |
