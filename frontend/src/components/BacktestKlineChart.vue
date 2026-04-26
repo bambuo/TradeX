@@ -76,7 +76,7 @@ function render() {
       {
         type: 'value',
         scale: true,
-        splitLine: { lineStyle: { color: '#1e293b' } },
+        splitLine: { show: false },
         axisLabel: { color: '#94a3b8', fontSize: 10 }
       },
       {

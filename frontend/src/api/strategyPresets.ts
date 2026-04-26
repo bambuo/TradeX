@@ -9,13 +9,13 @@ export interface StrategyPreset {
 
 export const strategyPresets: StrategyPreset[] = [
   {
-    name: '网格策略',
-    description: '震荡市低买高卖。RSI < 30 超卖时买入、> 70 超买时卖出，循环执行网格交易',
+    name: 'RSI 均值回归',
+    description: '震荡市低买高卖。RSI < 30 超卖时分批买入、> 70 超买时分批卖出，在价格均值修复过程中获利',
     notes: [
-      '最佳实践：网格层数 3~5 层为宜，过多层数会过度分散资金',
-      '网格间距 1% 适合 BTC/ETH 等主流币，山寨币建议放大到 1.5~2%',
-      'RSI 阈值 30/70 是经典的超买超卖区间，适用于大部分交易对',
-      '资金管理：每层仓位 = 总资金 ÷ (网格层数 × 2)，保留一半资金防极端行情'
+      '数字货币波动大，层间距 1.5% 适配 BTC/ETH 的 15m~1h 级别，山寨币建议放大至 2.5~3%',
+      '5 层满仓时总敞口 = 1000 USDT，连续 3 层被套应暂停加仓，等价格回归网格内再恢复',
+      'RSI 30/70 适用于 15m/1h 短线，日线级别建议放宽至 25/75 以减少假信号',
+      '每日亏损达 200 USDT（总敞口的 20%）时自动熔断，防止单边行情持续亏损'
     ],
     entryConditionJson: JSON.stringify({
       operator: '',
@@ -32,21 +32,21 @@ export const strategyPresets: StrategyPreset[] = [
     executionRuleJson: JSON.stringify({
       type: 'grid',
       gridLevels: 5,
-      gridSpacingPercent: 1.0,
+      gridSpacingPercent: 1.5,
       basePositionSize: 200,
-      maxPositionSize: 600,
-      maxDailyLoss: 100,
+      maxPositionSize: 1000,
+      maxDailyLoss: 200,
       slippageTolerance: 0.0005
     })
   },
   {
     name: '趋势追踪策略',
-    description: '捕捉趋势行情。MACD 上穿零轴 + RSI > 50 确认多头后入场，MACD 下穿零轴或 RSI < 50 趋势转弱时出场',
+    description: '捕捉趋势行情。MACD 上穿零轴同时 RSI > 50 确认多头后入场，MACD 下穿零轴且 RSI < 50 两信号同时确认趋势转弱时出场',
     notes: [
-      '最佳实践：趋势确认使用双重过滤（MACD 趋势 + RSI 动能），避免假突破',
-      '追踪止损 3% 适用于日线级别，15m/1h 短线建议缩至 1~1.5%',
-      '止盈建议 2~3 倍盈亏比：止损 3% 时，止盈设在 6~9%',
-      '单笔风险控制在总资金的 1~2% 以内，连续亏损 3 次应暂停策略'
+      '入场 AND + 出场 AND，确保趋势确认一致：入场需要双重确认，出场也要双重确认，避免假信号过早平仓',
+      '追踪止损 2% 适配 15m/1h 短线——BTC 日均波幅 3~5%，2% 足够容纳正常回调又不会让利润回吐太多',
+      '止盈建议 3 倍盈亏比：止损 2% 时止盈设在 6%，单比正期望值 = 60%胜率 × 6% - 40%败率 × 2% = +2.8%',
+      '单笔风险 ≤ 总资金 2%，连续亏损 3 次应暂停策略，检查市场是否处于长期震荡不适合趋势策略'
     ],
     entryConditionJson: JSON.stringify({
       operator: 'AND',
@@ -56,7 +56,7 @@ export const strategyPresets: StrategyPreset[] = [
       ]
     }),
     exitConditionJson: JSON.stringify({
-      operator: 'OR',
+      operator: 'AND',
       conditions: [
         { operator: '', indicator: 'MACD_LINE', comparison: 'CrossBelow', value: 0 },
         { operator: '', indicator: 'RSI', comparison: '<', value: 50 }
@@ -64,8 +64,8 @@ export const strategyPresets: StrategyPreset[] = [
     }),
     executionRuleJson: JSON.stringify({
       type: 'trend_following',
-      trailingStopPercent: 3.0,
-      takeProfitPercent: 8.0,
+      trailingStopPercent: 2.0,
+      takeProfitPercent: 6.0,
       basePositionSize: 100,
       maxPositionSize: 300,
       maxDailyLoss: 200,
@@ -74,36 +74,36 @@ export const strategyPresets: StrategyPreset[] = [
   },
   {
     name: '无限网格策略',
-    description: '大波动市场左侧布局。RSI 深度超卖 + 下跌趋势时分批建仓，反弹超买或趋势反转时分批出场，支持金字塔加仓',
+    description: '极端超跌后左侧布局。RSI 深度超卖（< 30）且 MACD 在零轴下时确认恐慌见底，分批金字塔建仓；RSI 回归超买区（> 70）且 MACD 翻红时确认反弹到位，分批出场',
     notes: [
-      '最佳实践：RSI 阈值放大到 25/75，比标准网格更宽的区间适合大波动行情',
-      '网格层数 8~10 层，间距 0.8% 捕捉底部区域的每一次下跌',
-      '金字塔加仓：首次建仓 1x，后续按 0.7x、0.5x、0.3x 递减，防止顶部重仓',
-      '无限网格不设止盈，依赖趋势反转自动出场，适合在暴跌后左侧布局',
-      '风控要点：最大亏损设为总资金的 40%，极端行情有足够缓冲'
+      '左侧布局只做极端行情，RSI < 30 + MACD < 0 双重确认恐慌底，放弃模棱两可的浅度回调机会',
+      '4 层金字塔：1x → 0.7x → 0.5x → 0.3x，合计 2.5 倍基础仓位，避免在下跌初期就重仓被套',
+      '出场 AND 条件：必须 RSI > 70 超买且 MACD 翻红为正才出场，早了可能踏空反弹后半段',
+      '每轮按 4 层 × 1% 间距 = 4% 价格覆盖范围，匹配 BTC 单次恐慌下跌的典型深度（3~8%）',
+      '风控：每层独立止损 5%（超过 5 层间距），极端行情继续下探时逐层止损退出'
     ],
     entryConditionJson: JSON.stringify({
       operator: 'AND',
       conditions: [
-        { operator: '', indicator: 'RSI', comparison: '<', value: 25 },
+        { operator: '', indicator: 'RSI', comparison: '<', value: 30 },
         { operator: '', indicator: 'MACD_LINE', comparison: '<', value: 0 }
       ]
     }),
     exitConditionJson: JSON.stringify({
-      operator: 'OR',
+      operator: 'AND',
       conditions: [
-        { operator: '', indicator: 'RSI', comparison: '>', value: 75 },
+        { operator: '', indicator: 'RSI', comparison: '>', value: 70 },
         { operator: '', indicator: 'MACD_LINE', comparison: '>', value: 0 }
       ]
     }),
     executionRuleJson: JSON.stringify({
       type: 'infinity_grid',
-      gridLevels: 8,
-      gridSpacingPercent: 0.8,
-      basePositionSize: 50,
-      maxPositionSize: 800,
-      maxDailyLoss: 400,
-      slippageTolerance: 0.001,
+      gridLevels: 4,
+      gridSpacingPercent: 1.0,
+      basePositionSize: 100,
+      maxPositionSize: 250,
+      maxDailyLoss: 100,
+      slippageTolerance: 0.0005,
       usePyramiding: true,
       maxPyramidingLevels: 4
     })
