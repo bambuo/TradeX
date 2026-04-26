@@ -39,7 +39,8 @@ function render() {
       layout: {
         background: { type: ColorType.Solid, color: 'transparent' },
         textColor: '#94a3b8',
-        fontSize: 10
+        fontSize: 10,
+        attributionLogo: false
       },
       grid: {
         vertLines: { visible: false },
