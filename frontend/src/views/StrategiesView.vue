@@ -48,7 +48,7 @@ const activePreset = ref<typeof strategyPresets[0] | null>(null)
 const formName = ref('')
 const entryNode = ref<ConditionNode>({ operator: 'AND', conditions: [] })
 const exitNode = ref<ConditionNode>({ operator: 'AND', conditions: [] })
-const formExecutionRule = ref('{}')
+const formExecutionRule = ref('{"type":"custom"}')
 
 function conditionToNode(json: string): ConditionNode {
   try {
@@ -93,7 +93,7 @@ function resetForm() {
   formName.value = ''
   entryNode.value = { operator: 'AND', conditions: [] }
   exitNode.value = { operator: 'AND', conditions: [] }
-  formExecutionRule.value = '{}'
+  formExecutionRule.value = '{"type":"custom"}'
 }
 
 function openCreate() {

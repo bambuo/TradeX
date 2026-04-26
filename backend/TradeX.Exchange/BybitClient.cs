@@ -89,23 +89,23 @@ public class BybitClient : IExchangeClient
         return new OrderBook(bids, asks, DateTime.UtcNow);
     }
 
-    public async Task<AccountBalance> GetBalanceAsync(CancellationToken ct = default)
+    public async Task<Dictionary<string, decimal>> GetAssetBalancesAsync(CancellationToken ct = default)
     {
-        var query = $"accountType=UNIFIED&coin=USDT";
-        var doc = await SignedGetAsync("/v5/account/wallet-balance", query, ct);
-        if (doc is null) return new AccountBalance(0, 0, 0);
+        var doc = await SignedGetAsync("/v5/account/wallet-balance", "accountType=UNIFIED", ct);
+        if (doc is null) return [];
 
         var list = doc.RootElement.GetProperty("result").GetProperty("list").EnumerateArray().FirstOrDefault();
-        if (list.ValueKind == JsonValueKind.Undefined) return new AccountBalance(0, 0, 0);
+        if (list.ValueKind == JsonValueKind.Undefined) return [];
 
-        var coin = list.GetProperty("coin").EnumerateArray().FirstOrDefault(c => c.GetProperty("coin").GetString() == "USDT");
-        if (coin.ValueKind == JsonValueKind.Undefined) return new AccountBalance(0, 0, 0);
-
-        var walletBalance = decimal.Parse(coin.GetProperty("walletBalance").GetString()!, CultureInfo.InvariantCulture);
-        return new AccountBalance(walletBalance, walletBalance, 0);
+        var result = new Dictionary<string, decimal>();
+        foreach (var coin in list.GetProperty("coin").EnumerateArray())
+        {
+            var currency = coin.GetProperty("coin").GetString()!;
+            var walletBalance = decimal.Parse(coin.GetProperty("walletBalance").GetString()!, CultureInfo.InvariantCulture);
+            if (walletBalance > 0) result[currency] = walletBalance;
+        }
+        return result;
     }
-
-    public Task<Dictionary<string, decimal>> GetAssetBalancesAsync(CancellationToken ct = default) => Task.FromResult<Dictionary<string, decimal>>([]);
 
     public async Task<ExchangePosition[]> GetPositionsAsync(CancellationToken ct = default) => [];
 

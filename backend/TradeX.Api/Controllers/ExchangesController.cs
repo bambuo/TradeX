@@ -189,8 +189,8 @@ public class ExchangesController(
         return NoContent();
     }
 
-    [HttpGet("{id:guid}/balance")]
-    public async Task<IActionResult> GetBalance(Guid id, CancellationToken ct)
+    [HttpGet("{id:guid}/assets")]
+    public async Task<IActionResult> GetAssets(Guid id, CancellationToken ct)
     {
         var account = await exchangeRepo.GetByIdAsync(id, ct);
         if (account is null)
@@ -207,12 +207,13 @@ public class ExchangesController(
 
             var client = clientFactory.CreateClient(account.Type, apiKey, secretKey, passphrase);
 
-            var balance = await client.GetBalanceAsync(ct);
-            return Ok(new { totalUsd = Math.Round(balance.Total, 2) });
+            var assets = await client.GetAssetBalancesAsync(ct);
+            var list = assets.Select(a => new { currency = a.Key, balance = a.Value }).OrderByDescending(a => a.balance).ToArray();
+            return Ok(new { data = list });
         }
         catch (Exception ex)
         {
-            return StatusCode(502, new { code = "EXCHANGE_ERROR", message = $"获取余额失败: {ex.Message}" });
+            return StatusCode(502, new { code = "EXCHANGE_ERROR", message = $"获取资产失败: {ex.Message}" });
         }
     }
 

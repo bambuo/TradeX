@@ -22,5 +22,8 @@ export const notificationChannelsApi = {
   },
   test(id: string) {
     return client.post<{ success: boolean; message: string }>(`/notifications/channels/${id}/test`)
+  },
+  toggleStatus(id: string) {
+    return client.put<{ status: string }>(`/notifications/channels/${id}/status`)
   }
 }

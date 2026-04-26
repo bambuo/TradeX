@@ -8,7 +8,8 @@ const stats = ref<DashboardStats | null>(null)
 const loading = ref(true)
 const loadError = ref('')
 const riskAlert = ref('')
-const exchangeBalances = ref<Record<string, number>>({})
+const exchangeAssets = ref<Record<string, { currency: string; balance: number }[]>>({})
+const expandedExchange = ref<Record<string, boolean>>({})
 const signalr: any = inject('signalr')
 
 const realtimeStats = ref({
@@ -90,12 +91,12 @@ async function fetchExchangeBalances() {
     const enabled = (data.data ?? []).filter((a: any) => a.isEnabled)
     const results = await Promise.allSettled(
       enabled.map((a: any) =>
-        exchangesApi.getBalance(a.id).then(r => ({ id: a.exchangeType.toLowerCase(), totalUsd: r.data.totalUsd }))
+        exchangesApi.getAssets(a.id).then(r => ({ id: a.exchangeType.toLowerCase(), items: r.data.data }))
       )
     )
     for (const r of results) {
       if (r.status === 'fulfilled') {
-        exchangeBalances.value[r.value.id] = r.value.totalUsd
+        exchangeAssets.value[r.value.id] = r.value.items
       }
     }
   } catch { /* ignore */ }
@@ -244,12 +245,23 @@ onUnmounted(() => {
           <div class="exchange-list">
             <h3>交易所连接</h3>
             <div v-if="exchangeEntries.length" class="exchange-items">
-              <div v-for="[exchange, status] in exchangeEntries" :key="exchange" class="exchange-item">
-                <span class="exchange-dot" :class="status === 'Connected' ? 'connected' : 'disconnected'" />
-                <span class="exchange-name">{{ exchange.toUpperCase() }}</span>
-                <span class="exchange-balance">{{ exchangeBalances[exchange] != null ? '$' + exchangeBalances[exchange].toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '' }}</span>
-                <strong :class="status === 'Connected' ? 'status-online' : 'status-offline'">{{ status === 'Connected' ? '已连接' : '未连接' }}</strong>
-              </div>
+              <template v-for="[exchange, status] in exchangeEntries" :key="exchange">
+                <div class="exchange-item">
+                  <span class="exchange-dot" :class="status === 'Connected' ? 'connected' : 'disconnected'" />
+                  <span class="exchange-name">{{ exchange.toUpperCase() }}</span>
+                  <span v-if="exchangeAssets[exchange]" class="exchange-coins" @click="expandedExchange[exchange] = !expandedExchange[exchange]">
+                    {{ exchangeAssets[exchange].length }} 个币种
+                    <span class="expand-arrow" :class="{ expanded: expandedExchange[exchange] }">▶</span>
+                  </span>
+                  <strong :class="status === 'Connected' ? 'status-online' : 'status-offline'">{{ status === 'Connected' ? '已连接' : '未连接' }}</strong>
+                </div>
+                <div v-if="expandedExchange[exchange] && exchangeAssets[exchange]" class="asset-list">
+                  <div v-for="item in exchangeAssets[exchange]" :key="item.currency" class="asset-row">
+                    <span class="asset-currency">{{ item.currency }}</span>
+                    <span class="asset-amount">{{ item.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 }) }}</span>
+                  </div>
+                </div>
+              </template>
             </div>
             <div v-else class="empty-state">暂无已启用交易所</div>
           </div>
@@ -575,6 +587,39 @@ onUnmounted(() => {
 .exchange-balance { color: var(--text-secondary); font-size: 0.8rem; white-space: nowrap; font-weight: 500; }
 .status-online { color: var(--accent-green); font-weight: 600; }
 .status-offline { color: var(--text-muted); }
+
+.exchange-coins {
+  cursor: pointer;
+  color: var(--accent-blue);
+  font-size: 0.8rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  user-select: none;
+}
+.exchange-coins:hover { opacity: 0.8; }
+
+.expand-arrow {
+  font-size: 0.55rem;
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+.expand-arrow.expanded { transform: rotate(90deg); }
+
+.asset-list {
+  padding: 0.25rem 0.75rem 0.5rem 1.25rem;
+  border-bottom: 1px solid var(--glass-border);
+}
+.asset-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.15rem 0;
+  font-size: 0.8rem;
+}
+.asset-currency { color: var(--text-primary); font-weight: 500; }
+.asset-amount { color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
 .trade-row strong,
 .trade-row span { display: block; }

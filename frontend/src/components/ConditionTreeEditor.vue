@@ -57,7 +57,7 @@ function updateField(field: string, value: any) {
           :options="operators.map(o => ({ label: o, value: o }))"
           :model-value="node.operator ?? 'AND'"
           class="op-select"
-          @update:model-value="(v: string) => updateField('operator', v)"
+          @update:model-value="(v) => updateField('operator', v)"
         />
         <AppButton size="sm" variant="ghost" icon="close" title="删除" @click="removeFromParent" />
       </div>
@@ -82,13 +82,12 @@ function updateField(field: string, value: any) {
         <AppSelect
           :options="indicators.map(i => ({ label: i, value: i }))"
           :model-value="node.indicator ?? indicators[0]"
-          @update:model-value="(v: string) => updateField('indicator', v)"
+          @update:model-value="(v) => updateField('indicator', v)"
         />
         <AppSelect
           :options="comparisons.map(c => ({ label: c, value: c }))"
           :model-value="node.comparison ?? comparisons[0]"
-          narrow
-          @update:model-value="(v: string) => updateField('comparison', v)"
+          @update:model-value="(v) => updateField('comparison', v)"
         />
         <input :value="node.value" type="number" step="any" class="field-input" placeholder="值" @input="(e) => updateField('value', parseFloat((e.target as HTMLInputElement).value) || 0)" />
         <AppButton size="sm" variant="ghost" icon="close" title="删除" @click="removeFromParent" />

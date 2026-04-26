@@ -10,7 +10,6 @@ public interface IExchangeClient
     Task<Candle[]> GetKlinesAsync(string symbol, string interval, DateTime start, DateTime end, CancellationToken ct = default);
     Task<OrderBook> GetOrderBookAsync(string symbol, int limit, CancellationToken ct = default);
 
-    Task<AccountBalance> GetBalanceAsync(CancellationToken ct = default);
     Task<Dictionary<string, decimal>> GetAssetBalancesAsync(CancellationToken ct = default);
     Task<ExchangePosition[]> GetPositionsAsync(CancellationToken ct = default);
 
@@ -35,11 +34,6 @@ public record OrderBook(
     decimal[,] Bids,
     decimal[,] Asks,
     DateTime Timestamp);
-
-public record AccountBalance(
-    decimal Total,
-    decimal Available,
-    decimal Locked);
 
 public record OrderRequest(
     string Symbol,

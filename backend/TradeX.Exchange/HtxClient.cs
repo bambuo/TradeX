@@ -78,33 +78,33 @@ public class HtxClient : IExchangeClient
         return new OrderBook(bids, asks, DateTime.UtcNow);
     }
 
-    public async Task<AccountBalance> GetBalanceAsync(CancellationToken ct = default)
+    public async Task<Dictionary<string, decimal>> GetAssetBalancesAsync(CancellationToken ct = default)
     {
         var resp = await SignedGetAsync("/v1/account/accounts", ct);
-        if (resp is null) return new AccountBalance(0, 0, 0);
+        if (resp is null) return [];
 
-        var accounts = resp.RootElement.GetProperty("data").EnumerateArray();
-        var spotAccount = accounts.FirstOrDefault(a => a.GetProperty("type").GetString() == "spot");
-        if (spotAccount.ValueKind == JsonValueKind.Undefined) return new AccountBalance(0, 0, 0);
+        var spotAccount = resp.RootElement.GetProperty("data").EnumerateArray()
+            .FirstOrDefault(a => a.GetProperty("type").GetString() == "spot");
+        if (spotAccount.ValueKind == JsonValueKind.Undefined) return [];
 
         var accountId = spotAccount.GetProperty("id").GetInt64();
         var balanceResp = await SignedGetAsync($"/v1/account/accounts/{accountId}/balance", ct);
-        if (balanceResp is null) return new AccountBalance(0, 0, 0);
+        if (balanceResp is null) return [];
 
-        var usdtBalance = balanceResp.RootElement.GetProperty("data").GetProperty("list").EnumerateArray()
-            .FirstOrDefault(b => b.GetProperty("currency").GetString() == "usdt");
-        if (usdtBalance.ValueKind == JsonValueKind.Undefined) return new AccountBalance(0, 0, 0);
+        if (balanceResp.RootElement.GetProperty("status").GetString() != "ok") return [];
 
-        var trade = usdtBalance.GetProperty("type").GetString() == "trade"
-            ? decimal.Parse(usdtBalance.GetProperty("balance").GetString()!, CultureInfo.InvariantCulture)
-            : 0;
-        var frozen = usdtBalance.GetProperty("type").GetString() == "frozen"
-            ? decimal.Parse(usdtBalance.GetProperty("balance").GetString()!, CultureInfo.InvariantCulture)
-            : 0;
-        return new AccountBalance(trade + frozen, trade, frozen);
+        var result = new Dictionary<string, decimal>();
+        foreach (var entry in balanceResp.RootElement.GetProperty("data").GetProperty("list").EnumerateArray())
+        {
+            var currency = entry.GetProperty("currency").GetString()!.ToUpperInvariant();
+            var balance = decimal.Parse(entry.GetProperty("balance").GetString()!, CultureInfo.InvariantCulture);
+            if (result.TryGetValue(currency, out var existing))
+                result[currency] = existing + balance;
+            else
+                result[currency] = balance;
+        }
+        return result.Where(kv => kv.Value > 0).ToDictionary(kv => kv.Key, kv => kv.Value);
     }
-
-    public Task<Dictionary<string, decimal>> GetAssetBalancesAsync(CancellationToken ct = default) => Task.FromResult<Dictionary<string, decimal>>([]);
 
     public async Task<ExchangePosition[]> GetPositionsAsync(CancellationToken ct = default) => [];
 

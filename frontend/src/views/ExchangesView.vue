@@ -6,8 +6,9 @@ import ExchangeTypeSelect from '../components/ExchangeTypeSelect.vue'
 
 const accounts = ref<Exchange[]>([])
 const loading = ref(true)
-const balances = ref<Record<string, number>>({})
-const balanceLoading = ref(false)
+const assets = ref<Record<string, { currency: string; balance: number }[]>>({})
+const assetLoading = ref(false)
+const expandedAssets = ref<Record<string, boolean>>({})
 const showForm = ref(false)
 const editId = ref<string | null>(null)
 const testingId = ref<string | null>(null)
@@ -76,24 +77,24 @@ async function loadAll() {
   } finally {
     loading.value = false
   }
-  await fetchBalances()
+  await fetchAssets()
 }
 
-async function fetchBalances() {
+async function fetchAssets() {
   const enabled = accounts.value.filter(a => a.isEnabled)
   if (!enabled.length) return
-  balanceLoading.value = true
+  assetLoading.value = true
   try {
     const results = await Promise.allSettled(
-      enabled.map(a => exchangesApi.getBalance(a.id).then(r => ({ id: a.id, totalUsd: r.data.totalUsd })))
+      enabled.map(a => exchangesApi.getAssets(a.id).then(r => ({ id: a.id, items: r.data.data })))
     )
     for (const r of results) {
       if (r.status === 'fulfilled') {
-        balances.value[r.value.id] = r.value.totalUsd
+        assets.value[r.value.id] = r.value.items
       }
     }
   } finally {
-    balanceLoading.value = false
+    assetLoading.value = false
   }
 }
 
@@ -195,15 +196,17 @@ onMounted(loadAll)
     </Transition>
 
     <AppModal v-model="showForm" :title="editId ? '编辑交易所' : '添加交易所'" width="sm">
-      <input v-model="formLabel" placeholder="名称（如：币安主账户）" class="input" />
-      <ExchangeTypeSelect v-model="formExchangeType" :disabled="!!editId" />
-      <input v-model="formApiKey" :placeholder="editId ? 'API Key（留空则不修改）' : 'API Key'" type="password" class="input" />
-      <input v-model="formSecretKey" :placeholder="editId ? 'Secret Key（留空则不修改）' : 'Secret Key'" type="password" class="input" />
-      <input v-model="formPassphrase" :placeholder="editId ? 'Passphrase（留空则不修改）' : 'Passphrase（选填）'" type="password" class="input" />
-      <label class="checkbox-label">
-        <input v-model="formIsTestnet" type="checkbox" />
-        测试网
-      </label>
+      <div class="form-body">
+        <input v-model="formLabel" placeholder="名称（如：币安主账户）" class="input" />
+        <ExchangeTypeSelect v-model="formExchangeType" :disabled="!!editId" />
+        <input v-model="formApiKey" :placeholder="editId ? 'API Key（留空则不修改）' : 'API Key'" type="password" class="input" />
+        <input v-model="formSecretKey" :placeholder="editId ? 'Secret Key（留空则不修改）' : 'Secret Key'" type="password" class="input" />
+        <input v-model="formPassphrase" :placeholder="editId ? 'Passphrase（留空则不修改）' : 'Passphrase（选填）'" type="password" class="input" />
+        <label class="checkbox-label">
+          <input v-model="formIsTestnet" type="checkbox" />
+          测试网
+        </label>
+      </div>
       <template #footer>
         <AppButton icon="close" @click="showForm = false">取消</AppButton>
         <AppButton variant="primary" icon="save" @click="save">保存</AppButton>
@@ -324,15 +327,22 @@ onMounted(loadAll)
             </span>
           </div>
           <div class="info-row">
-            <span class="info-label">资产总额</span>
+            <span class="info-label">资产</span>
             <template v-if="a.isEnabled">
-              <span v-if="balances[a.id] != null" class="balance-value">
-                ${{ balances[a.id].toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+              <span v-if="assets[a.id]" class="assets-summary" @click="expandedAssets[a.id] = !expandedAssets[a.id]">
+                {{ assets[a.id].length }} 个币种
+                <span class="expand-arrow" :class="{ expanded: expandedAssets[a.id] }">▶</span>
               </span>
-              <span v-else-if="balanceLoading" class="balance-loading">计算中...</span>
-              <AppButton v-else size="sm" variant="ghost" @click="fetchBalances">加载</AppButton>
+              <span v-else-if="assetLoading" class="balance-loading">加载中...</span>
+              <AppButton v-else size="sm" variant="ghost" @click="fetchAssets">加载</AppButton>
             </template>
             <span v-else class="info-value">-</span>
+          </div>
+          <div v-if="expandedAssets[a.id] && assets[a.id]" class="asset-list">
+            <div v-for="item in assets[a.id]" :key="item.currency" class="asset-row">
+              <span class="asset-currency">{{ item.currency }}</span>
+              <span class="asset-amount">{{ item.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 }) }}</span>
+            </div>
           </div>
         </div>
 
@@ -603,6 +613,50 @@ onMounted(loadAll)
   font-size: 0.8rem;
 }
 
+.assets-summary {
+  cursor: pointer;
+  color: var(--accent-blue);
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  user-select: none;
+}
+.assets-summary:hover {
+  opacity: 0.8;
+}
+
+.expand-arrow {
+  font-size: 0.6rem;
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+.expand-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.asset-list {
+  border-top: 1px solid var(--glass-border);
+  margin-top: 0.5rem;
+  padding-top: 0.4rem;
+}
+.asset-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.2rem 0;
+  font-size: 0.82rem;
+}
+.asset-currency {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.asset-amount {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .card-footer {
   display: flex;
   gap: 0.5rem;
@@ -613,9 +667,22 @@ onMounted(loadAll)
   flex: 1;
 }
 
-.input { width: 100%; padding: 0.75rem; margin-bottom: 1rem; border: 1px solid var(--glass-border); border-radius: 4px; background: rgba(255,255,255,0.35); color: var(--text-primary); box-sizing: border-box; }
+.form-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.form-body .input,
+.form-body .checkbox-label {
+  margin-bottom: 0;
+}
+.form-body :deep(.exchange-select) {
+  margin-bottom: 0;
+}
+
+.input { width: 100%; padding: 0.75rem; border: 1px solid var(--glass-border); border-radius: 4px; background: rgba(255,255,255,0.35); color: var(--text-primary); box-sizing: border-box; }
 .input:is(select) { cursor: pointer; }
-.checkbox-label { display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary); margin-bottom: 1rem; cursor: pointer; }
+.checkbox-label { display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary); cursor: pointer; }
 .checkbox-label input { width: auto; margin: 0; }
 
 .table { width: 100%; border-collapse: collapse; }

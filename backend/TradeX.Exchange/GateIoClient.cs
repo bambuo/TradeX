@@ -79,30 +79,6 @@ public class GateIoClient : IExchangeClient
         return new OrderBook(bids, asks, DateTime.UtcNow);
     }
 
-    public async Task<AccountBalance> GetBalanceAsync(CancellationToken ct = default)
-    {
-        var ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
-        var signStr = $"GET\n/api/v4/wallet/total_balance\ncurrency=USDT\n{EmptyBodyHash}\n{ts}";
-        var sign = Sign(signStr);
-        var req = new HttpRequestMessage(HttpMethod.Get, "/api/v4/wallet/total_balance?currency=USDT");
-        AddAuthHeaders(req, sign, ts);
-        var resp = await _http.SendAsync(req, ct);
-        if (!resp.IsSuccessStatusCode)
-        {
-            var errBody = await resp.Content.ReadAsStringAsync(ct);
-            throw new InvalidOperationException($"Gate.io 总余额查询失败: {(int)resp.StatusCode} {(string.IsNullOrWhiteSpace(errBody) ? "(empty)" : errBody[..Math.Min(errBody.Length, 200)])}");
-        }
-
-        var bytes = await resp.Content.ReadAsByteArrayAsync(ct);
-        var body = Encoding.UTF8.GetString(bytes);
-        var doc = JsonDocument.Parse(body);
-        var details = doc.RootElement.GetProperty("details");
-        var spotAmount = details.TryGetProperty("spot", out var spot) && spot.TryGetProperty("amount", out var amt)
-            ? decimal.Parse(amt.GetString()!, CultureInfo.InvariantCulture)
-            : 0m;
-        return new AccountBalance(spotAmount, spotAmount, 0);
-    }
-
     public async Task<Dictionary<string, decimal>> GetAssetBalancesAsync(CancellationToken ct = default)
     {
         var ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();

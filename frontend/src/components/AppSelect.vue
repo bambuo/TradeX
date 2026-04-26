@@ -1,8 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 
+export interface SelectOption {
+  label: string
+  value: string | number
+}
+
 const props = withDefaults(defineProps<{
-  options: { label: string; value: string | number }[]
+  options: SelectOption[]
   modelValue: string | number
   narrow?: boolean
   full?: boolean
@@ -22,7 +27,8 @@ const emit = defineEmits<{
 const open = ref(false)
 const triggerRef = ref<HTMLElement | null>(null)
 
-const selectedLabel = computed(() => props.options.find(o => o.value === props.modelValue)?.label ?? props.modelValue)
+const selected = computed(() => props.options.find(o => o.value === props.modelValue))
+const selectedLabel = computed(() => selected.value?.label ?? String(props.modelValue))
 
 function toggle() { if (!props.disabled) open.value = !open.value }
 
@@ -45,7 +51,9 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
 <template>
   <div ref="triggerRef" class="app-select" :class="{ narrow, full, disabled, form }">
     <button class="app-select-trigger" @click="toggle">
-      {{ selectedLabel }}
+      <slot name="trigger" :selected-label="selectedLabel" :selected="selected">
+        {{ selectedLabel }}
+      </slot>
       <svg class="app-select-arrow" :class="{ open }" width="10" height="6" viewBox="0 0 10 6">
         <path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" />
       </svg>
@@ -58,7 +66,9 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
         :class="{ active: opt.value === modelValue }"
         @click="select(opt.value)"
       >
-        {{ opt.label }}
+        <slot name="option" :option="opt" :active="opt.value === modelValue">
+          {{ opt.label }}
+        </slot>
       </div>
     </div>
   </div>

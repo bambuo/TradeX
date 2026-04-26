@@ -216,6 +216,28 @@ public class NotificationServiceTests
             Arg.Any<string>(),
             Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task SendTestAsync_DisabledChannel_ThrowsInvalidOperationException()
+    {
+        var channel = new NotificationChannel
+        {
+            Id = Guid.NewGuid(),
+            Type = NotificationChannelType.Telegram,
+            Status = NotificationChannelStatus.Disabled,
+            ConfigEncrypted = "encrypted-config"
+        };
+
+        var channelRepo = Substitute.For<INotificationChannelRepository>();
+        channelRepo.GetByIdAsync(channel.Id, Arg.Any<CancellationToken>()).Returns(channel);
+
+        var service = CreateService(channelRepo: channelRepo);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.SendTestAsync(channel.Id));
+
+        Assert.Contains("禁用", ex.Message);
+    }
 }
 
 public class FakeHttpMessageHandler : HttpMessageHandler

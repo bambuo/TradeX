@@ -59,27 +59,6 @@ public class BinanceClient : IExchangeClient
         return new OrderBook(bids, asks, DateTime.UtcNow);
     }
 
-    public async Task<AccountBalance> GetBalanceAsync(CancellationToken ct = default)
-    {
-        var query = $"timestamp={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
-        var request = new HttpRequestMessage(HttpMethod.Get, $"/api/v3/account?{query}&signature={Sign(query)}");
-        request.Headers.Add("X-MBX-APIKEY", _apiKey);
-
-        var resp = await _http.SendAsync(request, ct);
-        resp.EnsureSuccessStatusCode();
-        var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
-        if (doc is null) return new AccountBalance(0, 0, 0);
-
-        decimal total = 0;
-        foreach (var b in doc.RootElement.GetProperty("balances").EnumerateArray())
-        {
-            var free = decimal.Parse(b.GetProperty("free").GetString()!, CultureInfo.InvariantCulture);
-            var locked = decimal.Parse(b.GetProperty("locked").GetString()!, CultureInfo.InvariantCulture);
-            total += free + locked;
-        }
-        return new AccountBalance(total, total, 0);
-    }
-
     public async Task<Dictionary<string, decimal>> GetAssetBalancesAsync(CancellationToken ct = default)
     {
         var query = $"timestamp={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";

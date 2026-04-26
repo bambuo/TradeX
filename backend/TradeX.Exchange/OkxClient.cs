@@ -84,21 +84,20 @@ public class OkxClient : IExchangeClient
         return new OrderBook(bids, asks, DateTime.UtcNow);
     }
 
-    public async Task<AccountBalance> GetBalanceAsync(CancellationToken ct = default)
+    public async Task<Dictionary<string, decimal>> GetAssetBalancesAsync(CancellationToken ct = default)
     {
         var doc = await SignedGetAsync("/api/v5/account/balance", null, ct);
-        if (doc is null) return new AccountBalance(0, 0, 0);
+        if (doc is null) return [];
 
-        var data = doc.RootElement.GetProperty("data")[0];
-        var details = data.GetProperty("details").EnumerateArray();
-        var usdt = details.FirstOrDefault(d => d.GetProperty("ccy").GetString() == "USDT");
-        if (usdt.ValueKind == JsonValueKind.Undefined) return new AccountBalance(0, 0, 0);
-
-        var cashBal = decimal.Parse(usdt.GetProperty("cashBal").GetString()!, CultureInfo.InvariantCulture);
-        return new AccountBalance(cashBal, cashBal, 0);
+        var result = new Dictionary<string, decimal>();
+        foreach (var detail in doc.RootElement.GetProperty("data")[0].GetProperty("details").EnumerateArray())
+        {
+            var ccy = detail.GetProperty("ccy").GetString()!;
+            var cashBal = decimal.Parse(detail.GetProperty("cashBal").GetString()!, CultureInfo.InvariantCulture);
+            if (cashBal > 0) result[ccy] = cashBal;
+        }
+        return result;
     }
-
-    public Task<Dictionary<string, decimal>> GetAssetBalancesAsync(CancellationToken ct = default) => Task.FromResult<Dictionary<string, decimal>>([]);
 
     public async Task<ExchangePosition[]> GetPositionsAsync(CancellationToken ct = default) => [];
 

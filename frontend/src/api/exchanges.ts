@@ -64,8 +64,8 @@ export const exchangesApi = {
   getSymbols(id: string) {
     return client.get<{ data: { symbol: string; pricePrecision: number; quantityPrecision: number; minNotional: number; price: number; priceChangePercent: number; volume: number; highPrice: number; lowPrice: number }[] }>(`/exchanges/${id}/symbols`)
   },
-  getBalance(id: string) {
-    return client.get<{ totalUsd: number }>(`/exchanges/${id}/balance`)
+  getAssets(id: string) {
+    return client.get<{ data: { currency: string; balance: number }[] }>(`/exchanges/${id}/assets`)
   },
   getOrders(id: string, type: 'open' | 'history' = 'open') {
     return client.get<{ data: ExchangeOrder[] }>(`/exchanges/${id}/orders?type=${type}`)

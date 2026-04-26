@@ -41,6 +41,9 @@ public class NotificationService(
         if (channel is null)
             throw new KeyNotFoundException($"通知渠道不存在: {channelId}");
 
+        if (channel.Status == NotificationChannelStatus.Disabled)
+            throw new InvalidOperationException("通知渠道已禁用，请先启用后再测试");
+
         var configJson = encryption.Decrypt(channel.ConfigEncrypted);
         var config = JsonSerializer.Deserialize<Dictionary<string, string>>(configJson);
         if (config is null)

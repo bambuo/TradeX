@@ -50,6 +50,23 @@ public class NotificationChannelsController(
         });
     }
 
+    [HttpPut("{id:guid}/status")]
+    public async Task<IActionResult> ToggleStatus(Guid id, CancellationToken ct)
+    {
+        var channel = await channelRepo.GetByIdAsync(id, ct);
+        if (channel is null)
+            return NotFound(new { code = "NOTIFICATION_NOT_FOUND", message = "通知渠道不存在" });
+
+        channel.Status = channel.Status switch
+        {
+            NotificationChannelStatus.Enabled => NotificationChannelStatus.Disabled,
+            _ => NotificationChannelStatus.Enabled
+        };
+
+        await channelRepo.UpdateAsync(channel, ct);
+        return Ok(new { status = channel.Status.ToString() });
+    }
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
