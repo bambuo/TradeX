@@ -138,17 +138,17 @@ onMounted(load)
 <style scoped>
 .notif-page { padding: 2rem; }
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-.page-header h2 { margin: 0; color: #e2e8f0; }
-.btn-primary { padding: 0.5rem 1rem; background: #38bdf8; color: #0f172a; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
-.btn-secondary { padding: 0.5rem 1rem; background: #334155; color: #e2e8f0; border: 1px solid #475569; border-radius: 4px; cursor: pointer; }
-.btn-small { padding: 0.25rem 0.75rem; background: #334155; color: #e2e8f0; border: 1px solid #475569; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+.page-header h2 { margin: 0; color: var(--text-primary); }
+.btn-primary { padding: 0.5rem 1rem; background: var(--accent-blue); color: var(--text-primary); border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
+.btn-secondary { padding: 0.5rem 1rem; background: #334155; color: var(--text-primary); border: 1px solid var(--glass-border-strong); border-radius: 4px; cursor: pointer; }
+.btn-small { padding: 0.25rem 0.75rem; background: #334155; color: var(--text-primary); border: 1px solid var(--glass-border-strong); border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
 .btn-small:disabled { opacity: 0.5; }
-.btn-danger { color: #ef4444; border-color: #ef4444; background: transparent; }
+.btn-danger { color: var(--accent-red); border-color: var(--accent-red); background: transparent; }
 .table { width: 100%; border-collapse: collapse; }
-.table th, .table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #334155; color: #e2e8f0; }
-.table th { color: #94a3b8; font-weight: 600; }
-.badge { padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.8rem; background: rgba(56,189,248,0.1); color: #38bdf8; }
+.table th, .table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--glass-border); color: var(--text-primary); }
+.table th { color: var(--text-muted); font-weight: 600; }
+.badge { padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.8rem; background: rgba(56,189,248,0.1); color: var(--accent-blue); }
 .actions { display: flex; gap: 0.5rem; }
-.empty { text-align: center; color: #64748b; padding: 2rem; }
-.input { width: 100%; padding: 0.6rem; border: 1px solid #334155; border-radius: 4px; background: #0f172a; color: #e2e8f0; box-sizing: border-box; }
+.empty { text-align: center; color: var(--text-muted); padding: 2rem; }
+.input { width: 100%; padding: 0.6rem; border: 1px solid var(--glass-border); border-radius: 4px; background: rgba(255,255,255,0.35); color: var(--text-primary); box-sizing: border-box; }
 </style>

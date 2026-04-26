@@ -209,18 +209,18 @@ onMounted(loadAll)
 <style scoped>
 .exchanges-page { padding: 2rem; }
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-.page-header h2 { margin: 0; color: #e2e8f0; }
-.btn-primary { padding: 0.5rem 1rem; background: #38bdf8; color: #0f172a; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
+.page-header h2 { margin: 0; color: var(--text-primary); }
+.btn-primary { padding: 0.5rem 1rem; background: var(--accent-blue); color: var(--text-primary); border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-secondary { padding: 0.5rem 1rem; background: #334155; color: #e2e8f0; border: 1px solid #475569; border-radius: 4px; cursor: pointer; }
-.btn-small { padding: 0.25rem 0.75rem; background: #334155; color: #e2e8f0; border: 1px solid #475569; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+.btn-secondary { padding: 0.5rem 1rem; background: #334155; color: var(--text-primary); border: 1px solid var(--glass-border-strong); border-radius: 4px; cursor: pointer; }
+.btn-small { padding: 0.25rem 0.75rem; background: #334155; color: var(--text-primary); border: 1px solid var(--glass-border-strong); border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
 .btn-small:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-danger { color: #ef4444; border-color: #ef4444; background: transparent; }
+.btn-danger { color: var(--accent-red); border-color: var(--accent-red); background: transparent; }
 .table { width: 100%; border-collapse: collapse; }
-.table th, .table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #334155; color: #e2e8f0; }
-.table th { color: #94a3b8; font-weight: 600; }
+.table th, .table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--glass-border); color: var(--text-primary); }
+.table th { color: var(--text-muted); font-weight: 600; }
 .actions { display: flex; gap: 0.5rem; }
-.empty { text-align: center; color: #64748b; padding: 2rem; }
+.empty { text-align: center; color: var(--text-muted); padding: 2rem; }
 .toast {
   position: fixed;
   top: 1rem;
@@ -234,7 +234,7 @@ onMounted(loadAll)
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   box-shadow: 0 18px 50px rgba(2, 6, 23, 0.28);
   pointer-events: none;
-  border-radius: 12px;
+  border-radius: 6px;
 }
 .toast--success {
   background: rgba(34, 197, 94, 0.18);
@@ -279,12 +279,12 @@ onMounted(loadAll)
   flex-shrink: 0;
   background: currentColor;
 }
-.input { width: 100%; padding: 0.75rem; margin-bottom: 1rem; border: 1px solid #334155; border-radius: 4px; background: #0f172a; color: #e2e8f0; box-sizing: border-box; }
+.input { width: 100%; padding: 0.75rem; margin-bottom: 1rem; border: 1px solid var(--glass-border); border-radius: 4px; background: rgba(255,255,255,0.35); color: var(--text-primary); box-sizing: border-box; }
 .input:is(select) { cursor: pointer; }
 .balance-cell { text-align: right; white-space: nowrap; }
 .balance-value { color: var(--accent-green); font-weight: 600; }
 .balance-loading { color: var(--text-muted); font-size: 0.8rem; }
 .balance-muted { color: var(--text-muted); }
-.checkbox-label { display: flex; align-items: center; gap: 0.5rem; color: #e2e8f0; margin-bottom: 1rem; cursor: pointer; }
+.checkbox-label { display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary); margin-bottom: 1rem; cursor: pointer; }
 .checkbox-label input { width: auto; margin: 0; }
 </style>

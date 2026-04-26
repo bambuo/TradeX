@@ -118,10 +118,6 @@ const navIconPaths: Record<string, string[]> = {
         </router-link>
       </nav>
       <div class="sidebar-footer">
-        <div class="connection-status">
-          <span class="status-dot" :class="signalr.connected.value ? 'connected' : 'disconnected'" />
-          {{ signalr.connected.value ? '已连接' : '未连接' }}
-        </div>
         <div class="user-name">{{ auth.user?.username }}</div>
         <AppButton class="logout-btn" variant="danger" size="sm" icon="power" :disabled="loggingOut" @click="handleLogout">
           {{ loggingOut ? '退出中...' : '退出登录' }}
@@ -146,14 +142,10 @@ const navIconPaths: Record<string, string[]> = {
 .sidebar {
   width: 220px;
   margin: 1rem 0 1rem 1rem;
-  border: 1px solid var(--glass-border);
-  border-radius: 24px;
-  background:
-    linear-gradient(150deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.055) 42%, rgba(15, 23, 42, 0.32)),
-    rgba(15, 23, 42, 0.26);
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(36px) saturate(180%) brightness(1.08);
-  -webkit-backdrop-filter: blur(36px) saturate(180%) brightness(1.08);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 8px 30px rgba(139, 119, 88, 0.06);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -166,8 +158,7 @@ const navIconPaths: Record<string, string[]> = {
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(115deg, rgba(255, 255, 255, 0.28), transparent 22%, transparent 72%, rgba(255, 255, 255, 0.07)),
-    radial-gradient(circle at 30% 0%, rgba(255, 255, 255, 0.18), transparent 12rem);
+    linear-gradient(115deg, rgba(255, 255, 255, 0.42), transparent 22%, transparent 72%, rgba(255, 255, 255, 0.10));
   opacity: 0.9;
 }
 .sidebar > * { position: relative; }
@@ -177,9 +168,8 @@ const navIconPaths: Record<string, string[]> = {
   font-size: 1.25rem;
   font-weight: 700;
   cursor: pointer;
-  border-bottom: 1px solid var(--glass-border);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   letter-spacing: -0.03em;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(56, 189, 248, 0.12), rgba(255, 255, 255, 0.035));
 }
 .nav {
   display: flex;
@@ -196,12 +186,12 @@ const navIconPaths: Record<string, string[]> = {
   color: var(--text-muted);
   text-decoration: none;
   border: 1px solid transparent;
-  border-radius: 14px;
+  border-radius: 6px;
   font-size: 0.9rem;
-  transition: all 0.15s;
+  transition: all 0.12s ease;
 }
-.nav-link:hover { color: var(--text-primary); background: rgba(255, 255, 255, 0.07); border-color: var(--glass-border); }
-.nav-link.active { color: var(--accent-blue); background: rgba(56, 189, 248, 0.13); border-color: rgba(56, 189, 248, 0.28); font-weight: 600; box-shadow: inset 0 1px 0 var(--glass-highlight); }
+.nav-link:hover { color: var(--text-primary); background: rgba(0, 0, 0, 0.03); }
+.nav-link.active { color: var(--accent-blue); background: rgba(79, 126, 201, 0.06); font-weight: 600; }
 .nav-icon-wrap {
   width: 2rem;
   height: 2rem;
@@ -209,16 +199,12 @@ const navIconPaths: Record<string, string[]> = {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.055);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.02);
   color: currentColor;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10);
 }
 .nav-link.active .nav-icon-wrap {
-  background: rgba(56, 189, 248, 0.18);
-  border-color: rgba(56, 189, 248, 0.34);
-  box-shadow: 0 0 18px rgba(56, 189, 248, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  background: rgba(79, 126, 201, 0.10);
 }
 .nav-icon {
   width: 1.1rem;
@@ -226,24 +212,8 @@ const navIconPaths: Record<string, string[]> = {
 }
 .sidebar-footer {
   padding: 1rem;
-  border-top: 1px solid var(--glass-border);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
-.connection-status {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  margin-bottom: 0.5rem;
-}
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.status-dot.connected { background: var(--accent-green); box-shadow: 0 0 10px var(--accent-green); }
-.status-dot.disconnected { background: var(--accent-red); }
 .user-name {
   color: var(--text-primary);
   font-size: 0.85rem;
@@ -266,7 +236,7 @@ const navIconPaths: Record<string, string[]> = {
   .sidebar {
     width: auto;
     margin: 0.75rem;
-    border-radius: 20px;
+    border-radius: 6px;
   }
   .nav {
     flex-direction: row;

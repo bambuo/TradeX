@@ -13,8 +13,8 @@ public class TraderRepository(TradeXDbContext db) : ITraderRepository
     public async Task<List<Trader>> GetByUserIdAsync(Guid userId, CancellationToken ct = default) =>
         await db.Traders.Where(x => x.UserId == userId && x.Status != TraderStatus.Deleted).ToListAsync(ct);
 
-    public async Task<bool> IsNameUniqueAsync(Guid userId, string name, CancellationToken ct = default) =>
-        !await db.Traders.AnyAsync(x => x.UserId == userId && x.Name == name && x.Status != TraderStatus.Deleted, ct);
+    public async Task<bool> IsNameUniqueAsync(Guid userId, string name, Guid? excludeId = null, CancellationToken ct = default) =>
+        !await db.Traders.AnyAsync(x => x.UserId == userId && x.Name == name && x.Status != TraderStatus.Deleted && (excludeId == null || x.Id != excludeId), ct);
 
     public async Task AddAsync(Trader trader, CancellationToken ct = default)
     {

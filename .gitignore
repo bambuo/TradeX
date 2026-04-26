@@ -13,3 +13,4 @@ state/
 backend/TradeX.Api/tradex.db
 backend/TradeX.Api/tradex.db-shm
 backend/TradeX.Api/tradex.db-wal
+uploads/

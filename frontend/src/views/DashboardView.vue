@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, inject, onMounted, onUnmounted, ref } from 'vue'
 import { dashboardApi, type DashboardStats, type DashboardTrade } from '../api/dashboard'
+import { exchangesApi } from '../api/exchanges'
 import { formatSmallNumber } from '../utils/format'
 
 const stats = ref<DashboardStats | null>(null)
 const loading = ref(true)
 const loadError = ref('')
 const riskAlert = ref('')
+const exchangeBalances = ref<Record<string, number>>({})
 const signalr: any = inject('signalr')
 
 const realtimeStats = ref({
@@ -82,6 +84,23 @@ async function loadStats() {
   }
 }
 
+async function fetchExchangeBalances() {
+  try {
+    const { data } = await exchangesApi.getAll()
+    const enabled = (data.data ?? []).filter((a: any) => a.isEnabled)
+    const results = await Promise.allSettled(
+      enabled.map((a: any) =>
+        exchangesApi.getBalance(a.id).then(r => ({ id: a.exchangeType.toLowerCase(), totalUsd: r.data.totalUsd }))
+      )
+    )
+    for (const r of results) {
+      if (r.status === 'fulfilled') {
+        exchangeBalances.value[r.value.id] = r.value.totalUsd
+      }
+    }
+  } catch { /* ignore */ }
+}
+
 function bindRealtime() {
   if (!signalr?.connected?.value) return
 
@@ -139,6 +158,7 @@ function formatTime(value: string): string {
 
 onMounted(async () => {
   await loadStats()
+  await fetchExchangeBalances()
   bindRealtime()
 })
 
@@ -163,7 +183,7 @@ onUnmounted(() => {
       <div class="hero-status" :class="riskMeta.className">
         <span class="status-label">系统风险</span>
         <strong>{{ riskMeta.label }}</strong>
-        <small>SignalR {{ signalr?.connected?.value ? '实时连接' : '未连接' }}</small>
+        <small>实时推送 {{ signalr?.connected?.value ? '已连接' : '未连接' }}</small>
       </div>
     </section>
 
@@ -226,8 +246,9 @@ onUnmounted(() => {
             <div v-if="exchangeEntries.length" class="exchange-items">
               <div v-for="[exchange, status] in exchangeEntries" :key="exchange" class="exchange-item">
                 <span class="exchange-dot" :class="status === 'Connected' ? 'connected' : 'disconnected'" />
-                <span>{{ exchange.toUpperCase() }}</span>
-                <strong>{{ status === 'Connected' ? '已连接' : '未连接' }}</strong>
+                <span class="exchange-name">{{ exchange.toUpperCase() }}</span>
+                <span class="exchange-balance">{{ exchangeBalances[exchange] != null ? '$' + exchangeBalances[exchange].toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '' }}</span>
+                <strong :class="status === 'Connected' ? 'status-online' : 'status-offline'">{{ status === 'Connected' ? '已连接' : '未连接' }}</strong>
               </div>
             </div>
             <div v-else class="empty-state">暂无已启用交易所</div>
@@ -302,42 +323,16 @@ onUnmounted(() => {
   grid-template-columns: minmax(0, 1fr) 280px;
   gap: 1.25rem;
   padding: 1.5rem;
-  border: 1px solid rgba(56, 189, 248, 0.22);
-  border-radius: 24px;
-  background:
-    linear-gradient(128deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.035) 42%, rgba(255, 255, 255, 0.06)),
-    radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 34rem),
-    radial-gradient(circle at 86% 18%, rgba(168, 85, 247, 0.14), transparent 22rem),
-    rgba(255, 255, 255, 0.035);
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(38px) saturate(185%) brightness(1.08);
-  -webkit-backdrop-filter: blur(38px) saturate(185%) brightness(1.08);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.80);
+  box-shadow: 0 8px 30px rgba(139, 119, 88, 0.06);
   margin-bottom: 1rem;
   position: relative;
-  overflow: hidden;
 }
 
-.hero-panel::before {
-  content: '';
-  position: absolute;
-  inset: 1px;
-  border-radius: 23px;
-  pointer-events: none;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.16), transparent 36%, rgba(255, 255, 255, 0.05));
-  mask-image: linear-gradient(#000, transparent 58%);
-}
-
-.hero-panel::after {
-  content: '';
-  position: absolute;
-  top: -30%;
-  left: -12%;
-  width: 42%;
-  height: 160%;
-  pointer-events: none;
-  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.18), transparent);
-  transform: rotate(12deg);
-}
+.hero-panel::before { display: none; }
+.hero-panel::after { display: none; }
 
 .hero-copy h1 {
   margin: 0.2rem 0 0.5rem;
@@ -367,14 +362,9 @@ onUnmounted(() => {
   gap: 0.45rem;
   min-height: 180px;
   padding: 1rem;
-  border-radius: 18px;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.035)),
-    rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: inset 0 1px 0 var(--glass-highlight);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.50);
+  border: 1px solid rgba(0, 0, 0, 0.04);
 }
 
 .hero-status strong { font-size: 1.6rem; }
@@ -387,14 +377,14 @@ onUnmounted(() => {
   position: fixed;
   top: 1rem;
   right: 1rem;
-  background: #7f1d1d;
-  color: #fecaca;
+  background: rgba(191, 72, 72, 0.12);
+  color: #7a3a3a;
   padding: 0.75rem 1.25rem;
-  border-radius: 10px;
-  border: 1px solid #ef4444;
+  border-radius: 6px;
+  border: 1px solid rgba(191, 72, 72, 0.28);
   font-size: 0.85rem;
   z-index: 200;
-  box-shadow: 0 18px 45px rgba(127, 29, 29, 0.35);
+  box-shadow: 0 18px 45px rgba(139, 119, 88, 0.14);
 }
 
 .error-banner {
@@ -404,18 +394,26 @@ onUnmounted(() => {
   gap: 1rem;
   padding: 0.85rem 1rem;
   margin-bottom: 1rem;
-  border-radius: 12px;
-  background: rgba(239, 68, 68, 0.10);
-  border: 1px solid rgba(239, 68, 68, 0.28);
-  backdrop-filter: blur(24px) saturate(145%);
-  -webkit-backdrop-filter: blur(24px) saturate(145%);
-  color: #fecaca;
+  border-radius: 6px;
+  background: rgba(191, 72, 72, 0.06);
+  border: 1px solid rgba(191, 72, 72, 0.18);
+  color: #7a3a3a;
 }
 
 .error-banner button {
-  border: 1px solid rgba(56, 189, 248, 0.45);
+  border: 1px solid rgba(79, 126, 201, 0.34);
   border-radius: 999px;
-  background: rgba(56, 189, 248, 0.10);
+  background: rgba(79, 126, 201, 0.06);
+  color: var(--accent-blue);
+  padding: 0.35rem 0.75rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.error-banner button {
+  border: 1px solid rgba(79, 126, 201, 0.45);
+  border-radius: 999px;
+  background: rgba(79, 126, 201, 0.10);
   color: var(--accent-blue);
   padding: 0.35rem 0.75rem;
   text-decoration: none;
@@ -433,7 +431,7 @@ onUnmounted(() => {
 .skeleton-card {
   min-height: 126px;
   padding: 1.1rem;
-  border-radius: 18px;
+  border-radius: 6px;
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.035) 42%, rgba(255, 255, 255, 0.045)),
     rgba(255, 255, 255, 0.035);
@@ -443,16 +441,6 @@ onUnmounted(() => {
   -webkit-backdrop-filter: blur(34px) saturate(180%) brightness(1.06);
   position: relative;
   overflow: hidden;
-}
-
-.realtime-strip::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  border-radius: inherit;
-  background: linear-gradient(120deg, rgba(255, 255, 255, 0.20), transparent 26%, transparent 74%, rgba(255, 255, 255, 0.05));
-  opacity: 0.72;
 }
 
 .realtime-strip > * { position: relative; }
@@ -495,16 +483,9 @@ onUnmounted(() => {
   gap: 1rem;
   padding: 0.85rem 1rem;
   margin-bottom: 1rem;
-  border-radius: 16px;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03)),
-    rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(56, 189, 248, 0.22);
-  box-shadow: inset 0 1px 0 var(--glass-highlight);
-  backdrop-filter: blur(32px) saturate(180%) brightness(1.06);
-  -webkit-backdrop-filter: blur(32px) saturate(180%) brightness(1.06);
-  position: relative;
-  overflow: hidden;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.60);
+  border: 1px solid rgba(0, 0, 0, 0.04);
 }
 
 .realtime-strip div {
@@ -549,7 +530,7 @@ onUnmounted(() => {
 }
 
 .system-card {
-  border-radius: 14px;
+  border-radius: 6px;
   color: var(--text-muted);
 }
 
@@ -573,13 +554,13 @@ onUnmounted(() => {
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem;
-  border-radius: 14px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.046);
   border: 1px solid var(--glass-border);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
 }
 
-.exchange-item { grid-template-columns: auto 1fr auto; }
+.exchange-item { grid-template-columns: auto 1fr auto auto; gap: 0.75rem; }
 .trade-row { grid-template-columns: minmax(0, 1fr) auto auto; }
 
 .exchange-dot {
@@ -588,8 +569,12 @@ onUnmounted(() => {
   border-radius: 50%;
 }
 
-.exchange-dot.connected { background: var(--accent-green); box-shadow: 0 0 10px var(--accent-green); }
+.exchange-dot.connected { background: var(--accent-green); }
 .exchange-dot.disconnected { background: var(--accent-red); }
+.exchange-name { font-weight: 500; }
+.exchange-balance { color: var(--text-secondary); font-size: 0.8rem; white-space: nowrap; font-weight: 500; }
+.status-online { color: var(--accent-green); font-weight: 600; }
+.status-offline { color: var(--text-muted); }
 
 .trade-row strong,
 .trade-row span { display: block; }
@@ -598,7 +583,7 @@ onUnmounted(() => {
 .trade-side {
   padding: 0.2rem 0.55rem;
   border-radius: 999px;
-  color: #0f172a;
+  color: var(--text-primary);
   font-weight: 700;
   font-size: 0.75rem;
 }
@@ -610,7 +595,7 @@ onUnmounted(() => {
 .empty-state {
   padding: 1rem;
   border: 1px dashed var(--glass-border-strong);
-  border-radius: 14px;
+  border-radius: 6px;
   color: var(--text-muted);
   text-align: center;
 }
@@ -633,7 +618,7 @@ onUnmounted(() => {
 }
 
 .action-card {
-  border-radius: 18px;
+  border-radius: 6px;
   color: var(--text-primary);
   min-height: 140px;
   display: flex;
@@ -653,7 +638,7 @@ onUnmounted(() => {
 
 @media (max-width: 760px) {
   .dashboard { padding: 1rem; }
-  .hero-panel { grid-template-columns: 1fr; border-radius: 18px; }
+  .hero-panel { grid-template-columns: 1fr; border-radius: 6px; }
   .hero-status { min-height: auto; }
   .metrics-grid,
   .skeleton-grid,

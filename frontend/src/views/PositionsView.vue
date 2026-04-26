@@ -90,17 +90,17 @@ function formatPnl(pnl: number): string {
 .positions-page { padding: 2rem; }
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
 .header-left { display: flex; align-items: center; gap: 1rem; }
-.header-left h2 { margin: 0; color: #e2e8f0; }
-.btn-back { background: none; border: 1px solid #475569; color: #94a3b8; padding: 0.25rem 0.75rem; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
-.toggle-label { display: flex; align-items: center; gap: 0.5rem; color: #e2e8f0; cursor: pointer; font-size: 0.9rem; }
+.header-left h2 { margin: 0; color: var(--text-primary); }
+.btn-back { background: none; border: 1px solid var(--glass-border-strong); color: var(--text-muted); padding: 0.25rem 0.75rem; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
+.toggle-label { display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary); cursor: pointer; font-size: 0.9rem; }
 .toggle-label input { width: 1rem; height: 1rem; cursor: pointer; }
 .table { width: 100%; border-collapse: collapse; }
-.table th, .table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #334155; color: #e2e8f0; }
-.table th { color: #94a3b8; font-weight: 600; }
-.empty { text-align: center; color: #64748b; padding: 2rem; }
-.pnl-positive { color: #22c55e; font-weight: 600; }
-.pnl-negative { color: #ef4444; font-weight: 600; }
+.table th, .table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--glass-border); color: var(--text-primary); }
+.table th { color: var(--text-muted); font-weight: 600; }
+.empty { text-align: center; color: var(--text-muted); padding: 2rem; }
+.pnl-positive { color: var(--accent-green); font-weight: 600; }
+.pnl-negative { color: var(--accent-red); font-weight: 600; }
 .status-badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600; }
-.status-open { background: #38bdf8; color: #0f172a; }
-.status-closed { background: #475569; color: #e2e8f0; }
+.status-open { background: var(--accent-blue); color: var(--text-primary); }
+.status-closed { background: #475569; color: var(--text-primary); }
 </style>

@@ -41,39 +41,39 @@ function handleClick(event: MouseEvent) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.42rem;
-  border: 1px solid transparent;
-  border-radius: 10px;
+  gap: 0.4rem;
+  border: 1px solid;
+  border-radius: 6px;
   cursor: pointer;
   color: var(--text-primary);
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1;
   white-space: nowrap;
-  transition: transform 0.14s ease, border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease, opacity 0.14s ease;
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 8px 24px rgba(2, 6, 23, 0.16);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
 }
 
 .app-button:hover:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(139, 119, 88, 0.10);
   transform: translateY(-1px);
 }
 
 .app-button:active:not(:disabled) {
+  box-shadow: none;
   transform: translateY(0);
 }
 
 .app-button:disabled {
-  opacity: 0.48;
+  opacity: 0.40;
   cursor: not-allowed;
   transform: none;
+  box-shadow: none;
 }
 
 .app-button--sm {
   min-height: 2rem;
   padding: 0.38rem 0.72rem;
   font-size: 0.78rem;
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
 .app-button--md {
@@ -89,39 +89,70 @@ function handleClick(event: MouseEvent) {
 }
 
 .app-button--primary {
-  color: #04111f;
-  background: linear-gradient(135deg, rgba(125, 211, 252, 0.96), rgba(56, 189, 248, 0.78));
-  border-color: rgba(255, 255, 255, 0.34);
+  color: #fff;
+  background: #4f7ec9;
+  border-color: #3d6ab5;
+}
+
+.app-button--primary:hover:not(:disabled) {
+  background: #5c8ad4;
 }
 
 .app-button--secondary {
   color: var(--text-secondary);
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.045));
-  border-color: var(--glass-border);
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.app-button--secondary:hover:not(:disabled) {
+  background: #fff;
+  border-color: rgba(0, 0, 0, 0.14);
 }
 
 .app-button--ghost {
-  color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.035);
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  background: transparent;
+  border-color: transparent;
+}
+
+.app-button--ghost:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.03);
 }
 
 .app-button--danger {
-  color: #fecaca;
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.44);
+  color: #bf4848;
+  background: rgba(191, 72, 72, 0.06);
+  border-color: rgba(191, 72, 72, 0.18);
+}
+
+.app-button--danger:hover:not(:disabled) {
+  color: #fff;
+  background: #bf4848;
+  border-color: #bf4848;
 }
 
 .app-button--success {
-  color: #bbf7d0;
-  background: rgba(34, 197, 94, 0.12);
-  border-color: rgba(34, 197, 94, 0.42);
+  color: #528a60;
+  background: rgba(82, 138, 96, 0.06);
+  border-color: rgba(82, 138, 96, 0.18);
+}
+
+.app-button--success:hover:not(:disabled) {
+  color: #fff;
+  background: #528a60;
+  border-color: #528a60;
 }
 
 .app-button--warning {
-  color: #fde68a;
-  background: rgba(245, 158, 11, 0.12);
-  border-color: rgba(245, 158, 11, 0.42);
+  color: #b8893a;
+  background: rgba(184, 137, 58, 0.06);
+  border-color: rgba(184, 137, 58, 0.18);
+}
+
+.app-button--warning:hover:not(:disabled) {
+  color: #fff;
+  background: #b8893a;
+  border-color: #b8893a;
 }
 </style>

@@ -125,26 +125,26 @@ const currentFields = computed(() => ruleFields[rule.value.type] || ruleFields.c
 
 <style scoped>
 .rule-editor {
-  border: 1px solid #334155;
+  border: 1px solid var(--glass-border);
   border-radius: 6px;
   padding: 0.75rem;
-  background: #1e293b;
+  background: rgba(255,255,255,0.55);
 }
 .rule-type-row {
   margin-bottom: 0.75rem;
 }
 .rule-label {
   display: block;
-  color: #94a3b8;
+  color: var(--text-muted);
   font-size: 0.85rem;
   margin-bottom: 0.25rem;
 }
 .rule-select {
   width: 100%;
   padding: 0.5rem 0.625rem;
-  background: #0f172a;
-  color: #e2e8f0;
-  border: 1px solid #475569;
+  background: rgba(255,255,255,0.35);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border-strong);
   border-radius: 4px;
   font-size: 0.85rem;
 }
@@ -159,15 +159,15 @@ const currentFields = computed(() => ruleFields[rule.value.type] || ruleFields.c
   gap: 0.25rem;
 }
 .field-label {
-  color: #94a3b8;
+  color: var(--text-muted);
   font-size: 0.8rem;
 }
 .field-input {
   width: 100%;
   padding: 0.5rem 0.625rem;
-  background: #0f172a;
-  color: #e2e8f0;
-  border: 1px solid #475569;
+  background: rgba(255,255,255,0.35);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border-strong);
   border-radius: 4px;
   font-size: 0.85rem;
   box-sizing: border-box;
@@ -176,14 +176,14 @@ const currentFields = computed(() => ruleFields[rule.value.type] || ruleFields.c
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-size: 0.85rem;
   cursor: pointer;
   padding-top: 0.375rem;
 }
 .raw-toggle {
   margin-top: 0.75rem;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.8rem;
 }
 .raw-toggle summary { cursor: pointer; }
@@ -191,9 +191,9 @@ const currentFields = computed(() => ruleFields[rule.value.type] || ruleFields.c
   width: 100%;
   margin-top: 0.5rem;
   padding: 0.5rem;
-  background: #0f172a;
-  color: #e2e8f0;
-  border: 1px solid #475569;
+  background: rgba(255,255,255,0.35);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border-strong);
   border-radius: 4px;
   font-family: monospace;
   font-size: 0.8rem;

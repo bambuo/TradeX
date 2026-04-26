@@ -32,10 +32,21 @@ const iconPaths: Record<string, string[]> = {
   home: ['M4 11l8-7 8 7', 'M6 10v10h12V10'],
   login: ['M10 17l5-5-5-5', 'M15 12H3', 'M14 4h5v16h-5'],
   key: ['M14 7a5 5 0 1 0-4 4l-6 6v3h3l1-1h2v-2h2l2-2'],
-  shield: ['M12 3l7 3v5c0 4.5-2.8 8.5-7 10-4.2-1.5-7-5.5-7-10V6l7-3Z']
+  shield: ['M12 3l7 3v5c0 4.5-2.8 8.5-7 10-4.2-1.5-7-5.5-7-10V6l7-3Z'],
+  badge: ['M333.2 278.1c1.6 64 51.3 70.3 51.3 70.3h259.8c42.4 0 49.9-53.3 51.2-72h-2.7l3-0.1c0-92.6-84.9-78.4-84.9-78.4 0-93.9-97.7-90-97.7-90-104.2 0-101.6 90-101.6 90-83.6 0-79.7 78.4-79.7 78.4l1.3 1.8z m179.9-113.6c27.7 0 50.2 22.4 50.2 50.2 0 27.7-22.5 50.1-50.2 50.1-27.7 0-50.2-22.4-50.2-50.1 0-27.7 22.5-50.2 50.2-50.2z m398.5 112c26.7 0 48.4 21.7 48.4 48.4v542.8c0 26.7-21.7 48.4-48.4 48.4H112.4c-26.7 0-48.4-21.7-48.4-48.4V324.9c0-26.7 21.7-48.4 48.4-48.4h178.9c-1.8 23.4-3.3 118.3 88 118.3h275.2s91.1 6.2 81.1-118.3h176z m-319 251c-16 0-28.9 7.5-28.9 23.5s12.9 23.5 28.9 23.5h250.3c16 0 28.9-7.5 28.9-23.5s-13-23.5-28.9-23.5H592.6z m-257.7-58.2c-43 0-77.8 34.8-77.8 77.8s34.8 77.8 77.8 77.8 77.8-34.8 77.8-77.8c0-42.9-34.8-77.8-77.8-77.8z m153.7 298.4v-82.3c0-55.3-91.3-63-91.3-63l-60.5 60.5-73.3-63c-82.3 19.3-81 54-81 54v93.9h306.1v-0.1z m220-8c14.9 0 27-6.6 27-21.5s-12.1-21.5-27-21.5H589.4c-14.9 0-27 6.6-27 21.5s12.1 21.5 27 21.5h119.2z m137.6-91.4c15.6 0 28.3-7.2 28.3-22.8s-12.7-22.8-28.3-22.8H590.7c-15.6 0-28.3 7.2-28.3 22.8s12.7 22.8 28.3 22.8h255.5z']
+}
+
+const iconViewBox: Record<string, string> = {
+  badge: '0 0 1024 1024'
+}
+
+const iconFilled: Record<string, boolean> = {
+  badge: true
 }
 
 const paths = computed(() => iconPaths[props.name] ?? iconPaths.plus)
+const vb = computed(() => iconViewBox[props.name] ?? '0 0 24 24')
+const isFilled = computed(() => iconFilled[props.name] ?? false)
 </script>
 
 <template>
@@ -43,10 +54,10 @@ const paths = computed(() => iconPaths[props.name] ?? iconPaths.plus)
     class="app-icon"
     :width="size"
     :height="size"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="1.9"
+    :viewBox="vb"
+    :fill="isFilled ? 'currentColor' : 'none'"
+    :stroke="isFilled ? 'none' : 'currentColor'"
+    :stroke-width="isFilled ? 0 : 1.9"
     stroke-linecap="round"
     stroke-linejoin="round"
     aria-hidden="true"

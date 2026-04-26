@@ -52,16 +52,16 @@ function labelFromPath(part: string): string {
   gap: 0.25rem;
   padding: 0.75rem 2rem 0;
   font-size: 0.8rem;
-  color: #64748b;
+  color: var(--text-muted);
 }
 .crumb {
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  color: #64748b;
+  color: var(--text-muted);
   text-decoration: none;
 }
-.crumb:hover { color: #94a3b8; }
+.crumb:hover { color: var(--text-muted); }
 .separator { color: #475569; margin: 0 0.15rem; }
-.current { color: #e2e8f0; font-weight: 600; }
+.current { color: var(--text-primary); font-weight: 600; }
 </style>

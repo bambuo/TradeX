@@ -41,9 +41,9 @@ function reset() {
   padding: 2rem;
 }
 .error-card {
-  background: #1e293b;
+  background: rgba(255,255,255,0.55);
   border: 1px solid #7f1d1d;
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 2rem;
   max-width: 480px;
   width: 100%;
@@ -63,8 +63,8 @@ function reset() {
   margin: 0 auto 1rem;
 }
 h2 { color: #fca5a5; margin: 0 0 0.5rem; font-size: 1.1rem; }
-.error-message { color: #94a3b8; font-size: 0.9rem; margin: 0 0 0.25rem; }
-.error-info { color: #64748b; font-size: 0.8rem; margin: 0 0 1.5rem; }
+.error-message { color: var(--text-muted); font-size: 0.9rem; margin: 0 0 0.25rem; }
+.error-info { color: var(--text-muted); font-size: 0.8rem; margin: 0 0 1.5rem; }
 .error-actions { display: flex; gap: 0.75rem; justify-content: center; }
 .btn-retry, .btn-home {
   padding: 0.5rem 1.25rem;
@@ -73,7 +73,7 @@ h2 { color: #fca5a5; margin: 0 0 0.5rem; font-size: 1.1rem; }
   cursor: pointer;
   font-size: 0.85rem;
 }
-.btn-retry { background: #38bdf8; color: #0f172a; border: none; }
-.btn-home { background: transparent; color: #94a3b8; border: 1px solid #334155; }
-.btn-home:hover { color: #e2e8f0; }
+.btn-retry { background: var(--accent-blue); color: var(--text-primary); border: none; }
+.btn-home { background: transparent; color: var(--text-muted); border: 1px solid var(--glass-border); }
+.btn-home:hover { color: var(--text-primary); }
 </style>

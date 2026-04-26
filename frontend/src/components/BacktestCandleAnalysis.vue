@@ -38,7 +38,7 @@ const actionLabels: Record<string, string> = {
   none: '无操作', enter: '入场', exit: '出场'
 }
 const actionColors: Record<string, string> = {
-  none: '#64748b', enter: '#22c55e', exit: '#ef4444'
+  none: '#64748b', enter: 'var(--accent-green)', exit: '#ef4444'
 }
 </script>
 
@@ -123,19 +123,19 @@ const actionColors: Record<string, string> = {
   margin-bottom: 0.5rem; gap: 0.75rem;
 }
 .toolbar-left { display: flex; align-items: center; gap: 0.5rem; }
-.toolbar-label { color: #94a3b8; font-size: 0.8rem; }
+.toolbar-label { color: var(--text-muted); font-size: 0.8rem; }
 .toolbar-divider { color: #334155; }
 .toolbar-select {
-  padding: 0.25rem 0.5rem; background: #0f172a; color: #e2e8f0;
-  border: 1px solid #334155; border-radius: 4px; font-size: 0.8rem;
+  padding: 0.25rem 0.5rem; background: rgba(255,255,255,0.35); color: var(--text-primary);
+  border: 1px solid var(--glass-border); border-radius: 4px; font-size: 0.8rem;
 }
 .sort-btn {
-  padding: 0.25rem 0.5rem; background: #1e293b; color: #94a3b8;
-  border: 1px solid #334155; border-radius: 4px; cursor: pointer; font-size: 0.8rem;
+  padding: 0.25rem 0.5rem; background: rgba(255,255,255,0.55); color: var(--text-muted);
+  border: 1px solid var(--glass-border); border-radius: 4px; cursor: pointer; font-size: 0.8rem;
 }
-.sort-btn:hover { color: #e2e8f0; }
+.sort-btn:hover { color: var(--text-primary); }
 
-.analysis-table-wrap { overflow-x: auto; max-height: 480px; overflow-y: auto; border: 1px solid #334155; border-radius: 6px; }
+.analysis-table-wrap { overflow-x: auto; max-height: 480px; overflow-y: auto; border: 1px solid var(--glass-border); border-radius: 6px; }
 .analysis-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; white-space: nowrap; }
 .analysis-table th, .analysis-table td {
   padding: 0.375rem 0.5rem; text-align: right; border-bottom: 1px solid #1e293b;
@@ -143,33 +143,33 @@ const actionColors: Record<string, string> = {
 }
 .analysis-table th {
   position: sticky; top: 0; z-index: 1;
-  background: #0f172a; color: #64748b; font-weight: 600;
-  text-align: right; border-bottom: 1px solid #334155;
+  background: rgba(255,255,255,0.35); color: var(--text-muted); font-weight: 600;
+  text-align: right; border-bottom: 1px solid var(--glass-border);
 }
 .analysis-table thead th:first-child,
 .analysis-table tbody td:first-child { text-align: center; }
-.analysis-table th.indicator-cell, .analysis-table td.indicator-value { color: #38bdf8; }
+.analysis-table th.indicator-cell, .analysis-table td.indicator-value { color: var(--accent-blue); }
 .analysis-row { transition: background 0.1s; }
-.analysis-row:hover { background: rgba(56, 189, 248, 0.04); }
+.analysis-row:hover { background: rgba(79, 126, 201, 0.04); }
 .row-enter { background: rgba(34, 197, 94, 0.06); }
 .row-enter:hover { background: rgba(34, 197, 94, 0.1); }
 .row-exit { background: rgba(239, 68, 68, 0.06); }
 .row-exit:hover { background: rgba(239, 68, 68, 0.1); }
-.row-in-position td { color: #e2e8f0; }
+.row-in-position td { color: var(--text-primary); }
 
-.cell-index { color: #64748b; }
-.cell-date { color: #94a3b8; text-align: left !important; min-width: 130px; }
+.cell-index { color: var(--text-muted); }
+.cell-date { color: var(--text-muted); text-align: left !important; min-width: 130px; }
 .cell-close { font-weight: 600; }
 
 .badge-in, .badge-out {
   display: inline-block; padding: 0.0625rem 0.375rem; border-radius: 999px;
   font-size: 0.65rem; font-weight: 600;
 }
-.badge-in { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
-.badge-out { background: rgba(100, 116, 139, 0.15); color: #94a3b8; }
+.badge-in { background: rgba(34, 197, 94, 0.15); color: var(--accent-green); }
+.badge-out { background: rgba(100, 116, 139, 0.15); color: var(--text-muted); }
 
 .action-badge {
   display: inline-block; padding: 0.0625rem 0.375rem; border-radius: 999px;
-  color: #0f172a; font-size: 0.65rem; font-weight: 600;
+  color: var(--text-primary); font-size: 0.65rem; font-weight: 600;
 }
 </style>

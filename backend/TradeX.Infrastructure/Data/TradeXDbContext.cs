@@ -75,6 +75,9 @@ public class TradeXDbContext(DbContextOptions<TradeXDbContext> options) : DbCont
             e.HasIndex(x => new { x.UserId, x.Name }).IsUnique();
             e.Property(x => x.Name).HasMaxLength(100).IsRequired();
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.AvatarColor).HasMaxLength(20);
+            e.Property(x => x.AvatarUrl).HasMaxLength(500);
+            e.Property(x => x.Style).HasMaxLength(20);
         });
 
         modelBuilder.Entity<Exchange>(e =>

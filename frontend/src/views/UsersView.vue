@@ -40,7 +40,7 @@ async function changeRole(id: string, role: string) {
 const roleColors: Record<string, string> = {
   SuperAdmin: '#ef4444',
   Admin: '#f59e0b',
-  Operator: '#38bdf8',
+  Operator: 'var(--accent-blue)',
   Viewer: '#94a3b8'
 }
 
@@ -104,15 +104,15 @@ onMounted(load)
 <style scoped>
 .users-page { padding: 2rem; }
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-.page-header h2 { margin: 0; color: #e2e8f0; }
-.btn-primary { padding: 0.5rem 1rem; background: #38bdf8; color: #0f172a; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
-.btn-secondary { padding: 0.5rem 1rem; background: #334155; color: #e2e8f0; border: 1px solid #475569; border-radius: 4px; cursor: pointer; }
+.page-header h2 { margin: 0; color: var(--text-primary); }
+.btn-primary { padding: 0.5rem 1rem; background: var(--accent-blue); color: var(--text-primary); border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
+.btn-secondary { padding: 0.5rem 1rem; background: #334155; color: var(--text-primary); border: 1px solid var(--glass-border-strong); border-radius: 4px; cursor: pointer; }
 .table { width: 100%; border-collapse: collapse; }
-.table th, .table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #334155; color: #e2e8f0; }
-.table th { color: #94a3b8; font-weight: 600; }
+.table th, .table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--glass-border); color: var(--text-primary); }
+.table th { color: var(--text-muted); font-weight: 600; }
 .role-badge { font-weight: 600; font-size: 0.85rem; }
 .actions { display: flex; gap: 0.5rem; }
-.role-select { padding: 0.25rem; background: #0f172a; color: #e2e8f0; border: 1px solid #334155; border-radius: 4px; }
-.empty { text-align: center; color: #64748b; padding: 2rem; }
-.input { width: 100%; padding: 0.6rem; border: 1px solid #334155; border-radius: 4px; background: #0f172a; color: #e2e8f0; box-sizing: border-box; }
+.role-select { padding: 0.25rem; background: rgba(255,255,255,0.35); color: var(--text-primary); border: 1px solid var(--glass-border); border-radius: 4px; }
+.empty { text-align: center; color: var(--text-muted); padding: 2rem; }
+.input { width: 100%; padding: 0.6rem; border: 1px solid var(--glass-border); border-radius: 4px; background: rgba(255,255,255,0.35); color: var(--text-primary); box-sizing: border-box; }
 </style>

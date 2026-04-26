@@ -63,7 +63,7 @@ function render() {
         type: 'line',
         data: cumulativePnl.map(v => Math.round(v * 100) / 100),
         smooth: true,
-        lineStyle: { color: '#22c55e', width: 2 },
+        lineStyle: { color: 'var(--accent-green)', width: 2 },
         areaStyle: { color: 'rgba(34,197,94,0.1)' },
         symbol: 'none'
       },
@@ -97,9 +97,9 @@ onUnmounted(() => {
 .chart-container {
   width: 100%;
   height: 300px;
-  background: #1e293b;
-  border: 1px solid #334155;
-  border-radius: 8px;
+  background: rgba(255,255,255,0.55);
+  border: 1px solid var(--glass-border);
+  border-radius: 6px;
   margin-bottom: 1rem;
 }
 </style>

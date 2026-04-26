@@ -82,10 +82,8 @@ onBeforeUnmount(() => {
   justify-content: center;
   padding: 1.25rem;
   background:
-    radial-gradient(circle at 30% 20%, rgba(56, 189, 248, 0.12), transparent 24rem),
-    rgba(2, 6, 23, 0.48);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+    radial-gradient(circle at 30% 20%, rgba(191, 163, 124, 0.10), transparent 24rem),
+    rgba(139, 119, 88, 0.08);
 }
 
 .app-modal__panel {
@@ -93,14 +91,10 @@ onBeforeUnmount(() => {
   max-height: min(88vh, 920px);
   display: flex;
   flex-direction: column;
-  border-radius: 24px;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04) 42%, rgba(255, 255, 255, 0.05)),
-    rgba(15, 23, 42, 0.52);
-  border: 1px solid var(--glass-border);
-  box-shadow: 0 32px 100px rgba(2, 6, 23, 0.46), inset 0 1px 0 var(--glass-highlight);
-  backdrop-filter: blur(36px) saturate(180%) brightness(1.06);
-  -webkit-backdrop-filter: blur(36px) saturate(180%) brightness(1.06);
+  border-radius: 6px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 24px 72px rgba(139, 119, 88, 0.14);
   overflow: hidden;
 }
 

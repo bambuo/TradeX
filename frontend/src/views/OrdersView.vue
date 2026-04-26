@@ -32,8 +32,8 @@ const statusLabels: Record<string, string> = {
 
 const statusColors: Record<string, string> = {
   Pending: '#f59e0b',
-  PartiallyFilled: '#38bdf8',
-  Filled: '#22c55e',
+  PartiallyFilled: 'var(--accent-blue)',
+  Filled: 'var(--accent-green)',
   Cancelled: '#64748b',
   Failed: '#ef4444'
 }
@@ -167,19 +167,19 @@ onMounted(load)
 .orders-page { padding: 2rem; }
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
 .header-left { display: flex; align-items: center; gap: 1rem; }
-.header-left h2 { margin: 0; color: #e2e8f0; }
-.btn-back { background: none; border: 1px solid #475569; color: #94a3b8; padding: 0.25rem 0.75rem; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
-.btn-primary { padding: 0.5rem 1rem; background: #38bdf8; color: #0f172a; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
-.btn-secondary { padding: 0.5rem 1rem; background: #334155; color: #e2e8f0; border: 1px solid #475569; border-radius: 4px; cursor: pointer; }
+.header-left h2 { margin: 0; color: var(--text-primary); }
+.btn-back { background: none; border: 1px solid var(--glass-border-strong); color: var(--text-muted); padding: 0.25rem 0.75rem; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
+.btn-primary { padding: 0.5rem 1rem; background: var(--accent-blue); color: var(--text-primary); border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
+.btn-secondary { padding: 0.5rem 1rem; background: #334155; color: var(--text-primary); border: 1px solid var(--glass-border-strong); border-radius: 4px; cursor: pointer; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .table { width: 100%; border-collapse: collapse; }
-.table th, .table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #334155; color: #e2e8f0; }
-.table th { color: #94a3b8; font-weight: 600; }
-.empty { text-align: center; color: #64748b; padding: 2rem; }
-.side-buy { color: #22c55e; font-weight: 600; }
-.side-sell { color: #ef4444; font-weight: 600; }
-.status-badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 999px; color: #0f172a; font-size: 0.8rem; font-weight: 600; }
-.input { width: 100%; padding: 0.75rem; margin-bottom: 0.75rem; border: 1px solid #334155; border-radius: 4px; background: #0f172a; color: #e2e8f0; box-sizing: border-box; }
+.table th, .table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--glass-border); color: var(--text-primary); }
+.table th { color: var(--text-muted); font-weight: 600; }
+.empty { text-align: center; color: var(--text-muted); padding: 2rem; }
+.side-buy { color: var(--accent-green); font-weight: 600; }
+.side-sell { color: var(--accent-red); font-weight: 600; }
+.status-badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 999px; color: var(--text-primary); font-size: 0.8rem; font-weight: 600; }
+.input { width: 100%; padding: 0.75rem; margin-bottom: 0.75rem; border: 1px solid var(--glass-border); border-radius: 4px; background: rgba(255,255,255,0.35); color: var(--text-primary); box-sizing: border-box; }
 .form-row { display: flex; gap: 0.75rem; }
 .form-row select { flex: 1; }
 </style>

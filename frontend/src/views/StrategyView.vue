@@ -52,7 +52,7 @@ const statusLabels: Record<string, string> = {
 }
 
 const statusColors: Record<string, string> = {
-  Draft: '#94a3b8', Backtesting: '#f59e0b', Passed: '#22c55e', Active: '#38bdf8', Disabled: '#ef4444'
+  Draft: 'var(--text-muted)', Backtesting: 'var(--accent-amber)', Passed: 'var(--accent-green)', Active: 'var(--accent-blue)', Disabled: 'var(--accent-red)'
 }
 
 const statusByCode: Record<number, string> = {
@@ -169,7 +169,7 @@ function renderSymbol(sym: string): { base: string; quote: string } {
 }
 
 const scopeBadgeColors: Record<string, string> = {
-  Trader: '#94a3b8', Exchange: '#22c55e', Symbol: '#38bdf8'
+  Trader: 'var(--text-muted)', Exchange: 'var(--accent-green)', Symbol: 'var(--accent-blue)'
 }
 
 async function fetchSymbols(exchangeId: string) {
@@ -436,8 +436,9 @@ onMounted(load)
       <tbody>
         <tr v-for="d in deployments" :key="d.id">
           <td>
-            <span class="scope-badge" :style="{ background: scopeBadgeColors[d.scope] || '#94a3b8' }">
-              {{ scopeLabels[d.scope] || d.scope }}
+            <span class="status-indicator">
+              <span class="status-dot" :style="{ background: scopeBadgeColors[d.scope] || 'var(--text-muted)' }" />
+              <span :style="{ color: scopeBadgeColors[d.scope] || 'var(--text-muted)' }">{{ scopeLabels[d.scope] || d.scope }}</span>
             </span>
           </td>
           <td>{{ getTemplateName(d.strategyId) }}</td>
@@ -445,8 +446,9 @@ onMounted(load)
           <td class="symbol-cell">{{ d.scope === 'Symbol' ? parseSymbolIds(d.symbolIds).join(', ') : '-' }}</td>
           <td>{{ d.timeframe }}</td>
           <td>
-            <span class="status-badge" :style="{ background: getStatusColor(d.status) }">
-              {{ getStatusLabel(d.status) }}
+            <span class="status-indicator">
+              <span class="status-dot" :style="{ background: getStatusColor(d.status) }" />
+              <span :style="{ color: getStatusColor(d.status) }">{{ getStatusLabel(d.status) }}</span>
             </span>
           </td>
           <td>{{ formatUtcTime(d.updatedAt) }}</td>
@@ -475,39 +477,32 @@ onMounted(load)
 .strategy-page { padding: 2rem; }
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
 .header-left { display: flex; align-items: center; gap: 1rem; }
-.header-left h2 { margin: 0; color: #e2e8f0; }
-.btn-back { background: none; border: 1px solid #475569; color: #94a3b8; padding: 0.25rem 0.75rem; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
-.btn-primary { padding: 0.5rem 1rem; background: #38bdf8; color: #0f172a; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
-.btn-secondary { padding: 0.5rem 1rem; background: #334155; color: #e2e8f0; border: 1px solid #475569; border-radius: 4px; cursor: pointer; }
-.btn-small { padding: 0.25rem 0.75rem; background: #334155; color: #e2e8f0; border: 1px solid #475569; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
-.btn-small:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-danger { color: #ef4444; border-color: #ef4444; background: transparent; }
-.btn-ok { color: #22c55e; border-color: #22c55e; background: transparent; }
-.btn-warn { color: #f59e0b; border-color: #f59e0b; background: transparent; }
+.header-left h2 { margin: 0; color: var(--text-primary); }
 .table { width: 100%; border-collapse: collapse; }
-.table th, .table td { padding: 0.625rem 0.75rem; text-align: left; border-bottom: 1px solid #334155; color: #e2e8f0; font-size: 0.85rem; }
-.table th { color: #94a3b8; font-weight: 600; }
+.table th, .table td { padding: 0.625rem 0.75rem; text-align: left; border-bottom: 1px solid var(--glass-border); color: var(--text-primary); font-size: 0.85rem; }
+.table th { color: var(--text-muted); font-weight: 600; }
 .symbol-cell { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .actions { display: flex; gap: 0.375rem; flex-wrap: wrap; }
-.empty { text-align: center; color: #64748b; padding: 2rem; }
-.error-banner { padding: 0.5rem 0.75rem; margin-bottom: 0.75rem; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; color: #ef4444; font-size: 0.85rem; }
-.status-badge, .scope-badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 999px; color: #0f172a; font-size: 0.75rem; font-weight: 600; }
+.empty { text-align: center; color: var(--text-muted); padding: 2rem; }
+.error-banner { padding: 0.5rem 0.75rem; margin-bottom: 0.75rem; background: rgba(191, 72, 72, 0.06); border: 1px solid rgba(191, 72, 72, 0.18); border-radius: 6px; color: var(--accent-red); font-size: 0.85rem; }
+.status-indicator { display: inline-flex; align-items: center; gap: 0.3rem; }
+.status-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; flex-shrink: 0; }
 .scope-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
 .scope-tab {
   flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.25rem;
-  padding: 0.625rem 0.75rem; border: 1px solid #334155; border-radius: 6px;
-  background: #0f172a; cursor: pointer; transition: all 0.15s; text-align: center;
+  padding: 0.625rem 0.75rem; border: 1px solid var(--glass-border); border-radius: 6px;
+  background: rgba(255,255,255,0.35); cursor: pointer; transition: all 0.15s; text-align: center;
 }
-.scope-tab:hover { border-color: #475569; }
-.scope-tab.active { border-color: #38bdf8; background: rgba(56, 189, 248, 0.06); }
-.scope-name { color: #e2e8f0; font-size: 0.85rem; font-weight: 600; }
-.scope-desc { color: #64748b; font-size: 0.7rem; line-height: 1.3; }
+.scope-tab:hover { border-color: rgba(0, 0, 0, 0.14); }
+.scope-tab.active { border-color: var(--accent-blue); background: rgba(79, 126, 201, 0.06); }
+.scope-name { color: var(--text-primary); font-size: 0.85rem; font-weight: 600; }
+.scope-desc { color: var(--text-muted); font-size: 0.7rem; line-height: 1.3; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
 .form-group.full { grid-column: 1 / -1; }
 .form-group { display: flex; flex-direction: column; gap: 0.25rem; }
-.form-group label { color: #94a3b8; font-size: 0.85rem; }
-.form-group select, .form-group input { width: 100%; padding: 0.625rem; border: 1px solid #334155; border-radius: 4px; background: #0f172a; color: #e2e8f0; box-sizing: border-box; }
-.selected-count { color: #38bdf8; font-size: 0.75rem; margin-left: 0.5rem; }
+.form-group label { color: var(--text-muted); font-size: 0.85rem; }
+.form-group select, .form-group input { width: 100%; padding: 0.625rem; border: 1px solid var(--glass-border); border-radius: 4px; background: rgba(255,255,255,0.35); color: var(--text-primary); box-sizing: border-box; }
+.selected-count { color: var(--accent-blue); font-size: 0.75rem; margin-left: 0.5rem; }
 .symbol-search { margin-bottom: 0.5rem; }
 .filter-bar {
   display: grid;
@@ -522,7 +517,7 @@ onMounted(load)
   gap: 0.25rem;
 }
 .filter-item-label {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.7rem;
   white-space: nowrap;
   flex-shrink: 0;
@@ -530,47 +525,60 @@ onMounted(load)
 .filter-input {
   width: 70px;
   padding: 0.3rem 0.4rem;
-  background: #0f172a;
-  color: #e2e8f0;
-  border: 1px solid #334155;
+  background: rgba(255, 255, 255, 0.45);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border);
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+.filter-select {
+  padding: 0.3rem 0.4rem;
+  background: rgba(255, 255, 255, 0.45);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border);
   border-radius: 4px;
   font-size: 0.75rem;
 }
 .filter-sep { color: #475569; font-size: 0.75rem; }
 .filter-select {
   padding: 0.3rem 0.4rem;
-  background: #0f172a;
-  color: #e2e8f0;
-  border: 1px solid #334155;
+  background: rgba(255,255,255,0.35);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border);
   border-radius: 4px;
   font-size: 0.75rem;
 }
 .symbol-table-wrap {
-  border: 1px solid #334155; border-radius: 4px; background: #0f172a;
+  border: 1px solid var(--glass-border); border-radius: 4px; background: rgba(255, 255, 255, 0.35);
   max-height: 200px; overflow-y: auto;
+}
+.symbol-table th {
+  background: rgba(0, 0, 0, 0.02); color: var(--text-muted); font-weight: 600;
+  padding: 0.375rem 0.5rem; text-align: left; white-space: nowrap;
+  border-bottom: 1px solid var(--glass-border);
 }
 .symbol-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
 .symbol-table thead { position: sticky; top: 0; z-index: 1; }
 .symbol-table th {
-  background: #1e293b; color: #64748b; font-weight: 600;
+  background: rgba(255,255,255,0.55); color: var(--text-muted); font-weight: 600;
   padding: 0.375rem 0.5rem; text-align: left; white-space: nowrap;
-  border-bottom: 1px solid #334155;
+  border-bottom: 1px solid var(--glass-border);
 }
 .symbol-table th.sortable { cursor: pointer; user-select: none; }
-.symbol-table th.sortable:hover { color: #94a3b8; }
-.symbol-table td { padding: 0.375rem 0.5rem; border-bottom: 1px solid rgba(51, 65, 85, 0.4); white-space: nowrap; }
+.symbol-table th.sortable:hover { color: var(--text-muted); }
+.symbol-table td { padding: 0.375rem 0.5rem; border-bottom: 1px solid var(--glass-border); white-space: nowrap; }
 .symbol-row { cursor: pointer; transition: background 0.1s; }
-.symbol-row:hover { background: rgba(56, 189, 248, 0.06); }
-.symbol-row.checked { background: rgba(56, 189, 248, 0.1); }
-.symbol-row.checked:hover { background: rgba(56, 189, 248, 0.14); }
+.symbol-row:hover { background: rgba(79, 126, 201, 0.06); }
+.symbol-row.checked { background: rgba(79, 126, 201, 0.1); }
+.symbol-row.checked:hover { background: rgba(79, 126, 201, 0.14); }
 .col-cb { width: 28px; padding-right: 0 !important; }
-.col-sym { color: #e2e8f0; font-weight: 500; }
-.sym-base { color: #e2e8f0; }
-.sym-quote { color: #64748b; font-size: 0.7rem; }
-.col-price { color: #94a3b8; text-align: right !important; }
+.col-sym { color: var(--text-primary); font-weight: 500; }
+.sym-base { color: var(--text-primary); }
+.sym-quote { color: var(--text-muted); font-size: 0.7rem; }
+.col-price { color: var(--text-muted); text-align: right !important; }
 .col-chg { text-align: right !important; font-weight: 600; }
-.col-chg.up { color: #22c55e; }
-.col-chg.down { color: #ef4444; }
-.col-vol { color: #64748b; text-align: right !important; }
-.symbols-hint { color: #64748b; font-size: 0.8rem; padding: 0.5rem; text-align: center; }
+.col-chg.up { color: var(--accent-green); }
+.col-chg.down { color: var(--accent-red); }
+.col-vol { color: var(--text-muted); text-align: right !important; }
+.symbols-hint { color: var(--text-muted); font-size: 0.8rem; padding: 0.5rem; text-align: center; }
 </style>

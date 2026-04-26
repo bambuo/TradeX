@@ -36,57 +36,25 @@ const componentTag = computed(() => props.to ? 'RouterLink' : props.as)
 .app-card {
   position: relative;
   display: block;
-  border-radius: 20px;
+  border-radius: 6px;
   color: var(--text-primary);
   text-decoration: none;
-  overflow: hidden;
-}
-
-.app-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  background: linear-gradient(120deg, rgba(255, 255, 255, 0.20), transparent 26%, transparent 74%, rgba(255, 255, 255, 0.05));
-  opacity: 0.72;
-}
-
-.app-card::after {
-  content: '';
-  position: absolute;
-  inset: 1px;
-  border-radius: calc(20px - 1px);
-  pointer-events: none;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.app-card > :deep(*) {
-  position: relative;
 }
 
 .app-card--glass {
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.125), rgba(255, 255, 255, 0.03) 44%, rgba(255, 255, 255, 0.04)),
-    rgba(255, 255, 255, 0.035);
-  border: 1px solid var(--glass-border);
-  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 14px 42px rgba(2, 6, 23, 0.15);
-  backdrop-filter: blur(34px) saturate(180%) brightness(1.06);
-  -webkit-backdrop-filter: blur(34px) saturate(180%) brightness(1.06);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .app-card--subtle {
-  background: rgba(255, 255, 255, 0.046);
-  border: 1px solid var(--glass-border);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 10px 30px rgba(2, 6, 23, 0.10);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  background: rgba(255, 255, 255, 0.34);
+  border: 1px solid rgba(0, 0, 0, 0.04);
 }
 
 .app-card--solid {
-  background: rgba(15, 23, 42, 0.62);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 12px 34px rgba(2, 6, 23, 0.22);
+  background: #f8f3eb;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px rgba(139, 119, 88, 0.06);
 }
 
 .app-card--pad-none { padding: 0; }
@@ -96,16 +64,17 @@ const componentTag = computed(() => props.to ? 'RouterLink' : props.as)
 
 .app-card--interactive {
   cursor: pointer;
-  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+  transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease;
 }
 
 .app-card--interactive:hover {
   transform: translateY(-2px);
-  border-color: rgba(56, 189, 248, 0.55);
-  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 18px 52px rgba(2, 6, 23, 0.18);
+  box-shadow: 0 6px 20px rgba(139, 119, 88, 0.10);
+  border-color: rgba(0, 0, 0, 0.10);
 }
 
 .app-card--interactive:active {
   transform: translateY(0);
+  box-shadow: none;
 }
 </style>

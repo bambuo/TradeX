@@ -80,12 +80,12 @@ function goToDashboard() {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: #0f172a;
+  background: rgba(255,255,255,0.35);
 }
 .card {
-  background: #1e293b;
+  background: rgba(255,255,255,0.55);
   padding: 2rem;
-  border-radius: 8px;
+  border-radius: 6px;
   width: 100%;
   max-width: 480px;
   display: flex;
@@ -94,23 +94,23 @@ function goToDashboard() {
 }
 h1 {
   margin: 0;
-  color: #e2e8f0;
+  color: var(--text-primary);
   text-align: center;
   font-size: 1.25rem;
 }
-.desc { color: #94a3b8; text-align: center; font-size: 0.9rem; margin: 0; }
+.desc { color: var(--text-muted); text-align: center; font-size: 0.9rem; margin: 0; }
 .qr-section { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
 .qr { width: 180px; height: 180px; border-radius: 4px; }
 .secret-box { display: flex; align-items: center; gap: 0.5rem; }
-.secret-box .label { color: #94a3b8; font-size: 0.85rem; }
-.secret-box code { color: #38bdf8; font-size: 0.85rem; word-break: break-all; }
+.secret-box .label { color: var(--text-muted); font-size: 0.85rem; }
+.secret-box code { color: var(--accent-blue); font-size: 0.85rem; word-break: break-all; }
 .input {
   width: 100%;
   padding: 0.75rem;
-  border: 1px solid #334155;
+  border: 1px solid var(--glass-border);
   border-radius: 4px;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: rgba(255,255,255,0.35);
+  color: var(--text-primary);
   text-align: center;
   font-size: 1.25rem;
   letter-spacing: 0.25em;
@@ -118,8 +118,8 @@ h1 {
 }
 .btn-primary {
   padding: 0.75rem;
-  background: #38bdf8;
-  color: #0f172a;
+  background: var(--accent-blue);
+  color: var(--text-primary);
   border: none;
   border-radius: 4px;
   font-weight: 600;
@@ -127,13 +127,13 @@ h1 {
   width: 100%;
 }
 .btn-primary:disabled { opacity: 0.5; }
-.error { color: #ef4444; font-size: 0.9rem; text-align: center; }
+.error { color: var(--accent-red); font-size: 0.9rem; text-align: center; }
 .step { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
 .success-icon {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: #22c55e;
+  background: var(--accent-green);
   color: #fff;
   display: flex;
   align-items: center;

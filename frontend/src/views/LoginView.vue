@@ -190,26 +190,26 @@ function switchToMfa() {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: #0f172a;
+  background: rgba(255,255,255,0.35);
 }
 .login-form {
-  background: #1e293b;
+  background: rgba(255,255,255,0.55);
   padding: 2rem;
-  border-radius: 8px;
+  border-radius: 6px;
   width: 100%;
   max-width: 420px;
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
-h1 { margin: 0; color: #38bdf8; text-align: center; }
-.subtitle { color: #94a3b8; text-align: center; font-size: 0.9rem; margin: 0; }
+h1 { margin: 0; color: var(--accent-blue); text-align: center; }
+.subtitle { color: var(--text-muted); text-align: center; font-size: 0.9rem; margin: 0; }
 input {
   padding: 0.75rem;
-  border: 1px solid #334155;
+  border: 1px solid var(--glass-border);
   border-radius: 4px;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: rgba(255,255,255,0.35);
+  color: var(--text-primary);
 }
 .totp-input {
   text-align: center;
@@ -218,8 +218,8 @@ input {
 }
 button {
   padding: 0.75rem;
-  background: #38bdf8;
-  color: #0f172a;
+  background: var(--accent-blue);
+  color: var(--text-primary);
   border: none;
   border-radius: 4px;
   font-weight: 600;
@@ -228,11 +228,11 @@ button {
 button:disabled { opacity: 0.5; }
 .link-btn {
   background: transparent;
-  color: #38bdf8;
+  color: var(--accent-blue);
   text-decoration: underline;
   font-weight: 400;
 }
-.error { color: #ef4444; font-size: 0.9rem; text-align: center; }
+.error { color: var(--accent-red); font-size: 0.9rem; text-align: center; }
 .qr-section {
   display: flex;
   flex-direction: column;
@@ -241,17 +241,17 @@ button:disabled { opacity: 0.5; }
 }
 .qr { width: 160px; height: 160px; border-radius: 4px; }
 .secret-box { display: flex; align-items: center; gap: 0.5rem; }
-.secret-box .label { color: #94a3b8; font-size: 0.85rem; }
-.secret-box code { color: #38bdf8; font-size: 0.85rem; word-break: break-all; }
+.secret-box .label { color: var(--text-muted); font-size: 0.85rem; }
+.secret-box code { color: var(--accent-blue); font-size: 0.85rem; word-break: break-all; }
 .loading-state { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; padding: 2rem; }
 .spinner {
   width: 32px;
   height: 32px;
   border: 3px solid #334155;
-  border-top-color: #38bdf8;
+  border-top-color: var(--accent-blue);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-.loading-state p { color: #64748b; }
+.loading-state p { color: var(--text-muted); }
 </style>

@@ -74,10 +74,10 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem;
-  border: 1px solid #334155;
+  border: 1px solid var(--glass-border);
   border-radius: 4px;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: rgba(255,255,255,0.35);
+  color: var(--text-primary);
   cursor: pointer;
   box-sizing: border-box;
 }
@@ -101,7 +101,7 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
   font-size: 0.9rem;
 }
 .exchange-arrow {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.75rem;
 }
 .exchange-dropdown {
@@ -110,8 +110,8 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
   left: 0;
   right: 0;
   z-index: 10;
-  background: #1e293b;
-  border: 1px solid #334155;
+  background: rgba(255,255,255,0.55);
+  border: 1px solid var(--glass-border);
   border-radius: 6px;
   overflow: hidden;
 }
@@ -121,14 +121,14 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
   gap: 0.5rem;
   padding: 0.625rem 0.75rem;
   cursor: pointer;
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-size: 0.9rem;
 }
 .exchange-option:hover {
   background: #334155;
 }
 .exchange-option.active {
-  background: rgba(56, 189, 248, 0.1);
-  color: #38bdf8;
+  background: rgba(79, 126, 201, 0.1);
+  color: var(--accent-blue);
 }
 </style>

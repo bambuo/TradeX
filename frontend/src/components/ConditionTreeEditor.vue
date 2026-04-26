@@ -90,14 +90,14 @@ function updateField(field: string, value: any) {
 
 <style scoped>
 .condition-node {
-  border: 1px solid #334155;
+  border: 1px solid var(--glass-border);
   border-radius: 6px;
   padding: 10px;
-  background: #1e293b;
+  background: rgba(255,255,255,0.55);
   margin-bottom: 6px;
 }
 .condition-node.leaf {
-  background: #0f172a;
+  background: rgba(255,255,255,0.35);
   border-color: #475569;
 }
 .node-header {
@@ -108,9 +108,9 @@ function updateField(field: string, value: any) {
 }
 .op-select {
   padding: 3px 6px;
-  background: #0f172a;
-  color: #38bdf8;
-  border: 1px solid #38bdf8;
+  background: rgba(255,255,255,0.35);
+  color: var(--accent-blue);
+  border: 1px solid var(--accent-blue);
   border-radius: 4px;
   font-weight: 700;
   font-size: 0.85rem;
@@ -129,13 +129,13 @@ function updateField(field: string, value: any) {
 .btn-sm {
   padding: 3px 10px;
   background: #334155;
-  color: #94a3b8;
+  color: var(--text-muted);
   border: 1px dashed #475569;
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.75rem;
 }
-.btn-sm:hover { color: #e2e8f0; border-color: #38bdf8; }
+.btn-sm:hover { color: var(--text-primary); border-color: var(--accent-blue); }
 .btn-icon {
   width: 22px;
   height: 22px;
@@ -143,7 +143,7 @@ function updateField(field: string, value: any) {
   align-items: center;
   justify-content: center;
   background: transparent;
-  color: #ef4444;
+  color: var(--accent-red);
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -159,9 +159,9 @@ function updateField(field: string, value: any) {
 }
 .field-select {
   padding: 4px 6px;
-  background: #1e293b;
-  color: #e2e8f0;
-  border: 1px solid #475569;
+  background: rgba(255,255,255,0.55);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border-strong);
   border-radius: 4px;
   font-size: 0.8rem;
   cursor: pointer;
@@ -170,9 +170,9 @@ function updateField(field: string, value: any) {
 .field-input {
   width: 80px;
   padding: 4px 6px;
-  background: #1e293b;
-  color: #e2e8f0;
-  border: 1px solid #475569;
+  background: rgba(255,255,255,0.55);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border-strong);
   border-radius: 4px;
   font-size: 0.8rem;
 }

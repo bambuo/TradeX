@@ -30,7 +30,7 @@ function render() {
 
   const entryData = entryPoints.value.map(a => ({
     value: [a.index, a.high],
-    itemStyle: { color: '#22c55e' }
+    itemStyle: { color: 'var(--accent-green)' }
   }))
   const exitData = exitPoints.value.map(a => ({
     value: [a.index, a.low],
@@ -103,7 +103,7 @@ function render() {
         borderColor: '#334155',
         backgroundColor: '#0f172a',
         fillerColor: 'rgba(56,189,248,0.15)',
-        handleStyle: { color: '#38bdf8' },
+        handleStyle: { color: 'var(--accent-blue)' },
         textStyle: { color: '#64748b', fontSize: 10 },
         labelPrecision: 0,
         start: 0,
@@ -116,9 +116,9 @@ function render() {
         type: 'candlestick',
         data: ohlc,
         itemStyle: {
-          color: '#22c55e',
+          color: 'var(--accent-green)',
           color0: '#ef4444',
-          borderColor: '#22c55e',
+          borderColor: 'var(--accent-green)',
           borderColor0: '#ef4444'
         }
       },
@@ -128,11 +128,11 @@ function render() {
         data: entryData,
         symbol: 'pin',
         symbolSize: 24,
-        itemStyle: { color: '#22c55e' },
+        itemStyle: { color: 'var(--accent-green)' },
         label: {
           show: true,
           formatter: '入场',
-          color: '#22c55e',
+          color: 'var(--accent-green)',
           fontSize: 10,
           fontWeight: 'bold',
           position: 'top'
@@ -195,7 +195,7 @@ onUnmounted(() => {
   width: 100%;
   height: 520px;
   background: transparent;
-  border: 1px solid #334155;
+  border: 1px solid var(--glass-border);
   border-radius: 6px;
   margin-top: 0.5rem;
 }

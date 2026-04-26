@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TradeX.Infrastructure.Data;
 
@@ -10,9 +11,11 @@ using TradeX.Infrastructure.Data;
 namespace TradeX.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(TradeXDbContext))]
-    partial class TradeXDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260426114208_AddTraderAvatarColor")]
+    partial class AddTraderAvatarColor
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.0-preview.3.25171.6");
@@ -723,10 +726,6 @@ namespace TradeX.Infrastructure.Data.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("AvatarUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("TEXT");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
@@ -737,10 +736,6 @@ namespace TradeX.Infrastructure.Data.Migrations
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Style")
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
 
