@@ -1,22 +1,35 @@
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using TradeX.Core.Interfaces;
+using TradeX.Core.Models;
 using TradeX.Notifications;
 
 namespace TradeX.Tests.Notifications;
 
 public class NotificationServiceTests
 {
+    private static NotificationService CreateService(
+        ITelegramSender? telegram = null,
+        IDiscordSender? discord = null,
+        IEmailSender? email = null,
+        INotificationChannelRepository? channelRepo = null,
+        IEncryptionService? encryption = null,
+        IHttpClientFactory? httpClientFactory = null)
+    {
+        return new NotificationService(
+            telegram ?? Substitute.For<ITelegramSender>(),
+            discord ?? Substitute.For<IDiscordSender>(),
+            email ?? Substitute.For<IEmailSender>(),
+            channelRepo ?? Substitute.For<INotificationChannelRepository>(),
+            encryption ?? Substitute.For<IEncryptionService>(),
+            httpClientFactory ?? Substitute.For<IHttpClientFactory>(),
+            Substitute.For<ILogger<NotificationService>>());
+    }
+
     [Fact]
     public async Task SendAsync_AllChannels_DoesNotThrow()
     {
-        var telegram = Substitute.For<ITelegramSender>();
-        var discord = Substitute.For<IDiscordSender>();
-        var email = Substitute.For<IEmailSender>();
-
-        var service = new NotificationService(
-            telegram, discord, email,
-            Substitute.For<ILogger<NotificationService>>());
+        var service = CreateService();
 
         var exception = await Record.ExceptionAsync(() =>
             service.SendAsync(new NotificationEvent("order_filled", "TestStrategy",
@@ -28,11 +41,7 @@ public class NotificationServiceTests
     [Fact]
     public async Task SendAsync_NullStrategyName_DoesNotThrow()
     {
-        var service = new NotificationService(
-            Substitute.For<ITelegramSender>(),
-            Substitute.For<IDiscordSender>(),
-            Substitute.For<IEmailSender>(),
-            Substitute.For<ILogger<NotificationService>>());
+        var service = CreateService();
 
         var exception = await Record.ExceptionAsync(() =>
             service.SendAsync(new NotificationEvent("test", null!,
@@ -44,11 +53,7 @@ public class NotificationServiceTests
     [Fact]
     public async Task SendAsync_WithAllEventTypes_DoesNotThrow()
     {
-        var service = new NotificationService(
-            Substitute.For<ITelegramSender>(),
-            Substitute.For<IDiscordSender>(),
-            Substitute.For<IEmailSender>(),
-            Substitute.For<ILogger<NotificationService>>());
+        var service = CreateService();
 
         var events = new[]
         {
@@ -67,15 +72,157 @@ public class NotificationServiceTests
     [Fact]
     public async Task SendAsync_EmptyData_DoesNotThrow()
     {
-        var service = new NotificationService(
-            Substitute.For<ITelegramSender>(),
-            Substitute.For<IDiscordSender>(),
-            Substitute.For<IEmailSender>(),
-            Substitute.For<ILogger<NotificationService>>());
+        var service = CreateService();
 
         var exception = await Record.ExceptionAsync(() =>
             service.SendAsync(new NotificationEvent("test", "S", new Dictionary<string, object>())));
 
         Assert.Null(exception);
+    }
+
+    [Fact]
+    public async Task SendTestAsync_ChannelNotFound_ThrowsKeyNotFoundException()
+    {
+        var channelRepo = Substitute.For<INotificationChannelRepository>();
+        channelRepo.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns((NotificationChannel?)null);
+
+        var service = CreateService(channelRepo: channelRepo);
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            service.SendTestAsync(Guid.NewGuid()));
+    }
+
+    [Fact]
+    public async Task SendTestAsync_Telegram_SendsAndUpdatesLastTestedAt()
+    {
+        var channel = new NotificationChannel
+        {
+            Id = Guid.NewGuid(),
+            Type = NotificationChannelType.Telegram,
+            ConfigEncrypted = "encrypted-config",
+            Status = NotificationChannelStatus.Enabled
+        };
+
+        var channelRepo = Substitute.For<INotificationChannelRepository>();
+        channelRepo.GetByIdAsync(channel.Id, Arg.Any<CancellationToken>()).Returns(channel);
+
+        var encryption = Substitute.For<IEncryptionService>();
+        encryption.Decrypt("encrypted-config").Returns(
+            """{"botToken":"test-bot-token","chatId":"test-chat-id"}""");
+
+        var httpClientFactory = Substitute.For<IHttpClientFactory>();
+        var httpClient = new HttpClient(new FakeHttpMessageHandler())
+        {
+            BaseAddress = new Uri("https://api.telegram.org")
+        };
+        httpClientFactory.CreateClient("TelegramTest").Returns(httpClient);
+
+        var service = CreateService(
+            channelRepo: channelRepo,
+            encryption: encryption,
+            httpClientFactory: httpClientFactory);
+
+        await service.SendTestAsync(channel.Id);
+
+        await channelRepo.Received(1).UpdateAsync(Arg.Is<NotificationChannel>(c =>
+            c.LastTestedAt.HasValue), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SendTestAsync_Telegram_MissingBotToken_Throws()
+    {
+        var channel = new NotificationChannel
+        {
+            Id = Guid.NewGuid(),
+            Type = NotificationChannelType.Telegram,
+            ConfigEncrypted = "encrypted-config"
+        };
+
+        var channelRepo = Substitute.For<INotificationChannelRepository>();
+        channelRepo.GetByIdAsync(channel.Id, Arg.Any<CancellationToken>()).Returns(channel);
+
+        var encryption = Substitute.For<IEncryptionService>();
+        encryption.Decrypt("encrypted-config").Returns(
+            """{"chatId":"test-chat-id"}""");
+
+        var service = CreateService(channelRepo: channelRepo, encryption: encryption);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.SendTestAsync(channel.Id));
+    }
+
+    [Fact]
+    public async Task SendTestAsync_Discord_SendsAndUpdatesLastTestedAt()
+    {
+        var channel = new NotificationChannel
+        {
+            Id = Guid.NewGuid(),
+            Type = NotificationChannelType.Discord,
+            ConfigEncrypted = "encrypted-config"
+        };
+
+        var channelRepo = Substitute.For<INotificationChannelRepository>();
+        channelRepo.GetByIdAsync(channel.Id, Arg.Any<CancellationToken>()).Returns(channel);
+
+        var encryption = Substitute.For<IEncryptionService>();
+        encryption.Decrypt("encrypted-config").Returns(
+            """{"webhookUrl":"https://discord.com/api/webhooks/test"}""");
+
+        var discord = Substitute.For<IDiscordSender>();
+
+        var service = CreateService(
+            discord: discord,
+            channelRepo: channelRepo,
+            encryption: encryption);
+
+        await service.SendTestAsync(channel.Id);
+
+        await discord.Received(1).SendMessageAsync(
+            "https://discord.com/api/webhooks/test",
+            Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SendTestAsync_Email_SendsAndUpdatesLastTestedAt()
+    {
+        var channel = new NotificationChannel
+        {
+            Id = Guid.NewGuid(),
+            Type = NotificationChannelType.Email,
+            ConfigEncrypted = "encrypted-config"
+        };
+
+        var channelRepo = Substitute.For<INotificationChannelRepository>();
+        channelRepo.GetByIdAsync(channel.Id, Arg.Any<CancellationToken>()).Returns(channel);
+
+        var encryption = Substitute.For<IEncryptionService>();
+        encryption.Decrypt("encrypted-config").Returns(
+            """{"host":"smtp.test.com","port":"587","toAddress":"test@test.com"}""");
+
+        var email = Substitute.For<IEmailSender>();
+
+        var service = CreateService(
+            email: email,
+            channelRepo: channelRepo,
+            encryption: encryption);
+
+        await service.SendTestAsync(channel.Id);
+
+        await email.Received(1).SendAsync(
+            "test@test.com",
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
+    }
+}
+
+public class FakeHttpMessageHandler : HttpMessageHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK));
     }
 }

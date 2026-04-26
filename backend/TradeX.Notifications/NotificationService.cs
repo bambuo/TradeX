@@ -1,5 +1,8 @@
+using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using TradeX.Core.Interfaces;
+using TradeX.Core.Models;
 
 namespace TradeX.Notifications;
 
@@ -7,6 +10,9 @@ public class NotificationService(
     ITelegramSender telegramSender,
     IDiscordSender discordSender,
     IEmailSender emailSender,
+    INotificationChannelRepository channelRepo,
+    IEncryptionService encryption,
+    IHttpClientFactory httpClientFactory,
     ILogger<NotificationService> logger) : INotificationService
 {
     public async Task SendAsync(NotificationEvent @event, CancellationToken ct = default)
@@ -31,6 +37,15 @@ public class NotificationService(
 
     public async Task SendTestAsync(Guid channelId, CancellationToken ct = default)
     {
+        var channel = await channelRepo.GetByIdAsync(channelId, ct);
+        if (channel is null)
+            throw new KeyNotFoundException($"通知渠道不存在: {channelId}");
+
+        var configJson = encryption.Decrypt(channel.ConfigEncrypted);
+        var config = JsonSerializer.Deserialize<Dictionary<string, string>>(configJson);
+        if (config is null)
+            throw new InvalidOperationException("通知渠道配置解析失败");
+
         var testEvent = new NotificationEvent("test", null, new()
         {
             ["message"] = "这是一条来自 TradeX 的测试消息",
@@ -38,7 +53,48 @@ public class NotificationService(
         });
 
         var message = FormatMessage(testEvent);
-        await telegramSender.SendMessageAsync("test", message, ct);
+
+        switch (channel.Type)
+        {
+            case NotificationChannelType.Telegram:
+                await SendTelegramTestAsync(config, message, ct);
+                break;
+            case NotificationChannelType.Discord:
+                await discordSender.SendMessageAsync(config["webhookUrl"], message, ct);
+                break;
+            case NotificationChannelType.Email:
+                await emailSender.SendAsync(config["toAddress"], "TradeX 测试消息", message, ct);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(channel.Type), $"不支持的通知渠道类型: {channel.Type}");
+        }
+
+        channel.LastTestedAt = DateTime.UtcNow;
+        await channelRepo.UpdateAsync(channel, ct);
+    }
+
+    private async Task SendTelegramTestAsync(Dictionary<string, string> config, string message, CancellationToken ct)
+    {
+        config.TryGetValue("botToken", out var botToken);
+        config.TryGetValue("chatId", out var chatId);
+
+        if (string.IsNullOrEmpty(botToken))
+            throw new InvalidOperationException("Telegram Bot Token 未配置");
+        if (string.IsNullOrEmpty(chatId))
+            throw new InvalidOperationException("Telegram Chat ID 未配置");
+
+        var httpClient = httpClientFactory.CreateClient("TelegramTest");
+        var payload = new { chat_id = chatId, text = message, parse_mode = "Markdown" };
+        var response = await httpClient.PostAsJsonAsync(
+            $"https://api.telegram.org/bot{botToken}/sendMessage", payload, ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(ct);
+            logger.LogError("Telegram 测试消息发送失败, StatusCode={StatusCode}, Body={Body}",
+                response.StatusCode, errorBody);
+            response.EnsureSuccessStatusCode();
+        }
     }
 
     private static string FormatMessage(NotificationEvent @event)
