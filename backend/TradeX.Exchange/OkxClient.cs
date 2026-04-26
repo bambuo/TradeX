@@ -173,6 +173,40 @@ public class OkxClient : IExchangeClient
         )).ToArray();
     }
 
+    public async Task<ExchangeOrderDto[]> GetOpenOrdersAsync(CancellationToken ct = default)
+    {
+        var doc = await SignedGetAsync("/api/v5/trade/orders-pending", "instType=SPOT", ct);
+        if (doc is null || doc.RootElement.GetProperty("code").GetString() != "0") return [];
+
+        return doc.RootElement.GetProperty("data").EnumerateArray().Select(ParseOkxOrder).ToArray();
+    }
+
+    public async Task<ExchangeOrderDto[]> GetOrderHistoryAsync(CancellationToken ct = default)
+    {
+        var doc = await SignedGetAsync("/api/v5/trade/orders-history", "instType=SPOT&limit=50", ct);
+        if (doc is null || doc.RootElement.GetProperty("code").GetString() != "0") return [];
+
+        return doc.RootElement.GetProperty("data").EnumerateArray().Select(ParseOkxOrder).ToArray();
+    }
+
+    private static ExchangeOrderDto ParseOkxOrder(JsonElement o)
+    {
+        var side = o.GetProperty("side").GetString();
+        var ordType = o.GetProperty("ordType").GetString();
+        var state = o.GetProperty("state").GetString();
+        return new ExchangeOrderDto(
+            o.GetProperty("instId").GetString()!,
+            side == "buy" ? "Buy" : "Sell",
+            ordType == "limit" ? "Limit" : ordType == "market" ? "Market" : ordType ?? "Unknown",
+            state == "live" ? "New" : state == "partially_filled" ? "PartiallyFilled" : state == "filled" ? "Filled" : state == "cancelled" ? "Cancelled" : state ?? "Unknown",
+            decimal.Parse(o.GetProperty("px").GetString()!, CultureInfo.InvariantCulture),
+            decimal.Parse(o.GetProperty("sz").GetString()!, CultureInfo.InvariantCulture),
+            decimal.Parse(o.GetProperty("accFillSz").GetString()!, CultureInfo.InvariantCulture),
+            o.GetProperty("ordId").GetString()!,
+            DateTimeOffset.FromUnixTimeMilliseconds(long.Parse(o.GetProperty("cTime").GetString()!)).UtcDateTime
+        );
+    }
+
     public async Task<ConnectionTestResult> TestConnectionAsync(CancellationToken ct = default)
     {
         try

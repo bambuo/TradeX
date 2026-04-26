@@ -21,6 +21,10 @@ public interface IExchangeClient
 
     Task<ConnectionTestResult> TestConnectionAsync(CancellationToken ct = default);
 
+    Task<ExchangeOrderDto[]> GetOpenOrdersAsync(CancellationToken ct = default);
+
+    Task<ExchangeOrderDto[]> GetOrderHistoryAsync(CancellationToken ct = default);
+
     Task<SymbolRule[]> GetSymbolRulesAsync(CancellationToken ct = default);
     Task<TickerPrice[]> GetTickerPricesAsync(CancellationToken ct = default);
 }
@@ -68,6 +72,17 @@ public record SymbolRule(
     decimal MinQuantity,
     decimal TickSize,
     decimal StepSize);
+
+public record ExchangeOrderDto(
+    string Symbol,
+    string Side,
+    string Type,
+    string Status,
+    decimal Price,
+    decimal Quantity,
+    decimal FilledQuantity,
+    string ExchangeOrderId,
+    DateTime PlacedAt);
 
 public record ConnectionTestResult(
     bool Success,

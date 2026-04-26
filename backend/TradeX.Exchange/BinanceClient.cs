@@ -203,6 +203,75 @@ public class BinanceClient : IExchangeClient
         )).ToArray();
     }
 
+    public async Task<ExchangeOrderDto[]> GetOpenOrdersAsync(CancellationToken ct = default)
+    {
+        var query = $"timestamp={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+        var req = new HttpRequestMessage(HttpMethod.Get, $"/api/v3/openOrders?{query}&signature={Sign(query)}");
+        req.Headers.Add("X-MBX-APIKEY", _apiKey);
+        var resp = await _http.SendAsync(req, ct);
+        if (!resp.IsSuccessStatusCode) return [];
+
+        var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
+        if (doc is null) return [];
+
+        return doc.RootElement.EnumerateArray().Select(o => ParseBinanceOrder(o)).ToArray();
+    }
+
+    public async Task<ExchangeOrderDto[]> GetOrderHistoryAsync(CancellationToken ct = default)
+    {
+        var symbols = new HashSet<string>();
+
+        var assets = await GetAssetBalancesAsync(ct);
+        foreach (var asset in assets.Keys)
+            if (asset != "USDT" && !string.IsNullOrWhiteSpace(asset))
+                symbols.Add($"{asset}USDT");
+
+        symbols.Add("BTCUSDT");
+        symbols.Add("ETHUSDT");
+
+        var results = new List<ExchangeOrderDto>();
+
+        foreach (var symbol in symbols)
+        {
+            var query = $"symbol={symbol}&timestamp={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}&limit=20";
+            var req = new HttpRequestMessage(HttpMethod.Get, $"/api/v3/allOrders?{query}&signature={Sign(query)}");
+            req.Headers.Add("X-MBX-APIKEY", _apiKey);
+            var resp = await _http.SendAsync(req, ct);
+            if (!resp.IsSuccessStatusCode) continue;
+
+            var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
+            if (doc is null) continue;
+
+            foreach (var o in doc.RootElement.EnumerateArray())
+                results.Add(ParseBinanceOrder(o));
+        }
+
+        return [.. results.OrderByDescending(r => r.PlacedAt)];
+    }
+
+    private static ExchangeOrderDto ParseBinanceOrder(JsonElement o)
+    {
+        return new ExchangeOrderDto(
+            o.GetProperty("symbol").GetString()!,
+            o.GetProperty("side").GetString() == "BUY" ? "Buy" : "Sell",
+            o.GetProperty("type").GetString() switch { "LIMIT" => "Limit", "STOP_LOSS_LIMIT" => "StopLimit", _ => "Market" },
+            o.GetProperty("status").GetString() switch
+            {
+                "NEW" => "New",
+                "PARTIALLY_FILLED" => "PartiallyFilled",
+                "FILLED" => "Filled",
+                "CANCELED" => "Cancelled",
+                "EXPIRED" => "Expired",
+                _ => o.GetProperty("status").GetString()!
+            },
+            decimal.Parse(o.GetProperty("price").GetString()!, CultureInfo.InvariantCulture),
+            decimal.Parse(o.GetProperty("origQty").GetString()!, CultureInfo.InvariantCulture),
+            decimal.Parse(o.GetProperty("executedQty").GetString()!, CultureInfo.InvariantCulture),
+            o.GetProperty("orderId").GetInt64().ToString(),
+            DateTimeOffset.FromUnixTimeMilliseconds(o.GetProperty("time").GetInt64()).UtcDateTime
+        );
+    }
+
     public async Task<ConnectionTestResult> TestConnectionAsync(CancellationToken ct = default)
     {
         var ping = await _http.GetAsync("/api/v3/ping", ct);

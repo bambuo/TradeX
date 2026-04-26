@@ -14,6 +14,18 @@ export interface ExchangeAccount {
   testResult: string | null
 }
 
+export interface ExchangeOrder {
+  symbol: string
+  side: string
+  type: string
+  status: string
+  price: number
+  quantity: number
+  filledQuantity: number
+  exchangeOrderId: string
+  placedAt: string
+}
+
 export interface CreateExchangeRequest {
   name: string
   exchangeType: string
@@ -46,10 +58,16 @@ export const exchangesApi = {
   testConnection(id: string) {
     return client.post<{ connected: boolean; error?: string }>(`/exchanges/${id}/test`)
   },
+  toggleStatus(id: string) {
+    return client.post<{ id: string; isEnabled: boolean }>(`/exchanges/${id}/toggle`)
+  },
   getSymbols(id: string) {
     return client.get<{ data: { symbol: string; pricePrecision: number; quantityPrecision: number; minNotional: number; price: number; priceChangePercent: number; volume: number; highPrice: number; lowPrice: number }[] }>(`/exchanges/${id}/symbols`)
   },
   getBalance(id: string) {
     return client.get<{ totalUsd: number }>(`/exchanges/${id}/balance`)
+  },
+  getOrders(id: string, type: 'open' | 'history' = 'open') {
+    return client.get<{ data: ExchangeOrder[] }>(`/exchanges/${id}/orders?type=${type}`)
   }
 }

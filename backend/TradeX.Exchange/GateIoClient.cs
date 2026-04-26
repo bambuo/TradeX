@@ -195,6 +195,40 @@ public class GateIoClient : IExchangeClient
 
     private static readonly string EmptyBodyHash = Convert.ToHexStringLower(SHA512.HashData([]));
 
+    public async Task<ExchangeOrderDto[]> GetOpenOrdersAsync(CancellationToken ct = default)
+    {
+        var doc = await SignedGetAsync("/api/v4/spot/open_orders", null, ct);
+        if (doc is null) return [];
+
+        return doc.RootElement.EnumerateArray().Select(ParseGateOrder).ToArray();
+    }
+
+    public async Task<ExchangeOrderDto[]> GetOrderHistoryAsync(CancellationToken ct = default)
+    {
+        var doc = await SignedGetAsync("/api/v4/spot/orders", "status=finished&limit=50", ct);
+        if (doc is null) return [];
+
+        return doc.RootElement.EnumerateArray().Select(ParseGateOrder).ToArray();
+    }
+
+    private static ExchangeOrderDto ParseGateOrder(JsonElement o)
+    {
+        var side = o.GetProperty("side").GetString();
+        var type = o.GetProperty("type").GetString();
+        var status = o.GetProperty("status").GetString();
+        return new ExchangeOrderDto(
+            o.GetProperty("currency_pair").GetString()!,
+            side == "buy" || side == "sell" ? side[..1].ToUpper() + side[1..] : side ?? "",
+            type == "limit" || type == "market" ? type[..1].ToUpper() + type[1..] : type ?? "",
+            status == "open" ? "New" : status == "filled" ? "Filled" : status == "cancelled" ? "Cancelled" : status ?? "",
+            decimal.Parse(o.GetProperty("price").GetString()!, CultureInfo.InvariantCulture),
+            decimal.Parse(o.GetProperty("amount").GetString()!, CultureInfo.InvariantCulture),
+            decimal.Parse(o.GetProperty("filled_amount").GetString()!, CultureInfo.InvariantCulture),
+            o.GetProperty("id").GetString()!,
+            DateTimeOffset.FromUnixTimeSeconds(long.Parse(o.GetProperty("create_time").GetString()!)).UtcDateTime
+        );
+    }
+
     public async Task<ConnectionTestResult> TestConnectionAsync(CancellationToken ct = default)
     {
         try

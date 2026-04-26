@@ -232,8 +232,11 @@ onMounted(loadTraders)
             </span>
           </div>
           <div class="card-header-actions">
-            <AppButton size="sm" variant="ghost" icon="badge" :title="normalizeStatus(t.status) === 'Active' ? '离岗' : '在岗'" @click="toggleStatus(t)" />
             <AppButton size="sm" variant="ghost" icon="edit" title="编辑名称" @click="openEdit(t)" />
+            <label class="switch" :title="normalizeStatus(t.status) === 'Active' ? '离岗' : '在岗'">
+              <input type="checkbox" :checked="normalizeStatus(t.status) === 'Active'" @change="toggleStatus(t)" />
+              <span class="switch-slider" />
+            </label>
           </div>
         </div>
 
@@ -353,7 +356,42 @@ onMounted(loadTraders)
 .card-header-actions {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.5rem;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  cursor: pointer;
+}
+.switch input {
+  display: none;
+}
+.switch-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--glass-border-strong);
+  border-radius: 999px;
+  transition: background 0.2s ease;
+}
+.switch-slider::before {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  left: 2px;
+  bottom: 2px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+}
+.switch input:checked + .switch-slider {
+  background: #4ade80;
+}
+.switch input:checked + .switch-slider::before {
+  transform: translateX(16px);
 }
 
 .stat-item .stat-label { font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; }

@@ -170,6 +170,63 @@ public class HtxClient : IExchangeClient
         )).ToArray();
     }
 
+    public async Task<ExchangeOrderDto[]> GetOpenOrdersAsync(CancellationToken ct = default)
+    {
+        var accountId = await GetSpotAccountIdAsync(ct);
+        if (accountId is null) return [];
+
+        var doc = await SignedGetWithQueryAsync($"/v1/order/openOrders?account-id={accountId}", ct);
+        if (doc is null || doc.RootElement.GetProperty("status").GetString() != "ok") return [];
+
+        return doc.RootElement.GetProperty("data").EnumerateArray().Select(ParseHtxOrder).ToArray();
+    }
+
+    public async Task<ExchangeOrderDto[]> GetOrderHistoryAsync(CancellationToken ct = default)
+    {
+        var accountId = await GetSpotAccountIdAsync(ct);
+        if (accountId is null) return [];
+
+        var doc = await SignedGetWithQueryAsync($"/v1/order/orders?account-id={accountId}&states=filled,partial-filled,canceled&size=50", ct);
+        if (doc is null || doc.RootElement.GetProperty("status").GetString() != "ok") return [];
+
+        return doc.RootElement.GetProperty("data").EnumerateArray().Select(ParseHtxOrder).ToArray();
+    }
+
+    private async Task<long?> GetSpotAccountIdAsync(CancellationToken ct)
+    {
+        var accountsResp = await SignedGetAsync("/v1/account/accounts", ct);
+        if (accountsResp is null || accountsResp.RootElement.GetProperty("status").GetString() != "ok") return null;
+        return accountsResp.RootElement.GetProperty("data").EnumerateArray()
+            .FirstOrDefault(a => a.GetProperty("type").GetString() == "spot")
+            .GetProperty("id").GetInt64();
+    }
+
+    private static ExchangeOrderDto ParseHtxOrder(JsonElement o)
+    {
+        var type = o.GetProperty("type").GetString()!;
+        var side = type.StartsWith("buy") ? "Buy" : "Sell";
+        var orderType = type.Contains("limit") ? "Limit" : type.Contains("market") ? "Market" : type;
+        var state = o.GetProperty("state").GetString();
+        return new ExchangeOrderDto(
+            o.GetProperty("symbol").GetString()!,
+            side,
+            orderType,
+            state switch
+            {
+                "submitted" => "New",
+                "partial-filled" => "PartiallyFilled",
+                "filled" => "Filled",
+                "canceled" => "Cancelled",
+                _ => state ?? ""
+            },
+            decimal.Parse(o.GetProperty("price").GetString()!, CultureInfo.InvariantCulture),
+            decimal.Parse(o.GetProperty("amount").GetString()!, CultureInfo.InvariantCulture),
+            decimal.Parse(o.GetProperty("filled-amount").GetString()!, CultureInfo.InvariantCulture),
+            o.GetProperty("id").GetInt64().ToString(),
+            DateTimeOffset.FromUnixTimeMilliseconds(long.Parse(o.GetProperty("created-at").GetString()!)).UtcDateTime
+        );
+    }
+
     public async Task<ConnectionTestResult> TestConnectionAsync(CancellationToken ct = default)
     {
         try
@@ -235,6 +292,26 @@ public class HtxClient : IExchangeClient
         var fullQuery = $"{path}?{query}&Signature={Uri.EscapeDataString(signature)}";
 
         var req = new HttpRequestMessage(HttpMethod.Get, fullQuery);
+        var resp = await _http.SendAsync(req, ct);
+        if (!resp.IsSuccessStatusCode) return null;
+        return await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
+    }
+
+    private async Task<JsonDocument?> SignedGetWithQueryAsync(string path, CancellationToken ct)
+    {
+        var basePath = path.Contains('?') ? path[..path.IndexOf('?')] : path;
+        var existingQuery = path.Contains('?') ? path[(path.IndexOf('?') + 1)..] : "";
+        var timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture);
+        var method = "GET";
+        var authQuery = $"AccessKeyId={_apiKey}&SignatureMethod=HmacSHA256&SignatureVersion=2&Timestamp={Uri.EscapeDataString(timestamp)}";
+        var fullQuery = string.IsNullOrEmpty(existingQuery)
+            ? authQuery
+            : $"{existingQuery}&{authQuery}";
+        var signStr = $"{method}\napi.huobi.pro\n{basePath}\n{fullQuery}";
+        var signature = Sign(signStr);
+        var url = $"{basePath}?{fullQuery}&Signature={Uri.EscapeDataString(signature)}";
+
+        var req = new HttpRequestMessage(HttpMethod.Get, url);
         var resp = await _http.SendAsync(req, ct);
         if (!resp.IsSuccessStatusCode) return null;
         return await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);

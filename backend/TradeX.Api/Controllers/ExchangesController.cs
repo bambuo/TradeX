@@ -135,6 +135,49 @@ public class ExchangesController(
         }
     }
 
+    [HttpGet("{id:guid}/orders")]
+    public async Task<IActionResult> GetOrders(Guid id, [FromQuery] string type = "open", CancellationToken ct = default)
+    {
+        var account = await exchangeRepo.GetByIdAsync(id, ct);
+        if (account is null)
+            return NotFound(new { code = "EXCHANGE_NOT_FOUND", message = "交易所不存在" });
+
+        if (account.Status == ExchangeStatus.Disabled)
+            return BadRequest(new { code = "VALIDATION_ERROR", message = "交易所已禁用" });
+
+        try
+        {
+            var apiKey = encryption.Decrypt(account.ApiKeyEncrypted);
+            var secretKey = encryption.Decrypt(account.SecretKeyEncrypted);
+            var passphrase = account.PassphraseEncrypted is not null ? encryption.Decrypt(account.PassphraseEncrypted) : null;
+
+            var client = clientFactory.CreateClient(account.Type, apiKey, secretKey, passphrase);
+
+            var orders = type == "history"
+                ? await client.GetOrderHistoryAsync(ct)
+                : await client.GetOpenOrdersAsync(ct);
+
+            return Ok(new { data = orders });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(502, new { code = "EXCHANGE_ERROR", message = $"获取订单失败: {ex.Message}" });
+        }
+    }
+
+    [HttpPost("{id:guid}/toggle")]
+    public async Task<IActionResult> ToggleStatus(Guid id, CancellationToken ct)
+    {
+        var account = await exchangeRepo.GetByIdAsync(id, ct);
+        if (account is null)
+            return NotFound(new { code = "EXCHANGE_NOT_FOUND", message = "交易所不存在" });
+
+        account.Status = account.Status == ExchangeStatus.Enabled ? ExchangeStatus.Disabled : ExchangeStatus.Enabled;
+        await exchangeRepo.UpdateAsync(account, ct);
+
+        return Ok(new { account.Id, isEnabled = account.Status == ExchangeStatus.Enabled });
+    }
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {

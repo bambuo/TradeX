@@ -187,6 +187,50 @@ public class BybitClient : IExchangeClient
         )).ToArray();
     }
 
+    public async Task<ExchangeOrderDto[]> GetOpenOrdersAsync(CancellationToken ct = default)
+    {
+        var doc = await SignedGetAsync("/v5/order/realtime", "category=spot", ct);
+        if (doc is null || doc.RootElement.GetProperty("retCode").GetInt32() != 0) return [];
+        var list = doc.RootElement.GetProperty("result").GetProperty("list").EnumerateArray();
+
+        return list.Select(ParseBybitOrder).ToArray();
+    }
+
+    public async Task<ExchangeOrderDto[]> GetOrderHistoryAsync(CancellationToken ct = default)
+    {
+        var doc = await SignedGetAsync("/v5/order/history", "category=spot&limit=50", ct);
+        if (doc is null || doc.RootElement.GetProperty("retCode").GetInt32() != 0) return [];
+        var list = doc.RootElement.GetProperty("result").GetProperty("list").EnumerateArray();
+
+        return list.Select(ParseBybitOrder).ToArray();
+    }
+
+    private static ExchangeOrderDto ParseBybitOrder(JsonElement o)
+    {
+        var side = o.GetProperty("side").GetString();
+        var orderType = o.GetProperty("orderType").GetString();
+        var orderStatus = o.GetProperty("orderStatus").GetString();
+        return new ExchangeOrderDto(
+            o.GetProperty("symbol").GetString()!,
+            side == "Buy" ? "Buy" : "Sell",
+            orderType == "Limit" ? "Limit" : orderType == "Market" ? "Market" : orderType ?? "",
+            orderStatus switch
+            {
+                "Created" => "New",
+                "New" => "New",
+                "PartiallyFilled" => "PartiallyFilled",
+                "Filled" => "Filled",
+                "Cancelled" => "Cancelled",
+                _ => orderStatus ?? ""
+            },
+            TryParseDecimal(o.GetProperty("price").GetString()),
+            TryParseDecimal(o.GetProperty("qty").GetString()),
+            TryParseDecimal(o.GetProperty("cumExecQty").GetString()),
+            o.GetProperty("orderId").GetString()!,
+            DateTimeOffset.FromUnixTimeMilliseconds(long.Parse(o.GetProperty("createdTime").GetString()!)).UtcDateTime
+        );
+    }
+
     public async Task<ConnectionTestResult> TestConnectionAsync(CancellationToken ct = default)
     {
         try

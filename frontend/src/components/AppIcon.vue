@@ -10,6 +10,7 @@ const props = withDefaults(defineProps<{
 
 const iconPaths: Record<string, string[]> = {
   plus: ['M12 5v14', 'M5 12h14'],
+  check: ['M5 13l4 4 10-10'],
   edit: ['M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3Z', 'M13.5 7.5l3 3'],
   trash: ['M4 7h16', 'M10 11v6', 'M14 11v6', 'M6 7l1 13h10l1-13', 'M9 7V4h6v3'],
   save: ['M5 4h12l2 2v14H5V4Z', 'M8 4v6h8V4', 'M8 20v-6h8v6'],
