@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
-import * as echarts from 'echarts'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { createChart, ColorType, CandlestickSeries, HistogramSeries, type IChartApi, type ISeriesApi, type CandlestickData, type HistogramData, type Time } from 'lightweight-charts'
 import type { BacktestCandleAnalysis } from '../api/backtests'
 
 const props = defineProps<{
@@ -8,171 +8,125 @@ const props = defineProps<{
 }>()
 
 const chartRef = ref<HTMLDivElement>()
-let chart: echarts.ECharts | null = null
+let chart: IChartApi | null = null
+let candleSeries: ISeriesApi<'Candlestick'> | null = null
+let volumeSeries: ISeriesApi<'Histogram'> | null = null
 
-const entryPoints = computed(() =>
-  props.analysis.filter(a => a.action === 'enter')
-)
-const exitPoints = computed(() =>
-  props.analysis.filter(a => a.action === 'exit')
-)
+function calcPricePrecision(values: number[]): number {
+  let minAbs = Infinity
+  for (const v of values) {
+    const abs = Math.abs(v)
+    if (abs > 0 && abs < minAbs) minAbs = abs
+  }
+  if (minAbs === Infinity || minAbs >= 1) return 4
+  const str = minAbs.toFixed(20)
+  const m = str.match(/^0\.(0*)/)
+  if (!m) return 6
+  const zeroCount = m[1].length
+  return Math.min(zeroCount + 4, 12)
+}
 
 function render() {
   if (!chartRef.value || props.analysis.length === 0) return
 
   if (!chart) {
-    chart = echarts.init(chartRef.value)
+    const precision = calcPricePrecision(props.analysis.map(a => a.close))
+
+    chart = createChart(chartRef.value, {
+      width: chartRef.value.clientWidth,
+      height: 520,
+      layout: {
+        background: { type: ColorType.Solid, color: 'transparent' },
+        textColor: '#94a3b8',
+        fontSize: 10
+      },
+      grid: {
+        vertLines: { visible: false },
+        horzLines: { visible: false }
+      },
+      crosshair: {
+        mode: 0,
+        vertLine: { color: '#3b4a5e', width: 1, style: 2, labelBackgroundColor: '#334155' },
+        horzLine: { color: '#3b4a5e', width: 1, style: 2, labelBackgroundColor: '#334155' }
+      },
+      rightPriceScale: {
+        borderColor: '#334155',
+        scaleMargins: { top: 0.05, bottom: 0.25 },
+        visible: true
+      },
+      timeScale: {
+        borderColor: '#334155',
+        timeVisible: true,
+        secondsVisible: false
+      },
+      handleScroll: { vertTouchDrag: false },
+      localization: {
+        priceFormatter: (price: number) => {
+          if (price === 0) return '0'
+          return price.toFixed(precision)
+        }
+      }
+    })
+
+    candleSeries = chart.addSeries(CandlestickSeries, {
+      upColor: 'var(--accent-green)',
+      downColor: '#ef4444',
+      borderUpColor: 'var(--accent-green)',
+      borderDownColor: '#ef4444',
+      wickUpColor: 'var(--accent-green)',
+      wickDownColor: '#ef4444',
+      lastValueVisible: true,
+      priceLineVisible: true,
+      priceLineColor: '#94a3b8',
+      priceLineWidth: 1,
+      priceLineStyle: 2,
+      priceLineSource: 0,
+      priceFormat: {
+        type: 'price',
+        precision,
+        minMove: Math.pow(10, -precision)
+      }
+    })
+
+    volumeSeries = chart.addSeries(HistogramSeries, {
+      color: 'rgba(148,163,184,0.3)',
+      priceFormat: { type: 'volume' },
+      priceScaleId: 'volume'
+    })
+
+    chart.priceScale('volume').applyOptions({
+      scaleMargins: { top: 0.75, bottom: 0 },
+      visible: true,
+      borderVisible: false
+    })
+
+    chart.resize(chartRef.value.clientWidth, 520)
   }
 
-  const dates = props.analysis.map(a => new Date(a.timestamp).toLocaleString())
-  const ohlc = props.analysis.map(a => [a.open, a.close, a.low, a.high])
-  const volumes = props.analysis.map(a => a.volume)
+  const candleData: CandlestickData[] = []
+  const volumeData: HistogramData[] = []
 
-  const entryData = entryPoints.value.map(a => ({
-    value: [a.index, a.high],
-    itemStyle: { color: 'var(--accent-green)' }
-  }))
-  const exitData = exitPoints.value.map(a => ({
-    value: [a.index, a.low],
-    itemStyle: { color: '#ef4444' }
-  }))
+  for (const a of props.analysis) {
+    const time = Math.floor(new Date(a.timestamp).getTime() / 1000) as Time
+    candleData.push({ time, open: a.open, high: a.high, low: a.low, close: a.close })
+    const isUp = a.close >= a.open
+    volumeData.push({
+      time,
+      value: a.volume,
+      color: isUp ? 'rgba(34,197,94,0.4)' : 'rgba(239,68,68,0.4)'
+    })
+  }
 
-  chart.setOption({
-    animation: false,
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: { type: 'cross' },
-      backgroundColor: '#1e293b',
-      borderColor: '#334155',
-      textStyle: { color: '#e2e8f0', fontSize: 11 }
-    },
-    axisPointer: {
-      link: [{ xAxisIndex: 'all' }],
-      label: { backgroundColor: '#334155' }
-    },
-    grid: [
-      { left: 55, right: 55, top: 10, height: '55%' },
-      { left: 55, right: 55, top: '73%', height: '12%' }
-    ],
-    xAxis: [
-      {
-        type: 'category',
-        data: dates,
-        axisLine: { lineStyle: { color: '#334155' } },
-        axisLabel: { show: false },
-        splitLine: { show: false },
-        min: 0,
-        max: dates.length - 1
-      },
-      {
-        type: 'category',
-        gridIndex: 1,
-        data: dates,
-        axisLabel: { show: false },
-        splitLine: { show: false }
-      }
-    ],
-    yAxis: [
-      {
-        type: 'value',
-        scale: true,
-        splitLine: { show: false },
-        axisLabel: { color: '#94a3b8', fontSize: 10 }
-      },
-      {
-        type: 'value',
-        gridIndex: 1,
-        splitNumber: 2,
-        splitLine: { show: false },
-        axisLabel: { show: false }
-      }
-    ],
-    dataZoom: [
-      {
-        type: 'inside',
-        xAxisIndex: [0, 1],
-        start: 0,
-        end: 100
-      },
-      {
-        show: true,
-        xAxisIndex: [0, 1],
-        type: 'slider',
-        top: '92%',
-        height: 15,
-        borderColor: '#334155',
-        backgroundColor: '#0f172a',
-        fillerColor: 'rgba(56,189,248,0.15)',
-        handleStyle: { color: 'var(--accent-blue)' },
-        textStyle: { color: '#64748b', fontSize: 10 },
-        labelPrecision: 0,
-        start: 0,
-        end: 100
-      }
-    ],
-    series: [
-      {
-        name: 'K 线',
-        type: 'candlestick',
-        data: ohlc,
-        itemStyle: {
-          color: 'var(--accent-green)',
-          color0: '#ef4444',
-          borderColor: 'var(--accent-green)',
-          borderColor0: '#ef4444'
-        }
-      },
-      {
-        name: '入场',
-        type: 'scatter',
-        data: entryData,
-        symbol: 'pin',
-        symbolSize: 24,
-        itemStyle: { color: 'var(--accent-green)' },
-        label: {
-          show: true,
-          formatter: '入场',
-          color: 'var(--accent-green)',
-          fontSize: 10,
-          fontWeight: 'bold',
-          position: 'top'
-        }
-      },
-      {
-        name: '出场',
-        type: 'scatter',
-        data: exitData,
-        symbol: 'pin',
-        symbolSize: 24,
-        itemStyle: { color: '#ef4444' },
-        label: {
-          show: true,
-          formatter: '出场',
-          color: '#ef4444',
-          fontSize: 10,
-          fontWeight: 'bold',
-          position: 'bottom'
-        }
-      },
-      {
-        name: '成交量',
-        type: 'bar',
-        xAxisIndex: 1,
-        yAxisIndex: 1,
-        data: volumes.map((v, i) => {
-          const isUp = props.analysis[i].close >= props.analysis[i].open
-          return {
-            value: v,
-            itemStyle: { color: isUp ? 'rgba(34,197,94,0.4)' : 'rgba(239,68,68,0.4)' }
-          }
-        })
-      }
-    ]
-  })
+  candleSeries!.setData(candleData)
+  volumeSeries!.setData(volumeData)
+
+  chart.timeScale().fitContent()
 }
 
 function handleResize() {
-  chart?.resize()
+  if (chart && chartRef.value) {
+    chart.resize(chartRef.value.clientWidth, 520)
+  }
 }
 
 watch(() => props.analysis, render, { deep: true })
@@ -181,7 +135,7 @@ onMounted(() => {
   window.addEventListener('resize', handleResize)
 })
 onUnmounted(() => {
-  chart?.dispose()
+  chart?.remove()
   window.removeEventListener('resize', handleResize)
 })
 </script>
@@ -194,9 +148,9 @@ onUnmounted(() => {
 .kline-chart {
   width: 100%;
   height: 520px;
-  background: transparent;
   border: 1px solid var(--glass-border);
   border-radius: 6px;
   margin-top: 0.5rem;
+  overflow: hidden;
 }
 </style>
