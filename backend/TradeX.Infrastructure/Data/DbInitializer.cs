@@ -6,6 +6,6 @@ public static class DbInitializer
 {
     public static async Task InitializeAsync(TradeXDbContext db)
     {
-        await db.Database.EnsureCreatedAsync();
+        await db.Database.MigrateAsync();
     }
 }

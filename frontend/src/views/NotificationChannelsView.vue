@@ -124,7 +124,7 @@ onMounted(load)
           <td><span class="badge">{{ c.type }}</span></td>
           <td>{{ c.status }}</td>
           <td>{{ c.isDefault ? '✓' : '-' }}</td>
-          <td>{{ c.lastTestedAtUtc ? new Date(c.lastTestedAtUtc).toLocaleString() : '-' }}</td>
+          <td>{{ c.lastTestedAt ? new Date(c.lastTestedAt).toLocaleString() : '-' }}</td>
           <td class="actions">
             <button class="btn-small" :disabled="testing === c.id" @click="test(c.id)">
               {{ testing === c.id ? '测试中...' : '测试' }}

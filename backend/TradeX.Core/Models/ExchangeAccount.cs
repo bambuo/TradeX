@@ -18,7 +18,7 @@ public class ExchangeAccount
     public string SecretKeyEncrypted { get; set; } = string.Empty;
     public string? PassphraseEncrypted { get; set; }
     public ExchangeAccountStatus Status { get; set; } = ExchangeAccountStatus.Enabled;
-    public DateTime? LastTestedAtUtc { get; set; }
+    public DateTime? LastTestedAt { get; set; }
     public string? TestResult { get; set; }
     public Guid CreatedBy { get; init; }
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;

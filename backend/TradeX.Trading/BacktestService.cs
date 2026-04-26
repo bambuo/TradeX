@@ -10,7 +10,7 @@ public class BacktestService(
     IBacktestTaskQueue queue,
     ILogger<BacktestService> logger) : IBacktestService
 {
-    public async Task<BacktestTask> StartBacktestAsync(Guid strategyId, Guid exchangeId, string symbolId, string timeframe, DateTime startUtc, DateTime endUtc, decimal initialCapital = 1000m, CancellationToken ct = default)
+    public async Task<BacktestTask> StartBacktestAsync(Guid deploymentId, Guid strategyId, Guid exchangeId, string symbolId, string timeframe, DateTime startUtc, DateTime endUtc, decimal initialCapital = 1000m, CancellationToken ct = default)
     {
         using var scope = scopeFactory.CreateScope();
         var strategyRepo = scope.ServiceProvider.GetRequiredService<IStrategyRepository>();
@@ -26,6 +26,7 @@ public class BacktestService(
         var task = new BacktestTask
         {
             Id = Guid.NewGuid(),
+            DeploymentId = deploymentId,
             StrategyId = strategyId,
             ExchangeId = exchangeId,
             StrategyName = strategy.Name,

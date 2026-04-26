@@ -47,7 +47,7 @@ public class BacktestServiceTests
         var service = sp.GetRequiredService<IBacktestService>();
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            service.StartBacktestAsync(Guid.NewGuid(), Guid.NewGuid(), "BTCUSDT", "1h", DateTime.UtcNow.AddDays(-30), DateTime.UtcNow));
+            service.StartBacktestAsync(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "BTCUSDT", "1h", DateTime.UtcNow.AddDays(-30), DateTime.UtcNow));
     }
 
     [Fact]
@@ -61,7 +61,7 @@ public class BacktestServiceTests
         var service = sp.GetRequiredService<IBacktestService>();
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            service.StartBacktestAsync(Guid.NewGuid(), Guid.NewGuid(), "BTCUSDT", "1h", DateTime.UtcNow.AddDays(-30), DateTime.UtcNow));
+            service.StartBacktestAsync(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "BTCUSDT", "1h", DateTime.UtcNow.AddDays(-30), DateTime.UtcNow));
     }
 
     [Fact]
@@ -91,7 +91,7 @@ public class BacktestServiceTests
             });
 
         var service = sp.GetRequiredService<IBacktestService>();
-        var result = await service.StartBacktestAsync(strategyId, Guid.NewGuid(), "BTCUSDT", "1h",
+        var result = await service.StartBacktestAsync(Guid.NewGuid(), strategyId, Guid.NewGuid(), "BTCUSDT", "1h",
             DateTime.UtcNow.AddDays(-30), DateTime.UtcNow, 2000m);
 
         Assert.Equal(BacktestTaskStatus.Pending, result.Status);

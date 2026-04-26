@@ -10,7 +10,7 @@ export interface ExchangeAccount {
   createdAt: string
   updatedAt: string | null
   traderName: string
-  lastTestedAtUtc: string | null
+  lastTestedAt: string | null
   testResult: string | null
 }
 

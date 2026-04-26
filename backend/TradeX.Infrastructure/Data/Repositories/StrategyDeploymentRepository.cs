@@ -37,6 +37,11 @@ public class StrategyDeploymentRepository(TradeXDbContext context) : IStrategyDe
         return deployments.Where(s => ParseSymbolIds(s.SymbolIds).Contains(symbolId)).ToList();
     }
 
+    public async Task<List<StrategyDeployment>> GetByStrategyIdAsync(Guid strategyId, CancellationToken ct = default)
+        => await context.StrategyDeployments
+            .Where(s => s.StrategyId == strategyId)
+            .ToListAsync(ct);
+
     public async Task<bool> ExistsActiveAsync(Guid traderId, Guid exchangeId, string symbolId, Guid? excludeId = null, CancellationToken ct = default)
     {
         var query = context.StrategyDeployments
@@ -71,6 +76,19 @@ public class StrategyDeploymentRepository(TradeXDbContext context) : IStrategyDe
 
     public async Task DeleteAsync(StrategyDeployment deployment, CancellationToken ct = default)
     {
+        var tasks = await context.BacktestTasks
+            .Where(t => t.DeploymentId == deployment.Id)
+            .ToListAsync(ct);
+        if (tasks.Count > 0)
+        {
+            var taskIds = tasks.Select(t => t.Id).ToList();
+            var results = await context.BacktestResults
+                .Where(r => taskIds.Contains(r.TaskId))
+                .ToListAsync(ct);
+            context.BacktestResults.RemoveRange(results);
+            context.BacktestTasks.RemoveRange(tasks);
+        }
+
         context.StrategyDeployments.Remove(deployment);
         await context.SaveChangesAsync(ct);
     }

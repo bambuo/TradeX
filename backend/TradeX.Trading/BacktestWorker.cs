@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 using TradeX.Indicators;
@@ -111,6 +112,11 @@ public class BacktestWorker(
         task.Phase = BacktestPhase.Queued;
         await taskRepo.UpdateAsync(task, ct);
 
+        var deploymentRepo = scope.ServiceProvider.GetRequiredService<IStrategyDeploymentRepository>();
+        var deployment = task.DeploymentId != Guid.Empty
+            ? await deploymentRepo.GetByIdAsync(task.DeploymentId, ct)
+            : null;
+
         var strategy = await strategyRepo.GetByIdAsync(task.StrategyId, ct);
         if (strategy is null)
             throw new InvalidOperationException($"策略不存在: {task.StrategyId}");
@@ -194,6 +200,12 @@ public class BacktestWorker(
         task.Phase = null;
         task.CompletedAtUtc = DateTime.UtcNow;
         await taskRepo.UpdateAsync(task, ct);
+
+        if (deployment?.Status == StrategyStatus.Draft)
+        {
+            deployment.Status = StrategyStatus.Passed;
+            await deploymentRepo.UpdateAsync(deployment, ct);
+        }
 
         analysisStore.Remove(task.Id);
 

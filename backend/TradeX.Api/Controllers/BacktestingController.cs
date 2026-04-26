@@ -17,6 +17,7 @@ public class BacktestingController(
     [HttpPost]
     public async Task<IActionResult> StartBacktest(
         Guid strategyId,
+        [FromQuery] Guid deploymentId,
         [FromQuery] Guid exchangeId,
         [FromQuery] string symbolId,
         [FromQuery] string timeframe,
@@ -27,7 +28,7 @@ public class BacktestingController(
     {
         try
         {
-            var task = await backtestService.StartBacktestAsync(strategyId, exchangeId, symbolId, timeframe, startUtc, endUtc, initialCapital, ct);
+            var task = await backtestService.StartBacktestAsync(deploymentId, strategyId, exchangeId, symbolId, timeframe, startUtc, endUtc, initialCapital, ct);
             return Ok(new
             {
                 taskId = task.Id,

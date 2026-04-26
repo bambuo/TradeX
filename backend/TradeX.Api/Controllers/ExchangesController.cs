@@ -34,7 +34,7 @@ public class ExchangesController(
             label = a.Name,
             exchangeType = a.Type.ToString(),
             isEnabled = a.Status == ExchangeAccountStatus.Enabled,
-            a.LastTestedAtUtc,
+            a.LastTestedAt,
             testResult = a.TestResult,
             createdAt = a.CreatedAt,
             updatedAt = a.UpdatedAt
@@ -123,7 +123,7 @@ public class ExchangesController(
             var client = clientFactory.CreateClient(account.Type, apiKey, secretKey, passphrase);
             var result = await client.TestConnectionAsync(ct);
 
-            account.LastTestedAtUtc = DateTime.UtcNow;
+            account.LastTestedAt = DateTime.UtcNow;
             account.TestResult = result.Message;
             await exchangeRepo.UpdateAsync(account, ct);
 

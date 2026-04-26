@@ -6,7 +6,7 @@ export interface NotificationChannel {
   type: string
   status: string
   isDefault: boolean
-  lastTestedAtUtc: string | null
+  lastTestedAt: string | null
   createdAt: string
 }
 

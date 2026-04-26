@@ -21,6 +21,7 @@ public enum BacktestPhase
 public class BacktestTask
 {
     public Guid Id { get; init; } = Guid.NewGuid();
+    public Guid DeploymentId { get; init; }
     public Guid StrategyId { get; init; }
     public Guid ExchangeId { get; init; }
     public string StrategyName { get; set; } = string.Empty;

@@ -137,7 +137,7 @@ onMounted(loadAll)
           <td>{{ a.exchangeType }}</td>
           <td>{{ a.isTestnet ? '测试网' : '主网' }}</td>
           <td>{{ a.isEnabled ? '启用' : '禁用' }}</td>
-          <td>{{ a.lastTestedAtUtc ? new Date(a.lastTestedAtUtc).toLocaleDateString() : '-' }}</td>
+          <td>{{ a.lastTestedAt ? new Date(a.lastTestedAt).toLocaleDateString() : '-' }}</td>
           <td>{{ new Date(a.createdAt).toLocaleDateString() }}</td>
           <td class="actions">
             <button class="btn-small" :disabled="testingId === a.id" @click="testConnection(a.id)">

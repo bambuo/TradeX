@@ -127,7 +127,7 @@ async function startBacktest() {
     const startUtc = new Date(Date.now() - days.value * 86400000).toISOString()
     const templateId = strategy.value.strategyId
     await backtestsApi.start(
-      traderId, templateId,
+      traderId, templateId, strategy.value.id,
       strategy.value.exchangeId,
       strategy.value.symbolIds.replace(/[\[\]"]/g, '').split(',')[0] || '',
       strategy.value.timeframe,

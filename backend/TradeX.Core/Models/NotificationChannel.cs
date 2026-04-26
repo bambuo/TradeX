@@ -21,7 +21,7 @@ public class NotificationChannel
     public string ConfigEncrypted { get; set; } = string.Empty;
     public bool IsDefault { get; set; }
     public NotificationChannelStatus Status { get; set; } = NotificationChannelStatus.Enabled;
-    public DateTime? LastTestedAtUtc { get; set; }
+    public DateTime? LastTestedAt { get; set; }
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

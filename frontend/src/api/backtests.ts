@@ -61,8 +61,8 @@ export interface AnalysisResponse {
 }
 
 export const backtestsApi = {
-  start(traderId: string, strategyId: string, exchangeId: string, symbolId: string, timeframe: string, startUtc: string, endUtc: string, initialCapital?: number) {
-    let url = `/traders/${traderId}/strategies/${strategyId}/backtests?exchangeId=${exchangeId}&symbolId=${encodeURIComponent(symbolId)}&timeframe=${encodeURIComponent(timeframe)}&startUtc=${encodeURIComponent(startUtc)}&endUtc=${encodeURIComponent(endUtc)}`
+  start(traderId: string, strategyId: string, deploymentId: string, exchangeId: string, symbolId: string, timeframe: string, startUtc: string, endUtc: string, initialCapital?: number) {
+    let url = `/traders/${traderId}/strategies/${strategyId}/backtests?deploymentId=${deploymentId}&exchangeId=${exchangeId}&symbolId=${encodeURIComponent(symbolId)}&timeframe=${encodeURIComponent(timeframe)}&startUtc=${encodeURIComponent(startUtc)}&endUtc=${encodeURIComponent(endUtc)}`
     if (initialCapital) url += `&initialCapital=${initialCapital}`
     return client.post<{ taskId: string; status: string; createdAt: string; strategy_name?: string; symbolId?: string; timeframe?: string }>(url)
   },
