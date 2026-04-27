@@ -6,74 +6,13 @@ AI 代理唯一编码准则。不遵守 = 拒收 PR。
 
 ## 1. 多角色分工协作
 
-AI 代理在开发流程中根据任务类型自动切换角色。每个角色有明确的职责边界和交付物。
+本项目的团队协作模式定义在全局技能 `team-collaboration` 中，支持该技能的 AI 代理会自动发现并加载。
 
-### 1.1 角色定义
+技能位置（如支持技能发现）：
+- `~/.trae/skills/team-collaboration/team-collaboration.skill.md`
+- `~/.agents/skills/team-collaboration/team-collaboration.skill.md`
 
-| 角色 | 代号 | 职责 | 典型产出 |
-|------|------|------|----------|
-| **架构师** | `architect` | 系统设计、模块划分、接口契约定义、技术选型 | ADR / 接口签名 / 模块图 |
-| **后端开发** | `backend` | C# API、领域模型、基础设施、Exchange 集成 | Controller / Service / Repository |
-| **前端开发** | `frontend` | Vue 3 页面、组件、状态管理、路由配置 | `.vue` / Pinia Store / Router |
-| **质量保障** | `qa` | xUnit 测试、边界覆盖、Mock 策略、集成测试 | `*Tests.cs` |
-| **DevOps** | `devops` | Docker 编排、CI/CD、构建脚本、镜像发布 | Dockerfile / Compose / Workflow |
-| **项目经理** | `pm` | 任务拆解、优先级排序、进度跟踪 | Todo List / 里程碑 |
-
-### 1.2 角色切换触发规则
-
-| 任务类型 | 启动角色 | 交接链 | 说明 |
-|----------|----------|--------|------|
-| **新功能/模块** | `architect` → `backend` → `frontend` → `qa` → `devops` | 线性递进 | 先设计再实现，每步完成后由 pm 确认 |
-| **纯后端变更** | `backend` → `qa` | 后端→测试 | 不涉及 UI |
-| **纯前端变更** | `frontend` | 独立完成 | 不涉及后端逻辑 |
-| **Bug 修复** | `qa`(定位) → `backend`/`frontend`(修复) → `qa`(验证) | 闭环 | QA 先复现定位，修复后回归 |
-| **重构/优化** | `architect`(方案) → `backend`/`frontend`(执行) → `qa`(回归) | 方案先行 | 必须有架构师方案才能开始执行 |
-| **部署/发布** | `devops` | 独立完成 | CI/CD 流水线触发 |
-| **跨模块联合** | `architect`(协调) + `backend` + `frontend`(并行) → `qa`(集成) | 架构师协调 | 后端/前端可并行开发 |
-
-### 1.3 角色协作流程
-
-```mermaid
-flowchart TD
-    subgraph pm["项目经理 (pm)"]
-        direction TB
-        A["架构师 (architect)"]
-        B["后端开发 (backend)"]
-        C["前端开发 (frontend)"]
-        D["质量保障 (qa)"]
-        E["DevOps (devops)"]
-    end
-
-    A -->|接口契约/数据模型| B
-    A -->|组件设计| C
-    B -->|API + 领域模型| D
-    C -->|Vue 页面 + Store| E
-    D -->|测试通过| E
-```
-
-### 1.4 角色产出标准
-
-| 角色 | 必须产出 | 质量门禁 |
-|------|----------|----------|
-| `architect` | 接口定义文件、数据模型设计 | 未新增接口/模型时需说明理由 |
-| `backend` | Controller + Service + 单元测试 | 编译通过 + 测试通过 |
-| `frontend` | Vue 组件 + Store + 路由 | TypeScript 无错误 + 构建通过 |
-| `qa` | 正常路径 + 边界 + 异常测试 | 覆盖率 ≥80% |
-| `devops` | Dockerfile / Compose 更新 | `docker compose build` 通过 |
-| `pm` | Todo List + 状态跟踪 | 所有任务标记完成 |
-
-### 1.5 工作模式
-
-- **Agent 模式（默认）**：AI 自动判断任务类型，按触发规则切换角色，无需用户指定
-- **Plan 模式**：先以 `pm` + `architect` 角色输出计划方案，用户确认后再按序执行
-- **Spec 模式**：以 `architect` 角色输出 Spec 文件（spec.md / tasks.md / checklist.md），用户确认后以剩余角色按序执行
-
-### 1.6 协作约束
-
-- **单点串行**：一次只激活一个角色（线性交接链中），避免上下文混乱
-- **并行例外**：`architect` 确认方案后，`backend` + `frontend` 可并行交付（PM 协调）
-- **强制门禁**：每个角色交付后必须运行对应质量门禁命令，失败则退回修改
-- **上下文集**：角色切换时，上一个角色的输出作为下一个角色的输入上下文
+如 AI 代理不支持技能发现，可阅读上述文件获取完整的多角色分工协作规则。
 
 ---
 
