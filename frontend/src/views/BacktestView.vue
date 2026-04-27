@@ -58,7 +58,7 @@ const statusLabels: Record<string, string> = {
   Pending: '排队中', Running: '运行中', Completed: '已完成', Failed: '失败', Cancelled: '已取消'
 }
 const statusColors: Record<string, string> = {
-  Pending: '#f59e0b', Running: 'var(--accent-blue)', Completed: 'var(--accent-green)', Failed: '#ef4444', Cancelled: '#64748b'
+  Pending: 'var(--accent-amber)', Running: 'var(--accent-blue)', Completed: 'var(--accent-green)', Failed: 'var(--accent-red)', Cancelled: 'var(--text-muted)'
 }
 const phaseLabels: Record<string, string> = {
   Queued: '排队中', FetchingData: '获取数据', Running: '执行策略'
@@ -541,7 +541,7 @@ function enrichPositionMetrics(items: BacktestCandleAnalysis[], initialValue: nu
     <AppModal v-model="showDetail" title="回测详情" width="xl" @close="stopReplay">
       <template v-if="selectedTask">
         <div class="detail-summary">
-          <span class="detail-status" :style="{ background: statusColors[selectedTask.status] }">
+          <span class="detail-status" :style="{ '--status-color': statusColors[selectedTask.status] }">
             {{ statusLabels[selectedTask.status] || selectedTask.status }}
           </span>
           <span>{{ selectedTask.strategyName || selectedTask.strategyId }}</span>
@@ -803,15 +803,15 @@ function enrichPositionMetrics(items: BacktestCandleAnalysis[], initialValue: nu
 }
 .tab-btn:hover { color: var(--text-primary); }
 .tab-btn.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); }
-.detail-summary { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; padding: 0.5rem 0.75rem; background: rgba(255,255,255,0.35); border-radius: 6px; font-size: 0.85rem; color: var(--text-muted); }
-.detail-status { padding: 0.125rem 0.5rem; border-radius: 999px; color: var(--text-primary); font-size: 0.75rem; font-weight: 600; }
-.detail-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; }
+.detail-summary { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; padding: 0.75rem 1rem; background: rgba(255,255,255,0.55); border: 1px solid var(--glass-border); border-radius: 6px; font-size: 0.85rem; color: var(--text-muted); }
+.detail-status { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 999px; color: var(--status-color); font-size: 0.8rem; font-weight: 600; background: color-mix(in srgb, var(--status-color) 12%, transparent); border: 1px solid color-mix(in srgb, var(--status-color) 25%, transparent); }
+.detail-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; padding: 0.75rem 1rem; background: rgba(255,255,255,0.55); border: 1px solid var(--glass-border); border-radius: 6px; }
 .meta-item { display: flex; flex-direction: column; gap: 0.125rem; }
 .meta-label { color: var(--text-muted); font-size: 0.75rem; }
 .meta-value { color: var(--text-primary); font-size: 0.85rem; }
 .loading-hint { color: var(--text-muted); font-size: 0.85rem; padding: 1rem 0; text-align: center; }
-.result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
-.result-item { display: flex; flex-direction: column; gap: 0.125rem; }
+.result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; }
+.result-item { display: flex; flex-direction: column; gap: 0.125rem; padding: 0.75rem 1rem; background: rgba(255,255,255,0.45); border: 1px solid var(--glass-border); border-radius: 6px; }
 .result-label { color: var(--text-muted); font-size: 0.75rem; }
 .result-value { color: var(--text-primary); font-size: 1rem; font-weight: 600; }
 .result-value.up { color: var(--accent-green); }
@@ -829,9 +829,9 @@ function enrichPositionMetrics(items: BacktestCandleAnalysis[], initialValue: nu
 }
 .replay-btn:hover { color: var(--text-primary); border-color: var(--text-muted); }
 .replay-btn.primary { color: var(--accent-blue); font-size: 1rem; padding: 0.25rem 0.625rem; }
-.replay-btn.primary:hover { background: rgba(56,189,248,0.1); }
+.replay-btn.primary:hover { background: rgba(79,126,201,0.1); }
 .replay-progress { color: var(--text-muted); font-size: 0.8rem; font-family: 'SF Mono', monospace; min-width: 80px; }
-.replay-divider { color: #334155; font-size: 0.8rem; }
+.replay-divider { color: var(--glass-border-strong); font-size: 0.8rem; }
 .replay-label { color: var(--text-muted); font-size: 0.75rem; }
 .speed-group { display: flex; gap: 2px; }
 .speed-btn {
@@ -840,7 +840,7 @@ function enrichPositionMetrics(items: BacktestCandleAnalysis[], initialValue: nu
   font-size: 0.75rem; transition: all 0.15s;
 }
 .speed-btn:hover { color: var(--text-primary); }
-.speed-btn.active { background: rgba(56,189,248,0.15); color: var(--accent-blue); border-color: var(--accent-blue); }
+.speed-btn.active { background: rgba(79,126,201,0.15); color: var(--accent-blue); border-color: var(--accent-blue); }
 .position-replay-card {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

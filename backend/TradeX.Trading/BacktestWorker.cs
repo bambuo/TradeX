@@ -183,18 +183,8 @@ public class BacktestScheduler(
         var (result, trades, analysis) = engine.Run(strategy, candles, task.InitialCapital,
             a => analysisStore.Push(task.Id, a), task.Timeframe);
 
-        // 优先写入 IoTDB，失败时降级到 SQLite 表
-        try
-        {
-            await iotdb.WriteBacktestAnalysisAsync(task.Id, analysis, ct);
-            logger.LogInformation("回测分析数据已写入 IoTDB: TaskId={TaskId}, Count={Count}", task.Id, analysis.Count);
-        }
-        catch
-        {
-            logger.LogWarning("IoTDB 写入失败，降级到 SQLite: TaskId={TaskId}", task.Id);
-            await taskRepo.AddCandleAnalysesAsync(task.Id, analysis, ct);
-            logger.LogInformation("回测分析数据已写入 SQLite: TaskId={TaskId}, Count={Count}", task.Id, analysis.Count);
-        }
+        await taskRepo.AddCandleAnalysesAsync(task.Id, analysis, ct);
+        logger.LogInformation("回测分析数据已写入 SQLite: TaskId={TaskId}, Count={Count}", task.Id, analysis.Count);
 
         var resultWithTask = new BacktestResult
         {

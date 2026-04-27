@@ -13,7 +13,6 @@ namespace TradeX.Api.Controllers;
 public class BacktestingController(
     IBacktestService backtestService,
     TaskAnalysisStore analysisStore,
-    IIoTDbService iotdb,
     IBacktestTaskRepository taskRepo,
     ILogger<BacktestingController> logger) : ControllerBase
 {
@@ -98,7 +97,7 @@ public class BacktestingController(
             result.TotalTrades,
             result.SharpeRatio,
             result.ProfitLossRatio,
-            analysisCount = await GetAnalysisCountFallbackAsync(taskId, ct),
+            analysisCount = await taskRepo.GetCandleAnalysesCountAsync(taskId, ct),
             trades = JsonSerializer.Deserialize<object>(result.DetailJson)
         });
     }
@@ -147,7 +146,7 @@ public class BacktestingController(
             });
         }
 
-        // Completed task — try IoTDB first, fallback to SQLite
+        // Completed task — read from SQLite table
         var task = await backtestService.GetTaskAsync(taskId, ct);
         if (task is null)
             return NotFound(new { error = "回测任务不存在" });
@@ -155,37 +154,17 @@ public class BacktestingController(
         if (task.Status != BacktestTaskStatus.Completed)
             return NotFound(new { error = "没有运行中的分析数据" });
 
-        // Try IoTDB
-        var iotdbItems = await iotdb.GetBacktestAnalysisPageAsync(taskId, page, pageSize, ct);
-        var iotdbTotal = await iotdb.GetBacktestAnalysisCountAsync(taskId, ct);
-        if (iotdbItems.Length > 0)
-        {
-            return Ok(new
-            {
-                total = iotdbTotal,
-                page,
-                pageSize,
-                totalPages = (int)Math.Ceiling((double)iotdbTotal / pageSize),
-                items = iotdbItems.Select(FormatItem).ToList()
-            });
-        }
-
-        // Fallback to SQLite table
         var dbItems = await taskRepo.GetCandleAnalysesPageAsync(taskId, page, pageSize, ct);
         var dbTotal = await taskRepo.GetCandleAnalysesCountAsync(taskId, ct);
-        if (dbTotal > 0)
-        {
-            return Ok(new
-            {
-                total = dbTotal,
-                page,
-                pageSize,
-                totalPages = (int)Math.Ceiling((double)dbTotal / pageSize),
-                items = dbItems.Select(FormatItem).ToList()
-            });
-        }
 
-        return NotFound(new { error = "没有可用的分析数据" });
+        return Ok(new
+        {
+            total = dbTotal,
+            page,
+            pageSize,
+            totalPages = (int)Math.Ceiling((double)dbTotal / pageSize),
+            items = dbItems.Select(FormatItem).ToList()
+        });
     }
 
     [HttpGet("tasks/{taskId:guid}/analysis/stream")]
@@ -265,7 +244,7 @@ public class BacktestingController(
             return;
         }
 
-        // Completed task — try IoTDB first, fallback to SQLite
+        // Completed task — read from SQLite table
         var task = await backtestService.GetTaskAsync(taskId, ct);
         if (task?.Status != BacktestTaskStatus.Completed)
         {
@@ -273,17 +252,11 @@ public class BacktestingController(
             return;
         }
 
-        var allData = await iotdb.GetBacktestAnalysisAllAsync(taskId, ct);
-        var fromIotdb = allData.Length > 0;
-
-        if (!fromIotdb)
+        var allData = await taskRepo.GetCandleAnalysesAllAsync(taskId, ct);
+        if (allData.Length == 0)
         {
-            allData = await taskRepo.GetCandleAnalysesAllAsync(taskId, ct);
-            if (allData.Length == 0)
-            {
-                await WriteCompleteAsync(Response, ss, ct);
-                return;
-            }
+            await WriteCompleteAsync(Response, ss, ct);
+            return;
         }
 
         var delayMs = 300 / speed;
@@ -346,12 +319,5 @@ public class BacktestingController(
     {
         await response.WriteAsync($"data: {JsonSerializer.Serialize(new { type = "complete" })}\n\n", ct);
         await response.Body.FlushAsync(ct);
-    }
-
-    private async Task<int> GetAnalysisCountFallbackAsync(Guid taskId, CancellationToken ct)
-    {
-        var count = await iotdb.GetBacktestAnalysisCountAsync(taskId, ct);
-        if (count > 0) return count;
-        return await taskRepo.GetCandleAnalysesCountAsync(taskId, ct);
     }
 }
