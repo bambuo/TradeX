@@ -28,6 +28,10 @@ const replayIndex = ref(0)
 const replayTotal = ref(0)
 const replayPlaying = ref(false)
 const replaySpeed = ref(1)
+const tableBuffer = ref<BacktestCandleAnalysis[]>([])
+const tableLoading = ref(false)
+const tablePage = ref(1)
+const tablePageSize = ref(100)
 
 const days = ref(7)
 const initialCapital = ref(1000)
@@ -38,7 +42,17 @@ let replayTimer: ReturnType<typeof setInterval> | null = null
 const analysisItems = computed(() =>
   replayBuffer.value.slice(0, replayIndex.value)
 )
+const displayAnalysisItems = computed(() =>
+  enrichPositionMetrics(analysisItems.value, selectedTask.value?.initialCapital ?? 1000)
+)
 const analysisTotal = computed(() => replayTotal.value)
+const currentAnalysisItem = computed(() => displayAnalysisItems.value.at(-1) ?? null)
+const tableTotalPages = computed(() => Math.max(1, Math.ceil((analysisTotal.value || 0) / tablePageSize.value)))
+const tableDisplayItems = computed(() => {
+  const start = (tablePage.value - 1) * tablePageSize.value
+  return enrichPositionMetrics(tableBuffer.value, selectedTask.value?.initialCapital ?? 1000).slice(start, start + tablePageSize.value)
+})
+const tableCurrentItem = computed(() => tableDisplayItems.value.at(-1) ?? null)
 
 const statusLabels: Record<string, string> = {
   Pending: '排队中', Running: '运行中', Completed: '已完成', Failed: '失败', Cancelled: '已取消'
@@ -147,6 +161,7 @@ async function openDetail(task: BacktestTask) {
   selectedTask.value = task
   selectedResult.value = null
   replayBuffer.value = []
+  tableBuffer.value = []
   replayIndex.value = 0
   replayTotal.value = 0
   showDetail.value = true
@@ -331,26 +346,34 @@ function onReplayRetry() {
 
 function loadTableView() {
   if (!selectedTask.value) return
-  backtestsApi.getAnalysis(traderId, selectedTask.value.strategyId, selectedTask.value.id, 1, 100).then(({ data }) => {
-    replayBuffer.value = data.items ?? []
-    replayTotal.value = data.total
-    replayIndex.value = data.items?.length ?? 0
-  }).catch(() => {})
+  tablePage.value = 1
+  loadTablePage(1)
 }
 
-function loadMoreTable() {
+function loadTablePage(page: number) {
   if (!selectedTask.value) return
-  const page = Math.ceil(replayBuffer.value.length / 100) + 1
-  backtestsApi.getAnalysis(traderId, selectedTask.value.strategyId, selectedTask.value.id, page, 100).then(({ data }) => {
-    replayBuffer.value = [...replayBuffer.value, ...(data.items ?? [])]
-    replayIndex.value = replayBuffer.value.length
-  }).catch(() => {})
+  tablePage.value = Math.min(Math.max(page, 1), tableTotalPages.value)
+  const cumulativeSize = tablePage.value * tablePageSize.value
+  tableLoading.value = true
+  backtestsApi.getAnalysis(traderId, selectedTask.value.strategyId, selectedTask.value.id, 1, cumulativeSize).then(({ data }) => {
+    tableBuffer.value = data.items ?? []
+    replayTotal.value = data.total
+  }).catch(() => {}).finally(() => {
+    tableLoading.value = false
+  })
+}
+
+function changeTablePageSize(size: number) {
+  tablePageSize.value = size
+  tablePage.value = 1
+  loadTablePage(1)
 }
 
 function onViewModeChange(mode: 'chart' | 'table') {
   analysisViewMode.value = mode
   stopReplay()
   replayBuffer.value = []
+  tableBuffer.value = []
   replayIndex.value = 0
   if (mode === 'chart') {
     startReplay()
@@ -361,6 +384,81 @@ function onViewModeChange(mode: 'chart' | 'table') {
 
 function formatPercent(v: number): string {
   return v >= 0 ? `+${v.toFixed(2)}%` : `${v.toFixed(2)}%`
+}
+
+function formatCurrency(v: number | null | undefined): string {
+  if (typeof v !== 'number' || Number.isNaN(v)) return '-'
+  return `$${v.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+}
+
+function enrichPositionMetrics(items: BacktestCandleAnalysis[], initialValue: number): BacktestCandleAnalysis[] {
+  const fallbackEntryValue = Math.min(100, initialValue)
+  const legs: { quantity: number; cost: number }[] = []
+  let realizedPnl = 0
+  let lastQuantity = 0
+  let lastCost = 0
+
+  return items.map((item) => {
+    if (item.positionCost !== null && item.positionCost !== undefined
+      && item.positionQuantity !== null && item.positionQuantity !== undefined) {
+      if (item.positionQuantity < lastQuantity) {
+        const removedQuantity = lastQuantity - item.positionQuantity
+        const avgCost = lastQuantity > 0 ? lastCost / lastQuantity : item.close
+        const removedCost = avgCost * removedQuantity
+        realizedPnl += item.close * removedQuantity - removedCost
+      }
+
+      const positionValue = item.positionQuantity * item.close
+      const positionPnl = positionValue - item.positionCost
+      const positionPnlPercent = item.positionCost > 0 ? (positionPnl / item.positionCost) * 100 : 0
+      const taskPnl = realizedPnl + positionPnl
+      const taskPnlPercent = initialValue > 0 ? (taskPnl / initialValue) * 100 : 0
+
+      lastQuantity = item.positionQuantity
+      lastCost = item.positionCost
+
+      return {
+        ...item,
+        inPosition: item.inPosition || item.positionQuantity > 0,
+        avgEntryPrice: item.positionQuantity > 0 ? item.positionCost / item.positionQuantity : item.avgEntryPrice,
+        positionValue,
+        positionPnl,
+        positionPnlPercent,
+        taskPnl,
+        taskPnlPercent
+      }
+    }
+
+    if (item.action === 'enter') {
+      const cost = fallbackEntryValue
+      const quantity = item.close > 0 ? cost / item.close : 0
+      if (quantity > 0) legs.push({ quantity, cost })
+    } else if (item.action === 'exit' && legs.length > 0) {
+      const leg = legs.shift()!
+      realizedPnl += item.close * leg.quantity - leg.cost
+    }
+
+    const positionQuantity = legs.reduce((sum, leg) => sum + leg.quantity, 0)
+    const positionCost = legs.reduce((sum, leg) => sum + leg.cost, 0)
+    const positionValue = positionQuantity > 0 ? positionQuantity * item.close : null
+    const positionPnl = positionValue !== null ? positionValue - positionCost : null
+    const positionPnlPercent = positionCost > 0 && positionPnl !== null ? (positionPnl / positionCost) * 100 : null
+    const taskPnl = realizedPnl + (positionPnl ?? 0)
+    const taskPnlPercent = initialValue > 0 ? (taskPnl / initialValue) * 100 : 0
+
+    return {
+      ...item,
+      inPosition: item.inPosition || positionQuantity > 0,
+      avgEntryPrice: positionQuantity > 0 ? positionCost / positionQuantity : null,
+      positionQuantity: positionQuantity > 0 ? positionQuantity : null,
+      positionCost: positionCost > 0 ? positionCost : null,
+      positionValue,
+      positionPnl,
+      positionPnlPercent,
+      taskPnl,
+      taskPnlPercent
+    }
+  })
 }
 </script>
 
@@ -547,9 +645,43 @@ function formatPercent(v: number): string {
               <span class="replay-divider">|</span>
               <AppButton size="sm" icon="table" @click="onViewModeChange('table')">表格</AppButton>
             </div>
+            <div v-if="currentAnalysisItem" class="position-replay-card">
+              <div class="position-stat">
+                <span class="position-label">当前 K 线</span>
+                <span class="position-value">{{ new Date(currentAnalysisItem.timestamp).toLocaleString() }}</span>
+              </div>
+              <div class="position-stat">
+                <span class="position-label">持仓状态</span>
+                <span class="position-value" :class="currentAnalysisItem.inPosition ? 'up' : ''">{{ currentAnalysisItem.inPosition ? '持仓中' : '空仓' }}</span>
+              </div>
+              <div class="position-stat">
+                <span class="position-label">持仓均价</span>
+                <span class="position-value">{{ formatCurrency(currentAnalysisItem.avgEntryPrice) }}</span>
+              </div>
+              <div class="position-stat">
+                <span class="position-label">入场持仓价值</span>
+                <span class="position-value">{{ formatCurrency(currentAnalysisItem.positionCost) }}</span>
+              </div>
+              <div class="position-stat">
+                <span class="position-label">当前持仓价值</span>
+                <span class="position-value">{{ formatCurrency(currentAnalysisItem.positionValue) }}</span>
+              </div>
+              <div class="position-stat">
+                <span class="position-label">盈亏金额</span>
+                <span class="position-value" :class="(currentAnalysisItem.taskPnl ?? 0) >= 0 ? 'up' : 'down'">
+                  {{ formatCurrency(currentAnalysisItem.taskPnl) }}
+                </span>
+              </div>
+              <div class="position-stat">
+                <span class="position-label">盈亏比</span>
+                <span class="position-value" :class="(currentAnalysisItem.taskPnlPercent ?? 0) >= 0 ? 'up' : 'down'">
+                  {{ currentAnalysisItem.taskPnlPercent !== null && currentAnalysisItem.taskPnlPercent !== undefined ? formatPercent(currentAnalysisItem.taskPnlPercent) : '-' }}
+                </span>
+              </div>
+            </div>
             <BacktestCandleAnalysisView
-              v-if="analysisItems.length > 0"
-              :analysis="analysisItems"
+              v-if="displayAnalysisItems.length > 0"
+              :analysis="displayAnalysisItems"
               chart-only
             />
             <div v-else class="loading-hint">
@@ -560,13 +692,49 @@ function formatPercent(v: number): string {
           <div v-if="activeTab === 'analysis' && analysisViewMode === 'table'" class="analysis-table-section">
             <div class="table-bar">
               <span class="table-label">共 {{ analysisTotal }} 根 K 线</span>
+              <div class="pagination-controls">
+                <span class="table-label">每页</span>
+                <AppSelect
+                  :options="[
+                    { label: '50', value: 50 },
+                    { label: '100', value: 100 },
+                    { label: '200', value: 200 },
+                    { label: '500', value: 500 }
+                  ]"
+                  :model-value="tablePageSize"
+                  @update:model-value="(v: string | number) => changeTablePageSize(Number(v))"
+                />
+                <AppButton size="sm" variant="ghost" :disabled="tablePage <= 1" @click="loadTablePage(tablePage - 1)">上一页</AppButton>
+                <span class="page-label">{{ tablePage }} / {{ tableTotalPages }}</span>
+                <AppButton size="sm" variant="ghost" :disabled="tablePage >= tableTotalPages" @click="loadTablePage(tablePage + 1)">下一页</AppButton>
+              </div>
               <AppButton size="sm" icon="chart" @click="onViewModeChange('chart')">K 线图</AppButton>
             </div>
-            <div v-if="analysisItems.length > 0">
-              <BacktestCandleAnalysisView :analysis="analysisItems" table-only />
-              <div v-if="replayBuffer.length < analysisTotal" class="load-more-wrap">
-                <AppButton icon="plus" @click="loadMoreTable">加载更多 ({{ replayBuffer.length }}/{{ analysisTotal }})</AppButton>
+            <div v-if="currentAnalysisItem" class="position-replay-card compact">
+              <div class="position-stat">
+                <span class="position-label">入场持仓价值</span>
+                <span class="position-value">{{ formatCurrency(tableDisplayItems.at(-1)?.positionCost) }}</span>
               </div>
+              <div class="position-stat">
+                <span class="position-label">当前持仓价值</span>
+                <span class="position-value">{{ formatCurrency(tableDisplayItems.at(-1)?.positionValue) }}</span>
+              </div>
+              <div class="position-stat">
+                <span class="position-label">盈亏金额</span>
+                <span class="position-value" :class="(tableDisplayItems.at(-1)?.taskPnl ?? 0) >= 0 ? 'up' : 'down'">
+                  {{ formatCurrency(tableDisplayItems.at(-1)?.taskPnl) }}
+                </span>
+              </div>
+              <div class="position-stat">
+                <span class="position-label">盈亏比</span>
+                <span class="position-value" :class="(tableDisplayItems.at(-1)?.taskPnlPercent ?? 0) >= 0 ? 'up' : 'down'">
+                  {{ tableDisplayItems.at(-1)?.taskPnlPercent !== null && tableDisplayItems.at(-1)?.taskPnlPercent !== undefined ? formatPercent(tableDisplayItems.at(-1)!.taskPnlPercent!) : '-' }}
+                </span>
+              </div>
+            </div>
+            <div v-if="tableLoading" class="loading-hint">加载当前页...</div>
+            <div v-else-if="tableDisplayItems.length > 0">
+              <BacktestCandleAnalysisView :analysis="tableDisplayItems" table-only />
             </div>
             <div v-else class="loading-hint">没有可用的 K 线分析数据</div>
           </div>
@@ -673,12 +841,30 @@ function formatPercent(v: number): string {
 }
 .speed-btn:hover { color: var(--text-primary); }
 .speed-btn.active { background: rgba(56,189,248,0.15); color: var(--accent-blue); border-color: var(--accent-blue); }
+.position-replay-card {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  background: rgba(255,255,255,0.45);
+  border: 1px solid var(--glass-border);
+  border-radius: 6px;
+}
+.position-replay-card.compact { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.position-stat { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; }
+.position-label { color: var(--text-muted); font-size: 0.72rem; }
+.position-value { color: var(--text-primary); font-size: 0.9rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.position-value.up { color: var(--accent-green); }
+.position-value.down { color: var(--accent-red); }
 .table-bar {
   display: flex; align-items: center; justify-content: space-between;
   padding: 0.5rem; background: rgba(255,255,255,0.35); border: 1px solid var(--glass-border);
-  border-radius: 6px; margin-bottom: 0.5rem;
+  border-radius: 6px; margin-bottom: 0.5rem; gap: 0.75rem; flex-wrap: wrap;
 }
 .table-label { color: var(--text-muted); font-size: 0.8rem; }
+.pagination-controls { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.page-label { color: var(--text-primary); font-size: 0.8rem; font-family: 'SF Mono', monospace; min-width: 64px; text-align: center; }
 
 .load-more-wrap { text-align: center; padding: 0.75rem 0; }
 .load-more-btn {

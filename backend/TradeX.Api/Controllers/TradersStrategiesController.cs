@@ -108,7 +108,7 @@ public class TradersStrategiesController(
         if (deployment is null || deployment.TraderId != traderId)
             return NotFound(new { message = "策略部署不存在" });
 
-        if (deployment.Status == StrategyStatus.Active)
+        if (deployment.Status == DeploymentStatus.Active)
             return BadRequest(new { message = "活跃策略不可编辑，请先禁用" });
 
         if (request.SymbolIds is not null)
@@ -138,7 +138,7 @@ public class TradersStrategiesController(
         if (deployment is null || deployment.TraderId != traderId)
             return NotFound(new { message = "策略部署不存在" });
 
-        if (deployment.Status == StrategyStatus.Active)
+        if (deployment.Status == DeploymentStatus.Active)
             return BadRequest(new { message = "活跃策略不可删除，请先禁用" });
 
         await deploymentRepo.DeleteAsync(deployment, ct);
@@ -158,7 +158,7 @@ public class TradersStrategiesController(
 
         if (request.Enable)
         {
-            if (deployment.Status == StrategyStatus.Draft)
+            if (deployment.Status == DeploymentStatus.Draft)
                 return BadRequest(new { message = "草稿策略必须先通过回测才能启用" });
 
             var symbolIds = ParseSymbolIds(deployment.SymbolIds);
@@ -169,11 +169,11 @@ public class TradersStrategiesController(
                     return Conflict(new { message = $"交易对 {symbolId} 上已有活跃策略" });
             }
 
-            deployment.Status = StrategyStatus.Active;
+            deployment.Status = DeploymentStatus.Active;
         }
         else
         {
-            deployment.Status = StrategyStatus.Disabled;
+            deployment.Status = DeploymentStatus.Disabled;
         }
 
         await deploymentRepo.UpdateAsync(deployment, ct);

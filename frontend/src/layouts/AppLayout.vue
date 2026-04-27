@@ -43,6 +43,7 @@ const navItems = [
   { path: '/exchanges', label: '交易所', icon: 'exchange' },
   { path: '/strategies', label: '策略', icon: 'strategy' },
   { path: '/audit-logs', label: '审计日志', icon: 'audit' },
+  { path: '/settings', label: '系统设置', icon: 'settings' },
   { path: '/notifications', label: '通知渠道', icon: 'notification' },
   { path: '/users', label: '用户管理', icon: 'users' },
 ]
@@ -93,6 +94,10 @@ const navIconPaths: Record<string, string[]> = {
     'M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z',
     'M18 11a2.5 2.5 0 1 0 0-5',
     'M21 20v-1a3 3 0 0 0-2.4-2.9'
+  ],
+  settings: [
+    'M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z',
+    'M19.4 15a1 1 0 0 0 .2 1.1l.1.1a1 1 0 1 1-1.4 1.4l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9V19a1 1 0 1 1-2 0v-.2a1 1 0 0 0-.6-.9 1 1 0 0 0-1.1.2l-.1.1a1 1 0 1 1-1.4-1.4l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6H9a1 1 0 1 1 0-2h.2a1 1 0 0 0 .9-.6 1 1 0 0 0-.2-1.1l-.1-.1a1 1 0 1 1 1.4-1.4l.1.1a1 1 0 0 0 1.1.2 1 1 0 0 0 .6-.9V9a1 1 0 1 1 2 0v.2a1 1 0 0 0 .6.9 1 1 0 0 0 1.1-.2l.1-.1a1 1 0 1 1 1.4 1.4l-.1.1a1 1 0 0 0-.2 1.1 1 1 0 0 0 .9.6H20a1 1 0 1 1 0 2h-.2a1 1 0 0 0-.4.1Z'
   ]
 }
 </script>

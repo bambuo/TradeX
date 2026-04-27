@@ -107,5 +107,33 @@ export const strategyPresets: StrategyPreset[] = [
       usePyramiding: true,
       maxPyramidingLevels: 4
     })
+  },
+  {
+    name: '波幅均价再平衡',
+    description: '5m/15m 观察波动，波幅达到阈值后小仓入场；随后围绕持仓均价按 1% 网格分批加仓与减仓，最多追加 5 次',
+    notes: [
+      '首单触发条件建议设置为 RANGE_PCT >= 1，适配高波动时段，低波动时不入场',
+      '加仓条件由执行规则驱动：当前价 <= 均价 * (1 - 1%)，最多追加 5 次，防止无限摊平',
+      '减仓条件由执行规则驱动：当前价 >= 均价 * (1 + 1%)，每次减一笔，逐步锁定利润',
+      '该风格可关闭单笔止损，但建议保留 maxDailyLoss 作为账户级兜底'
+    ],
+    entryConditionJson: JSON.stringify({
+      operator: '',
+      indicator: 'RANGE_PCT',
+      comparison: '>=',
+      value: 1
+    }),
+    exitConditionJson: '{}',
+    executionRuleJson: JSON.stringify({
+      type: 'volatility_grid',
+      entryVolatilityPercent: 1.0,
+      rebalancePercent: 1.0,
+      basePositionSize: 100,
+      maxPositionSize: 600,
+      maxPyramidingLevels: 5,
+      noStopLoss: true,
+      slippageTolerance: 0.0005,
+      maxDailyLoss: 200
+    })
   }
 ]

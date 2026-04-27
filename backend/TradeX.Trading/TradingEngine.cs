@@ -21,6 +21,8 @@ public class TradingEngine(
     ILogger<TradingEngine> logger) : BackgroundService
 {
     private static readonly TimeSpan EvaluationCycle = TimeSpan.FromSeconds(15);
+    private const string VolatilityGridDedupSecondsKey = "risk.volatility_grid_dedup_seconds";
+    private const int DefaultVolatilityGridDedupSeconds = 60;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -56,11 +58,13 @@ public class TradingEngine(
         if (activeStrategies.Count == 0)
             return;
 
+        var volatilityGridDedupWindow = await ResolveVolatilityGridDedupWindowAsync(cycle.SystemConfigRepo, ct);
+
         foreach (var strategy in activeStrategies)
         {
             try
             {
-                await EvaluateStrategyAsync(strategy, cycle, ct);
+                await EvaluateStrategyAsync(strategy, cycle, volatilityGridDedupWindow, ct);
             }
             catch (Exception ex)
             {
@@ -78,6 +82,7 @@ public class TradingEngine(
     private async Task EvaluateStrategyAsync(
         Core.Models.StrategyDeployment strategy,
         TradingCycleScope cycle,
+        TimeSpan volatilityGridDedupWindow,
         CancellationToken ct)
     {
         var symbolIds = strategy.SymbolIds.Split(',', StringSplitOptions.RemoveEmptyEntries);
@@ -93,11 +98,18 @@ public class TradingEngine(
             return;
         }
 
+        var currentPrice = prices[^1];
+        var previousPrice = prices[^2];
+        var rangePct = previousPrice > 0
+            ? Math.Abs((currentPrice - previousPrice) / previousPrice) * 100m
+            : 0m;
+
         Dictionary<string, decimal> previousValues = new()
         {
             ["RSI"] = cycle.IndicatorService.CalculateRsi(prices[..^1]),
             ["SMA_20"] = cycle.IndicatorService.CalculateSma(prices[..^1], 20),
             ["SMA_50"] = cycle.IndicatorService.CalculateSma(prices[..^1], 50),
+            ["RANGE_PCT"] = rangePct,
         };
 
         Dictionary<string, decimal> indicatorValues = new()
@@ -107,17 +119,67 @@ public class TradingEngine(
             ["SMA_50"] = cycle.IndicatorService.CalculateSma(prices, 50),
             ["EMA_20"] = cycle.IndicatorService.CalculateEma(prices, 20),
             ["MACD_LINE"] = cycle.IndicatorService.CalculateMacd(prices).MacdLine,
-            ["MACD_SIGNAL"] = cycle.IndicatorService.CalculateMacd(prices).SignalLine
+            ["MACD_SIGNAL"] = cycle.IndicatorService.CalculateMacd(prices).SignalLine,
+            ["RANGE_PCT"] = rangePct
         };
 
         var openPositions = await cycle.PositionRepo.GetByStrategyIdAsync(strategy.Id, ct);
-        var hasOpenPosition = openPositions.Any(p => p.Status == PositionStatus.Open);
+        var strategyTemplate = strategy.StrategyId != Guid.Empty
+            ? await cycle.StrategyRepo.GetByIdAsync(strategy.StrategyId, ct)
+            : null;
+        var entryConditionJson = strategyTemplate?.EntryConditionJson ?? "{}";
+        var exitConditionJson = strategyTemplate?.ExitConditionJson ?? "{}";
+        var executionRuleJson = strategyTemplate?.ExecutionRuleJson ?? "{}";
+        var openSymbolPositions = openPositions
+            .Where(p => p.Status == PositionStatus.Open && p.SymbolId.Equals(symbolId, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(p => p.OpenedAtUtc)
+            .ToList();
+        var hasOpenPosition = openSymbolPositions.Count > 0;
 
-        if (!hasOpenPosition && !string.IsNullOrWhiteSpace(strategy.EntryConditionJson) && strategy.EntryConditionJson != "{}")
+        var volatilityRule = VolatilityGridExecutionRuleParser.TryParse(executionRuleJson);
+        var hasEntryCondition = !string.IsNullOrWhiteSpace(entryConditionJson) && entryConditionJson != "{}";
+        var hasExitCondition = !string.IsNullOrWhiteSpace(exitConditionJson) && exitConditionJson != "{}";
+        var shouldEvaluateEntry = volatilityRule is not null || (!hasOpenPosition && hasEntryCondition);
+
+        if (shouldEvaluateEntry)
         {
-            var shouldEnter = cycle.ConditionEvaluator.Evaluate(strategy.EntryConditionJson, indicatorValues, previousValues);
+            var shouldEnter = volatilityRule is null
+                ? cycle.ConditionEvaluator.Evaluate(entryConditionJson, indicatorValues, previousValues)
+                : ShouldEnterVolatilityGrid(
+                    volatilityRule,
+                    hasOpenPosition,
+                    openSymbolPositions,
+                    currentPrice,
+                    HasRecentPriceMoveBelowMid(prices, volatilityRule.EntryVolatilityPercent, currentPrice));
             if (shouldEnter)
             {
+                if (volatilityRule is not null && !CanExecuteVolatilityGridOrder(strategy.TraderId, strategy.ExchangeId, symbolId, OrderSide.Buy, volatilityGridDedupWindow))
+                {
+                    logger.LogDebug("策略 {StrategyName}: 命中去重窗口，跳过重复买入, Symbol={Symbol}", strategy.Name, symbolId);
+                    return;
+                }
+
+                var canPyramid = volatilityRule is null
+                    || !hasOpenPosition
+                    || openSymbolPositions.Count < volatilityRule.MaxPyramidingLevels + 1;
+                if (!canPyramid)
+                {
+                    logger.LogDebug("策略 {StrategyName}: 已达到最大加仓次数, Symbol={Symbol}, Max={Max}",
+                        strategy.Name, symbolId, volatilityRule!.MaxPyramidingLevels);
+                    return;
+                }
+
+                if (volatilityRule is not null)
+                {
+                    var totalPositionValue = openSymbolPositions.Sum(p => p.CurrentPrice * p.Quantity) + volatilityRule.BasePositionSize;
+                    if (totalPositionValue > volatilityRule.MaxPositionSize)
+                    {
+                        logger.LogDebug("策略 {StrategyName}: 仓位价值 {Value} 超过上限 {Max}, Symbol={Symbol}",
+                            strategy.Name, totalPositionValue, volatilityRule.MaxPositionSize, symbolId);
+                        return;
+                    }
+                }
+
                 var riskCheck = await cycle.RiskManager.CheckAsync(strategy.TraderId, strategy.ExchangeId, ct);
                 if (!riskCheck.IsAllowed)
                 {
@@ -144,13 +206,16 @@ public class TradingEngine(
                     SymbolId = symbolId,
                     Side = OrderSide.Buy,
                     Type = OrderType.Market,
-                    Quantity = 100,
-                    QuoteQuantity = 100
+                    Quantity = volatilityRule?.BasePositionSize ?? 100,
+                    QuoteQuantity = volatilityRule?.BasePositionSize ?? 100
                 };
 
                 var result = await cycle.TradeExecutor.ExecuteMarketOrderAsync(order, ct);
                 if (result.Success)
                 {
+                    if (volatilityRule is not null)
+                        MarkVolatilityGridOrderExecuted(strategy.TraderId, strategy.ExchangeId, symbolId, OrderSide.Buy);
+
                     marketData.LastTradeTime[$"{strategy.TraderId}_{strategy.Id}"] = DateTime.UtcNow;
 
                     logger.LogInformation("策略 {StrategyName}: 买入成交 {Symbol} {Quantity}",
@@ -168,12 +233,24 @@ public class TradingEngine(
             }
         }
 
-        if (hasOpenPosition && !string.IsNullOrWhiteSpace(strategy.ExitConditionJson) && strategy.ExitConditionJson != "{}")
+        if (hasOpenPosition && (volatilityRule is not null || hasExitCondition))
         {
-            var shouldExit = cycle.ConditionEvaluator.Evaluate(strategy.ExitConditionJson, indicatorValues, previousValues);
+            var shouldExit = volatilityRule is null
+                ? cycle.ConditionEvaluator.Evaluate(exitConditionJson, indicatorValues, previousValues)
+                : ShouldExitVolatilityGrid(volatilityRule, openSymbolPositions, currentPrice);
             if (shouldExit)
             {
-                foreach (var position in openPositions.Where(p => p.Status == PositionStatus.Open))
+                if (volatilityRule is not null && !CanExecuteVolatilityGridOrder(strategy.TraderId, strategy.ExchangeId, symbolId, OrderSide.Sell, volatilityGridDedupWindow))
+                {
+                    logger.LogDebug("策略 {StrategyName}: 命中去重窗口，跳过重复卖出, Symbol={Symbol}", strategy.Name, symbolId);
+                    return;
+                }
+
+                var positionsToClose = volatilityRule is null
+                    ? openSymbolPositions
+                    : openSymbolPositions.Take(1).ToList();
+
+                foreach (var position in positionsToClose)
                 {
                     var sellOrder = new Order
                     {
@@ -191,6 +268,9 @@ public class TradingEngine(
                     var result = await cycle.TradeExecutor.ExecuteMarketOrderAsync(sellOrder, ct);
                     if (result.Success)
                     {
+                        if (volatilityRule is not null)
+                            MarkVolatilityGridOrderExecuted(strategy.TraderId, strategy.ExchangeId, symbolId, OrderSide.Sell);
+
                         position.Status = PositionStatus.Closed;
                         position.ClosedAtUtc = DateTime.UtcNow;
                         position.UpdatedAt = DateTime.UtcNow;
@@ -212,6 +292,106 @@ public class TradingEngine(
                 }
             }
         }
+    }
+
+    private static bool ShouldEnterVolatilityGrid(
+        VolatilityGridExecutionRule rule,
+        bool hasOpenPosition,
+        IReadOnlyList<Position> openSymbolPositions,
+        decimal currentPrice,
+        bool firstEntrySignal)
+    {
+        if (!hasOpenPosition)
+            return firstEntrySignal;
+
+        var avgEntry = CalculateAverageEntry(openSymbolPositions);
+        if (avgEntry <= 0)
+            return false;
+
+        return currentPrice <= avgEntry * (1 - rule.RebalancePercent / 100m);
+    }
+
+    private static bool ShouldExitVolatilityGrid(
+        VolatilityGridExecutionRule rule,
+        IReadOnlyList<Position> openSymbolPositions,
+        decimal currentPrice)
+    {
+        if (openSymbolPositions.Count == 0)
+            return false;
+
+        var avgEntry = CalculateAverageEntry(openSymbolPositions);
+        if (avgEntry <= 0)
+            return false;
+
+        return currentPrice >= avgEntry * (1 + rule.RebalancePercent / 100m);
+    }
+
+    private static decimal CalculateAverageEntry(IReadOnlyList<Position> openSymbolPositions)
+    {
+        var totalQuantity = openSymbolPositions.Sum(p => p.Quantity);
+        if (totalQuantity <= 0)
+            return 0m;
+
+        var totalCost = openSymbolPositions.Sum(p => p.EntryPrice * p.Quantity);
+        return totalCost / totalQuantity;
+    }
+
+    private static async Task<TimeSpan> ResolveVolatilityGridDedupWindowAsync(ISystemConfigRepository configRepo, CancellationToken ct)
+    {
+        var item = await configRepo.GetByKeyAsync(VolatilityGridDedupSecondsKey, ct);
+        if (item is null || !int.TryParse(item.Value, out var seconds))
+            return TimeSpan.FromSeconds(DefaultVolatilityGridDedupSeconds);
+
+        return TimeSpan.FromSeconds(Math.Clamp(seconds, 0, 3600));
+    }
+
+    private bool CanExecuteVolatilityGridOrder(Guid traderId, Guid exchangeId, string symbolId, OrderSide side, TimeSpan dedupWindow)
+    {
+        var dedupKey = BuildVolatilityGridDedupKey(traderId, exchangeId, symbolId, side);
+        if (!marketData.LastTradeTime.TryGetValue(dedupKey, out var lastTime))
+            return true;
+
+        return DateTime.UtcNow - lastTime >= dedupWindow;
+    }
+
+    private void MarkVolatilityGridOrderExecuted(Guid traderId, Guid exchangeId, string symbolId, OrderSide side)
+    {
+        var dedupKey = BuildVolatilityGridDedupKey(traderId, exchangeId, symbolId, side);
+        marketData.LastTradeTime[dedupKey] = DateTime.UtcNow;
+    }
+
+    private static string BuildVolatilityGridDedupKey(Guid traderId, Guid exchangeId, string symbolId, OrderSide side)
+        => $"vg:{traderId}:{exchangeId}:{symbolId.ToUpperInvariant()}:{side}";
+
+    private static bool HasRecentPriceMoveBelowMid(IReadOnlyList<decimal> prices, decimal thresholdPercent, decimal currentPrice)
+    {
+        var lookbackStart = Math.Max(0, prices.Count - 1801);
+        if (lookbackStart >= prices.Count)
+            return false;
+
+        // Ensure at least ~30 minutes of data (120 ticks at 15s) to avoid cold start false triggers
+        if (prices.Count - lookbackStart < 120)
+            return false;
+
+        var minPrice = prices[lookbackStart];
+        var maxPrice = prices[lookbackStart];
+
+        for (var j = lookbackStart + 1; j < prices.Count; j++)
+        {
+            var p = prices[j];
+            if (p < minPrice) minPrice = p;
+            if (p > maxPrice) maxPrice = p;
+        }
+
+        if (minPrice <= 0)
+            return false;
+
+        var rangePct = (maxPrice - minPrice) / minPrice * 100m;
+        if (rangePct < thresholdPercent)
+            return false;
+
+        var midPrice = (maxPrice + minPrice) / 2m;
+        return currentPrice < midPrice;
     }
 
     private async Task UpdateAllPositionsPnlAsync(IPositionRepository positionRepo, CancellationToken ct)

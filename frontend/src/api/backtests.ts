@@ -50,6 +50,14 @@ export interface BacktestCandleAnalysis {
   exit: boolean | null
   inPosition: boolean
   action: string
+  avgEntryPrice: number | null
+  positionQuantity: number | null
+  positionCost: number | null
+  positionValue: number | null
+  positionPnl: number | null
+  positionPnlPercent: number | null
+  taskPnl?: number | null
+  taskPnlPercent?: number | null
 }
 
 export interface AnalysisResponse {

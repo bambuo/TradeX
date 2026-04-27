@@ -22,7 +22,7 @@ const emit = defineEmits<{
 
 const isLeaf = computed(() => !props.node.conditions || props.node.conditions.length === 0)
 const operators = ['AND', 'OR', 'NOT']
-const indicators = ['RSI', 'SMA_20', 'SMA_50', 'EMA_20', 'MACD_LINE', 'MACD_SIGNAL', 'BB', 'OBV', 'VolumeSMA']
+const indicators = ['RSI', 'SMA_20', 'SMA_50', 'EMA_20', 'MACD_LINE', 'MACD_SIGNAL', 'BB_UPPER', 'BB_LOWER', 'OBV', 'VOLUME_SMA', 'RANGE_PCT']
 const comparisons = ['>', '<', '>=', '<=', '==', 'CrossAbove', 'CrossBelow']
 
 function removeFromParent() {

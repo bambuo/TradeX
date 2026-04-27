@@ -14,6 +14,9 @@ export interface ExecutionRule {
   takeProfitPercent?: number
   usePyramiding?: boolean
   maxPyramidingLevels?: number
+  entryVolatilityPercent?: number
+  rebalancePercent?: number
+  noStopLoss?: boolean
 }
 
 const props = defineProps<{
@@ -40,7 +43,8 @@ const ruleTypes: Record<string, string> = {
   custom: '自定义',
   grid: '网格策略',
   trend_following: '趋势追踪',
-  infinity_grid: '无限网格'
+  infinity_grid: '无限网格',
+  volatility_grid: '波幅均价再平衡'
 }
 
 const ruleFields: Record<string, { key: string; label: string; type: string; step?: string; min?: number }[]> = {
@@ -70,6 +74,16 @@ const ruleFields: Record<string, { key: string; label: string; type: string; ste
     { key: 'slippageTolerance', label: '滑点容忍度', type: 'number', step: '0.0001', min: 0 },
     { key: 'usePyramiding', label: '启用金字塔加仓', type: 'boolean' },
     { key: 'maxPyramidingLevels', label: '最大金字塔层数', type: 'number', min: 1 }
+  ],
+  volatility_grid: [
+    { key: 'entryVolatilityPercent', label: '首单波幅阈值 (%)', type: 'number', step: '0.1', min: 0.1 },
+    { key: 'rebalancePercent', label: '均价再平衡阈值 (%)', type: 'number', step: '0.1', min: 0.1 },
+    { key: 'basePositionSize', label: '基础仓位 ($)', type: 'number', min: 1 },
+    { key: 'maxPositionSize', label: '最大仓位 ($)', type: 'number', min: 1 },
+    { key: 'maxPyramidingLevels', label: '最大追加次数', type: 'number', min: 0 },
+    { key: 'slippageTolerance', label: '滑点容忍度', type: 'number', step: '0.0001', min: 0 },
+    { key: 'maxDailyLoss', label: '每日最大亏损 ($)', type: 'number', min: 0 },
+    { key: 'noStopLoss', label: '关闭单笔止损', type: 'boolean' }
   ]
 }
 

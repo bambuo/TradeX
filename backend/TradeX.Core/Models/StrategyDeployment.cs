@@ -11,10 +11,7 @@ public class StrategyDeployment
     public Guid ExchangeId { get; set; }
     public string SymbolIds { get; set; } = "[]";
     public string Timeframe { get; set; } = "15m";
-    public string EntryConditionJson { get; set; } = "{}";
-    public string ExitConditionJson { get; set; } = "{}";
-    public string ExecutionRuleJson { get; set; } = "{}";
-    public StrategyStatus Status { get; set; } = StrategyStatus.Draft;
+    public DeploymentStatus Status { get; set; } = DeploymentStatus.Draft;
     public Guid CreatedBy { get; init; }
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

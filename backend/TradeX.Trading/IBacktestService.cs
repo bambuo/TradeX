@@ -26,7 +26,13 @@ public record BacktestCandleAnalysis(
     [property: JsonPropertyName("entry")] bool? EntryConditionResult,
     [property: JsonPropertyName("exit")] bool? ExitConditionResult,
     bool InPosition,
-    string Action);
+    string Action,
+    decimal? AvgEntryPrice = null,
+    decimal? PositionQuantity = null,
+    decimal? PositionCost = null,
+    decimal? PositionValue = null,
+    decimal? PositionPnl = null,
+    decimal? PositionPnlPercent = null);
 
 public interface IBacktestService
 {

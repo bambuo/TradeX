@@ -50,11 +50,11 @@ public class SignalREventBusTests
     }
 
     [Fact]
-    public async Task StrategyStatusChangedAsync_DoesNotThrow()
+    public async Task DeploymentStatusChangedAsync_DoesNotThrow()
     {
         var bus = new SignalREventBus(Substitute.For<IHubContext<TradingHub>>());
         var exception = await Record.ExceptionAsync(() =>
-            bus.StrategyStatusChangedAsync(Guid.NewGuid(), Guid.NewGuid(), "Draft", "Active", "用户启用"));
+            bus.DeploymentStatusChangedAsync(Guid.NewGuid(), Guid.NewGuid(), "Draft", "Active", "用户启用"));
 
         Assert.Null(exception);
     }

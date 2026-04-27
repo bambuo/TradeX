@@ -33,7 +33,7 @@ function renderNode(node: ConditionNode): string {
 function humanizeExecutionRule(json: string): string {
   try {
     const obj = JSON.parse(json)
-    const typeLabels: Record<string, string> = { grid: '网格', trend_following: '趋势追踪', infinity_grid: '无限网格', custom: '自定义' }
+    const typeLabels: Record<string, string> = { grid: '网格', trend_following: '趋势追踪', infinity_grid: '无限网格', volatility_grid: '波幅均价再平衡', custom: '自定义' }
     return typeLabels[obj.type] || '自定义'
   } catch { return '自定义' }
 }

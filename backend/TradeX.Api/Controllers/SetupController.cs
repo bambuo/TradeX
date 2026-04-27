@@ -54,6 +54,7 @@ public class SetupController(TradeXDbContext db) : ControllerBase
         db.SystemConfigs.Add(new SystemConfig { Key = "risk.max_daily_loss_percent", Value = "10" });
         db.SystemConfigs.Add(new SystemConfig { Key = "risk.max_drawdown_percent", Value = "25" });
         db.SystemConfigs.Add(new SystemConfig { Key = "risk.cooldown_seconds", Value = "300" });
+        db.SystemConfigs.Add(new SystemConfig { Key = "risk.volatility_grid_dedup_seconds", Value = "60" });
         db.SystemConfigs.Add(new SystemConfig { Key = "risk.consecutive_loss_limit", Value = "5" });
         db.SystemConfigs.Add(new SystemConfig { Key = "data.kline_warmup_days", Value = "3" });
         db.SystemConfigs.Add(new SystemConfig { Key = "data.kline_warmup_interval", Value = "15m" });

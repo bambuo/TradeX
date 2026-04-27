@@ -181,7 +181,7 @@ public class BacktestScheduler(
 
         var engine = new BacktestEngine(indicatorService, conditionEvaluator);
         var (result, trades, analysis) = engine.Run(strategy, candles, task.InitialCapital,
-            a => analysisStore.Push(task.Id, a));
+            a => analysisStore.Push(task.Id, a), task.Timeframe);
 
         var resultWithTask = new BacktestResult
         {
@@ -203,9 +203,9 @@ public class BacktestScheduler(
         task.CompletedAtUtc = DateTime.UtcNow;
         await taskRepo.UpdateAsync(task, ct);
 
-        if (deployment?.Status == StrategyStatus.Draft)
+        if (deployment?.Status == DeploymentStatus.Draft)
         {
-            deployment.Status = StrategyStatus.Passed;
+            deployment.Status = DeploymentStatus.Passed;
             await deploymentRepo.UpdateAsync(deployment, ct);
         }
 
@@ -281,6 +281,36 @@ public class BacktestScheduler(
 
     private static long GetIntervalMs(string timeframe) =>
         IntervalMs.TryGetValue(timeframe, out var ms) ? ms : 60_000;
+
+    private static async Task<List<Candle>> FetchCandlesWithFallbackAsync(
+        IIoTDbService iotdb,
+        IExchangeClient exchangeClient,
+        string exchangeName,
+        string symbol,
+        string timeframe,
+        DateTime startUtc,
+        DateTime endUtc,
+        CancellationToken ct)
+    {
+        var tolerance = TimeSpan.FromMilliseconds(GetIntervalMs(timeframe));
+
+        try
+        {
+            var iotdbCandles = await iotdb.GetKlinesAsync(exchangeName, symbol, timeframe, startUtc, endUtc, ct);
+            if (iotdbCandles.Length >= 2
+                && iotdbCandles[0].Timestamp <= startUtc + tolerance
+                && iotdbCandles[^1].Timestamp >= endUtc - tolerance)
+            {
+                return iotdbCandles.ToList();
+            }
+        }
+        catch
+        {
+            // fallback to exchange
+        }
+
+        return await FetchAllCandlesAsync(exchangeClient, symbol, timeframe, startUtc, endUtc, ct);
+    }
 
     private static async Task<List<Candle>> FetchAllCandlesAsync(IExchangeClient client, string symbol, string timeframe, DateTime startUtc, DateTime endUtc, CancellationToken ct)
     {

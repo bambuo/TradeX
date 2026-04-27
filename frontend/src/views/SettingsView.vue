@@ -25,6 +25,7 @@ const keyLabels: Record<string, string> = {
   'risk.max_daily_loss_percent': '每日最大亏损（%）',
   'risk.max_drawdown_percent': '最大回撤（%）',
   'risk.cooldown_seconds': '冷却时间（秒）',
+  'risk.volatility_grid_dedup_seconds': '波幅策略去重窗口（秒）',
   'risk.consecutive_loss_limit': '连续亏损上限',
   'data.kline_warmup_days': 'K 线预热天数',
   'data.kline_warmup_interval': 'K 线预热间隔',
@@ -69,7 +70,7 @@ function getGroupLabel(group: string): string {
 }
 
 function getInputType(key: string): 'text' | 'password' {
-  return /(secret|token|api_?key|password)/i.test(key) ? 'password' : 'text'
+  return /(secret|api_?key|password)/i.test(key) ? 'password' : 'text'
 }
 
 async function load() {

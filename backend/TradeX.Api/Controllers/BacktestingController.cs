@@ -126,7 +126,13 @@ public class BacktestingController(
                     entry = a.EntryConditionResult,
                     exit = a.ExitConditionResult,
                     inPosition = a.InPosition,
-                    a.Action
+                    a.Action,
+                    a.AvgEntryPrice,
+                    a.PositionQuantity,
+                    a.PositionCost,
+                    a.PositionValue,
+                    a.PositionPnl,
+                    a.PositionPnlPercent
                 })
                 .ToList();
 
@@ -176,6 +182,20 @@ public class BacktestingController(
     public async Task GetAnalysisStream(Guid taskId,
         [FromQuery] int speed = 1,
         CancellationToken ct = default)
+    {
+        try
+        {
+            await GetAnalysisStreamInner(taskId, speed, ct);
+        }
+        catch (OperationCanceledException)
+        {
+            // client disconnected — exit cleanly, no 500
+        }
+    }
+
+    private async Task GetAnalysisStreamInner(Guid taskId,
+        int speed,
+        CancellationToken ct)
     {
         Response.ContentType = "text/event-stream";
         Response.Headers["Cache-Control"] = "no-cache";
@@ -244,6 +264,7 @@ public class BacktestingController(
         }
 
         var result = await backtestService.GetResultAsync(taskId, ct);
+
         if (result?.AnalysisJson is null)
         {
             await WriteCompleteAsync(Response, ss, ct);
@@ -283,7 +304,13 @@ public class BacktestingController(
         entry = a.EntryConditionResult,
         exit = a.ExitConditionResult,
         inPosition = a.InPosition,
-        a.Action
+        a.Action,
+        a.AvgEntryPrice,
+        a.PositionQuantity,
+        a.PositionCost,
+        a.PositionValue,
+        a.PositionPnl,
+        a.PositionPnlPercent
     };
 
     private static async Task WriteItemAsync(HttpResponse response, BacktestCandleAnalysis a, JsonSerializerOptions ss, CancellationToken ct)
@@ -296,7 +323,13 @@ public class BacktestingController(
             entry = a.EntryConditionResult,
             exit = a.ExitConditionResult,
             inPosition = a.InPosition,
-            a.Action
+            a.Action,
+            a.AvgEntryPrice,
+            a.PositionQuantity,
+            a.PositionCost,
+            a.PositionValue,
+            a.PositionPnl,
+            a.PositionPnlPercent
         }, ss);
         await response.WriteAsync($"data: {payload}\n\n", ct);
         await response.Body.FlushAsync(ct);

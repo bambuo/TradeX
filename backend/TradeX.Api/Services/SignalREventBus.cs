@@ -26,11 +26,11 @@ public class SignalREventBus(IHubContext<TradingHub> hubContext) : ITradingEvent
                 side, type, status, quantity, placedAtUtc), ct);
     }
 
-    public async Task StrategyStatusChangedAsync(Guid traderId, Guid strategyId, string oldStatus,
+    public async Task DeploymentStatusChangedAsync(Guid traderId, Guid strategyId, string oldStatus,
         string newStatus, string? reason, CancellationToken ct = default)
     {
         await hubContext.Clients.Group($"trader_{traderId}")
-            .SendAsync(TradingHub.StrategyStatusChanged, new StrategyStatusChangedEvent(
+            .SendAsync(TradingHub.DeploymentStatusChanged, new DeploymentStatusChangedEvent(
                 strategyId, traderId, oldStatus, newStatus, reason, DateTime.UtcNow), ct);
     }
 

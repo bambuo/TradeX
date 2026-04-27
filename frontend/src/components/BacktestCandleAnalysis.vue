@@ -81,6 +81,10 @@ const actionColors: Record<string, string> = {
             <th>成交量</th>
             <th v-for="k in indicatorKeys" :key="k" class="indicator-cell">{{ k }}</th>
             <th>持仓</th>
+            <th>入场价值</th>
+            <th>当前价值</th>
+            <th>盈亏金额</th>
+            <th>盈亏比</th>
             <th>动作</th>
           </tr>
         </thead>
@@ -97,16 +101,30 @@ const actionColors: Record<string, string> = {
           >
             <td class="cell-index">{{ a.index }}</td>
             <td class="cell-date">{{ new Date(a.timestamp).toLocaleString() }}</td>
-            <td :title="String(a.open)">{{ fmt(a.open) }}</td>
-            <td :title="String(a.high)">{{ fmt(a.high) }}</td>
-            <td :title="String(a.low)">{{ fmt(a.low) }}</td>
+            <td class="market-cell" :title="String(a.open)">{{ fmt(a.open) }}</td>
+            <td class="market-cell high-cell" :title="String(a.high)">{{ fmt(a.high) }}</td>
+            <td class="market-cell low-cell" :title="String(a.low)">{{ fmt(a.low) }}</td>
             <td class="cell-close" :title="String(a.close)">{{ fmt(a.close) }}</td>
-            <td :title="String(a.volume)">{{ fmt(a.volume) }}</td>
+            <td class="market-cell volume-cell" :title="String(a.volume)">{{ fmt(a.volume) }}</td>
             <td v-for="k in indicatorKeys" :key="k" class="indicator-value" :title="String(a.indicators[k] ?? 0)">{{ fmt(a.indicators[k] ?? 0) }}</td>
             <td>
               <span :class="a.inPosition ? 'badge-in' : 'badge-out'">
                 {{ a.inPosition ? '持仓' : '空仓' }}
               </span>
+            </td>
+            <td :title="String(a.positionCost ?? 0)">{{ a.positionCost ? `$${fmt(a.positionCost)}` : '-' }}</td>
+            <td :title="String(a.positionValue ?? 0)">{{ a.positionValue ? `$${fmt(a.positionValue)}` : '-' }}</td>
+            <td>
+              <span v-if="a.taskPnl !== null && a.taskPnl !== undefined" :class="a.taskPnl >= 0 ? 'pnl-up' : 'pnl-down'">
+                {{ a.taskPnl >= 0 ? '+' : '' }}${{ fmt(a.taskPnl) }}
+              </span>
+              <span v-else>-</span>
+            </td>
+            <td>
+              <span v-if="a.taskPnlPercent !== null && a.taskPnlPercent !== undefined" :class="a.taskPnlPercent >= 0 ? 'pnl-up' : 'pnl-down'">
+                {{ a.taskPnlPercent >= 0 ? '+' : '' }}{{ fmt(a.taskPnlPercent) }}%
+              </span>
+              <span v-else>-</span>
             </td>
             <td>
               <span class="action-badge" :style="{ background: actionColors[a.action] }">
@@ -139,13 +157,14 @@ const actionColors: Record<string, string> = {
 .analysis-table-wrap { overflow-x: auto; max-height: 480px; overflow-y: auto; border: 1px solid var(--glass-border); border-radius: 6px; }
 .analysis-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; white-space: nowrap; }
 .analysis-table th, .analysis-table td {
-  padding: 0.375rem 0.5rem; text-align: right; border-bottom: 1px solid #1e293b;
-  color: #cbd5e1; font-family: 'SF Mono', 'Fira Code', monospace;
+  padding: 0.375rem 0.5rem; text-align: right; border-bottom: 1px solid rgba(100, 116, 139, 0.16);
+  color: #334155; font-family: 'SF Mono', 'Fira Code', monospace;
 }
 .analysis-table th {
   position: sticky; top: 0; z-index: 1;
-  background: rgba(255,255,255,0.35); color: var(--text-muted); font-weight: 600;
-  text-align: right; border-bottom: 1px solid var(--glass-border);
+  background: rgba(242, 246, 252, 0.96); color: #334155; font-weight: 700;
+  text-align: right; border-bottom: 1px solid rgba(79, 126, 201, 0.18);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.8) inset, 0 4px 12px rgba(15,23,42,0.06);
 }
 .analysis-table thead th:first-child,
 .analysis-table tbody td:first-child { text-align: center; }
@@ -159,8 +178,12 @@ const actionColors: Record<string, string> = {
 .row-in-position td { color: var(--text-primary); }
 
 .cell-index { color: var(--text-muted); }
-.cell-date { color: var(--text-muted); text-align: left !important; min-width: 130px; }
-.cell-close { font-weight: 600; }
+.cell-date { color: #0f172a; text-align: left !important; min-width: 130px; font-weight: 650; }
+.market-cell { color: #111827; font-weight: 650; }
+.high-cell { color: #047857; font-weight: 700; }
+.low-cell { color: #dc2626; font-weight: 700; }
+.volume-cell { color: #1f2937; font-weight: 650; }
+.cell-close { color: #020617; font-weight: 800; }
 
 .badge-in, .badge-out {
   display: inline-block; padding: 0.0625rem 0.375rem; border-radius: 999px;
@@ -168,6 +191,8 @@ const actionColors: Record<string, string> = {
 }
 .badge-in { background: rgba(34, 197, 94, 0.15); color: var(--accent-green); }
 .badge-out { background: rgba(100, 116, 139, 0.15); color: var(--text-muted); }
+.pnl-up { color: var(--accent-green); font-weight: 600; }
+.pnl-down { color: var(--accent-red); font-weight: 600; }
 
 .action-badge {
   display: inline-block; padding: 0.0625rem 0.375rem; border-radius: 999px;

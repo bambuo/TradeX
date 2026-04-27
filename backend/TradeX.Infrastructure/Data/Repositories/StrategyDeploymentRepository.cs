@@ -24,14 +24,14 @@ public class StrategyDeploymentRepository(TradeXDbContext context) : IStrategyDe
 
     public async Task<List<StrategyDeployment>> GetAllActiveAsync(CancellationToken ct = default)
         => await context.StrategyDeployments
-            .Where(s => s.Status == Core.Enums.StrategyStatus.Active)
+            .Where(s => s.Status == Core.Enums.DeploymentStatus.Active)
             .OrderByDescending(s => s.UpdatedAt)
             .ToListAsync(ct);
 
     public async Task<List<StrategyDeployment>> GetActiveByExchangeAndSymbolAsync(Guid exchangeId, string symbolId, CancellationToken ct = default)
     {
         var deployments = await context.StrategyDeployments
-            .Where(s => s.ExchangeId == exchangeId && s.Status == Core.Enums.StrategyStatus.Active)
+            .Where(s => s.ExchangeId == exchangeId && s.Status == Core.Enums.DeploymentStatus.Active)
             .ToListAsync(ct);
 
         return deployments.Where(s => ParseSymbolIds(s.SymbolIds).Contains(symbolId)).ToList();
@@ -45,7 +45,7 @@ public class StrategyDeploymentRepository(TradeXDbContext context) : IStrategyDe
     public async Task<bool> ExistsActiveAsync(Guid traderId, Guid exchangeId, string symbolId, Guid? excludeId = null, CancellationToken ct = default)
     {
         var query = context.StrategyDeployments
-            .Where(s => s.TraderId == traderId && s.ExchangeId == exchangeId && s.Status == Core.Enums.StrategyStatus.Active);
+            .Where(s => s.TraderId == traderId && s.ExchangeId == exchangeId && s.Status == Core.Enums.DeploymentStatus.Active);
 
         if (excludeId.HasValue)
             query = query.Where(s => s.Id != excludeId.Value);

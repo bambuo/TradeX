@@ -1,6 +1,6 @@
 namespace TradeX.Core.Enums;
 
-public enum StrategyStatus
+public enum DeploymentStatus
 {
     Draft,
     Backtesting,

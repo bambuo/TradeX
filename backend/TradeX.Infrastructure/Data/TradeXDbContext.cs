@@ -114,7 +114,6 @@ public class TradeXDbContext(DbContextOptions<TradeXDbContext> options) : DbCont
         modelBuilder.Entity<StrategyDeployment>(e =>
         {
             e.HasKey(x => x.Id);
-            e.HasIndex(x => new { x.TraderId, x.StrategyId }).IsUnique();
             e.HasIndex(x => x.Status);
             e.Property(x => x.Timeframe).HasMaxLength(10).IsRequired();
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
