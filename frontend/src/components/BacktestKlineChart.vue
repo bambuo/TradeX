@@ -1,17 +1,19 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue'
-import { createChart, ColorType, CandlestickSeries, HistogramSeries, type IChartApi, type ISeriesApi, type CandlestickData, type HistogramData, type Time } from 'lightweight-charts'
+import { createChart, ColorType, CandlestickSeries, HistogramSeries, createSeriesMarkers, type IChartApi, type ISeriesApi, type ISeriesMarkersPluginApi, type CandlestickData, type HistogramData, type Time } from 'lightweight-charts'
 import type { BacktestCandleAnalysis } from '../api/backtests'
 import { formatSmallNumber } from '../utils/format'
 
 const props = defineProps<{
   analysis: BacktestCandleAnalysis[]
+  currentIndex?: number
 }>()
 
 const chartRef = ref<HTMLDivElement>()
 let chart: IChartApi | null = null
 let candleSeries: ISeriesApi<'Candlestick'> | null = null
 let volumeSeries: ISeriesApi<'Histogram'> | null = null
+let seriesMarkersPlugin: ISeriesMarkersPluginApi<Time> | null = null
 
 function calcPricePrecision(values: number[]): number {
   let minAbs = Infinity
@@ -100,6 +102,8 @@ function render() {
     })
 
     chart.resize(chartRef.value.clientWidth, 520)
+
+    seriesMarkersPlugin = createSeriesMarkers<Time>(candleSeries)
   }
 
   const candleData: CandlestickData[] = []
@@ -120,6 +124,20 @@ function render() {
   volumeSeries!.setData(volumeData)
 
   chart.timeScale().fitContent()
+  updateMarker()
+}
+
+function updateMarker() {
+  if (!seriesMarkersPlugin) return
+  if (props.currentIndex === undefined || props.currentIndex < 0 || props.currentIndex >= props.analysis.length) {
+    seriesMarkersPlugin.setMarkers([])
+    return
+  }
+  const item = props.analysis[props.currentIndex]
+  const time = Math.floor(new Date(item.timestamp).getTime() / 1000) as Time
+  seriesMarkersPlugin.setMarkers([
+    { time, position: 'aboveBar', shape: 'arrowDown', color: '#fbbf24', size: 1 }
+  ])
 }
 
 function handleResize() {
@@ -129,11 +147,13 @@ function handleResize() {
 }
 
 watch(() => props.analysis, render, { deep: true })
+watch(() => props.currentIndex, updateMarker)
 onMounted(() => {
   render()
   window.addEventListener('resize', handleResize)
 })
 onUnmounted(() => {
+  seriesMarkersPlugin?.detach()
   chart?.remove()
   window.removeEventListener('resize', handleResize)
 })

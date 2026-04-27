@@ -9,6 +9,7 @@ const props = defineProps<{
   analysis: BacktestCandleAnalysis[]
   chartOnly?: boolean
   tableOnly?: boolean
+  currentIndex?: number
 }>()
 
 const sortAsc = ref(true)
@@ -45,7 +46,7 @@ const actionColors: Record<string, string> = {
 
 <template>
   <div class="analysis-section">
-    <BacktestKlineChart v-if="!tableOnly" :analysis="analysis" />
+    <BacktestKlineChart v-if="!tableOnly" :analysis="analysis" :current-index="currentIndex" />
 
     <div v-if="!chartOnly">
       <div class="analysis-toolbar">

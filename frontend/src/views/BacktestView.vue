@@ -47,12 +47,24 @@ const displayAnalysisItems = computed(() =>
 )
 const analysisTotal = computed(() => replayTotal.value)
 const currentAnalysisItem = computed(() => displayAnalysisItems.value.at(-1) ?? null)
+
+const chartAnalysisData = computed(() => {
+  if (selectedTask.value?.status === 'Running') return displayAnalysisItems.value
+  return replayBuffer.value
+})
+
+const chartReplayIndex = computed<number | undefined>(() => {
+  if (selectedTask.value?.status === 'Running') return undefined
+  return replayIndex.value
+})
 const tableTotalPages = computed(() => Math.max(1, Math.ceil((analysisTotal.value || 0) / tablePageSize.value)))
 const tableDisplayItems = computed(() => {
   const start = (tablePage.value - 1) * tablePageSize.value
   return enrichPositionMetrics(tableBuffer.value, selectedTask.value?.initialCapital ?? 1000).slice(start, start + tablePageSize.value)
 })
 const tableCurrentItem = computed(() => tableDisplayItems.value.at(-1) ?? null)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+void tableCurrentItem
 
 const statusLabels: Record<string, string> = {
   Pending: '排队中', Running: '运行中', Completed: '已完成', Failed: '失败', Cancelled: '已取消'
@@ -680,8 +692,9 @@ function enrichPositionMetrics(items: BacktestCandleAnalysis[], initialValue: nu
               </div>
             </div>
             <BacktestCandleAnalysisView
-              v-if="displayAnalysisItems.length > 0"
-              :analysis="displayAnalysisItems"
+              v-if="chartAnalysisData.length > 0"
+              :analysis="chartAnalysisData"
+              :current-index="chartReplayIndex"
               chart-only
             />
             <div v-else class="loading-hint">
