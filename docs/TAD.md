@@ -4,10 +4,10 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档版本 | v1.1 |
+| 文档版本 | v1.2 |
 | 文档状态 | Draft |
-| 基于 PRD | `docs/PRD.md` v2.5 |
-| 基于 FSD | `docs/FSD.md` v1.8 |
+| 基于 PRD | `docs/PRD.md` v2.6 |
+| 基于 FSD | `docs/FSD.md` v1.9 |
 | 更新时间 | 2026-04-27 |
 | 适用阶段 | 立项评审 / M1-M7 研发 |
 
@@ -217,9 +217,20 @@ flowchart TB
 **中间件管线顺序**：
 ```
 Request → ExceptionHandling → Serilog RequestLogging
-  → SetupGuard → JwtAuth → CasbinAuthorization → AuditLog
+  → SetupGuard → IpWhitelist → JwtAuth → CasbinAuthorization → AuditLog
     → Routing → Authorization → Controller → Response
 ```
+
+**实际实现的中间件清单**：
+
+| 中间件 | 职责 | 说明 |
+|--------|------|------|
+| `ExceptionHandlingMiddleware` | 全局异常捕获，统一 JSON 错误响应 | 500 → 带 traceId 的标准化错误体 |
+| `SetupGuardMiddleware` | 初始化守卫 | 未初始化时仅放行 `/api/setup` 和 `/health` |
+| `IpWhitelistMiddleware` | IP 白名单验证 | 从 `SystemConfig.security.ip_whitelist` 读取白名单列表，支持 CIDR 格式 |
+| `JwtAuthMiddleware` | JWT 令牌验证 | 通过 `app.UseAuthentication()` 中间件 |
+| `CasbinAuthorizationMiddleware` | RBAC 角色鉴权 | 路由白名单：`/api/auth/*`, `/health`, `/api/setup`, `/hubs/*` 跳过检查 |
+| `AuditLogMiddleware` | 审计日志自动记录 | 自动忽略 GET/HEAD/OPTIONS 无变更操作 |
 
 **SignalR Hub — TradingHub 事件合约**：
 
@@ -241,20 +252,31 @@ flowchart TB
 
   subgraph TRADING["TradeX.Trading 核心逻辑"]
     ENGINE[TradingEngine<br/>BackgroundService 评估循环]:::component
+    EVENTBUS[SignalREventBus<br/>ITradingEventBus<br/>事件广播]:::component
     EXECUTOR[TradeExecutor<br/>ITradeExecutor]:::component
     RISK[RiskCheckHandler<br/>Chain of Responsibility]:::component
     PORTO_RISK[PortfolioRiskManager<br/>IPortfolioRiskManager]:::component
     CONDITION[ConditionTreeEvaluator<br/>IConditionTreeEvaluator]:::component
-    BACKTEST[BacktestEngine<br/>IBacktestEngine]:::component
+    BACKTEST[BacktestService<br/>IBacktestService]:::component
+    BT_Q[BacktestTaskQueue<br/>Channel&lt;Guid&gt;<br/>多消费者]:::component
+    BT_SCHED[BacktestScheduler<br/>多 Worker 并发调度]:::component
+    RES_MON[ResourceMonitor<br/>内存+CPU 水位监控<br/>5s 间隔]:::component
+    STORE[TaskAnalysisStore<br/>分析数据缓存<br/>Channel+List]:::component
     RECONCILER[OrderReconciler<br/>IOrderReconciler]:::component
   end
 
+  ENGINE -->|事件广播| EVENTBUS
   ENGINE -->|评估入场/出场条件| CONDITION
   ENGINE -->|风控检查| RISK
   ENGINE -->|多层级风控叠加| PORTO_RISK
   ENGINE -->|执行下单| EXECUTOR
   ENGINE -->|启动回测| BACKTEST
   ENGINE -->|启动时同步| RECONCILER
+
+  BACKTEST -->|入队| BT_Q
+  BT_Q --> BT_SCHED
+  BT_SCHED -->|写入分析数据| STORE
+  RES_MON -->|动态控制并发| BT_SCHED
 
   PORTO_RISK -->|前置检查| RISK
   RISK -->|"通过 -> 下单"| EXECUTOR
@@ -538,23 +560,25 @@ public interface IIndicatorCalculator<TResult>
 erDiagram
   User ||--o{ Trader : creates
   User ||--o{ AuditLog : generates
+  User ||--o{ RefreshToken : has
 
   Trader ||--o{ Exchange : owns
-  Trader ||--o{ Strategy : owns
+  Trader ||--o{ StrategyDeployment : deploys
   Trader ||--o{ Position : owns
   Trader ||--o{ Order : owns
 
-  Exchange ||--o{ Strategy : targets
+  Exchange ||--o{ StrategyDeployment : targets
   Exchange ||--o{ Symbol : lists
   Exchange ||--o{ Position : holds
   Exchange ||--o{ Order : executes
 
-  Strategy ||--o{ Position : opens
-  Strategy ||--o{ BacktestTask : tested_by
+  Strategy ||--o{ StrategyDeployment : template_for
+  StrategyDeployment ||--o{ BacktestTask : tested_by
+  StrategyDeployment ||--o{ Position : opens
 
   BacktestTask ||--|| BacktestResult : produces
 
-  Symbol ||--o{ Strategy : references
+  Symbol ||--o{ StrategyDeployment : references
   Symbol ||--o{ Position : trades
   Symbol ||--o{ Order : trades
 
@@ -587,21 +611,28 @@ erDiagram
 
   Strategy {
     string Id PK
-    string TraderId FK
-    string ExchangeId FK
     string Name
     string EntryConditionJson
     string ExitConditionJson
     string ExecutionRuleJson
-    string Status
     int Version
+  }
+
+  StrategyDeployment {
+    string Id PK
+    string StrategyId FK
+    string TraderId FK
+    string ExchangeId
+    string SymbolIds
+    string Timeframe
+    string Status
   }
 
   Position {
     string Id PK
     string TraderId FK
     string ExchangeId FK
-    string StrategyId FK
+    string StrategyDeploymentId FK
     string SymbolId
     decimal Quantity
     decimal EntryPrice
@@ -614,7 +645,8 @@ erDiagram
     string Id PK
     string TraderId FK
     string ExchangeId FK
-    string StrategyId FK
+    string StrategyDeploymentId FK
+    string PositionId
     string SymbolId
     string Side
     string Type
@@ -623,6 +655,14 @@ erDiagram
     decimal FilledQuantity
     decimal Fee
     bool IsManual
+  }
+
+  RefreshToken {
+    string Id PK
+    string UserId FK
+    string Token
+    datetime ExpiresAt
+    datetime RevokedAt
   }
 
   AuditLog {
@@ -942,7 +982,7 @@ sequenceDiagram
 
 | 属性 | 值 |
 |------|-----|
-| **状态** | **Proposed** |
+| **状态** | **Accepted** |
 | **上下文** | 默认 `BacktestWorker` 为单消费者（`Channel.SingleReader = true`），逐任务串行处理。随着回测使用增加，单线程成为吞吐瓶颈。但无限制并发会挤压 `TradingEngine` 的 15s 评估周期资源，且有 OOM 风险（大数据量回测峰值接近 1GB 内存） |
 | **决策** | 使用资源感知的并发调度：固定 Worker 池 + `ResourceMonitor` 根据内存 + CPU 水位动态控制活跃并发数 |
 | **理由** | (1) 固定并发上限（硬编码 `MaxConcurrency`）在资源空闲时浪费吞吐，在资源紧张时仍可能压垮系统——动态调度能自适应；(2) 回测是 CPU + IO + 内存密集型操作，`TradingEngine` 每 15 秒跑一次实时策略评估，回测并发必须让路；(3) 联合监控内存（`GC.GetTotalMemory()`）和 CPU（`Process.TotalProcessorTime` 间隔采样），`AllowedConcurrency = min(mem_cap, cpu_cap)`，任一资源紧张即自动降级 |
@@ -1117,7 +1157,11 @@ app.MapFallbackToFile("index.html");
 | `ITradeExecutor` | TradeX.Trading | 下单执行 |
 | `ITradingEngine` | TradeX.Trading | 引擎启停控制 |
 | `IOrderReconciler` | TradeX.Trading | 订单同步 |
-| `IBacktestEngine` | TradeX.Trading | 回测引擎 |
+| `IBacktestService` | TradeX.Trading | 回测服务 |
+| `IBacktestTaskQueue` | TradeX.Trading | 回测任务队列 |
+| `ITradingEventBus` | TradeX.Api | 交易事件总线 |
+| `IResourceProvider` | TradeX.Trading | 系统资源抽象 |
+| `IIndicatorService` | TradeX.Indicators | 指标计算服务 |
 | `INotificationService` | TradeX.Notifications | 通知发送 |
 | `IRepository<T>` | TradeX.Infrastructure | 数据持久化 |
 

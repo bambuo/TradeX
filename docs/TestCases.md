@@ -4,11 +4,11 @@
 
 | 项目 | 内容 |
 |------|------|
-| 文档版本 | v1.1 |
+| 文档版本 | v1.2 |
 | 文档状态 | Draft |
-| 基于 PRD | `docs/PRD.md` v2.5 |
-| 基于 FSD | `docs/FSD.md` v1.8 |
-| 基于 TAD | `docs/TAD.md` v1.1 |
+| 基于 PRD | `docs/PRD.md` v2.6 |
+| 基于 FSD | `docs/FSD.md` v1.9 |
+| 基于 TAD | `docs/TAD.md` v1.2 |
 | 更新时间 | 2026-04-27 |
 | 适用阶段 | M1-M7 测试与验收 |
 | 测试框架 | 后端: xUnit + NSubstitute，前端: Vitest + Vue Test Utils + Playwright |
@@ -46,19 +46,19 @@
 | AC-03: Super Admin 登录+MFA | TC-AUTH-001 ~ TC-AUTH-015 |
 | AC-04: 创建用户→MFA 绑定→登录 | TC-AUTH-016 ~ TC-AUTH-025 |
 | AC-05: Viewer 访问 POST API 返回 403 | TC-AUTH-026 ~ TC-AUTH-035 |
-| AC-06: 添加交易所→测试连接→展示规则 | TC-EXCH-001 ~ TC-EXCH-020 |
-| AC-07: 创建策略→回测→启用 | TC-STRAT-001 ~ TC-STRAT-025 |
-| AC-08: 同 Symbol 活跃策略冲突拒绝 | TC-STRAT-026 ~ TC-STRAT-030 |
+| AC-06: 添加交易所→测试连接→展示规则+资产 | TC-EXCH-001 ~ TC-EXCH-021, TC-EXCH-SYM-001 ~ TC-EXCH-SYM-004 |
+| AC-07: 创建策略模板→部署→回测→启用 | TC-STRAT-001 ~ TC-STRAT-030, TC-STRAT-DEPLOY-001 ~ TC-STRAT-DEPLOY-010 |
+| AC-08: 同 Symbol 活跃策略冲突拒绝 | TC-STRAT-DEPLOY-007 |
 | AC-09: 滑点控制正常/拒绝 | TC-TRADE-001 ~ TC-TRADE-015 |
 | AC-10: 风控按配置触发 | TC-RISK-001 ~ TC-RISK-050 |
 | AC-10-B: Kill Switch 生效 | TC-RISK-035 ~ TC-RISK-040 |
 | AC-10-C: IP 白名单拦截/放行 | TC-SEC-010 ~ TC-SEC-015 |
-| AC-11: 崩溃恢复+同步 | TC-RECOV-001 ~ TC-RECOV-008 |
+| AC-11: 崩溃恢复+同步 | TC-RECOV-001 ~ TC-RECOV-008, TC-RECONCILER |
 | AC-12: SignalR 实时推送 | TC-DATA-017 ~ TC-DATA-022 |
 | AC-13: 通知推送 | TC-NOTIF-001 ~ TC-NOTIF-012 |
 | AC-14: 审计日志记录与查询 | TC-AUDIT-001 ~ TC-AUDIT-010 |
 | AC-15: 订单归档与导出 | TC-DATA-013 ~ TC-DATA-016 |
-| AC-16: 回测运行+绩效报告+K 线回放 | TC-BACKTEST-001 ~ TC-BACKTEST-025 |
+| AC-16: 回测运行+绩效报告+K 线回放+并发调度 | TC-BACKTEST-001 ~ TC-BACKTEST-032 |
 | AC-17: Swagger 环境隔离 | TC-DEPLOY-010 |
 | AC-18: dotnet test 全量通过 | TC-BUILD-001 |
 | AC-19: Volatility Grid 风格策略行为一致 | TC-STRAT-VG-001 ~ TC-STRAT-VG-010 |
@@ -77,12 +77,16 @@ TC-{模块}-{序号}
 | AUTH | 用户与鉴权 (含 MFA) |
 | CASBIN | Casbin 权限 |
 | EXCH | 交易所管理/抽象层 |
-| STRAT | 策略与条件树 |
+| EXCH-SYM | 交易所交易对/资产查询 |
+| STRAT | 策略模板 |
+| STRAT-DEPLOY | 策略部署 (TradersStrategiesController) |
+| STRAT-VG | Volatility Grid 策略专项 |
 | INDIC | 技术指标 |
 | DATA | 实时数据管道/数据管理 |
 | TRADE | 交易执行 |
 | RISK | 风控 (含多层级风控) |
 | BACKTEST | 回测引擎 |
+| BACKTEST-SCHED | 回测并发调度 |
 | NOTIF | 通知 |
 | AUDIT | 审计日志 |
 | DASH | 仪表盘 |
@@ -96,7 +100,8 @@ TC-{模块}-{序号}
 | TRAIL | 移动止损/止盈 |
 | SETTINGS | 系统设置 |
 | ERR | 错误处理与中间件 |
-| STRAT-VG | Volatility Grid 策略专项 |
+| RECONCILER | 订单同步 Reconciliation |
+| RESOURCE | 系统资源监控 |
 
 ---
 
@@ -170,6 +175,107 @@ TC-{模块}-{序号}
 - **测试步骤**:
   1. 提交策略配置
 - **预期结果**: 返回参数校验错误，策略不可保存/不可启用
+
+---
+
+## M3 — 策略部署 (Strategy Deployments)
+
+### TC-STRAT-DEPLOY-001: 创建策略部署 — 正常流程
+- **前置条件**: 策略模板、Trader、Exchange 已存在
+- **测试步骤**:
+  1. `POST /api/traders/{traderId}/strategies` 传入 strategyId + exchangeId
+- **预期结果**: 返回 201，状态为 Draft，scope 自动推导
+- **关联需求**: FR-03.1, FSD §7.6.1
+
+### TC-STRAT-DEPLOY-002: 创建策略部署 — Symbol 作用域
+- **前置条件**: 策略模板已存在
+- **测试步骤**:
+  1. `POST /api/traders/{traderId}/strategies` 传入 symbolIds
+- **预期结果**: scope = "Symbol"
+- **关联需求**: FSD §5.3.1
+
+### TC-STRAT-DEPLOY-003: 创建策略部署 — Exchange 作用域
+- **前置条件**: 策略模板已存在
+- **测试步骤**:
+  1. `POST /api/traders/{traderId}/strategies` 传入 exchangeId，symbolIds 为空
+- **预期结果**: scope = "Exchange"
+
+### TC-STRAT-DEPLOY-004: 创建策略部署 — Trader 作用域
+- **前置条件**: 策略模板已存在
+- **测试步骤**:
+  1. `POST /api/traders/{traderId}/strategies` exchangeId 和 symbolIds 均为空
+- **预期结果**: scope = "Trader"
+
+### TC-STRAT-DEPLOY-005: 启用部署 — Active 状态
+- **前置条件**: 部署状态非 Draft（如已有回测通过记录），无活跃冲突
+- **测试步骤**:
+  1. `POST /.../toggle` body: `{ "enable": true }`
+- **预期结果**: 状态变为 Active
+- **关联需求**: FSD §7.6.1
+
+### TC-STRAT-DEPLOY-006: 启用部署 — Draft 状态被拒绝
+- **前置条件**: 部署状态为 Draft
+- **测试步骤**:
+  1. `POST /.../toggle` body: `{ "enable": true }`
+- **预期结果**: 返回 400，提示草稿不可启用
+
+### TC-STRAT-DEPLOY-007: 部署启用 — Symbol 冲突检测
+- **前置条件**: 已有 Active 部署（Trader-1, Exchange-1, Symbol-BTCUSDT）
+- **测试步骤**:
+  1. 尝试启用另一个同 Trader + 同 Exchange + 同 Symbol 的部署
+- **预期结果**: 返回 409 冲突
+- **关联需求**: FR-03.2
+
+### TC-STRAT-DEPLOY-008: 部署停用 — Active → Disabled
+- **前置条件**: 部署为 Active
+- **测试步骤**:
+  1. `POST /.../toggle` body: `{ "enable": false }`
+- **预期结果**: 状态变为 Disabled
+
+### TC-STRAT-DEPLOY-009: 编辑部署 — Active 状态不可编辑
+- **前置条件**: 部署为 Active
+- **测试步骤**:
+  1. `PUT /.../strategies/{id}` 修改 symbolIds
+- **预期结果**: 返回 400，提示活跃策略不可编辑
+
+### TC-STRAT-DEPLOY-010: 删除部署 — Active 状态不可删除
+- **前置条件**: 部署为 Active
+- **测试步骤**:
+  1. `DELETE /.../strategies/{id}`
+- **预期结果**: 返回 400，提示活跃策略不可删除
+
+---
+
+## M2 — 交易所交易对与资产 (Exchange Symbols & Assets)
+
+### TC-EXCH-SYM-001: 获取交易所交易对列表
+- **前置条件**: Exchange 已配置且可连接
+- **测试步骤**:
+  1. `GET /api/exchanges/{id}/symbols`
+- **预期结果**: 返回含 USDT 交易对列表，含 symbol/price/priceChangePercent/volume 等实时行情
+- **关联需求**: FR-01.5, FSD §7.5
+
+### TC-EXCH-SYM-002: 获取交易所资产余额
+- **前置条件**: Exchange 已配置且可连接
+- **测试步骤**:
+  1. `GET /api/exchanges/{id}/assets`
+- **预期结果**: 返回资产余额列表，含 currency + balance
+- **关联需求**: FSD §7.5
+
+### TC-EXCH-SYM-003: 获取交易所侧订单
+- **前置条件**: Exchange 已配置
+- **测试步骤**:
+  1. `GET /api/exchanges/{id}/orders?type=open`
+  2. `GET /api/exchanges/{id}/orders?type=history`
+- **预期结果**: 返回交易所侧实时订单列表
+- **关联需求**: FSD §7.5
+
+### TC-EXCH-SYM-004: 交易所禁用时 API 拒绝
+- **前置条件**: Exchange 状态为 Disabled
+- **测试步骤**:
+  1. `GET /api/exchanges/{id}/symbols`
+  2. `GET /api/exchanges/{id}/assets`
+- **预期结果**: 返回 400，提示交易所已禁用
 
 ### TC-SETUP-001: 首次启动检测初始化状态
 - **前置条件**: 数据库为空，无 Super Admin
@@ -563,9 +669,9 @@ TC-{模块}-{序号}
 ## M2 — 交易所管理 (Exchange)
 
 ### TC-EXCH-001: 创建交易所 — 正常流程
-- **前置条件**: Admin/Operator 已登录，Trader 已存在
+- **前置条件**: Admin/Operator 已登录
 - **测试步骤**:
-  1. 发送 `POST /api/exchanges`，附带有效参数
+  1. 发送 `POST /api/exchanges`，body: `{ name, exchangeType, apiKey, secretKey }`
 - **预期结果**: 返回 `201` + Exchange 对象（脱敏，不含 API Key）
 - **关联需求**: FR-02.1, FR-02.2, FSD §7.5
 
@@ -615,7 +721,7 @@ TC-{模块}-{序号}
 - **前置条件**: 交易所配置有效
 - **测试步骤**:
   1. 发送 `POST /api/exchanges/:id/test`
-- **预期结果**: 返回 `{ "success": true, "permissions": { "spotTrade": true, "ipWhitelistRecommended": true, "withdrawDisabled": true } }`
+- **预期结果**: 返回 `{ "connected": true, "error": null }`
 - **关联需求**: FR-01.4, FR-02.5, FSD §7.5
 
 ### TC-EXCH-009: 测试连接 — API Key 权限不足
@@ -1271,23 +1377,23 @@ TC-{模块}-{序号}
 - **关联需求**: FR-06.4
 
 ### TC-TRADE-005: 手动下单 — 正常执行
-- **前置条件**: Admin/Operator 已登录
+- **前置条件**: Admin/Operator 已登录，Trader 已存在
 - **测试步骤**:
-  1. 发送 `POST /api/orders/manual`
+  1. 发送 `POST /api/traders/{traderId}/orders/manual`
 - **预期结果**: 返回 `201` + Order 对象，isManual = true
 - **关联需求**: FR-06.5, FSD §7.8
 
 ### TC-TRADE-006: 手动下单 — 风控拒绝
 - **前置条件**: 日亏损已超限
 - **测试步骤**:
-  1. 发送 `POST /api/orders/manual`
+  1. 发送 `POST /api/traders/{traderId}/orders/manual`
 - **预期结果**: 返回 `400 ORDER_RISK_REJECTED`
 - **关联需求**: FSD §7.8
 
 ### TC-TRADE-007: 手动下单 — 滑点超限拒绝
 - **前置条件**: 预估滑点超过容差
 - **测试步骤**:
-  1. 发送 `POST /api/orders/manual`
+  1. 发送 `POST /api/traders/{traderId}/orders/manual`
 - **预期结果**: 返回 `400 ORDER_SLIPPAGE_EXCEEDED`
 - **关联需求**: FR-06.8, FSD §7.8
 
@@ -1762,88 +1868,60 @@ TC-{模块}-{序号}
 > 覆盖 AC-16 (TC-BACKTEST-001 ~ 020)。对应 FR-12.x、FSD §14、TAD §10（IBacktestEngine 接口契约）。
 
 ### TC-BACKTEST-001: 回测任务创建 — 参数完整
-- **前置条件**: 存在至少一个策略、一条数据源、一个交易所配置
+- **前置条件**: 存在至少一个策略部署、一条数据源、一个交易所配置
 - **测试步骤**:
-  1. `POST /api/backtest` body 包含 strategyId, dataRange(from,to), initialBalance, feeModel, slippageModel
-- **预期结果**: 返回 201 + backtestId，状态为 Pending
+  1. `POST /api/traders/{traderId}/strategies/{strategyId}/backtests?deploymentId=..&exchangeId=..&symbolId=..&timeframe=..&startUtc=..&endUtc=..&initialCapital=1000`
+- **预期结果**: 返回 200 + taskId + status(Pending)，策略状态变为 Backtesting
 - **关联需求**: FR-12.1, FSD §7.9.1, FSD §14.1
 
 ### TC-BACKTEST-002: 回测任务创建 — 必填参数缺失
 - **前置条件**: 无
 - **测试步骤**:
-  1. `POST /api/backtest` body 缺少 strategyId
-- **预期结果**: 返回 400，错误信息明确指明缺少 strategyId
+  1. `POST /api/traders/{traderId}/strategies/{strategyId}/backtests` 缺少必要 query 参数
+- **预期结果**: 返回 400，错误信息明确指明缺少参数
 - **关联需求**: FSD §7.9.1
 
 ### TC-BACKTEST-003: 回测任务创建 — 策略不存在
 - **前置条件**: strategyId 无效
 - **测试步骤**:
-  1. `POST /api/backtest` body 含不存在的 strategyId
-- **预期结果**: 返回 404，错误信息"Strategy not found"
+  1. `POST /api/traders/{traderId}/strategies/{strategyId}/backtests` 使用不存在的 strategyId
+- **预期结果**: 返回 400，错误信息
 - **关联需求**: FSD §7.9.1
 
 ### TC-BACKTEST-004: 回测任务创建 — 时间范围无效
 - **前置条件**: 无
 - **测试步骤**:
-  1. `POST /api/backtest` body 中 from > to
-- **预期结果**: 返回 400，错误信息"from must be before to"
+  1. `POST /api/traders/{traderId}/strategies/{strategyId}/backtests` 中 startUtc > endUtc
+- **预期结果**: 返回 400，错误信息
 - **关联需求**: FSD §7.9.1
 
 ### TC-BACKTEST-005: 回测执行 — 正常完成
 - **前置条件**: 回测任务状态为 Pending
 - **测试步骤**:
-  1. 等待系统调度执行，或触发手动执行
+  1. 等待系统调度执行
 - **预期结果**: 状态变为 Running → Completed，result 包含总收益率、夏普比率、最大回撤、交易记录
 - **关联需求**: FR-12.2, FSD §14.2
 
 ### TC-BACKTEST-006: 回测结果查询
 - **前置条件**: 存在已完成回测任务
 - **测试步骤**:
-  1. `GET /api/backtest/{id}`
-- **预期结果**: 返回完整回测结果，含 summary(initialBalance, finalBalance, totalReturn, sharpeRatio, maxDrawdown, winRate, totalTrades) + trades[]
+  1. `GET /api/traders/{traderId}/strategies/{strategyId}/backtests/tasks/{taskId}/result`
+- **预期结果**: 返回完整回测结果，含 totalReturnPercent, sharpeRatio, maxDrawdown, winRate, totalTrades, trades
 - **关联需求**: FSD §7.9.2
 
-### TC-BACKTEST-007: 回测结果列表 — 分页
-- **前置条件**: 存在 25 条回测记录
+### TC-BACKTEST-007: 回测任务列表
+- **前置条件**: 存在多条回测记录
 - **测试步骤**:
-  1. `GET /api/backtest?page=1&pageSize=10`
-- **预期结果**: 返回 10 条记录，totalCount=25，hasNext=true
+  1. `GET /api/traders/{traderId}/strategies/{strategyId}/backtests/tasks`
+- **预期结果**: 返回回测任务列表
 - **关联需求**: FSD §7.9.2
 
-### TC-BACKTEST-008: 回测列表 — 按策略筛选
-- **前置条件**: 策略 A 有 5 条回测记录，策略 B 有 3 条
+### TC-BACKTEST-008: 回测任务详情
+- **前置条件**: 回测任务存在
 - **测试步骤**:
-  1. `GET /api/backtest?strategyId=A`
-- **预期结果**: 仅返回策略 A 的 5 条记录
+  1. `GET /api/traders/{traderId}/strategies/{strategyId}/backtests/tasks/{taskId}`
+- **预期结果**: 返回任务详情，含 status/phase/时间范围
 - **关联需求**: FSD §7.9.2
-
-### TC-BACKTEST-009: 回测删除
-- **前置条件**: 存在已完成回测记录
-- **测试步骤**:
-  1. `DELETE /api/backtest/{id}`
-- **预期结果**: 返回 204，再次查询返回 404
-- **关联需求**: FSD §7.9.3
-
-### TC-BACKTEST-010: 回测删除 — 运行中任务不可删除
-- **前置条件**: 回测任务状态为 Running
-- **测试步骤**:
-  1. `DELETE /api/backtest/{id}`
-- **预期结果**: 返回 409 Conflict，错误信息"Cannot delete a running backtest"
-- **关联需求**: FSD §7.9.3
-
-### TC-BACKTEST-011: 回测取消 — 运行中任务
-- **前置条件**: 回测任务状态为 Running
-- **测试步骤**:
-  1. `POST /api/backtest/{id}/cancel`
-- **预期结果**: 返回 200，状态变为 Cancelled
-- **关联需求**: FSD §7.9.1, FSD §14.2
-
-### TC-BACKTEST-012: 回测取消 — 已完成任务不应受影响
-- **前置条件**: 回测任务状态为 Completed
-- **测试步骤**:
-  1. `POST /api/backtest/{id}/cancel`
-- **预期结果**: 返回 400，错误信息"Cannot cancel a completed backtest"
-- **关联需求**: FSD §7.9.1
 
 ### TC-BACKTEST-013: 回测费用模型 — 不同费率对比
 - **前置条件**: 创建两个费用模型：maker=0.1%/taker=0.1% vs maker=0.02%/taker=0.05%

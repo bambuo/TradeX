@@ -4,7 +4,7 @@
 
 | 项目 | 内容 |
 |------|------|
-| 文档版本 | v2.5 |
+| 文档版本 | v2.6 |
 | 文档状态 | Draft |
 | 更新日期 | 2026-04-27 |
 
@@ -446,32 +446,49 @@ TradeX/
 | 模块 | 方法 | 路径 | 角色 |
 |------|------|------|------|
 | Health | GET | /health | 公开 |
-| Setup | GET | /api/setup/status | 公开 |
-| Setup | POST | /api/setup/initialize | 公开 |
+| Setup | GET | /api/setup | 公开 |
+| Setup | POST | /api/setup | 公开 |
 | Auth | POST | /api/auth/login | 公开 |
 | Auth | POST | /api/auth/verify-mfa | 公开 |
 | Auth | POST | /api/auth/refresh | 认证 |
+| Auth | POST | /api/auth/logout | 已登录 |
 | Auth | POST | /api/auth/mfa/setup | 全部（MFA 临时 token） |
 | Auth | POST | /api/auth/mfa/verify | 全部（MFA 临时 token） |
-| Exchanges | GET | /api/exchanges | admin/super_admin |
-| Exchanges | POST | /api/exchanges | admin/super_admin |
-| Exchanges | PUT | /api/exchanges/:id | admin/super_admin |
-| Exchanges | DELETE | /api/exchanges/:id | admin/super_admin |
-| Exchanges | POST | /api/exchanges/:id/test | admin/super_admin |
-| Exchanges | GET | /api/exchanges/:id/rules | admin/super_admin/operator |
-| Strategies | GET | /api/strategies | 全部 |
-| Strategies | POST | /api/strategies | admin/operator |
-| Strategies | PUT | /api/strategies/:id | admin/operator |
-| Strategies | DELETE | /api/strategies/:id | admin/operator |
-| Strategies | POST | /api/strategies/:id/toggle | admin/operator |
-| Positions | GET | /api/positions | 全部 |
-| Orders | GET | /api/orders | 全部 |
-| Orders | POST | /api/orders/manual | admin/operator |
+| Auth | POST | /api/auth/send-recovery-codes | admin/super_admin |
+| Auth | GET | /api/auth/mfa/status | 全部 |
+| Exchanges | GET | /api/exchanges | admin/operator |
+| Exchanges | POST | /api/exchanges | admin/operator |
+| Exchanges | PUT | /api/exchanges/:id | admin/operator |
+| Exchanges | DELETE | /api/exchanges/:id | admin/operator |
+| Exchanges | POST | /api/exchanges/:id/test | admin/operator |
+| Exchanges | POST | /api/exchanges/:id/toggle | admin/operator |
+| Exchanges | GET | /api/exchanges/:id/rules | admin/operator |
+| Exchanges | GET | /api/exchanges/:id/symbols | admin/operator |
+| Exchanges | GET | /api/exchanges/:id/assets | admin/operator |
+| Exchanges | GET | /api/exchanges/:id/orders | admin/operator |
+| Strategies (模板) | GET | /api/strategies | 全部 |
+| Strategies (模板) | POST | /api/strategies | admin/operator |
+| Strategies (模板) | PUT | /api/strategies/:id | admin/operator |
+| Strategies (模板) | DELETE | /api/strategies/:id | admin/operator |
+| Strategies (部署) | GET | /api/traders/{traderId}/strategies | 全部 |
+| Strategies (部署) | POST | /api/traders/{traderId}/strategies | admin/operator |
+| Strategies (部署) | PUT | /api/traders/{traderId}/strategies/:id | admin/operator |
+| Strategies (部署) | DELETE | /api/traders/{traderId}/strategies/:id | admin/operator |
+| Strategies (部署) | POST | /api/traders/{traderId}/strategies/:id/toggle | admin/operator |
+| Positions | GET | /api/traders/{traderId}/positions | 全部 |
+| Positions | GET | /api/traders/{traderId}/positions/:id | 全部 |
+| Orders | GET | /api/traders/{traderId}/orders | 全部 |
+| Orders | GET | /api/traders/{traderId}/orders/:id | 全部 |
+| Orders | POST | /api/traders/{traderId}/orders/manual | admin/operator |
 | Orders | GET | /api/orders/export | admin/operator |
-| Backtests | GET | /api/backtests | 全部 |
-| Backtests | POST | /api/backtests | admin/operator |
-| Backtests | GET | /api/backtests/:id | 全部 |
+| Backtests | POST | /api/traders/{traderId}/strategies/{strategyId}/backtests | admin/operator |
+| Backtests | GET | /api/traders/{traderId}/strategies/{strategyId}/backtests/tasks | 全部 |
+| Backtests | GET | /api/traders/{traderId}/strategies/{strategyId}/backtests/tasks/:id | 全部 |
+| Backtests | GET | /api/traders/{traderId}/strategies/{strategyId}/backtests/tasks/:id/result | 全部 |
+| Backtests | GET | /api/traders/{traderId}/strategies/{strategyId}/backtests/tasks/:id/analysis | 全部 |
+| Backtests | GET | /api/traders/{traderId}/strategies/{strategyId}/backtests/tasks/:id/analysis/stream | 全部 |
 | Dashboard | GET | /api/dashboard/summary | 全部 |
+| Dashboard | GET | /api/dashboard/stats | 全部 |
 | Notifications | GET | /api/notifications/channels | admin/super_admin |
 | Notifications | POST | /api/notifications/channels | admin/super_admin |
 | Notifications | PUT | /api/notifications/channels/:id | admin/super_admin |
@@ -479,7 +496,6 @@ TradeX/
 | Notifications | POST | /api/notifications/channels/:id/test | admin/super_admin |
 | AuditLog | GET | /api/audit-logs | admin/super_admin |
 | Users | GET | /api/users | admin/super_admin |
-| Users | POST | /api/users | admin/super_admin |
 | Users | PUT | /api/users/:id/role | admin/super_admin |
 | System | GET | /api/settings | admin/super_admin |
 | System | PUT | /api/settings | admin/super_admin |
@@ -488,18 +504,20 @@ TradeX/
 ## 11. 数据模型
 
 ```
-SystemConfig   — 系统配置键值对 (Key, Value, 仅初始化时写入)
-User           — 用户账号 (MfaSecret AES 加密, RecoveryCodes JSON, Status, Role)
-Trader          — 交易员 (Name, Status, RiskSettings, CreatedBy)
-Exchange        — 交易所配置 (ApiKey/Secret AES 加密, Type, Status, TraderId, MaxTradableBalance, RiskSettings)
-Symbol         — 交易对 (ExchangeId, BaseAsset, QuoteAsset, 精度规则等)
-Strategy       — 策略定义 (ConditionJson, ExecutionRule, ExchangeId, SymbolIds, Status)
-Position       — 运行中持仓 (ExchangeId, SymbolId, StrategyId, 数量, 均价, PnL, Status)
-Order          — 订单记录 (ExchangeId, SymbolId, StrategyId, Type, 金额, 手续费, Status, ExchangeOrderId)
-BacktestTask   — 回测任务 (StrategyId, 时间范围, Status)
-BacktestResult — 回测结果 (TaskId, 收益率/回撤/胜率/次数/Sharpe, 明细JSON)
-NotificationChannel — 通知渠道 (Type, Config加密, Status)
-AuditLog       — 审计日志 (UserId, Action, ResourceType, ResourceId, Detail, IP, Timestamp)
+SystemConfig          — 系统配置键值对 (Key, Value, 仅初始化时写入)
+User                  — 用户账号 (Username, Email, PasswordHash bcrypt, MfaSecret AES 加密, RecoveryCodes JSON, IsMfaEnabled, Status, Role, LastLoginAt)
+Trader                — 交易员 (Name, Status, CreatedBy)
+Exchange              — 交易所配置 (ApiKey/Secret AES 加密, Type, Status, TraderId, PassphraseEncrypted)
+Symbol                — 交易对 (ExchangeId, BaseAsset, QuoteAsset, 精度规则等)
+Strategy (模板)       — 策略模板 (Name, EntryConditionJson, ExitConditionJson, ExecutionRuleJson, Version)
+StrategyDeployment    — 策略部署 (StrategyId, TraderId, ExchangeId, SymbolIds, Timeframe, Status)
+Position              — 运行中持仓 (ExchangeId, SymbolId, StrategyId, 数量, 均价, PnL, Status)
+Order                 — 订单记录 (ExchangeId, SymbolId, StrategyId, PositionId, Type, 金额, 手续费, Status, ExchangeOrderId)
+RefreshToken          — 刷新令牌 (UserId, Token, ExpiresAt, RevokedAt)
+BacktestTask          — 回测任务 (StrategyId, DeploymentId, 时间范围, Status, Phase)
+BacktestResult        — 回测结果 (TaskId, 收益率/回撤/胜率/次数/Sharpe/分析JSON)
+NotificationChannel   — 通知渠道 (Type, Config加密, Status)
+AuditLog              — 审计日志 (UserId, Action, ResourceType, ResourceId, Detail, IP, Timestamp)
 ```
 
 ## 12. 验收标准
