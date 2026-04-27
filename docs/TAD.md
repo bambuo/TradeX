@@ -4,10 +4,10 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档版本 | v1.2 |
+| 文档版本 | v1.3 |
 | 文档状态 | Draft |
 | 基于 PRD | `docs/PRD.md` v2.6 |
-| 基于 FSD | `docs/FSD.md` v1.9 |
+| 基于 FSD | `docs/FSD.md` v1.10 |
 | 更新时间 | 2026-04-27 |
 | 适用阶段 | 立项评审 / M1-M7 研发 |
 
@@ -233,6 +233,8 @@ Request → ExceptionHandling → Serilog RequestLogging
 | `AuditLogMiddleware` | 审计日志自动记录 | 自动忽略 GET/HEAD/OPTIONS 无变更操作 |
 
 **SignalR Hub — TradingHub 事件合约**：
+
+> **命名规范**：SignalR 事件名采用 PascalCase，如 `PositionUpdated`。审计日志 Action 采用 `resource.operation`（点号分隔）格式，如 `user.login`。
 
 | 事件名 | 推送方向 | Payload 字段 | 触发时机 |
 |--------|---------|-------------|---------|

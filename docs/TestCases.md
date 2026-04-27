@@ -4,11 +4,11 @@
 
 | 项目 | 内容 |
 |------|------|
-| 文档版本 | v1.2 |
+| 文档版本 | v1.3 |
 | 文档状态 | Draft |
 | 基于 PRD | `docs/PRD.md` v2.6 |
-| 基于 FSD | `docs/FSD.md` v1.9 |
-| 基于 TAD | `docs/TAD.md` v1.2 |
+| 基于 FSD | `docs/FSD.md` v1.10 |
+| 基于 TAD | `docs/TAD.md` v1.3 |
 | 更新时间 | 2026-04-27 |
 | 适用阶段 | M1-M7 测试与验收 |
 | 测试框架 | 后端: xUnit + NSubstitute，前端: Vitest + Vue Test Utils + Playwright |
@@ -102,6 +102,7 @@ TC-{模块}-{序号}
 | ERR | 错误处理与中间件 |
 | RECONCILER | 订单同步 Reconciliation |
 | RESOURCE | 系统资源监控 |
+| TRADER | 交易员管理 |
 
 ---
 
@@ -175,6 +176,32 @@ TC-{模块}-{序号}
 - **测试步骤**:
   1. 提交策略配置
 - **预期结果**: 返回参数校验错误，策略不可保存/不可启用
+
+---
+
+## 交易员管理 (Trader)
+
+### TC-TRADER-001: 禁用 Trader — 自动停用关联的 Active 策略
+- **前置条件**: Trader 有 2 个 Active 策略
+- **测试步骤**:
+  1. `PUT /api/traders/:id/status` body: `{ "status": "Disabled" }`
+- **预期结果**: 返回 200，Trader 状态为 Disabled，旗下 2 个策略状态自动变为 Disabled，日志记录策略停用操作
+- **关联需求**: FSD §7.15, FSD §21.8
+
+### TC-TRADER-002: 启用 Trader — 策略不自动恢复
+- **前置条件**: Trader 为 Disabled，之前有 2 个策略被自动停用
+- **测试步骤**:
+  1. `PUT /api/traders/:id/status` body: `{ "status": "Active" }`
+  2. 查询关联策略状态
+- **预期结果**: Trader 状态为 Active，旗下策略保持 Disabled（需用户手动逐个启用）
+- **关联需求**: FSD §7.15
+
+### TC-TRADER-003: 删除 Trader — 有关联 Active 策略拒绝
+- **前置条件**: Trader 有 Active 策略
+- **测试步骤**:
+  1. `DELETE /api/traders/:id`
+- **预期结果**: 返回 `409 TRADER_HAS_ACTIVE_STRATEGIES`，提示需先停用所有策略
+- **关联需求**: FSD §7.15, FSD §21.8
 
 ---
 
@@ -776,9 +803,16 @@ TC-{模块}-{序号}
 ### TC-EXCH-016: 交易所启用/禁用状态切换
 - **前置条件**: 交易所为 Enabled
 - **测试步骤**:
-  1. 发送 `PUT /api/exchanges/:id`，status = Disabled
+  1. 发送 `POST /api/exchanges/:id/toggle`，body: `{ "enable": false }`
 - **预期结果**: 交易所设为 Disabled，停用关联策略
-- **关联需求**: FR-02.4
+- **关联需求**: FR-02.4, FSD §7.5
+
+### TC-EXCH-016-B: toggle 请求体缺失返回 400
+- **前置条件**: 交易所已存在
+- **测试步骤**:
+  1. 发送 `POST /api/exchanges/:id/toggle`，无请求体
+- **预期结果**: 返回 `400 VALIDATION_ERROR`
+- **关联需求**: FSD §7.5
 
 ### TC-EXCH-017: 获取交易所列表 — 筛选/翻页
 - **前置条件**: 存在多个交易所
@@ -865,11 +899,11 @@ TC-{模块}-{序号}
 
 ## M3 — 策略与条件树 (Strategy)
 
-### TC-STRAT-001: 创建策略 — 正常流程
-- **前置条件**: Trader + Exchange 已存在
+### TC-STRAT-001: 创建策略模板 — 正常流程
+- **前置条件**: 无
 - **测试步骤**:
-  1. 发送 `POST /api/strategies`，附带完整参数（name, traderId, exchangeId, symbolIds, timeframe, entryCondition, exitCondition, executionRule）
-- **预期结果**: 返回 `201` + Strategy 对象，status = Draft
+  1. 发送 `POST /api/strategies`，附带完整参数（name, entryCondition, exitCondition, executionRule）
+- **预期结果**: 返回 `201` + Strategy 对象，status = Draft（不含 ExchangeId、SymbolIds、Timeframe）
 - **关联需求**: FR-03.1, FR-03.3, FSD §7.6
 
 ### TC-STRAT-002: 创建策略 — 缺少必需字段
@@ -935,10 +969,19 @@ TC-{模块}-{序号}
   2. Backtesting → 回测通过 → Passed
   3. Passed → 启用 → Active
   4. Active → 停用 → Disabled
-  5. Disabled → 提交回测 → Backtesting
-  6. Backtesting → 未通过 → Draft
+  5. Disabled → 启用 → Active
+  6. Active → 停用 → Disabled
+  7. Disabled → 提交回测 → Backtesting（后续回测不改变状态）
+  8. Backtesting → 取消 → Draft
 - **预期结果**: 各状态转换符合 FSD §5.3 状态机定义
 - **关联需求**: FR-03.8, FSD §5.3
+
+### TC-STRAT-031: 回测中取消 — Backtesting → Draft
+- **前置条件**: 策略状态为 Backtesting
+- **测试步骤**:
+  1. 用户取消回测任务
+- **预期结果**: 策略状态回退为 Draft，回测任务状态为 Cancelled，不触发通过检查
+- **关联需求**: FSD §5.3
 
 ### TC-STRAT-011: 活跃策略冲突检测 — 同 Trader + 同 Exchange + 同 Symbol
 - **前置条件**: 已有 Active 策略 A（Trader-1, Exchange-1, Symbol-BTCUSDT）
@@ -1962,11 +2005,18 @@ TC-{模块}-{序号}
 - **关联需求**: FSD §14.7
 
 ### TC-BACKTEST-018: 回测 — 数据不足处理
-- **前置条件**: 数据范围内 K 线数据不足 10 根
+- **前置条件**: 数据范围内 K 线数据不足 30 根
 - **测试步骤**:
   1. 创建回测任务
-- **预期结果**: 状态变为 Failed，错误信息"数据不足，至少需要 10 根 K 线"
+- **预期结果**: 状态变为 Failed，错误信息"数据不足，至少需要 30 根 K 线"
 - **关联需求**: FSD §14.2
+
+### TC-BACKTEST-033: 回测 — 数据刚好 30 根（边界值）
+- **前置条件**: 数据范围内刚好 30 根 K 线，策略条件树有效
+- **测试步骤**:
+  1. 创建回测任务
+- **预期结果**: 回测正常执行，不触发数据不足错误（指标 warmup 不足的部分返回 null，策略评估容错处理）
+- **关联需求**: FSD §14.3
 
 ### TC-BACKTEST-019: 回测 — 大数据量内存安全
 - **前置条件**: 一年 1 分钟粒度数据（约 52 万条 K 线），复杂策略

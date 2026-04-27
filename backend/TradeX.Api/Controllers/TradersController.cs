@@ -12,7 +12,10 @@ namespace TradeX.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class TradersController(ITraderRepository traderRepo, TradeXDbContext dbContext) : ControllerBase
+public class TradersController(
+    ITraderRepository traderRepo,
+    IStrategyDeploymentRepository deploymentRepo,
+    TradeXDbContext dbContext) : ControllerBase
 {
     private Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
@@ -80,7 +83,20 @@ public class TradersController(ITraderRepository traderRepo, TradeXDbContext dbC
         }
 
         if (request.Status.HasValue)
+        {
+            if (request.Status.Value == TradeX.Core.Enums.TraderStatus.Disabled
+                && trader.Status == TradeX.Core.Enums.TraderStatus.Active)
+            {
+                var activeDeployments = await deploymentRepo.GetByTraderIdAsync(trader.Id, ct);
+                foreach (var deployment in activeDeployments.Where(d => d.Status == DeploymentStatus.Active))
+                {
+                    deployment.Status = DeploymentStatus.Disabled;
+                    await deploymentRepo.UpdateAsync(deployment, ct);
+                }
+            }
+
             trader.Status = request.Status.Value;
+        }
 
         if (request.AvatarColor is not null)
             trader.AvatarColor = request.AvatarColor;
@@ -99,6 +115,10 @@ public class TradersController(ITraderRepository traderRepo, TradeXDbContext dbC
         var trader = await traderRepo.GetByIdAsync(id, ct);
         if (trader is null || trader.UserId != UserId)
             return NotFound(new { message = "交易员不存在" });
+
+        var activeDeployments = await deploymentRepo.GetByTraderIdAsync(trader.Id, ct);
+        if (activeDeployments.Any(d => d.Status == DeploymentStatus.Active))
+            return Conflict(new { code = "TRADER_HAS_ACTIVE_STRATEGIES", message = "交易员存在活跃策略，无法删除，请先禁用所有策略" });
 
         await traderRepo.DeleteAsync(trader, ct);
         return NoContent();

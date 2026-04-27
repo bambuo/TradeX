@@ -166,13 +166,13 @@ public class ExchangesController(
     }
 
     [HttpPost("{id:guid}/toggle")]
-    public async Task<IActionResult> ToggleStatus(Guid id, CancellationToken ct)
+    public async Task<IActionResult> ToggleStatus(Guid id, [FromBody] ToggleExchangeRequest request, CancellationToken ct)
     {
         var exchange = await exchangeRepo.GetByIdAsync(id, ct);
         if (exchange is null)
             return NotFound(new { code = "EXCHANGE_NOT_FOUND", message = "交易所不存在" });
 
-        exchange.Status = exchange.Status == ExchangeStatus.Enabled ? ExchangeStatus.Disabled : ExchangeStatus.Enabled;
+        exchange.Status = request.Enable ? ExchangeStatus.Enabled : ExchangeStatus.Disabled;
         await exchangeRepo.UpdateAsync(exchange, ct);
 
         return Ok(new { exchange.Id, isEnabled = exchange.Status == ExchangeStatus.Enabled });
@@ -275,4 +275,5 @@ public class ExchangesController(
 
     public record CreateExchangeRequest(string Name, string ExchangeType, string ApiKey, string SecretKey, string? Passphrase = null);
     public record UpdateExchangeRequest(string? Name = null, string? ApiKey = null, string? SecretKey = null, string? Passphrase = null);
+    public record ToggleExchangeRequest(bool Enable);
 }
