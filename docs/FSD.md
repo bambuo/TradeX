@@ -4,10 +4,10 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档版本 | v1.7 |
+| 文档版本 | v1.8 |
 | 文档状态 | Draft / 待共识 |
-| 基于 PRD | `docs/PRD.md` v2.3 (2026-04-24) |
-| 更新时间 | 2026-04-26 |
+| 基于 PRD | `docs/PRD.md` v2.5 (2026-04-27) |
+| 更新时间 | 2026-04-27 |
 
 ---
 
@@ -189,6 +189,16 @@ Pending ──> Running ──> Completed
 Running ──> Failed
 ```
 
+### 5.7 Volatility Grid 策略状态约束
+
+Volatility Grid 属于策略执行规则的一种特化实现，遵循现有策略状态机，但增加以下运行时约束：
+
+- 首单触发条件：`RANGE_PCT >= entryVolatilityPercent`（默认 `1.0`）
+- 持仓后加仓条件：`lastPrice <= avgEntryPrice * (1 - rebalancePercent)`
+- 持仓后减仓条件：`lastPrice >= avgEntryPrice * (1 + rebalancePercent)`
+- 最大追加次数：`pyramidingCount <= maxPyramidingLevels`（默认 `5`）
+- `noStopLoss=true` 时仅关闭仓位级止损，不影响账户级风控链
+
 ---
 
 ## 6. 数据模型
@@ -312,6 +322,43 @@ Running ──> Failed
   "orderType": "market|limit"
 }
 ```
+
+**ExecutionRuleJson 扩展（Volatility Grid）**:
+
+```json
+{
+  "type": "volatility_grid",
+  "entryVolatilityPercent": 1.0,
+  "rebalancePercent": 1.0,
+  "basePositionSize": 100,
+  "maxPositionSize": 500,
+  "maxPyramidingLevels": 5,
+  "noStopLoss": true,
+  "slippageTolerance": 0.0005,
+  "maxDailyLoss": 200
+}
+```
+
+字段约束：
+
+- `entryVolatilityPercent > 0`
+- `rebalancePercent > 0`
+- `maxPyramidingLevels >= 0`
+- `basePositionSize > 0`
+- `maxPositionSize >= basePositionSize`
+
+### 6.6.1 Volatility Grid 指标与上下文变量
+
+为支持该策略风格，条件评估上下文新增以下变量：
+
+| 名称 | 类型 | 说明 |
+|---|---|---|
+| `RANGE_PCT` | decimal | 当前 K 线波幅百分比，公式 `(high - low) / open * 100` |
+| `AVG_ENTRY_PRICE` | decimal | 当前持仓均价 |
+| `PYRAMIDING_COUNT` | int | 当前已追加次数 |
+| `POSITION_SIZE` | decimal | 当前持仓数量 |
+
+以上变量在回测与实盘必须同口径计算。
 
 ### 6.7 Position
 
