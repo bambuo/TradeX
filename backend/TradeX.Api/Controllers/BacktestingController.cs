@@ -97,7 +97,7 @@ public class BacktestingController(
             result.TotalTrades,
             result.SharpeRatio,
             result.ProfitLossRatio,
-            analysisCount = await taskRepo.GetCandleAnalysesCountAsync(taskId, ct),
+            analysisCount = await taskRepo.GetCandleAnalysesCountAsync(taskId, null, ct),
             trades = JsonSerializer.Deserialize<object>(result.DetailJson)
         });
     }
@@ -106,6 +106,7 @@ public class BacktestingController(
     public async Task<IActionResult> GetAnalysis(Guid taskId,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 100,
+        [FromQuery] string? action = null,
         CancellationToken ct = default)
     {
         page = Math.Max(1, page);
@@ -115,8 +116,11 @@ public class BacktestingController(
         var runningList = analysisStore.Get(taskId);
         if (runningList is not null)
         {
-            var total = runningList.Count;
-            var items = runningList
+            var filtered = runningList.AsEnumerable();
+            if (!string.IsNullOrWhiteSpace(action) && action != "all")
+                filtered = filtered.Where(a => a.Action == action);
+            var total = filtered.Count();
+            var items = filtered
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .Select(a => new
@@ -154,8 +158,8 @@ public class BacktestingController(
         if (task.Status != BacktestTaskStatus.Completed)
             return NotFound(new { error = "没有运行中的分析数据" });
 
-        var dbItems = await taskRepo.GetCandleAnalysesPageAsync(taskId, page, pageSize, ct);
-        var dbTotal = await taskRepo.GetCandleAnalysesCountAsync(taskId, ct);
+        var dbItems = await taskRepo.GetCandleAnalysesPageAsync(taskId, page, pageSize, action, ct);
+        var dbTotal = await taskRepo.GetCandleAnalysesCountAsync(taskId, action, ct);
 
         return Ok(new
         {

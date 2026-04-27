@@ -12,7 +12,7 @@ public interface IBacktestTaskRepository
     Task<BacktestResult?> GetResultByTaskIdAsync(Guid taskId, CancellationToken ct = default);
 
     Task AddCandleAnalysesAsync(Guid taskId, IReadOnlyList<BacktestCandleAnalysis> analysis, CancellationToken ct = default);
-    Task<BacktestCandleAnalysis[]> GetCandleAnalysesPageAsync(Guid taskId, int page, int pageSize, CancellationToken ct = default);
-    Task<int> GetCandleAnalysesCountAsync(Guid taskId, CancellationToken ct = default);
+    Task<BacktestCandleAnalysis[]> GetCandleAnalysesPageAsync(Guid taskId, int page, int pageSize, string? actionFilter = null, CancellationToken ct = default);
+    Task<int> GetCandleAnalysesCountAsync(Guid taskId, string? actionFilter = null, CancellationToken ct = default);
     Task<BacktestCandleAnalysis[]> GetCandleAnalysesAllAsync(Guid taskId, CancellationToken ct = default);
 }

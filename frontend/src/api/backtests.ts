@@ -83,7 +83,9 @@ export const backtestsApi = {
   getResult(traderId: string, strategyId: string, taskId: string) {
     return client.get<BacktestResult>(`/traders/${traderId}/strategies/${strategyId}/backtests/tasks/${taskId}/result`)
   },
-  getAnalysis(traderId: string, strategyId: string, taskId: string, page = 1, pageSize = 100) {
-    return client.get<AnalysisResponse>(`/traders/${traderId}/strategies/${strategyId}/backtests/tasks/${taskId}/analysis?page=${page}&pageSize=${pageSize}`)
+  getAnalysis(traderId: string, strategyId: string, taskId: string, page = 1, pageSize = 100, action?: string) {
+    let url = `/traders/${traderId}/strategies/${strategyId}/backtests/tasks/${taskId}/analysis?page=${page}&pageSize=${pageSize}`
+    if (action && action !== 'all') url += `&action=${encodeURIComponent(action)}`
+    return client.get<AnalysisResponse>(url)
   }
 }

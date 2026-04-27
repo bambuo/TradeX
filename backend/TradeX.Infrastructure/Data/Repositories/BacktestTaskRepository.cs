@@ -44,10 +44,12 @@ public class BacktestTaskRepository(TradeXDbContext context) : IBacktestTaskRepo
         await context.SaveChangesAsync(ct);
     }
 
-    public async Task<BacktestCandleAnalysis[]> GetCandleAnalysesPageAsync(Guid taskId, int page, int pageSize, CancellationToken ct = default)
+    public async Task<BacktestCandleAnalysis[]> GetCandleAnalysesPageAsync(Guid taskId, int page, int pageSize, string? actionFilter = null, CancellationToken ct = default)
     {
-        var entities = await context.BacktestCandleAnalyses
-            .Where(e => e.TaskId == taskId)
+        var query = context.BacktestCandleAnalyses.Where(e => e.TaskId == taskId);
+        if (!string.IsNullOrWhiteSpace(actionFilter) && actionFilter != "all")
+            query = query.Where(e => e.Action == actionFilter);
+        var entities = await query
             .OrderBy(e => e.Index)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -55,8 +57,13 @@ public class BacktestTaskRepository(TradeXDbContext context) : IBacktestTaskRepo
         return entities.Select(e => e.ToDomain()).ToArray();
     }
 
-    public async Task<int> GetCandleAnalysesCountAsync(Guid taskId, CancellationToken ct = default)
-        => await context.BacktestCandleAnalyses.CountAsync(e => e.TaskId == taskId, ct);
+    public async Task<int> GetCandleAnalysesCountAsync(Guid taskId, string? actionFilter = null, CancellationToken ct = default)
+    {
+        var query = context.BacktestCandleAnalyses.Where(e => e.TaskId == taskId);
+        if (!string.IsNullOrWhiteSpace(actionFilter) && actionFilter != "all")
+            query = query.Where(e => e.Action == actionFilter);
+        return await query.CountAsync(ct);
+    }
 
     public async Task<BacktestCandleAnalysis[]> GetCandleAnalysesAllAsync(Guid taskId, CancellationToken ct = default)
     {

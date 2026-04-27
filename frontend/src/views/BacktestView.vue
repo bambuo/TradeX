@@ -31,7 +31,7 @@ const replaySpeed = ref(1)
 const tableBuffer = ref<BacktestCandleAnalysis[]>([])
 const tableLoading = ref(false)
 const tablePage = ref(1)
-const tablePageSize = ref(100)
+const tablePageSize = ref(10)
 
 const days = ref(7)
 const initialCapital = ref(1000)
@@ -57,14 +57,14 @@ const chartReplayIndex = computed<number | undefined>(() => {
   if (selectedTask.value?.status === 'Running') return undefined
   return replayIndex.value
 })
-const tableTotalPages = computed(() => Math.max(1, Math.ceil((analysisTotal.value || 0) / tablePageSize.value)))
 const tableDisplayItems = computed(() => {
-  const start = (tablePage.value - 1) * tablePageSize.value
-  return enrichPositionMetrics(tableBuffer.value, selectedTask.value?.initialCapital ?? 1000).slice(start, start + tablePageSize.value)
+  return enrichPositionMetrics(tableBuffer.value, selectedTask.value?.initialCapital ?? 1000)
 })
 const tableCurrentItem = computed(() => tableDisplayItems.value.at(-1) ?? null)
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 void tableCurrentItem
+const tableActionFilter = ref('all')
+const tableTotalPages = computed(() => Math.max(1, Math.ceil((analysisTotal.value || 0) / tablePageSize.value)))
 
 const statusLabels: Record<string, string> = {
   Pending: '排队中', Running: '运行中', Completed: '已完成', Failed: '失败', Cancelled: '已取消'
@@ -365,9 +365,8 @@ function loadTableView() {
 function loadTablePage(page: number) {
   if (!selectedTask.value) return
   tablePage.value = Math.min(Math.max(page, 1), tableTotalPages.value)
-  const cumulativeSize = tablePage.value * tablePageSize.value
   tableLoading.value = true
-  backtestsApi.getAnalysis(traderId, selectedTask.value.strategyId, selectedTask.value.id, 1, cumulativeSize).then(({ data }) => {
+  backtestsApi.getAnalysis(traderId, selectedTask.value.strategyId, selectedTask.value.id, tablePage.value, tablePageSize.value, tableActionFilter.value).then(({ data }) => {
     tableBuffer.value = data.items ?? []
     replayTotal.value = data.total
   }).catch(() => {}).finally(() => {
@@ -377,6 +376,13 @@ function loadTablePage(page: number) {
 
 function changeTablePageSize(size: number) {
   tablePageSize.value = size
+  tablePage.value = 1
+  loadTablePage(1)
+}
+
+function onTableFilterChange(filter: string) {
+  tableActionFilter.value = filter
+  if (!selectedTask.value) return
   tablePage.value = 1
   loadTablePage(1)
 }
@@ -706,9 +712,20 @@ function enrichPositionMetrics(items: BacktestCandleAnalysis[], initialValue: nu
             <div class="table-bar">
               <span class="table-label">共 {{ analysisTotal }} 根 K 线</span>
               <div class="pagination-controls">
+                <span class="table-label">筛选</span>
+                <AppSelect
+                  :options="[
+                    { label: '全部', value: 'all' },
+                    { label: '仅入场', value: 'enter' },
+                    { label: '仅出场', value: 'exit' },
+                  ]"
+                  :model-value="tableActionFilter"
+                  @update:model-value="(v: string | number) => onTableFilterChange(String(v))"
+                />
                 <span class="table-label">每页</span>
                 <AppSelect
                   :options="[
+                    { label: '10', value: 10 },
                     { label: '50', value: 50 },
                     { label: '100', value: 100 },
                     { label: '200', value: 200 },
