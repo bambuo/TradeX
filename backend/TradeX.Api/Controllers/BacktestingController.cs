@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 using TradeX.Trading;
 
@@ -12,6 +13,8 @@ namespace TradeX.Api.Controllers;
 public class BacktestingController(
     IBacktestService backtestService,
     TaskAnalysisStore analysisStore,
+    IIoTDbService iotdb,
+    IBacktestTaskRepository taskRepo,
     ILogger<BacktestingController> logger) : ControllerBase
 {
     [HttpPost]
@@ -95,9 +98,7 @@ public class BacktestingController(
             result.TotalTrades,
             result.SharpeRatio,
             result.ProfitLossRatio,
-            analysisCount = result.AnalysisJson is not null
-                ? JsonSerializer.Deserialize<object[]>(result.AnalysisJson)?.Length ?? 0
-                : 0,
+            analysisCount = await GetAnalysisCountFallbackAsync(taskId, ct),
             trades = JsonSerializer.Deserialize<object>(result.DetailJson)
         });
     }
@@ -146,7 +147,7 @@ public class BacktestingController(
             });
         }
 
-        // Fallback to completed result from DB
+        // Completed task — try IoTDB first, fallback to SQLite
         var task = await backtestService.GetTaskAsync(taskId, ct);
         if (task is null)
             return NotFound(new { error = "回测任务不存在" });
@@ -154,28 +155,37 @@ public class BacktestingController(
         if (task.Status != BacktestTaskStatus.Completed)
             return NotFound(new { error = "没有运行中的分析数据" });
 
-        var result = await backtestService.GetResultAsync(taskId, ct);
-        if (result?.AnalysisJson is null)
-            return NotFound(new { error = "没有可用的分析数据" });
-
-        var allData = JsonSerializer.Deserialize<List<JsonElement>>(result.AnalysisJson);
-        if (allData is null || allData.Count == 0)
-            return NotFound(new { error = "没有可用的分析数据" });
-
-        var totalCount = allData.Count;
-        var pageItems = allData
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToList();
-
-        return Ok(new
+        // Try IoTDB
+        var iotdbItems = await iotdb.GetBacktestAnalysisPageAsync(taskId, page, pageSize, ct);
+        var iotdbTotal = await iotdb.GetBacktestAnalysisCountAsync(taskId, ct);
+        if (iotdbItems.Length > 0)
         {
-            total = totalCount,
-            page,
-            pageSize,
-            totalPages = (int)Math.Ceiling((double)totalCount / pageSize),
-            items = pageItems
-        });
+            return Ok(new
+            {
+                total = iotdbTotal,
+                page,
+                pageSize,
+                totalPages = (int)Math.Ceiling((double)iotdbTotal / pageSize),
+                items = iotdbItems.Select(FormatItem).ToList()
+            });
+        }
+
+        // Fallback to SQLite table
+        var dbItems = await taskRepo.GetCandleAnalysesPageAsync(taskId, page, pageSize, ct);
+        var dbTotal = await taskRepo.GetCandleAnalysesCountAsync(taskId, ct);
+        if (dbTotal > 0)
+        {
+            return Ok(new
+            {
+                total = dbTotal,
+                page,
+                pageSize,
+                totalPages = (int)Math.Ceiling((double)dbTotal / pageSize),
+                items = dbItems.Select(FormatItem).ToList()
+            });
+        }
+
+        return NotFound(new { error = "没有可用的分析数据" });
     }
 
     [HttpGet("tasks/{taskId:guid}/analysis/stream")]
@@ -255,7 +265,7 @@ public class BacktestingController(
             return;
         }
 
-        // Completed task — replay from DB with speed control
+        // Completed task — try IoTDB first, fallback to SQLite
         var task = await backtestService.GetTaskAsync(taskId, ct);
         if (task?.Status != BacktestTaskStatus.Completed)
         {
@@ -263,31 +273,28 @@ public class BacktestingController(
             return;
         }
 
-        var result = await backtestService.GetResultAsync(taskId, ct);
+        var allData = await iotdb.GetBacktestAnalysisAllAsync(taskId, ct);
+        var fromIotdb = allData.Length > 0;
 
-        if (result?.AnalysisJson is null)
+        if (!fromIotdb)
         {
-            await WriteCompleteAsync(Response, ss, ct);
-            return;
-        }
-
-        var allData = JsonSerializer.Deserialize<List<BacktestCandleAnalysis>>(result.AnalysisJson,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        if (allData is null || allData.Count == 0)
-        {
-            await WriteCompleteAsync(Response, ss, ct);
-            return;
+            allData = await taskRepo.GetCandleAnalysesAllAsync(taskId, ct);
+            if (allData.Length == 0)
+            {
+                await WriteCompleteAsync(Response, ss, ct);
+                return;
+            }
         }
 
         var delayMs = 300 / speed;
-        var total = allData.Count;
+        var total = allData.Length;
 
         // Send total count first
         var metaPayload = JsonSerializer.Serialize(new { type = "meta", total }, ss);
         await Response.WriteAsync($"data: {metaPayload}\n\n", ct);
         await Response.Body.FlushAsync(ct);
 
-        for (var i = 0; i < allData.Count; i++)
+        for (var i = 0; i < allData.Length; i++)
         {
             if (ct.IsCancellationRequested) break;
             await WriteItemAsync(Response, allData[i], ss, ct);
@@ -339,5 +346,12 @@ public class BacktestingController(
     {
         await response.WriteAsync($"data: {JsonSerializer.Serialize(new { type = "complete" })}\n\n", ct);
         await response.Body.FlushAsync(ct);
+    }
+
+    private async Task<int> GetAnalysisCountFallbackAsync(Guid taskId, CancellationToken ct)
+    {
+        var count = await iotdb.GetBacktestAnalysisCountAsync(taskId, ct);
+        if (count > 0) return count;
+        return await taskRepo.GetCandleAnalysesCountAsync(taskId, ct);
     }
 }

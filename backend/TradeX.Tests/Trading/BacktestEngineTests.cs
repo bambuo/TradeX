@@ -1,4 +1,3 @@
-using System.Text.Json;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 using TradeX.Indicators;
@@ -112,22 +111,16 @@ public class BacktestEngineTests
         };
 
         var candles = GenerateCandles(300, 50000);
-        var (result, _, _) = _engine.Run(strategy, candles);
+        var (_, _, analysis) = _engine.Run(strategy, candles);
 
-        Assert.NotNull(result.AnalysisJson);
-        Assert.NotEqual("[]", result.AnalysisJson);
+        Assert.NotEmpty(analysis);
 
-        var items = JsonSerializer.Deserialize<List<JsonElement>>(result.AnalysisJson);
-        Assert.NotEmpty(items);
-
-        var first = items[^1];
-        Assert.True(first.TryGetProperty("indicators", out var indicators));
+        var last = analysis[^1];
         var keys = new[] { "SMA_20", "SMA_50", "EMA_20", "MACD_LINE", "MACD_SIGNAL", "BB_UPPER", "BB_LOWER" };
         foreach (var key in keys)
         {
-            var hasValue = indicators.TryGetProperty(key, out var val);
-            Assert.True(hasValue, $"缺少指标: {key}");
-            Assert.NotEqual(0, val.GetDecimal());
+            Assert.True(last.IndicatorValues.ContainsKey(key), $"缺少指标: {key}");
+            Assert.NotEqual(0, last.IndicatorValues[key]);
         }
     }
 
@@ -148,7 +141,6 @@ public class BacktestEngineTests
         Assert.Contains(analysis, a => a.Action == "enter");
         Assert.Contains(analysis, a => a.InPosition);
         Assert.Contains(analysis, a => a.PositionCost is > 0 && a.PositionValue is > 0);
-        Assert.NotEqual("[]", result.AnalysisJson);
     }
 
     [Fact]
@@ -206,7 +198,6 @@ public class BacktestEngineTests
         Assert.True(enterCount >= 1, "至少应有 1 次入场");
         Assert.Contains(analysis, a => a.Action == "enter");
         Assert.Contains(analysis, a => a.InPosition);
-        Assert.NotNull(result.AnalysisJson);
     }
 
     private static List<Candle> GenerateCandles(int count, decimal basePrice)

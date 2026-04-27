@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TradeX.Core.Models;
+using TradeX.Infrastructure.Data.Entities;
 
 namespace TradeX.Infrastructure.Data;
 
@@ -19,6 +20,7 @@ public class TradeXDbContext(DbContextOptions<TradeXDbContext> options) : DbCont
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<BacktestTask> BacktestTasks => Set<BacktestTask>();
     public DbSet<BacktestResult> BacktestResults => Set<BacktestResult>();
+    public DbSet<BacktestCandleAnalysisEntity> BacktestCandleAnalyses => Set<BacktestCandleAnalysisEntity>();
     public DbSet<Symbol> Symbols => Set<Symbol>();
     public DbSet<ExchangeSymbolRuleSnapshot> ExchangeSymbolRules => Set<ExchangeSymbolRuleSnapshot>();
     public DbSet<NotificationChannel> NotificationChannels => Set<NotificationChannel>();
@@ -144,6 +146,16 @@ public class TradeXDbContext(DbContextOptions<TradeXDbContext> options) : DbCont
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.TaskId).IsUnique();
+        });
+
+        modelBuilder.Entity<BacktestCandleAnalysisEntity>(e =>
+        {
+            e.ToTable("BacktestCandleAnalyses");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.TaskId);
+            e.HasIndex(x => new { x.TaskId, x.Index }).IsUnique();
+            e.Property(x => x.Action).HasMaxLength(20);
+            e.Property(x => x.IndicatorsJson).HasMaxLength(4000);
         });
 
         modelBuilder.Entity<Symbol>(e =>

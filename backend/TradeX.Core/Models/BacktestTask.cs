@@ -49,6 +49,5 @@ public class BacktestResult
     public decimal SharpeRatio { get; set; }
     public decimal ProfitLossRatio { get; set; }
     public string DetailJson { get; set; } = "[]";
-    public string? AnalysisJson { get; set; }
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
 }

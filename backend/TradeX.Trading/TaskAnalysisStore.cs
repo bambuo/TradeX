@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Threading.Channels;
+using TradeX.Core.Models;
 
 namespace TradeX.Trading;
 

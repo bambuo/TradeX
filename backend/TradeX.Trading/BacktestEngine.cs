@@ -330,22 +330,6 @@ public class BacktestEngine(
     {
         var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
-        var analysisJson = JsonSerializer.Serialize(analysis.Select(a => new
-        {
-            a.Index, a.Timestamp, a.Open, a.High, a.Low, a.Close, a.Volume,
-            indicators = a.IndicatorValues,
-            entry = a.EntryConditionResult,
-            exit = a.ExitConditionResult,
-            inPosition = a.InPosition,
-            a.Action,
-            a.AvgEntryPrice,
-            a.PositionQuantity,
-            a.PositionCost,
-            a.PositionValue,
-            a.PositionPnl,
-            a.PositionPnlPercent
-        }), jsonOptions);
-
         if (trades.Count == 0)
             return new BacktestResult
             {
@@ -356,8 +340,7 @@ public class BacktestEngine(
                 TotalTrades = 0,
                 SharpeRatio = 0,
                 ProfitLossRatio = 0,
-                DetailJson = $"{{\"message\":\"无交易产生\"}}",
-                AnalysisJson = analysisJson
+                DetailJson = $"{{\"message\":\"无交易产生\"}}"
             };
 
         var wins = trades.Count(t => t.Pnl > 0);
@@ -409,8 +392,7 @@ public class BacktestEngine(
             TotalTrades = trades.Count,
             SharpeRatio = Math.Round(sharpe, 2),
             ProfitLossRatio = Math.Round(profitLossRatio, 2),
-            DetailJson = detailJson,
-            AnalysisJson = analysisJson
+            DetailJson = detailJson
         };
     }
 
@@ -424,8 +406,7 @@ public class BacktestEngine(
             TotalTrades = 0,
             SharpeRatio = 0,
             ProfitLossRatio = 0,
-            DetailJson = $"{{\"message\":\"{reason}\"}}",
-            AnalysisJson = "[]"
+            DetailJson = $"{{\"message\":\"{reason}\"}}"
         };
 
     private static decimal CalculateAverageEntry(IReadOnlyList<OpenLeg> openLegs)

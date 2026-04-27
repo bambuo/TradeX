@@ -10,4 +10,9 @@ public interface IBacktestTaskRepository
     Task UpdateAsync(BacktestTask task, CancellationToken ct = default);
     Task AddResultAsync(BacktestResult result, CancellationToken ct = default);
     Task<BacktestResult?> GetResultByTaskIdAsync(Guid taskId, CancellationToken ct = default);
+
+    Task AddCandleAnalysesAsync(Guid taskId, IReadOnlyList<BacktestCandleAnalysis> analysis, CancellationToken ct = default);
+    Task<BacktestCandleAnalysis[]> GetCandleAnalysesPageAsync(Guid taskId, int page, int pageSize, CancellationToken ct = default);
+    Task<int> GetCandleAnalysesCountAsync(Guid taskId, CancellationToken ct = default);
+    Task<BacktestCandleAnalysis[]> GetCandleAnalysesAllAsync(Guid taskId, CancellationToken ct = default);
 }
