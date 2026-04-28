@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import AppSelect from './AppSelect.vue'
 
 export interface ConditionNode {
   operator?: string
@@ -53,13 +52,17 @@ function updateField(field: string, value: any) {
     <!-- Logical operator node -->
     <template v-if="!isLeaf">
       <div class="node-header">
-        <AppSelect
-          :options="operators.map(o => ({ label: o, value: o }))"
+        <a-select
           :model-value="node.operator ?? 'AND'"
           class="op-select"
-          @update:model-value="(v) => updateField('operator', v)"
-        />
-        <AppButton size="sm" variant="ghost" icon="close" title="删除" @click="removeFromParent" />
+          size="small"
+          @change="(v) => updateField('operator', v)"
+        >
+          <a-option v-for="op in operators" :key="op" :value="op" :label="op" />
+        </a-select>
+        <a-button size="mini" type="text" @click="removeFromParent">
+          <template #icon><icon-close /></template>
+        </a-button>
       </div>
       <div class="children">
         <ConditionTreeEditor
@@ -71,26 +74,40 @@ function updateField(field: string, value: any) {
         />
       </div>
       <div class="add-actions">
-        <AppButton size="sm" icon="plus" @click="node.conditions!.push({ operator: 'AND', conditions: [] })">条件组</AppButton>
-        <AppButton size="sm" icon="plus" @click="node.conditions!.push({ indicator: 'RSI', comparison: '>', value: 50 })">条件</AppButton>
+        <a-button size="mini" @click="node.conditions!.push({ operator: 'AND', conditions: [] })">
+          <template #icon><icon-plus /></template>
+          条件组
+        </a-button>
+        <a-button size="mini" @click="node.conditions!.push({ indicator: 'RSI', comparison: '>', value: 50 })">
+          <template #icon><icon-plus /></template>
+          条件
+        </a-button>
       </div>
     </template>
 
     <!-- Leaf condition node -->
     <template v-else>
       <div class="leaf-editor">
-        <AppSelect
-          :options="indicators.map(i => ({ label: i, value: i }))"
+        <a-select
           :model-value="node.indicator ?? indicators[0]"
-          @update:model-value="(v) => updateField('indicator', v)"
-        />
-        <AppSelect
-          :options="comparisons.map(c => ({ label: c, value: c }))"
+          size="small"
+          style="width: 130px"
+          @change="(v) => updateField('indicator', v)"
+        >
+          <a-option v-for="ind in indicators" :key="ind" :value="ind" :label="ind" />
+        </a-select>
+        <a-select
           :model-value="node.comparison ?? comparisons[0]"
-          @update:model-value="(v) => updateField('comparison', v)"
-        />
-        <input :value="node.value" type="number" step="any" class="field-input" placeholder="值" @input="(e) => updateField('value', parseFloat((e.target as HTMLInputElement).value) || 0)" />
-        <AppButton size="sm" variant="ghost" icon="close" title="删除" @click="removeFromParent" />
+          size="small"
+          style="width: 110px"
+          @change="(v) => updateField('comparison', v)"
+        >
+          <a-option v-for="cmp in comparisons" :key="cmp" :value="cmp" :label="cmp" />
+        </a-select>
+        <a-input-number :model-value="node.value" class="field-input" placeholder="值" @change="(v) => updateField('value', Number(v) || 0)" />
+        <a-button size="mini" type="text" @click="removeFromParent">
+          <template #icon><icon-close /></template>
+        </a-button>
       </div>
     </template>
   </div>
@@ -113,11 +130,9 @@ function updateField(field: string, value: any) {
   gap: 6px;
   margin-bottom: 8px;
 }
-.op-select :deep(.app-select-trigger) {
+.op-select {
   font-weight: 700;
   font-size: 0.85rem;
-  color: var(--accent-blue);
-  border-color: var(--accent-blue);
 }
 .children {
   display: flex;
@@ -139,11 +154,5 @@ function updateField(field: string, value: any) {
 
 .field-input {
   width: 80px;
-  padding: 4px 6px;
-  background: rgba(255,255,255,0.55);
-  color: var(--text-primary);
-  border: 1px solid var(--glass-border-strong);
-  border-radius: 4px;
-  font-size: 0.8rem;
 }
 </style>

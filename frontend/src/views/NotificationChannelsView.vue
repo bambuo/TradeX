@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { notificationChannelsApi, type NotificationChannel } from '../api/notificationChannels'
-import AppSelect from '../components/AppSelect.vue'
 
 const channels = ref<NotificationChannel[]>([])
 const loading = ref(true)
@@ -92,7 +91,10 @@ onMounted(load)
   <div class="notif-page">
     <header class="page-header">
       <h2>通知渠道</h2>
-      <AppButton variant="primary" icon="plus" @click="openCreate">添加渠道</AppButton>
+      <a-button type="primary" @click="openCreate">
+        <template #icon><icon-plus /></template>
+        添加渠道
+      </a-button>
     </header>
 
     <Transition name="toast-fade">
@@ -101,26 +103,24 @@ onMounted(load)
       </div>
     </Transition>
 
-    <AppModal v-model="showForm" title="添加通知渠道" width="md">
+    <a-modal v-model:visible="showForm" title="添加通知渠道" width="md" :mask-closable="false">
       <div class="form-body">
         <div class="form-group">
           <label class="form-label">渠道名称</label>
-          <input v-model="formName" placeholder="输入渠道名称" class="input" />
+          <a-input v-model="formName" placeholder="输入渠道名称" />
         </div>
 
         <div class="form-group">
           <label class="form-label">渠道类型</label>
-          <AppSelect
-            :options="[
-              { label: 'Telegram', value: 'Telegram' },
-              { label: 'Discord', value: 'Discord' },
-              { label: 'Email', value: 'Email' },
-            ]"
+          <a-select
             :model-value="formType"
-            full
-            form
-            @update:model-value="(v: string | number) => formType = String(v)"
-          />
+            style="width: 100%"
+            @change="(v) => formType = String(v)"
+          >
+            <a-option value="Telegram" label="Telegram" />
+            <a-option value="Discord" label="Discord" />
+            <a-option value="Email" label="Email" />
+          </a-select>
         </div>
 
         <template v-if="formType === 'Telegram'">
@@ -128,11 +128,11 @@ onMounted(load)
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Bot Token</label>
-              <input v-model="formBotToken" placeholder="输入 Bot Token" class="input" />
+              <a-input v-model="formBotToken" placeholder="输入 Bot Token" />
             </div>
             <div class="form-group">
               <label class="form-label">Chat ID</label>
-              <input v-model="formChatId" placeholder="输入 Chat ID" class="input" />
+              <a-input v-model="formChatId" placeholder="输入 Chat ID" />
             </div>
           </div>
         </template>
@@ -141,7 +141,7 @@ onMounted(load)
           <div class="form-section">Discord 配置</div>
           <div class="form-group">
             <label class="form-label">Webhook URL</label>
-            <input v-model="formWebhookUrl" placeholder="输入 Webhook URL" class="input" />
+            <a-input v-model="formWebhookUrl" placeholder="输入 Webhook URL" />
           </div>
         </template>
 
@@ -150,41 +150,43 @@ onMounted(load)
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">SMTP Host</label>
-              <input v-model="formHost" placeholder="smtp.example.com" class="input" />
+              <a-input v-model="formHost" placeholder="smtp.example.com" />
             </div>
             <div class="form-group">
               <label class="form-label">端口</label>
-              <input v-model="formPort" placeholder="587" class="input" />
+              <a-input v-model="formPort" placeholder="587" />
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">用户名</label>
-              <input v-model="formUsername" placeholder="输入用户名" class="input" />
+              <a-input v-model="formUsername" placeholder="输入用户名" />
             </div>
             <div class="form-group">
               <label class="form-label">密码</label>
-              <input v-model="formPassword" type="password" placeholder="输入密码" class="input" />
+              <a-input-password v-model="formPassword" placeholder="输入密码" />
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">发件地址</label>
-              <input v-model="formFromAddress" placeholder="from@example.com" class="input" />
+              <a-input v-model="formFromAddress" placeholder="from@example.com" />
             </div>
             <div class="form-group">
               <label class="form-label">收件地址</label>
-              <input v-model="formToAddress" placeholder="to@example.com" class="input" />
+              <a-input v-model="formToAddress" placeholder="to@example.com" />
             </div>
           </div>
         </template>
       </div>
 
       <template #footer>
-        <AppButton icon="close" @click="showForm = false">取消</AppButton>
-        <AppButton variant="primary" icon="save" @click="save">保存</AppButton>
+        <a-button type="primary" @click="save">
+          <template #icon><icon-save /></template>
+          保存
+        </a-button>
       </template>
-    </AppModal>
+    </a-modal>
 
     <div v-if="loading" class="loading">加载中...</div>
 
@@ -212,20 +214,14 @@ onMounted(load)
           </div>
           <div class="card-header-actions">
             <span v-if="c.isDefault" class="default-badge">默认</span>
-            <label class="switch" :title="c.status === 'Enabled' ? '禁用' : '启用'">
-              <input type="checkbox" :checked="c.status === 'Enabled'" @change="toggleStatus(c.id)" />
-              <span class="switch-slider" />
-            </label>
+            <a-switch :model-value="c.status === 'Enabled'" @change="() => toggleStatus(c.id)" />
           </div>
         </div>
 
         <div class="card-body">
           <div class="info-row">
             <span class="info-label">状态</span>
-            <span class="status-badge" :class="c.status === 'Enabled' ? 'enabled' : 'disabled'">
-              <span class="status-dot" />
-              {{ c.status === 'Enabled' ? '启用' : '禁用' }}
-            </span>
+            <a-tag :color="c.status === 'Enabled' ? 'green' : ''">{{ c.status === 'Enabled' ? '启用' : '禁用' }}</a-tag>
           </div>
           <div class="info-row">
             <span class="info-label">最近测试</span>
@@ -238,15 +234,14 @@ onMounted(load)
         </div>
 
         <div class="card-footer">
-          <AppButton
-            size="sm"
-            icon="test"
-            :disabled="testing === c.id"
-            @click="test(c.id)"
-          >
+          <a-button size="small" :loading="testing === c.id" @click="test(c.id)">
+            <template #icon><icon-check-circle /></template>
             {{ testing === c.id ? '测试中...' : '测试' }}
-          </AppButton>
-          <AppButton size="sm" variant="danger" icon="trash" @click="remove(c.id)">删除</AppButton>
+          </a-button>
+          <a-button size="small" status="danger" @click="remove(c.id)">
+            <template #icon><icon-delete /></template>
+            删除
+          </a-button>
         </div>
       </div>
     </div>
@@ -257,6 +252,8 @@ onMounted(load)
 .notif-page { padding: 2rem; }
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
 .page-header h2 { margin: 0; color: var(--text-primary); }
+.loading { text-align: center; color: var(--text-muted); padding: 3rem; font-size: 0.95rem; }
+.empty { text-align: center; color: var(--text-muted); padding: 3rem; font-size: 0.95rem; }
 
 .toast {
   position: fixed;
@@ -267,7 +264,6 @@ onMounted(load)
   padding: 0.75rem 1.5rem;
   font-size: 0.85rem;
   backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
   box-shadow: 0 18px 50px rgba(2, 6, 23, 0.28);
   pointer-events: none;
   border-radius: 6px;
@@ -290,13 +286,11 @@ onMounted(load)
   transform: translateY(-0.5rem);
 }
 
-.loading { text-align: center; color: var(--text-muted); padding: 3rem; font-size: 0.95rem; }
-.empty { text-align: center; color: var(--text-muted); padding: 3rem; font-size: 0.95rem; }
-
 .card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
   gap: 1rem;
+  align-items: start;
 }
 
 .channel-card {
@@ -349,49 +343,13 @@ onMounted(load)
   align-self: flex-start;
 }
 
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 36px;
-  height: 20px;
-  cursor: pointer;
-}
-.switch input {
-  display: none;
-}
-.switch-slider {
-  position: absolute;
-  inset: 0;
-  background: var(--glass-border-strong);
-  border-radius: 999px;
-  transition: background 0.2s ease;
-}
-.switch-slider::before {
-  content: '';
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  left: 2px;
-  bottom: 2px;
-  background: #fff;
-  border-radius: 50%;
-  transition: transform 0.2s ease;
-}
-.switch input:checked + .switch-slider {
-  background: #4ade80;
-}
-.switch input:checked + .switch-slider::before {
-  transform: translateX(16px);
-}
-
 .default-badge {
-  display: inline-block;
-  padding: 0.1rem 0.5rem;
-  border-radius: 4px;
   font-size: 0.72rem;
   font-weight: 600;
-  background: rgba(34, 197, 94, 0.10);
-  color: #4ade80;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(79, 126, 201, 0.10);
+  color: var(--accent-blue);
 }
 
 .type-badge {
@@ -428,45 +386,44 @@ onMounted(load)
   gap: 0.4rem;
 }
 
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.1rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.78rem;
-  font-weight: 500;
-}
-.status-badge.enabled {
-  background: rgba(34, 197, 94, 0.10);
-  color: #4ade80;
-}
-.status-badge.disabled {
-  background: rgba(148, 163, 184, 0.12);
-  color: #94a3b8;
-}
-.status-dot {
-  width: 0.4rem;
-  height: 0.4rem;
-  border-radius: 50%;
-  background: currentColor;
-  flex-shrink: 0;
-}
-
 .card-footer {
   display: flex;
   gap: 0.5rem;
   padding: 0.75rem 1.25rem 1rem;
   border-top: 1px solid var(--glass-border);
 }
-.card-footer :deep(.app-button) {
+.card-footer :deep(.arco-btn) {
   flex: 1;
 }
 
-.form-body { display: flex; flex-direction: column; gap: 1rem; }
-.form-section { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.25rem; }
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
-.form-group { display: flex; flex-direction: column; gap: 0.3rem; }
-.form-label { font-size: 0.8rem; font-weight: 500; color: var(--text-primary); }
-.input { width: 100%; padding: 0.6rem; border: 1px solid var(--glass-border); border-radius: 4px; background: rgba(255,255,255,0.35); color: var(--text-primary); box-sizing: border-box; }
+.form-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.form-section {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--glass-border);
+}
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.form-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+@media (max-width: 600px) {
+  .form-row { grid-template-columns: 1fr; }
+}
 </style>

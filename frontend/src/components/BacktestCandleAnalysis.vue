@@ -123,9 +123,7 @@ watch(() => props.analysis?.length, () => nextTick(updateStickyRight))
               <td class="cell-index">{{ a.index }}</td>
               <td class="cell-date">{{ new Date(a.timestamp).toLocaleString() }}</td>
               <td>
-                <span :class="a.inPosition ? 'badge-in' : 'badge-out'">
-                  {{ a.inPosition ? '持仓' : '空仓' }}
-                </span>
+                <a-tag :color="a.inPosition ? 'green' : ''">{{ a.inPosition ? '持仓' : '空仓' }}</a-tag>
               </td>
               <td :title="String(a.positionCost ?? 0)">{{ a.positionCost ? `$${fmt(a.positionCost)}` : '-' }}</td>
               <td :title="String(a.positionValue ?? 0)">{{ a.positionValue ? `$${fmt(a.positionValue)}` : '-' }}</td>
@@ -195,7 +193,7 @@ watch(() => props.analysis?.length, () => nextTick(updateStickyRight))
 }
 .sort-btn:hover { color: var(--text-primary); }
 
-.analysis-table-wrap { overflow-x: auto; max-height: 480px; overflow-y: auto; border: 1px solid var(--glass-border); border-radius: 6px; }
+.analysis-table-wrap { overflow-x: auto; max-height: 300px; overflow-y: auto; border: 1px solid var(--glass-border); border-radius: 6px; }
 .analysis-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; white-space: nowrap; }
 .analysis-table th, .analysis-table td {
   padding: 0.375rem 0.5rem; text-align: right; border-bottom: 1px solid rgba(100, 116, 139, 0.16);
@@ -309,12 +307,6 @@ watch(() => props.analysis?.length, () => nextTick(updateStickyRight))
 .cell-index { color: var(--text-muted); }
 .cell-date { color: #0f172a; text-align: left !important; min-width: 130px; font-weight: 650; }
 
-.badge-in, .badge-out {
-  display: inline-block; padding: 0.0625rem 0.375rem; border-radius: 999px;
-  font-size: 0.65rem; font-weight: 600;
-}
-.badge-in { background: rgba(34, 197, 94, 0.15); color: var(--accent-green); }
-.badge-out { background: rgba(100, 116, 139, 0.15); color: var(--text-muted); }
 .pnl-up { color: var(--accent-green); font-weight: 600; }
 .pnl-down { color: var(--accent-red); font-weight: 600; }
 

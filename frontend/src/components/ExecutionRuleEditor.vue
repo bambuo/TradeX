@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import AppSelect from './AppSelect.vue'
 
 export interface ExecutionRule {
   type: string
@@ -107,35 +106,33 @@ function onRawInput(e: Event) {
   <div class="rule-editor">
     <div class="rule-type-row">
       <label class="rule-label">执行规则类型</label>
-      <AppSelect
-        :options="Object.entries(ruleTypes).map(([value, label]) => ({ label, value }))"
+      <a-select
         :model-value="rule.type"
-        full
-        form
-        @update:model-value="(v: string | number) => setField('type', String(v))"
-      />
+        style="width: 100%"
+        @change="(v: any) => setField('type', String(v))"
+      >
+        <a-option v-for="[value, label] in Object.entries(ruleTypes)" :key="value" :value="value" :label="label" />
+      </a-select>
     </div>
 
     <div v-if="currentFields.length" class="fields-grid">
       <div v-for="field in currentFields" :key="field.key" class="field-item">
         <label class="field-label">{{ field.label }}</label>
-        <input
+        <a-input-number
           v-if="field.type === 'number'"
-          :value="(rule as any)[field.key] ?? ''"
-          :step="field.step"
+          :model-value="(rule as any)[field.key] ?? ''"
+          :step="field.step ? parseFloat(field.step) : 1"
           :min="field.min"
-          type="number"
-          class="field-input"
-          @input="(e) => setField(field.key, parseFloat((e.target as HTMLInputElement).value) || 0)"
+          style="width: 100%"
+          @change="(v) => setField(field.key, Number(v) || 0)"
         />
-        <label v-else-if="field.type === 'boolean'" class="field-checkbox">
-          <input
-            :checked="!!(rule as any)[field.key]"
-            type="checkbox"
-            @change="(e) => setField(field.key, (e.target as HTMLInputElement).checked)"
-          />
+        <a-checkbox
+          v-else-if="field.type === 'boolean'"
+          :checked="!!(rule as any)[field.key]"
+          @change="(checked) => setField(field.key, checked)"
+        >
           {{ (rule as any)[field.key] ? '是' : '否' }}
-        </label>
+        </a-checkbox>
       </div>
     </div>
 
@@ -180,25 +177,6 @@ function onRawInput(e: Event) {
 .field-label {
   color: var(--text-muted);
   font-size: 0.8rem;
-}
-.field-input {
-  width: 100%;
-  padding: 0.5rem 0.625rem;
-  background: rgba(255,255,255,0.35);
-  color: var(--text-primary);
-  border: 1px solid var(--glass-border-strong);
-  border-radius: 4px;
-  font-size: 0.85rem;
-  box-sizing: border-box;
-}
-.field-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--text-primary);
-  font-size: 0.85rem;
-  cursor: pointer;
-  padding-top: 0.375rem;
 }
 .raw-toggle {
   margin-top: 0.75rem;

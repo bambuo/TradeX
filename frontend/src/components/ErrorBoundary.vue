@@ -24,8 +24,14 @@ function reset() {
       <p class="error-message">{{ error.message }}</p>
       <p v-if="errorInfo" class="error-info">{{ errorInfo }}</p>
       <div class="error-actions">
-        <AppButton variant="primary" icon="refresh" @click="reset">重试</AppButton>
-        <AppButton icon="home" @click="$router.push('/')">返回首页</AppButton>
+        <a-button type="primary" @click="reset">
+          <template #icon><icon-refresh /></template>
+          重试
+        </a-button>
+        <a-button @click="$router.push('/')">
+          <template #icon><icon-home /></template>
+          返回首页
+        </a-button>
       </div>
     </div>
   </div>
@@ -66,14 +72,4 @@ h2 { color: #fca5a5; margin: 0 0 0.5rem; font-size: 1.1rem; }
 .error-message { color: var(--text-muted); font-size: 0.9rem; margin: 0 0 0.25rem; }
 .error-info { color: var(--text-muted); font-size: 0.8rem; margin: 0 0 1.5rem; }
 .error-actions { display: flex; gap: 0.75rem; justify-content: center; }
-.btn-retry, .btn-home {
-  padding: 0.5rem 1.25rem;
-  border-radius: 4px;
-  font-weight: 600;
-  cursor: pointer;
-  font-size: 0.85rem;
-}
-.btn-retry { background: var(--accent-blue); color: var(--text-primary); border: none; }
-.btn-home { background: transparent; color: var(--text-muted); border: 1px solid var(--glass-border); }
-.btn-home:hover { color: var(--text-primary); }
 </style>

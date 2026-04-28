@@ -10,14 +10,25 @@ namespace TradeX.Api.Controllers;
 [Authorize]
 public class UsersController(IUserRepository userRepo) : ControllerBase
 {
+    private static string Fmt(DateTime dt) =>
+        dt.Kind == DateTimeKind.Utc
+            ? dt.ToString("yyyy-MM-dd HH:mm:ss")
+            : DateTime.SpecifyKind(dt, DateTimeKind.Utc).ToString("yyyy-MM-dd HH:mm:ss");
+
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken ct)
     {
         var users = await userRepo.GetAllAsync(ct);
         var result = users.Select(u => new
         {
-            u.Id, u.Username, u.Email, u.Role, u.IsMfaEnabled,
-            u.CreatedAt, u.LastLoginAt
+            u.Id,
+            UserName = u.Username,
+            u.Email,
+            u.Role,
+            u.Status,
+            u.IsMfaEnabled,
+            CreatedAt = Fmt(u.CreatedAt),
+            LastLoginAt = u.LastLoginAt.HasValue ? Fmt(u.LastLoginAt.Value) : null
         });
         return Ok(result);
     }

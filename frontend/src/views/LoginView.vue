@@ -129,9 +129,12 @@ function switchToMfa() {
       <h1>TradeX</h1>
       <p class="subtitle">多交易所现货交易系统</p>
       <div v-if="error" class="error">{{ error }}</div>
-      <input v-model="username" placeholder="用户名" required />
-      <input v-model="password" type="password" placeholder="密码" required />
-      <AppButton type="submit" variant="primary" icon="login" :disabled="loading">{{ loading ? '登录中...' : '登录' }}</AppButton>
+      <a-input v-model="username" placeholder="用户名" />
+      <a-input-password v-model="password" placeholder="密码" />
+      <a-button type="primary" html-type="submit" :loading="loading" long>
+        <template #icon><icon-login /></template>
+        {{ loading ? '登录中...' : '登录' }}
+      </a-button>
       <div class="login-footer">
         <p>管理系统</p>
       </div>
@@ -142,9 +145,15 @@ function switchToMfa() {
       <h1>MFA 验证</h1>
       <p class="subtitle">请输入身份验证器中的 6 位代码</p>
       <div v-if="error" class="error">{{ error }}</div>
-      <input v-model="totpCode" placeholder="6 位验证码" maxlength="6" required />
-      <AppButton type="submit" variant="primary" icon="shield" :disabled="loading">{{ loading ? '验证中...' : '验证' }}</AppButton>
-      <AppButton variant="ghost" icon="key" @click="switchToRecovery">使用恢复码</AppButton>
+      <a-input v-model="totpCode" placeholder="6 位验证码" maxlength="6" />
+      <a-button type="primary" html-type="submit" :loading="loading" long>
+        <template #icon><icon-safe /></template>
+        {{ loading ? '验证中...' : '验证' }}
+      </a-button>
+      <a-button type="text" long @click="switchToRecovery">
+        <template #icon><icon-key /></template>
+        使用恢复码
+      </a-button>
     </form>
 
     <!-- MFA 绑定流程（首次登录/无 MFA 的用户） -->
@@ -162,12 +171,15 @@ function switchToMfa() {
           </div>
         </div>
         <p class="subtitle">扫描完成后，输入应用中的 6 位验证码：</p>
-        <input v-model="totpCode" placeholder="6 位验证码" maxlength="6" class="totp-input" />
-        <AppButton variant="primary" icon="shield" :disabled="loading || !totpCode" @click="handleVerifyMfaSetup">{{ loading ? '验证中...' : '确认并绑定' }}</AppButton>
+        <a-input v-model="totpCode" placeholder="6 位验证码" maxlength="6" class="totp-input" />
+        <a-button type="primary" :loading="loading || !totpCode" long @click="handleVerifyMfaSetup">
+          <template #icon><icon-safe /></template>
+          {{ loading ? '验证中...' : '确认并绑定' }}
+        </a-button>
       </template>
 
       <div v-else class="loading-state">
-        <div class="spinner" />
+        <a-spin />
         <p>正在获取 MFA 配置...</p>
       </div>
     </div>
@@ -177,9 +189,15 @@ function switchToMfa() {
       <h1>恢复码验证</h1>
       <p class="subtitle">输入一个恢复码（格式：XXXX-XXXX）</p>
       <div v-if="error" class="error">{{ error }}</div>
-      <input v-model="recoveryCode" placeholder="XXXX-XXXX" required />
-      <AppButton type="submit" variant="primary" icon="key" :disabled="loading">{{ loading ? '验证中...' : '验证' }}</AppButton>
-      <AppButton variant="ghost" icon="shield" @click="switchToMfa">使用 TOTP 验证码</AppButton>
+      <a-input v-model="recoveryCode" placeholder="XXXX-XXXX" />
+      <a-button type="primary" html-type="submit" :loading="loading" long>
+        <template #icon><icon-key /></template>
+        {{ loading ? '验证中...' : '验证' }}
+      </a-button>
+      <a-button type="text" long @click="switchToMfa">
+        <template #icon><icon-safe /></template>
+        使用 TOTP 验证码
+      </a-button>
     </form>
   </div>
 </template>
@@ -204,33 +222,10 @@ function switchToMfa() {
 }
 h1 { margin: 0; color: var(--accent-blue); text-align: center; }
 .subtitle { color: var(--text-muted); text-align: center; font-size: 0.9rem; margin: 0; }
-input {
-  padding: 0.75rem;
-  border: 1px solid var(--glass-border);
-  border-radius: 4px;
-  background: rgba(255,255,255,0.35);
-  color: var(--text-primary);
-}
 .totp-input {
   text-align: center;
   font-size: 1.25rem;
   letter-spacing: 0.25em;
-}
-button {
-  padding: 0.75rem;
-  background: var(--accent-blue);
-  color: var(--text-primary);
-  border: none;
-  border-radius: 4px;
-  font-weight: 600;
-  cursor: pointer;
-}
-button:disabled { opacity: 0.5; }
-.link-btn {
-  background: transparent;
-  color: var(--accent-blue);
-  text-decoration: underline;
-  font-weight: 400;
 }
 .error { color: var(--accent-red); font-size: 0.9rem; text-align: center; }
 .qr-section {
@@ -244,14 +239,5 @@ button:disabled { opacity: 0.5; }
 .secret-box .label { color: var(--text-muted); font-size: 0.85rem; }
 .secret-box code { color: var(--accent-blue); font-size: 0.85rem; word-break: break-all; }
 .loading-state { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; padding: 2rem; }
-.spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid #334155;
-  border-top-color: var(--accent-blue);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
 .loading-state p { color: var(--text-muted); }
 </style>

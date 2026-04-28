@@ -75,16 +75,20 @@ async function initialize() {
         <input v-model="password" type="password" placeholder="密码 (至少 8 位)" required />
         <input v-model="confirmPassword" type="password" placeholder="确认密码" required />
 
-        <AppButton variant="primary" icon="shield" :disabled="loading" @click="initialize">
+        <a-button type="primary" :loading="loading" @click="initialize">
+          <template #icon><icon-safe /></template>
           {{ loading ? '初始化中...' : '初始化系统' }}
-        </AppButton>
+        </a-button>
       </div>
 
       <div v-else class="success-state">
         <div class="success-icon">✓</div>
         <h2>初始化成功！</h2>
         <p>系统已就绪，请登录后完成 MFA 绑定</p>
-        <AppButton variant="primary" icon="login" @click="router.push('/login')">前往登录</AppButton>
+        <a-button type="primary" @click="router.push('/login')">
+          <template #icon><icon-login /></template>
+          前往登录
+        </a-button>
       </div>
     </div>
   </div>

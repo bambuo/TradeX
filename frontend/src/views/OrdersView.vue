@@ -3,8 +3,6 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ordersApi, type Order } from '../api/orders'
 import { exchangesApi, type Exchange } from '../api/exchanges'
-import { formatSmallNumber } from '../utils/format'
-import AppSelect from '../components/AppSelect.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -88,44 +86,48 @@ onMounted(load)
   <div class="orders-page">
     <header class="page-header">
       <div class="header-left">
-        <AppButton variant="ghost" size="sm" icon="back" @click="router.push(`/traders/${traderId}/positions`)">持仓</AppButton>
+        <a-button type="text" size="small" @click="router.push(`/traders/${traderId}/positions`)">
+          <template #icon><icon-left /></template>
+          持仓
+        </a-button>
         <h2>订单记录</h2>
       </div>
-      <AppButton variant="primary" icon="orders" @click="openCreate">手动下单</AppButton>
+      <a-button type="primary" @click="openCreate">
+        <template #icon><icon-list /></template>
+        手动下单
+      </a-button>
     </header>
 
-    <AppModal v-model="showForm" title="手动下单" width="sm">
-      <AppSelect
-        :options="exchanges.map(a => ({ label: `${a.label} (${a.exchangeType})`, value: a.id }))"
-        :model-value="formExchangeId"
-        full
-        form
-        @update:model-value="(v: string | number) => formExchangeId = String(v)"
-      />
-      <input v-model="formSymbolId" placeholder="交易对，如 BTCUSDT" class="input" />
-      <div class="form-row">
-        <AppSelect
-          :options="[{ label: '买入', value: 'Buy' }, { label: '卖出', value: 'Sell' }]"
-          :model-value="formSide"
-          full
-          form
-          @update:model-value="(v: string | number) => formSide = v as 'Buy' | 'Sell'"
-        />
-        <AppSelect
-          :options="[{ label: '市价', value: 'Market' }, { label: '限价', value: 'Limit' }]"
-          :model-value="formType"
-          full
-          form
-          @update:model-value="(v: string | number) => formType = v as 'Market' | 'Limit'"
-        />
+    <a-modal v-model:visible="showForm" title="手动下单" width="sm" :mask-closable="false">
+      <div class="form-body">
+        <a-select
+          :model-value="formExchangeId"
+          style="width: 100%"
+          @change="(v) => formExchangeId = String(v)"
+        >
+          <a-option v-for="a in exchanges" :key="a.id" :value="a.id" :label="`${a.label} (${a.exchangeType})`" />
+        </a-select>
+        <a-input v-model="formSymbolId" placeholder="交易对，如 BTCUSDT" />
+        <div class="form-row">
+          <a-select :model-value="formSide" @change="(v) => formSide = String(v) as 'Buy' | 'Sell'">
+            <a-option value="Buy" label="买入" />
+            <a-option value="Sell" label="卖出" />
+          </a-select>
+          <a-select :model-value="formType" @change="(v) => formType = String(v) as 'Market' | 'Limit'">
+            <a-option value="Market" label="市价" />
+            <a-option value="Limit" label="限价" />
+          </a-select>
+        </div>
+        <a-input-number v-model="formQuantity" :step="0.0001" placeholder="数量" style="width: 100%" />
+        <a-input-number v-if="formType === 'Limit'" v-model="formPrice" :step="0.01" placeholder="价格" style="width: 100%" />
       </div>
-      <input v-model.number="formQuantity" type="number" step="0.0001" placeholder="数量" class="input" />
-      <input v-if="formType === 'Limit'" v-model.number="formPrice" type="number" step="0.01" placeholder="价格" class="input" />
       <template #footer>
-        <AppButton icon="close" @click="showForm = false">取消</AppButton>
-        <AppButton variant="primary" icon="play" :disabled="submitting" @click="submitOrder">{{ submitting ? '提交中...' : '提交订单' }}</AppButton>
+        <a-button type="primary" :loading="submitting" @click="submitOrder">
+          <template #icon><icon-play-arrow /></template>
+          {{ submitting ? '提交中...' : '提交订单' }}
+        </a-button>
       </template>
-    </AppModal>
+    </a-modal>
 
     <div v-if="loading">加载中...</div>
     <table v-else class="table">
@@ -138,34 +140,22 @@ onMounted(load)
           <th>价格</th>
           <th>数量</th>
           <th>已成交</th>
-          <th>手续费</th>
-          <th>手动</th>
-          <th>下单时间</th>
+          <th>时间</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="o in orders" :key="o.id">
           <td>{{ o.symbolId }}</td>
-          <td>
-            <span :class="o.side === 'Buy' ? 'side-buy' : 'side-sell'">
-              {{ o.side === 'Buy' ? '买入' : '卖出' }}
-            </span>
-          </td>
-          <td>{{ o.type === 'Market' ? '市价' : '限价' }}</td>
-          <td>
-            <span class="status-badge" :style="{ background: statusColors[o.status] }">
-              {{ statusLabels[o.status] }}
-            </span>
-          </td>
-          <td>{{ o.price != null ? formatSmallNumber(o.price) : '-' }}</td>
-          <td>{{ formatSmallNumber(o.quantity) }}</td>
-          <td>{{ formatSmallNumber(o.filledQuantity) }}</td>
-          <td>{{ formatSmallNumber(o.fee) }} {{ o.feeAsset ?? '' }}</td>
-          <td>{{ o.isManual ? '是' : '否' }}</td>
-          <td>{{ new Date(o.placedAtUtc).toLocaleString() }}</td>
+          <td><span :class="o.side === 'Buy' ? 'side-buy' : 'side-sell'">{{ o.side === 'Buy' ? '买入' : '卖出' }}</span></td>
+          <td>{{ o.type === 'Market' ? '市价' : o.type === 'Limit' ? '限价' : '止损限价' }}</td>
+          <td><a-tag :color="statusColors[o.status]">{{ statusLabels[o.status] ?? o.status }}</a-tag></td>
+          <td>{{ o.price && o.price > 0 ? o.price.toLocaleString() : '-' }}</td>
+          <td>{{ o.quantity.toLocaleString() }}</td>
+          <td>{{ o.filledQuantity.toLocaleString() }}</td>
+          <td>{{ new Date(o.updatedAt).toLocaleString('zh-CN', { hour12: false }) }}</td>
         </tr>
         <tr v-if="orders.length === 0">
-          <td colspan="10" class="empty">暂无订单记录</td>
+          <td colspan="8" class="empty">暂无订单</td>
         </tr>
       </tbody>
     </table>
@@ -175,20 +165,15 @@ onMounted(load)
 <style scoped>
 .orders-page { padding: 2rem; }
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-.header-left { display: flex; align-items: center; gap: 1rem; }
+.header-left { display: flex; align-items: center; gap: 0.75rem; }
 .header-left h2 { margin: 0; color: var(--text-primary); }
-.btn-back { background: none; border: 1px solid var(--glass-border-strong); color: var(--text-muted); padding: 0.25rem 0.75rem; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
-.btn-primary { padding: 0.5rem 1rem; background: var(--accent-blue); color: var(--text-primary); border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
-.btn-secondary { padding: 0.5rem 1rem; background: #334155; color: var(--text-primary); border: 1px solid var(--glass-border-strong); border-radius: 4px; cursor: pointer; }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-.table { width: 100%; border-collapse: collapse; }
-.table th, .table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--glass-border); color: var(--text-primary); }
-.table th { color: var(--text-muted); font-weight: 600; }
+.loading { text-align: center; color: var(--text-muted); padding: 2rem; }
 .empty { text-align: center; color: var(--text-muted); padding: 2rem; }
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { padding: 0.625rem 0.75rem; text-align: left; border-bottom: 1px solid var(--glass-border); color: var(--text-primary); font-size: 0.85rem; }
+.table th { color: var(--text-muted); font-weight: 600; }
 .side-buy { color: var(--accent-green); font-weight: 600; }
 .side-sell { color: var(--accent-red); font-weight: 600; }
-.status-badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 999px; color: var(--text-primary); font-size: 0.8rem; font-weight: 600; }
-.input { width: 100%; padding: 0.75rem; margin-bottom: 0.75rem; border: 1px solid var(--glass-border); border-radius: 4px; background: rgba(255,255,255,0.35); color: var(--text-primary); box-sizing: border-box; }
-.form-row { display: flex; gap: 0.75rem; }
-.form-row select { flex: 1; }
+.form-body { display: flex; flex-direction: column; gap: 0.75rem; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
 </style>

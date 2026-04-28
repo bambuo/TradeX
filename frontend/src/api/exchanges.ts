@@ -58,8 +58,8 @@ export const exchangesApi = {
   testConnection(id: string) {
     return client.post<{ connected: boolean; error?: string }>(`/exchanges/${id}/test`)
   },
-  toggleStatus(id: string) {
-    return client.post<{ id: string; isEnabled: boolean }>(`/exchanges/${id}/toggle`)
+  toggleStatus(id: string, enable: boolean) {
+    return client.post<{ id: string; isEnabled: boolean }>(`/exchanges/${id}/toggle`, { enable })
   },
   getSymbols(id: string) {
     return client.get<{ data: { symbol: string; pricePrecision: number; quantityPrecision: number; minNotional: number; price: number; priceChangePercent: number; volume: number; highPrice: number; lowPrice: number }[] }>(`/exchanges/${id}/symbols`)

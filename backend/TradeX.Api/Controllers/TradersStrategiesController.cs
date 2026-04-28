@@ -18,6 +18,11 @@ public class TradersStrategiesController(
 {
     private Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
+    private static string Fmt(DateTime dt) =>
+        dt.Kind == DateTimeKind.Utc
+            ? dt.ToString("yyyy-MM-dd HH:mm:ss")
+            : DateTime.SpecifyKind(dt, DateTimeKind.Utc).ToString("yyyy-MM-dd HH:mm:ss");
+
     private static string ResolveScope(string symbolIds, Guid exchangeId)
     {
         var hasSymbols = !string.IsNullOrWhiteSpace(symbolIds)
@@ -40,7 +45,7 @@ public class TradersStrategiesController(
         {
             d.Id, d.StrategyId, d.TraderId, d.ExchangeId, d.SymbolIds,
             d.Timeframe, d.Status, scope = ResolveScope(d.SymbolIds, d.ExchangeId),
-            d.CreatedAt, d.UpdatedAt
+            CreatedAt = Fmt(d.CreatedAt), UpdatedAt = Fmt(d.UpdatedAt)
         }));
     }
 
@@ -60,7 +65,7 @@ public class TradersStrategiesController(
             deployment.Id, deployment.StrategyId, deployment.Name, deployment.TraderId, deployment.ExchangeId,
             deployment.SymbolIds, deployment.Timeframe, deployment.Status,
             scope = ResolveScope(deployment.SymbolIds, deployment.ExchangeId),
-            deployment.CreatedAt, deployment.UpdatedAt
+            CreatedAt = Fmt(deployment.CreatedAt), UpdatedAt = Fmt(deployment.UpdatedAt)
         });
     }
 
@@ -94,7 +99,7 @@ public class TradersStrategiesController(
         {
             deployment.Id, deployment.StrategyId, deployment.TraderId, deployment.ExchangeId,
             deployment.SymbolIds, deployment.Timeframe, deployment.Status, scope,
-            deployment.CreatedAt
+            CreatedAt = Fmt(deployment.CreatedAt)
         });
     }
 
@@ -124,7 +129,7 @@ public class TradersStrategiesController(
             deployment.Id, deployment.StrategyId, deployment.TraderId, deployment.ExchangeId,
             deployment.SymbolIds, deployment.Timeframe, deployment.Status,
             scope = ResolveScope(deployment.SymbolIds, deployment.ExchangeId),
-            deployment.UpdatedAt
+            UpdatedAt = Fmt(deployment.UpdatedAt)
         });
     }
 
@@ -179,7 +184,7 @@ public class TradersStrategiesController(
 
         await deploymentRepo.UpdateAsync(deployment, ct);
 
-        return Ok(new { deployment.Id, deployment.Status, deployment.UpdatedAt });
+        return Ok(new { deployment.Id, deployment.Status, UpdatedAt = Fmt(deployment.UpdatedAt) });
     }
 
     public record CreateDeploymentRequest(Guid StrategyId, Guid? ExchangeId, string? SymbolIds = null, string? Timeframe = null);

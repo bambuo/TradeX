@@ -28,7 +28,10 @@ public class AuditLogsController(IAuditLogRepository auditLogRepo) : ControllerB
             data = items.Select(a => new
             {
                 a.Id, a.UserId, a.Action, a.Resource, a.ResourceId,
-                a.Detail, a.IpAddress, a.Timestamp
+                a.Detail, a.IpAddress,
+                Timestamp = a.Timestamp.Kind == DateTimeKind.Utc
+                    ? a.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")
+                    : DateTime.SpecifyKind(a.Timestamp, DateTimeKind.Utc).ToString("yyyy-MM-dd HH:mm:ss")
             }),
             total
         });

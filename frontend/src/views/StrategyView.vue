@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { strategiesApi, type Strategy, type StrategyDeployment } from '../api/strategies'
 import { exchangesApi, type Exchange } from '../api/exchanges'
 import { formatSmallNumber } from '../utils/format'
-import AppSelect from '../components/AppSelect.vue'
+
 
 const route = useRoute()
 const router = useRouter()
@@ -17,6 +17,24 @@ const loading = ref(true)
 const showForm = ref(false)
 const editId = ref<string | null>(null)
 const toggleLoading = ref<string | null>(null)
+
+const page = ref(1)
+const pageSize = ref(15)
+
+const scopeTagColors: Record<string, string> = {
+  Trader: '', Exchange: 'green', Symbol: 'blue'
+}
+
+const columns = [
+  { title: '作用域', dataIndex: 'scope', slotName: 'scope', width: 90 },
+  { title: '策略', dataIndex: 'strategyName', width: 180, ellipsis: true },
+  { title: '交易所', dataIndex: 'exchangeName', width: 130, ellipsis: true },
+  { title: '交易对', dataIndex: 'symbolList', width: 170, ellipsis: true },
+  { title: '周期', dataIndex: 'timeframe', width: 60 },
+  { title: '状态', dataIndex: 'status', slotName: 'status', width: 80 },
+  { title: '更新时间', dataIndex: 'updatedAt', width: 160 },
+  { title: '操作', dataIndex: 'actions', slotName: 'actions', width: 340 }
+]
 
 const scope = ref<'Trader' | 'Exchange' | 'Symbol'>('Symbol')
 const formStrategyId = ref(route.query.strategyId as string || '')
@@ -52,8 +70,8 @@ const statusLabels: Record<string, string> = {
   Draft: '草稿', Backtesting: '回测中', Passed: '已通过', Active: '活跃', Disabled: '已禁用'
 }
 
-const statusColors: Record<string, string> = {
-  Draft: 'var(--text-muted)', Backtesting: 'var(--accent-amber)', Passed: 'var(--accent-green)', Active: 'var(--accent-blue)', Disabled: 'var(--accent-red)'
+const tagStatusColors: Record<string, string> = {
+  Draft: '', Backtesting: 'orange', Passed: 'green', Active: 'blue', Disabled: 'red'
 }
 
 const statusByCode: Record<number, string> = {
@@ -109,22 +127,10 @@ function getStatusLabel(status: unknown): string {
   return normalized || '-'
 }
 
-function getStatusColor(status: unknown): string {
-  const normalized = normalizeStatus(status)
-  return statusColors[normalized] ?? '#94a3b8'
-}
-
 function isActive(status: unknown): boolean {
   return normalizeStatus(status) === 'Active'
 }
 
-function formatUtcTime(value: string): string {
-  if (!value) return '-'
-  const normalized = /[zZ]$|[+-]\d{2}:\d{2}$/.test(value) ? value : `${value}Z`
-  const date = new Date(normalized)
-  if (Number.isNaN(date.getTime())) return '-'
-  return date.toLocaleString('zh-CN', { hour12: false })
-}
 
 async function load() {
   loading.value = true
@@ -169,9 +175,18 @@ function renderSymbol(sym: string): { base: string; quote: string } {
   return { base: sym, quote: '' }
 }
 
-const scopeBadgeColors: Record<string, string> = {
-  Trader: 'var(--text-muted)', Exchange: 'var(--accent-green)', Symbol: 'var(--accent-blue)'
-}
+const displayDeployments = computed(() => {
+  const start = (page.value - 1) * pageSize.value
+  const list = deployments.value.map(d => ({
+    ...d,
+    key: d.id,
+    actions: '',
+    strategyName: getTemplateName(d.strategyId),
+    exchangeName: d.exchangeId && d.exchangeId !== '00000000-0000-0000-0000-000000000000' ? getExchangeLabel(d.exchangeId) : '-',
+    symbolList: d.scope === 'Symbol' ? parseSymbolIds(d.symbolIds).join(', ') : '-'
+  }))
+  return list.slice(start, start + pageSize.value)
+})
 
 async function fetchSymbols(exchangeId: string) {
   if (!exchangeId || exchangeId === '{}') return
@@ -294,15 +309,23 @@ onMounted(load)
 
 <template>
   <div class="strategy-page">
-    <header class="page-header">
-      <div class="header-left">
-        <AppButton variant="ghost" size="sm" icon="back" @click="router.push('/traders')">返回</AppButton>
-        <h2>策略部署</h2>
+    <a-card class="header-card">
+      <div class="header-row">
+        <div class="header-left">
+          <a-button type="text" size="small" @click="router.push('/traders')">
+            <template #icon><icon-left /></template>
+            返回
+          </a-button>
+          <span class="header-title">策略部署</span>
+        </div>
+        <a-button type="primary" @click="openCreate">
+          <template #icon><icon-plus /></template>
+          新建部署
+        </a-button>
       </div>
-      <AppButton variant="primary" icon="plus" @click="openCreate">新建部署</AppButton>
-    </header>
+    </a-card>
 
-    <AppModal v-model="showForm" :title="editId ? '编辑部署' : '新建策略部署'" width="xl">
+    <a-modal v-model:visible="showForm" :title="editId ? '编辑部署' : '新建策略部署'" width="xl" :mask-closable="false">
       <div class="scope-tabs">
           <button
             v-for="s in (['Trader', 'Exchange', 'Symbol'] as const)"
@@ -319,26 +342,26 @@ onMounted(load)
       <div class="form-grid">
           <div class="form-group full">
             <label>策略模板</label>
-            <AppSelect
-              :options="templates.map(t => ({ label: t.name, value: t.id }))"
+            <a-select
               :model-value="formStrategyId"
               :disabled="!!editId"
-              full
-              form
-              @update:model-value="(v: string | number) => formStrategyId = String(v)"
-            />
+              style="width: 100%"
+              @change="(v) => formStrategyId = String(v)"
+            >
+              <a-option v-for="t in templates" :key="t.id" :value="t.id" :label="t.name" />
+            </a-select>
           </div>
 
           <div v-if="scope !== 'Trader'" class="form-group full">
             <label>交易所账户</label>
-            <AppSelect
-              :options="exchanges.map(a => ({ label: `${a.label} (${a.exchangeType})`, value: a.id }))"
+            <a-select
               :model-value="formExchangeId"
               :disabled="!!editId"
-              full
-              form
-              @update:model-value="(v: string | number) => formExchangeId = String(v)"
-            />
+              style="width: 100%"
+              @change="(v) => formExchangeId = String(v)"
+            >
+              <a-option v-for="a in exchanges" :key="a.id" :value="a.id" :label="`${a.label} (${a.exchangeType})`" />
+            </a-select>
           </div>
 
           <div v-if="scope === 'Symbol'" class="form-group full">
@@ -356,11 +379,15 @@ onMounted(load)
               </div>
               <div class="filter-item">
                 <span class="filter-item-label">方向</span>
-                <AppSelect
-                  :options="[{ label: '全部', value: 'all' }, { label: '上涨', value: 'up' }, { label: '下跌', value: 'down' }]"
+                <a-select
                   :model-value="changeDirection"
-                  @update:model-value="(v: string | number) => changeDirection = v as 'all' | 'up' | 'down'"
-                />
+                  style="width: 100px"
+                  @change="(v) => changeDirection = String(v) as 'all' | 'up' | 'down'"
+                >
+                  <a-option value="all" label="全部" />
+                  <a-option value="up" label="上涨" />
+                  <a-option value="down" label="下跌" />
+                </a-select>
               </div>
               <div class="filter-item">
                 <span class="filter-item-label">成交量</span>
@@ -415,91 +442,110 @@ onMounted(load)
 
           <div class="form-group">
             <label>时间周期</label>
-            <AppSelect
-              :options="timeframes.map(tf => ({ label: tf, value: tf }))"
+            <a-select
               :model-value="formTimeframe"
-              full
-              form
-              @update:model-value="(v: string | number) => formTimeframe = String(v)"
-            />
+              style="width: 100%"
+              @change="(v) => formTimeframe = String(v)"
+            >
+              <a-option v-for="tf in timeframes" :key="tf" :value="tf" :label="tf" />
+            </a-select>
           </div>
       </div>
 
       <template #footer>
-        <AppButton icon="close" @click="showForm = false">取消</AppButton>
-        <AppButton variant="primary" icon="save" @click="save">保存</AppButton>
+        <a-button type="primary" @click="save">
+          <template #icon><icon-save /></template>
+          保存
+        </a-button>
       </template>
-    </AppModal>
+    </a-modal>
 
-    <div v-if="loading">加载中...</div>
-    <div v-if="errorMsg && !loading" class="error-banner">{{ errorMsg }}</div>
-    <table v-if="!loading" class="table">
-        <thead>
-          <tr>
-            <th>作用域</th>
-            <th>策略</th>
-            <th>交易所</th>
-            <th>交易对</th>
-            <th>周期</th>
-            <th>状态</th>
-            <th>更新时间</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-      <tbody>
-        <tr v-for="d in deployments" :key="d.id">
-          <td>
-            <span class="status-indicator">
-              <span class="status-dot" :style="{ background: scopeBadgeColors[d.scope] || 'var(--text-muted)' }" />
-              <span :style="{ color: scopeBadgeColors[d.scope] || 'var(--text-muted)' }">{{ scopeLabels[d.scope] || d.scope }}</span>
-            </span>
-          </td>
-          <td>{{ getTemplateName(d.strategyId) }}</td>
-          <td>{{ d.exchangeId && d.exchangeId !== '00000000-0000-0000-0000-000000000000' ? getExchangeLabel(d.exchangeId) : '-' }}</td>
-          <td class="symbol-cell">{{ d.scope === 'Symbol' ? parseSymbolIds(d.symbolIds).join(', ') : '-' }}</td>
-          <td>{{ d.timeframe }}</td>
-          <td>
-            <span class="status-indicator">
-              <span class="status-dot" :style="{ background: getStatusColor(d.status) }" />
-              <span :style="{ color: getStatusColor(d.status) }">{{ getStatusLabel(d.status) }}</span>
-            </span>
-          </td>
-          <td>{{ formatUtcTime(d.updatedAt) }}</td>
-          <td class="actions">
-            <AppButton
-              size="sm"
-              :variant="isActive(d.status) ? 'warning' : 'success'"
-              icon="power"
-              :disabled="toggleLoading === d.id || normalizeStatus(d.status) === 'Draft'"
-              @click="toggle(d)"
-            >{{ toggleLoading === d.id ? '...' : isActive(d.status) ? '禁用' : '启用' }}</AppButton>
-            <AppButton size="sm" icon="edit" :disabled="isActive(d.status)" @click="openEdit(d)">编辑</AppButton>
-            <AppButton size="sm" icon="chart" @click="router.push(`/traders/${traderId}/strategies/${d.id}/backtest`)">回测</AppButton>
-            <AppButton size="sm" variant="danger" icon="trash" :disabled="isActive(d.status)" @click="remove(d.id)">删除</AppButton>
-          </td>
-        </tr>
-        <tr v-if="deployments.length === 0">
-          <td colspan="8" class="empty">暂无策略部署</td>
-        </tr>
-      </tbody>
-    </table>
+    <div v-if="errorMsg" class="error-banner">{{ errorMsg }}</div>
+
+    <a-table
+      :columns="columns"
+      :data="displayDeployments"
+      :loading="loading"
+      table-layout-fixed
+      :pagination="{
+        current: page,
+        pageSize: pageSize,
+        total: deployments.length,
+        simple: true,
+        showTotal: true,
+        showPageSize: true,
+        pageSizeOptions: [10, 15, 20, 50, 100]
+      }"
+      page-position="top"
+      @page-change="(p: number) => { page = p }"
+      @page-size-change="(s: number) => { pageSize = s; page = 1 }"
+      stripe
+    >
+      <template #scope="{ record }">
+        <a-tag :color="scopeTagColors[record.scope] || ''">{{ scopeLabels[record.scope] || record.scope }}</a-tag>
+      </template>
+      <template #status="{ record }">
+        <a-tag :color="tagStatusColors[normalizeStatus(record.status)] || ''">{{ getStatusLabel(record.status) }}</a-tag>
+      </template>
+      <template #updatedAt="{ record }">
+        {{ record.updatedAt }}
+      </template>
+      <template #actions="{ record }">
+        <div class="actions-group">
+          <a-button
+            size="mini"
+            :status="isActive(record.status) ? 'warning' : 'success'"
+            :disabled="toggleLoading === record.id || normalizeStatus(record.status) === 'Draft'"
+            @click="toggle(record)"
+          >
+            <template #icon><icon-poweroff /></template>
+            {{ toggleLoading === record.id ? '...' : isActive(record.status) ? '禁用' : '启用' }}
+          </a-button>
+          <a-button size="mini" :disabled="isActive(record.status)" @click="openEdit(record)">
+            <template #icon><icon-edit /></template>
+            编辑
+          </a-button>
+          <a-button size="mini" @click="router.push(`/traders/${traderId}/strategies/${record.id}/backtest`)">
+            <template #icon><icon-common /></template>
+            回测
+          </a-button>
+          <a-button size="mini" status="danger" :disabled="isActive(record.status)" @click="remove(record.id)">
+            <template #icon><icon-delete /></template>
+            删除
+          </a-button>
+        </div>
+      </template>
+    </a-table>
   </div>
 </template>
 
 <style scoped>
-.strategy-page { padding: 2rem; }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-.header-left { display: flex; align-items: center; gap: 1rem; }
-.header-left h2 { margin: 0; color: var(--text-primary); }
-.table { width: 100%; border-collapse: collapse; }
-.table th, .table td { padding: 0.625rem 0.75rem; text-align: left; border-bottom: 1px solid var(--glass-border); color: var(--text-primary); font-size: 0.85rem; }
-.table th { color: var(--text-muted); font-weight: 600; }
-.symbol-cell { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.actions { display: flex; gap: 0.375rem; flex-wrap: wrap; }
-.empty { text-align: center; color: var(--text-muted); padding: 2rem; }
+.strategy-page { padding: 0; }
+.header-card { margin-bottom: 1rem; }
+.header-card :deep(.arco-card-body) {
+  padding: 0.75rem 1rem;
+}
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.header-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.actions-group {
+  display: flex;
+  gap: 0.375rem;
+  white-space: nowrap;
+}
 .error-banner { padding: 0.5rem 0.75rem; margin-bottom: 0.75rem; background: rgba(191, 72, 72, 0.06); border: 1px solid rgba(191, 72, 72, 0.18); border-radius: 6px; color: var(--accent-red); font-size: 0.85rem; }
-.status-indicator { display: inline-flex; align-items: center; gap: 0.3rem; }
-.status-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; flex-shrink: 0; }
 .scope-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
 .scope-tab {
   flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.25rem;

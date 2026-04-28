@@ -37,7 +37,7 @@ function render() {
 
     chart = createChart(chartRef.value, {
       width: chartRef.value.clientWidth,
-      height: 520,
+      height: 360,
       layout: {
         background: { type: ColorType.Solid, color: 'transparent' },
         textColor: '#94a3b8',
@@ -101,7 +101,7 @@ function render() {
       borderVisible: false
     })
 
-    chart.resize(chartRef.value.clientWidth, 520)
+    chart.resize(chartRef.value.clientWidth, 360)
 
     seriesMarkersPlugin = createSeriesMarkers<Time>(candleSeries)
   }
@@ -142,7 +142,7 @@ function updateMarker() {
 
 function handleResize() {
   if (chart && chartRef.value) {
-    chart.resize(chartRef.value.clientWidth, 520)
+    chart.resize(chartRef.value.clientWidth, 360)
   }
 }
 
@@ -166,7 +166,7 @@ onUnmounted(() => {
 <style scoped>
 .kline-chart {
   width: 100%;
-  height: 520px;
+  height: 360px;
   border: 1px solid var(--glass-border);
   border-radius: 6px;
   margin-top: 0.5rem;

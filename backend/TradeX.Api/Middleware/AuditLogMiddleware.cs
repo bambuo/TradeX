@@ -83,7 +83,7 @@ public class AuditLogMiddleware(RequestDelegate next)
         {
             var authActions = new Dictionary<string, string>
             {
-                ["login"] = "登录", ["logout"] = "登出",
+                ["login"] = "登录", ["logout"] = "登出", ["refresh"] = "刷新令牌",
                 ["mfa/setup"] = "设置 MFA", ["mfa/verify"] = "验证 MFA",
                 ["send-recovery-codes"] = "发送恢复码"
             };

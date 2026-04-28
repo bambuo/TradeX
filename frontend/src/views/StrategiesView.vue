@@ -157,10 +157,13 @@ onMounted(load)
   <div class="strategies-page">
     <header class="page-header">
       <h2>策略模板</h2>
-      <AppButton variant="primary" icon="plus" @click="openCreate">新建策略</AppButton>
+      <a-button type="primary" @click="openCreate">
+        <template #icon><icon-plus /></template>
+        新建策略
+      </a-button>
     </header>
 
-    <AppModal v-model="showForm" :title="editId ? '编辑策略模板' : '新建策略模板'" width="xl">
+    <a-modal v-model:visible="showForm" :title="editId ? '编辑策略模板' : '新建策略模板'" width="xl" :mask-closable="false">
       <div v-if="showPresets && !editId" class="presets-section">
         <p class="presets-hint">选择一个预设模板快速创建，或直接编辑下方条件</p>
         <div class="preset-cards">
@@ -184,7 +187,7 @@ onMounted(load)
           </ul>
         </div>
 
-        <input v-model="formName" placeholder="策略名称" class="input" />
+        <a-input v-model="formName" placeholder="策略名称" />
 
         <div class="section">
           <span class="section-label">入场条件</span>
@@ -209,9 +212,12 @@ onMounted(load)
       </div>
 
       <template #footer>
-        <AppButton variant="primary" icon="save" @click="save">保存</AppButton>
+        <a-button type="primary" @click="save">
+          <template #icon><icon-save /></template>
+          保存
+        </a-button>
       </template>
-    </AppModal>
+    </a-modal>
 
     <div v-if="loading" class="loading">加载中...</div>
     <div v-else-if="strategies.length === 0" class="empty">暂无策略模板</div>
@@ -248,8 +254,14 @@ onMounted(load)
         </div>
 
         <div class="card-footer">
-          <AppButton size="sm" icon="edit" @click="openEdit(s)">编辑</AppButton>
-          <AppButton size="sm" variant="danger" icon="trash" @click="remove(s.id)">删除</AppButton>
+          <a-button size="small" @click="openEdit(s)">
+            <template #icon><icon-edit /></template>
+            编辑
+          </a-button>
+          <a-button size="small" status="danger" @click="remove(s.id)">
+            <template #icon><icon-delete /></template>
+            删除
+          </a-button>
         </div>
       </div>
     </div>
@@ -260,11 +272,6 @@ onMounted(load)
 .strategies-page { padding: 2rem; }
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
 .page-header h2 { margin: 0; color: var(--text-primary); }
-.btn-primary { padding: 0.5rem 1rem; background: var(--accent-blue); color: var(--text-primary); border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
-.btn-secondary { padding: 0.5rem 1rem; background: #334155; color: var(--text-primary); border: 1px solid var(--glass-border-strong); border-radius: 4px; cursor: pointer; }
-.btn-small { padding: 0.25rem 0.75rem; background: #334155; color: var(--text-primary); border: 1px solid var(--glass-border-strong); border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
-.btn-small:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-danger { color: var(--accent-red); border-color: var(--accent-red); background: transparent; }
 .empty { text-align: center; color: var(--text-muted); padding: 2rem; }
 .loading { text-align: center; color: var(--text-muted); padding: 2rem; }
 .card-grid {
@@ -368,10 +375,9 @@ onMounted(load)
   padding: 0.75rem 1.25rem 1rem;
   border-top: 1px solid var(--glass-border);
 }
-.card-footer :deep(.app-button) {
+.card-footer :deep(.arco-btn) {
   flex: 1;
 }
-.input { width: 100%; padding: 0.75rem; margin-bottom: 1rem; border: 1px solid var(--glass-border); border-radius: 4px; background: rgba(255,255,255,0.35); color: var(--text-primary); box-sizing: border-box; font-family: inherit; }
 .form-body { max-height: 65vh; overflow-y: auto; margin-bottom: 1rem; }
 .section { margin-bottom: 1rem; }
 .section-label { display: block; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.375rem; font-weight: 600; }

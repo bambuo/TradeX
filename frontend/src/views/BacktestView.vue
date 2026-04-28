@@ -4,7 +4,6 @@ import { useRoute } from 'vue-router'
 import { strategiesApi, type StrategyDeployment } from '../api/strategies'
 import { backtestsApi, type BacktestTask, type BacktestResult, type BacktestCandleAnalysis } from '../api/backtests'
 import BacktestCandleAnalysisView from '../components/BacktestCandleAnalysis.vue'
-import AppSelect from '../components/AppSelect.vue'
 
 const route = useRoute()
 const traderId = route.params.traderId as string
@@ -34,6 +33,7 @@ const tablePage = ref(1)
 const tablePageSize = ref(10)
 
 const days = ref(7)
+const backtestDaysOptions = [7, 30, 60, 90, 180, 365]
 const initialCapital = ref(1000)
 const error = ref('')
 let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -69,14 +69,51 @@ const tableTotalPages = computed(() => Math.max(1, Math.ceil((analysisTotal.valu
 const statusLabels: Record<string, string> = {
   Pending: '排队中', Running: '运行中', Completed: '已完成', Failed: '失败', Cancelled: '已取消'
 }
-const statusColors: Record<string, string> = {
-  Pending: 'var(--accent-amber)', Running: 'var(--accent-blue)', Completed: 'var(--accent-green)', Failed: 'var(--accent-red)', Cancelled: 'var(--text-muted)'
-}
-const phaseLabels: Record<string, string> = {
-  Queued: '排队中', FetchingData: '获取数据', Running: '执行策略'
+const tagColorMap: Record<string, string> = {
+  Pending: 'orange', Running: 'blue', Completed: 'green', Failed: 'red', Cancelled: ''
 }
 
 const speedOptions = [1, 2, 4, 8, 16]
+
+const page = ref(1)
+const pageSize = ref(15)
+
+const taskColumns = [
+  { title: '状态', dataIndex: 'status', slotName: 'status', width: 110 },
+  { title: '交易对', dataIndex: 'symbol', width: 120 },
+  { title: '周期', dataIndex: 'timeframe', width: 80 },
+  { title: '资金', dataIndex: 'capital', width: 100 },
+  { title: '时间范围', dataIndex: 'dateRange', width: 240 },
+  { title: '创建时间', dataIndex: 'createdAt', width: 180 }
+]
+
+function formatTime(value: string): string {
+  if (!value) return '-'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return '-'
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
+function formatDate(value: string): string {
+  if (!value) return '-'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return '-'
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+const displayTasks = computed(() => {
+  const start = (page.value - 1) * pageSize.value
+  return tasks.value.slice(start, start + pageSize.value).map(t => ({
+    ...t,
+    key: t.id,
+    symbol: t.symbolId || '-',
+    capital: `$${t.initialCapital?.toLocaleString() ?? 1000}`,
+    dateRange: `${formatDate(t.startAtUtc)} ~ ${formatDate(t.endAtUtc)}`,
+    createdAt: formatTime(t.createdAt)
+  }))
+})
 
 onMounted(async () => {
   try {
@@ -485,101 +522,79 @@ function enrichPositionMetrics(items: BacktestCandleAnalysis[], initialValue: nu
     <div v-if="loading">加载中...</div>
 
     <template v-else-if="strategy">
-      <div class="header">
-        <h2>回测</h2>
-        <span class="strategy-name">{{ strategy.name || strategy.strategyId }}</span>
-        <span v-if="strategy.scope" class="scope-tag">{{ strategy.scope }}</span>
-      </div>
+      <a-card class="header-card">
+        <div class="header-row">
+          <div class="header-left">
+            <span class="header-title">回测</span>
+            <span class="strategy-name">{{ strategy.name || strategy.strategyId }}</span>
+            <a-tag v-if="strategy.scope" color="blue">{{ strategy.scope }}</a-tag>
+          </div>
+        </div>
+      </a-card>
 
-      <div class="config-card">
+      <a-card class="config-card">
         <div class="config-row">
           <div class="config-field">
             <label>回测天数</label>
-            <AppSelect
-              :options="[
-                { label: '7 天', value: 7 },
-                { label: '30 天', value: 30 },
-                { label: '60 天', value: 60 },
-                { label: '90 天', value: 90 },
-                { label: '180 天', value: 180 },
-                { label: '365 天', value: 365 },
-              ]"
+            <a-select
               :model-value="days"
-              form
-              @update:model-value="(v: string | number) => days = Number(v)"
-            />
+              style="width: 120px"
+              @change="(v) => days = Number(v)"
+            >
+              <a-option v-for="d in backtestDaysOptions" :key="d" :value="d" :label="`${d} 天`" />
+            </a-select>
           </div>
           <div class="config-field">
             <label>初始资金 ($)</label>
-            <input v-model.number="initialCapital" type="number" min="100" step="100" />
+            <a-input-number v-model="initialCapital" :min="100" :step="100" style="width: 140px" />
           </div>
-          <AppButton variant="primary" icon="chart" :disabled="running" @click="startBacktest">
+          <a-button type="primary" :loading="running" @click="startBacktest">
+            <template #icon><icon-common /></template>
             {{ running ? '提交中...' : '开始回测' }}
-          </AppButton>
+          </a-button>
         </div>
         <div v-if="error" class="error-msg">{{ error }}</div>
-      </div>
+      </a-card>
 
       <div v-if="tasks.length" class="tasks-section">
-        <h3>回测任务</h3>
-        <table class="task-table">
-          <thead>
-            <tr>
-              <th>状态</th>
-              <th>周期</th>
-              <th>资金</th>
-              <th>时间范围</th>
-              <th>创建时间</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="t in tasks"
-              :key="t.id"
-              class="task-row"
-              :class="{ 'task-row--running': t.status === 'Running' }"
-              @click="openDetail(t)"
-            >
-              <td>
-                <span class="status-dot" :style="{ background: statusColors[t.status] }"></span>
-                {{ statusLabels[t.status] || t.status }}
-                <span v-if="t.phase && t.status === 'Running'" class="phase-badge">{{ phaseLabels[t.phase] || t.phase }}</span>
-                <span v-if="t.status === 'Running'" class="live-dot"></span>
-              </td>
-              <td>{{ t.symbolId || '-' }} {{ t.timeframe }}</td>
-              <td>${{ t.initialCapital?.toLocaleString() ?? 1000 }}</td>
-              <td class="date-cell">{{ new Date(t.startAtUtc).toLocaleDateString() }} ~ {{ new Date(t.endAtUtc).toLocaleDateString() }}</td>
-              <td class="date-cell">{{ new Date(t.createdAt).toLocaleString() }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <a-table
+          :columns="taskColumns"
+          :data="displayTasks"
+          table-layout-fixed
+          :pagination="{
+            current: page,
+            pageSize: pageSize,
+            total: tasks.length,
+            simple: true,
+            showTotal: true,
+            showPageSize: true,
+            pageSizeOptions: [10, 15, 20, 50, 100]
+          }"
+          page-position="top"
+          @page-change="(p: number) => { page = p }"
+          @page-size-change="(s: number) => { pageSize = s; page = 1 }"
+          :row-class="(record: any) => record.status === 'Running' ? 'task-row--running' : ''"
+          @row-click="(record: any) => openDetail(record)"
+          stripe
+        >
+          <template #status="{ record }">
+            <a-tag :color="tagColorMap[record.status] || ''">{{ statusLabels[record.status] || record.status }}</a-tag>
+            <span v-if="record.status === 'Running'" class="live-dot"></span>
+          </template>
+        </a-table>
       </div>
     </template>
 
-    <AppModal v-model="showDetail" title="回测详情" width="xl" @close="stopReplay">
+    <a-modal v-model:visible="showDetail" title="回测详情" width="1200px" :mask-closable="false" @cancel="stopReplay">
       <template v-if="selectedTask">
         <div class="detail-summary">
-          <span class="detail-status" :style="{ '--status-color': statusColors[selectedTask.status] }">
+          <a-tag :color="tagColorMap[selectedTask.status] || ''">
             {{ statusLabels[selectedTask.status] || selectedTask.status }}
-          </span>
+          </a-tag>
           <span>{{ selectedTask.strategyName || selectedTask.strategyId }}</span>
           <span>{{ selectedTask.symbolId }} {{ selectedTask.timeframe }}</span>
           <span>初始资金 ${{ selectedTask.initialCapital?.toLocaleString() ?? 1000 }}</span>
-        </div>
-
-        <div class="detail-meta">
-          <div class="meta-item">
-            <span class="meta-label">回测区间</span>
-            <span class="meta-value">{{ new Date(selectedTask.startAtUtc).toLocaleDateString() }} ~ {{ new Date(selectedTask.endAtUtc).toLocaleDateString() }}</span>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">创建时间</span>
-            <span class="meta-value">{{ new Date(selectedTask.createdAt).toLocaleString() }}</span>
-          </div>
-          <div v-if="selectedTask.completedAtUtc" class="meta-item">
-            <span class="meta-label">完成时间</span>
-            <span class="meta-value">{{ new Date(selectedTask.completedAtUtc).toLocaleString() }}</span>
-          </div>
+          <span class="meta-date">{{ new Date(selectedTask.startAtUtc).toLocaleDateString() }} ~ {{ new Date(selectedTask.endAtUtc).toLocaleDateString() }}</span>
         </div>
 
         <div v-if="detailLoading" class="loading-hint">加载结果中...</div>
@@ -592,12 +607,12 @@ function enrichPositionMetrics(items: BacktestCandleAnalysis[], initialValue: nu
               class="tab-btn"
               :class="{ active: activeTab === 'overview' }"
               @click="switchTab('overview')"
-            ><AppIcon name="chart" />概览</button>
+            ><icon-common />概览</button>
             <button
               class="tab-btn"
               :class="{ active: activeTab === 'analysis' }"
               @click="switchTab('analysis')"
-            ><AppIcon name="table" />K 线分析 ({{ selectedResult?.analysisCount ?? replayTotal ?? 0 }})</button>
+            ><icon-file />K 线分析 ({{ selectedResult?.analysisCount ?? replayTotal ?? 0 }})</button>
           </div>
 
           <div v-if="activeTab === 'overview' && selectedResult" class="result-grid">
@@ -644,8 +659,12 @@ function enrichPositionMetrics(items: BacktestCandleAnalysis[], initialValue: nu
 
           <div v-if="activeTab === 'analysis' && analysisViewMode === 'chart'" class="replay-section">
             <div class="replay-bar">
-              <AppButton variant="ghost" size="sm" icon="refresh" title="重新回放" @click="restartReplay" />
-              <AppButton variant="primary" size="sm" :icon="replayPlaying ? 'pause' : (replayIndex >= (replayBuffer.length || 0) ? 'refresh' : 'play')" @click="toggleReplay" />
+              <a-button type="text" size="small" title="重新回放" @click="restartReplay">
+                <template #icon><icon-refresh /></template>
+              </a-button>
+              <a-button type="primary" size="small" @click="toggleReplay">
+                <template #icon><icon-refresh /></template>
+              </a-button>
               <span class="replay-progress">
                 {{ replayIndex }} / {{ replayTotal || '?' }}
               </span>
@@ -661,7 +680,10 @@ function enrichPositionMetrics(items: BacktestCandleAnalysis[], initialValue: nu
                 >{{ s }}x</button>
               </div>
               <span class="replay-divider">|</span>
-              <AppButton size="sm" icon="table" @click="onViewModeChange('table')">表格</AppButton>
+              <a-button size="small" @click="onViewModeChange('table')">
+                <template #icon><icon-list /></template>
+                表格
+              </a-button>
             </div>
             <div v-if="currentAnalysisItem" class="position-replay-card">
               <div class="position-stat">
@@ -713,32 +735,37 @@ function enrichPositionMetrics(items: BacktestCandleAnalysis[], initialValue: nu
               <span class="table-label">共 {{ analysisTotal }} 根 K 线</span>
               <div class="pagination-controls">
                 <span class="table-label">筛选</span>
-                <AppSelect
-                  :options="[
-                    { label: '全部', value: 'all' },
-                    { label: '仅入场', value: 'enter' },
-                    { label: '仅出场', value: 'exit' },
-                  ]"
+                <a-select
                   :model-value="tableActionFilter"
-                  @update:model-value="(v: string | number) => onTableFilterChange(String(v))"
-                />
+                  style="width: 120px"
+                  @change="(v) => onTableFilterChange(String(v))"
+                >
+                  <a-option value="all" label="全部" />
+                  <a-option value="enter" label="仅入场" />
+                  <a-option value="exit" label="仅出场" />
+                </a-select>
                 <span class="table-label">每页</span>
-                <AppSelect
-                  :options="[
-                    { label: '10', value: 10 },
-                    { label: '50', value: 50 },
-                    { label: '100', value: 100 },
-                    { label: '200', value: 200 },
-                    { label: '500', value: 500 }
-                  ]"
+                <a-select
                   :model-value="tablePageSize"
-                  @update:model-value="(v: string | number) => changeTablePageSize(Number(v))"
-                />
-                <AppButton size="sm" variant="ghost" :disabled="tablePage <= 1" @click="loadTablePage(tablePage - 1)">上一页</AppButton>
+                  style="width: 90px"
+                  @change="(v) => changeTablePageSize(Number(v))"
+                >
+                  <a-option v-for="n in [10, 50, 100, 200, 500]" :key="n" :value="n" :label="String(n)" />
+                </a-select>
+                <a-button size="small" :disabled="tablePage <= 1" @click="loadTablePage(tablePage - 1)">
+                  <template #icon><icon-left /></template>
+                  上一页
+                </a-button>
                 <span class="page-label">{{ tablePage }} / {{ tableTotalPages }}</span>
-                <AppButton size="sm" variant="ghost" :disabled="tablePage >= tableTotalPages" @click="loadTablePage(tablePage + 1)">下一页</AppButton>
+                <a-button size="small" :disabled="tablePage >= tableTotalPages" @click="loadTablePage(tablePage + 1)">
+                  下一页
+                  <template #icon><icon-right /></template>
+                </a-button>
               </div>
-              <AppButton size="sm" icon="chart" @click="onViewModeChange('chart')">K 线图</AppButton>
+              <a-button size="small" @click="onViewModeChange('chart')">
+                <template #icon><icon-common /></template>
+                K 线图
+              </a-button>
             </div>
             <div v-if="currentAnalysisItem" class="position-replay-card compact">
               <div class="position-stat">
@@ -773,47 +800,38 @@ function enrichPositionMetrics(items: BacktestCandleAnalysis[], initialValue: nu
       </template>
 
       <template #footer>
-        <AppButton variant="primary" icon="close" @click="showDetail = false; stopReplay()">关闭</AppButton>
+        <a-button type="primary" @click="showDetail = false; stopReplay()">
+          <template #icon><icon-close /></template>
+          关闭
+        </a-button>
       </template>
-    </AppModal>
+    </a-modal>
   </div>
 </template>
 
 <style scoped>
-.backtest-page { padding: 2rem; }
-.header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
-.header h2 { margin: 0; color: var(--text-primary); }
+.backtest-page { padding: 0; }
+.header-card { margin-bottom: 1rem; }
+.header-card :deep(.arco-card-body) {
+  padding: 0.75rem 1rem;
+}
+.header-row { display: flex; align-items: center; }
+.header-left { display: flex; align-items: center; gap: 0.75rem; }
+.header-title { font-size: 1rem; font-weight: 600; color: var(--text-primary); }
 .strategy-name { color: var(--text-muted); font-size: 0.9rem; }
-.scope-tag { padding: 0.125rem 0.375rem; border-radius: 4px; background: rgba(56,189,248,0.1); color: var(--accent-blue); font-size: 0.7rem; }
 
-.config-card { background: rgba(255,255,255,0.55); border: 1px solid var(--glass-border); border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
+.config-card { margin-bottom: 1rem; }
+.config-card :deep(.arco-card-body) {
+  padding: 0.75rem 1rem;
+}
 .config-row { display: flex; align-items: flex-end; gap: 1rem; flex-wrap: wrap; }
 .config-field { display: flex; flex-direction: column; gap: 0.25rem; }
 .config-field label { color: var(--text-muted); font-size: 0.8rem; }
-.config-field select, .config-field input {
-  padding: 0.5rem; background: rgba(255,255,255,0.35); color: var(--text-primary);
-  border: 1px solid var(--glass-border); border-radius: 4px; width: 120px;
-}
-.config-field input { width: 130px; }
-.btn-primary { padding: 0.5rem 1rem; background: var(--accent-blue); color: var(--text-primary); border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .error-msg { color: var(--accent-red); margin-top: 0.5rem; font-size: 0.85rem; }
 
 .tasks-section { margin-bottom: 1rem; }
-.tasks-section h3 { color: var(--text-primary); margin-bottom: 0.5rem; }
-.task-table { width: 100%; border-collapse: collapse; }
-.task-table th, .task-table td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--glass-border); color: var(--text-primary); font-size: 0.85rem; }
-.task-table th { color: var(--text-muted); font-weight: 600; }
-.task-row { cursor: pointer; transition: background 0.1s; }
-.task-row:hover { background: rgba(79, 126, 201, 0.04); }
 .task-row--running { background: rgba(79, 126, 201, 0.06); }
 .task-row--running:hover { background: rgba(79, 126, 201, 0.1); }
-.status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 0.375rem; vertical-align: middle; }
-.phase-badge {
-  display: inline-block; margin-left: 0.375rem; padding: 0.0625rem 0.375rem;
-  border-radius: 999px; background: rgba(79, 126, 201, 0.15);
-  color: var(--accent-blue); font-size: 0.7rem; font-weight: 500; vertical-align: middle;
-}
 .live-dot {
   display: inline-block; width: 6px; height: 6px; border-radius: 50%;
   background: var(--accent-green); margin-left: 0.375rem; vertical-align: middle;
@@ -823,7 +841,6 @@ function enrichPositionMetrics(items: BacktestCandleAnalysis[], initialValue: nu
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.3; transform: scale(0.7); }
 }
-.date-cell { color: var(--text-muted); }
 
 .tab-bar { display: flex; gap: 0; margin-bottom: 1rem; border-bottom: 1px solid var(--glass-border); }
 .tab-btn {
@@ -834,11 +851,7 @@ function enrichPositionMetrics(items: BacktestCandleAnalysis[], initialValue: nu
 .tab-btn:hover { color: var(--text-primary); }
 .tab-btn.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); }
 .detail-summary { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; padding: 0.75rem 1rem; background: rgba(255,255,255,0.55); border: 1px solid var(--glass-border); border-radius: 6px; font-size: 0.85rem; color: var(--text-muted); }
-.detail-status { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 999px; color: var(--status-color); font-size: 0.8rem; font-weight: 600; background: color-mix(in srgb, var(--status-color) 12%, transparent); border: 1px solid color-mix(in srgb, var(--status-color) 25%, transparent); }
-.detail-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; padding: 0.75rem 1rem; background: rgba(255,255,255,0.55); border: 1px solid var(--glass-border); border-radius: 6px; }
-.meta-item { display: flex; flex-direction: column; gap: 0.125rem; }
-.meta-label { color: var(--text-muted); font-size: 0.75rem; }
-.meta-value { color: var(--text-primary); font-size: 0.85rem; }
+.detail-summary .meta-date { margin-left: auto; color: var(--text-primary); font-size: 0.8rem; font-weight: 500; }
 .loading-hint { color: var(--text-muted); font-size: 0.85rem; padding: 1rem 0; text-align: center; }
 .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; }
 .result-item { display: flex; flex-direction: column; gap: 0.125rem; padding: 0.75rem 1rem; background: rgba(255,255,255,0.45); border: 1px solid var(--glass-border); border-radius: 6px; }
@@ -852,14 +865,6 @@ function enrichPositionMetrics(items: BacktestCandleAnalysis[], initialValue: nu
   padding: 0.5rem; background: rgba(255,255,255,0.35); border: 1px solid var(--glass-border);
   border-radius: 6px; margin-bottom: 0.5rem; flex-wrap: wrap;
 }
-.replay-btn {
-  padding: 0.25rem 0.5rem; background: transparent; color: var(--text-muted);
-  border: 1px solid var(--glass-border); border-radius: 4px; cursor: pointer;
-  font-size: 0.85rem; line-height: 1; transition: all 0.15s;
-}
-.replay-btn:hover { color: var(--text-primary); border-color: var(--text-muted); }
-.replay-btn.primary { color: var(--accent-blue); font-size: 1rem; padding: 0.25rem 0.625rem; }
-.replay-btn.primary:hover { background: rgba(79,126,201,0.1); }
 .replay-progress { color: var(--text-muted); font-size: 0.8rem; font-family: 'SF Mono', monospace; min-width: 80px; }
 .replay-divider { color: var(--glass-border-strong); font-size: 0.8rem; }
 .replay-label { color: var(--text-muted); font-size: 0.75rem; }
@@ -895,12 +900,4 @@ function enrichPositionMetrics(items: BacktestCandleAnalysis[], initialValue: nu
 .table-label { color: var(--text-muted); font-size: 0.8rem; }
 .pagination-controls { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .page-label { color: var(--text-primary); font-size: 0.8rem; font-family: 'SF Mono', monospace; min-width: 64px; text-align: center; }
-
-.load-more-wrap { text-align: center; padding: 0.75rem 0; }
-.load-more-btn {
-  padding: 0.375rem 1rem; background: rgba(255,255,255,0.55); color: var(--accent-blue);
-  border: 1px solid var(--glass-border); border-radius: 4px; cursor: pointer; font-size: 0.8rem;
-}
-.load-more-btn:hover { background: rgba(56,189,248,0.1); }
-.load-more-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

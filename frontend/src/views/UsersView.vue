@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { usersApi, type User } from '../api/users'
-import AppSelect from '../components/AppSelect.vue'
 
 const users = ref<User[]>([])
 const loading = ref(true)
@@ -10,11 +9,28 @@ const formUsername = ref('')
 const formPassword = ref('')
 const formRole = ref('Operator')
 
+const page = ref(1)
+const pageSize = ref(15)
+
+const displayUsers = computed(() => {
+  const start = (page.value - 1) * pageSize.value
+  return users.value.slice(start, start + pageSize.value)
+})
+
+const columns = [
+  { title: '用户名', dataIndex: 'userName' },
+  { title: '角色', dataIndex: 'role', width: 120 },
+  { title: '状态', dataIndex: 'status', width: 100 },
+  { title: '创建时间', dataIndex: 'createdAt', width: 200 },
+  { title: '操作', dataIndex: 'actions', width: 140 }
+]
+
 async function load() {
   loading.value = true
   try {
     const { data } = await usersApi.getAll()
-    users.value = data.data ?? []
+    const list = Array.isArray(data) ? data : (data as any).data ?? []
+    users.value = list
   } finally {
     loading.value = false
   }
@@ -38,11 +54,12 @@ async function changeRole(id: string, role: string) {
   await load()
 }
 
-const roleColors: Record<string, string> = {
-  SuperAdmin: '#ef4444',
-  Admin: '#f59e0b',
-  Operator: 'var(--accent-blue)',
-  Viewer: '#94a3b8'
+const tagRoleColors: Record<string, string> = {
+  SuperAdmin: 'red', Admin: 'orange', Operator: 'blue', Viewer: ''
+}
+
+const tagStatusColors: Record<string, string> = {
+  Active: 'green', Disabled: 'gray', PendingMfa: 'purple'
 }
 
 onMounted(load)
@@ -50,79 +67,95 @@ onMounted(load)
 
 <template>
   <div class="users-page">
-    <div class="page-header">
-      <h2>用户管理</h2>
-      <AppButton variant="primary" icon="plus" @click="openCreate">创建用户</AppButton>
-    </div>
+    <a-card class="header-card">
+      <div class="header-row">
+        <span class="header-title">用户管理</span>
+        <a-button type="primary" @click="openCreate">
+          <template #icon><icon-plus /></template>
+          创建用户
+        </a-button>
+      </div>
+    </a-card>
 
-    <AppModal v-model="showForm" title="创建用户" width="sm">
-      <input v-model="formUsername" placeholder="用户名" class="input" />
-      <input v-model="formPassword" type="password" placeholder="密码" class="input" />
-      <AppSelect
-        :options="[
-          { label: 'Admin', value: 'Admin' },
-          { label: 'Operator', value: 'Operator' },
-          { label: 'Viewer', value: 'Viewer' },
-        ]"
-        :model-value="formRole"
-        full
-        form
-        @update:model-value="(v: string | number) => formRole = v as 'Admin' | 'Operator' | 'Viewer'"
-      />
+    <a-modal v-model:visible="showForm" title="创建用户" width="sm" :mask-closable="false">
+      <div class="form-body">
+        <a-input v-model="formUsername" placeholder="用户名" />
+        <a-input-password v-model="formPassword" placeholder="密码" />
+        <a-select
+          :model-value="formRole"
+          style="width: 100%"
+          @change="(v) => formRole = String(v) as 'Admin' | 'Operator' | 'Viewer'"
+        >
+          <a-option value="Admin" label="Admin" />
+          <a-option value="Operator" label="Operator" />
+          <a-option value="Viewer" label="Viewer" />
+        </a-select>
+      </div>
       <template #footer>
-        <AppButton icon="close" @click="showForm = false">取消</AppButton>
-        <AppButton variant="primary" icon="user" @click="create">创建</AppButton>
+        <a-button type="primary" @click="create">
+          <template #icon><icon-user /></template>
+          创建
+        </a-button>
       </template>
-    </AppModal>
+    </a-modal>
 
-    <div v-if="loading">加载中...</div>
-    <table v-else class="table">
-      <thead>
-        <tr>
-          <th>用户名</th>
-          <th>角色</th>
-          <th>状态</th>
-          <th>创建时间</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="u in users" :key="u.id">
-          <td>{{ u.userName }}</td>
-          <td><span class="role-badge" :style="{ color: roleColors[u.role] }">{{ u.role }}</span></td>
-          <td>{{ u.status }}</td>
-          <td>{{ new Date(u.createdAt).toLocaleDateString() }}</td>
-          <td class="actions">
-            <AppSelect
-              :options="[
-                { label: 'Admin', value: 'Admin' },
-                { label: 'Operator', value: 'Operator' },
-                { label: 'Viewer', value: 'Viewer' },
-              ]"
-              :model-value="u.role"
-              @update:model-value="(v: string | number) => changeRole(u.id, v as 'Admin' | 'Operator' | 'Viewer')"
-            />
-          </td>
-        </tr>
-        <tr v-if="users.length === 0">
-          <td colspan="5" class="empty">暂无用户</td>
-        </tr>
-      </tbody>
-    </table>
+    <a-table
+      :columns="columns"
+      :data="displayUsers"
+      :loading="loading"
+      :pagination="{
+        current: page,
+        pageSize: pageSize,
+        total: users.length,
+        simple: true,
+        showTotal: true,
+        showPageSize: true,
+        pageSizeOptions: [10, 15, 20, 50, 100]
+      }"
+      page-position="top"
+      @page-change="(p: number) => { page = p }"
+      @page-size-change="(s: number) => { pageSize = s; page = 1 }"
+      stripe
+    >
+      <template #cell-role="{ record }">
+        <a-tag :color="tagRoleColors[record.role] || ''">{{ record.role }}</a-tag>
+      </template>
+      <template #cell-status="{ record }">
+        <a-tag :color="tagStatusColors[record.status] || ''">{{ record.status }}</a-tag>
+      </template>
+      <template #cell-createdAt="{ record }">
+        {{ record.createdAt }}
+      </template>
+      <template #cell-actions="{ record }">
+        <a-select
+          :model-value="record.role"
+          style="width: 120px"
+          @change="(v) => changeRole(record.id, String(v))"
+        >
+          <a-option value="Admin" label="Admin" />
+          <a-option value="Operator" label="Operator" />
+          <a-option value="Viewer" label="Viewer" />
+        </a-select>
+      </template>
+    </a-table>
   </div>
 </template>
 
 <style scoped>
-.users-page { padding: 2rem; }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-.page-header h2 { margin: 0; color: var(--text-primary); }
-.btn-primary { padding: 0.5rem 1rem; background: var(--accent-blue); color: var(--text-primary); border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
-.btn-secondary { padding: 0.5rem 1rem; background: #334155; color: var(--text-primary); border: 1px solid var(--glass-border-strong); border-radius: 4px; cursor: pointer; }
-.table { width: 100%; border-collapse: collapse; }
-.table th, .table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--glass-border); color: var(--text-primary); }
-.table th { color: var(--text-muted); font-weight: 600; }
-.role-badge { font-weight: 600; font-size: 0.85rem; }
-.actions { display: flex; gap: 0.5rem; }
-.empty { text-align: center; color: var(--text-muted); padding: 2rem; }
-.input { width: 100%; padding: 0.6rem; border: 1px solid var(--glass-border); border-radius: 4px; background: rgba(255,255,255,0.35); color: var(--text-primary); box-sizing: border-box; }
+.users-page { padding: 0; }
+.header-card { margin-bottom: 1rem; }
+.header-card :deep(.arco-card-body) {
+  padding: 0.75rem 1rem;
+}
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.header-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.form-body { display: flex; flex-direction: column; gap: 0.75rem; }
 </style>

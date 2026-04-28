@@ -1,18 +1,16 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
-import AppButton from './components/AppButton.vue'
-import AppCard from './components/AppCard.vue'
-import AppIcon from './components/AppIcon.vue'
-import AppModal from './components/AppModal.vue'
 import router from './router'
+import ArcoVue from '@arco-design/web-vue'
+import ArcoVueIcon from '@arco-design/web-vue/es/icon'
+import '@arco-design/web-vue/dist/arco.css'
 import './style.css'
 
 const app = createApp(App)
-app.component('AppButton', AppButton)
-app.component('AppCard', AppCard)
-app.component('AppIcon', AppIcon)
-app.component('AppModal', AppModal)
+
+app.use(ArcoVue)
+app.use(ArcoVueIcon)
 app.use(createPinia())
 app.use(router)
 app.mount('#app')

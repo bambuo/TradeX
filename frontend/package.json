@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@arco-design/web-vue": "^2.58.0",
     "@microsoft/signalr": "^10.0.0",
     "axios": "^1.15.2",
     "echarts": "^6.0.0",

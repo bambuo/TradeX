@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import AppSelect from './AppSelect.vue'
 import { exchangeInfos, getExchangeInfo } from '../api/exchangeInfo'
 
 const props = withDefaults(defineProps<{
@@ -18,46 +17,31 @@ const options = computed(() =>
   exchangeInfos.map(info => ({ label: info.label, value: info.type }))
 )
 
-const selected = computed(() => getExchangeInfo(props.modelValue))
-
-function onSelect(value: string | number) {
+function onSelect(value: string | number | boolean | Record<string, any> | (string | number | boolean | Record<string, any>)[]) {
   emit('update:modelValue', String(value))
 }
 </script>
 
 <template>
-  <AppSelect
-    :options="options"
+  <a-select
     :model-value="modelValue"
     :disabled="disabled"
-    full
-    form
-    @update:model-value="onSelect"
+    style="width: 100%"
+    @change="onSelect"
   >
-    <template #trigger>
-      <span class="exchange-icon"><img :src="selected.svgUrl" :alt="selected.label" /></span>
-      <span class="exchange-label">{{ selected.label }}</span>
-    </template>
-    <template #option="{ option }">
-      <span class="exchange-icon"><img :src="getExchangeInfo(String(option.value)).svgUrl" :alt="option.label" /></span>
-      <span class="exchange-label">{{ option.label }}</span>
-    </template>
-  </AppSelect>
+    <a-option
+      v-for="opt in options"
+      :key="opt.value"
+      :value="opt.value"
+      :label="opt.label"
+    >
+      <span class="exchange-icon"><img :src="getExchangeInfo(opt.value).icon" :alt="opt.label" /></span>
+      <span class="exchange-label">{{ opt.label }}</span>
+    </a-option>
+  </a-select>
 </template>
 
 <style scoped>
-:deep(.app-select-trigger) {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  text-align: left;
-}
-:deep(.app-select-option) {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
 .exchange-icon {
   width: 20px;
   height: 20px;
@@ -65,13 +49,13 @@ function onSelect(value: string | number) {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  margin-right: 6px;
 }
 .exchange-icon img {
   width: 20px;
   height: 20px;
 }
 .exchange-label {
-  flex: 1;
   font-size: 0.9rem;
 }
 </style>

@@ -40,7 +40,10 @@ function formatPnl(pnl: number): string {
   <div class="positions-page">
     <header class="page-header">
       <div class="header-left">
-        <AppButton variant="ghost" size="sm" icon="back" @click="router.push(`/traders/${traderId}/strategies`)">策略</AppButton>
+        <a-button type="text" size="small" @click="router.push(`/traders/${traderId}/strategies`)">
+          <template #icon><icon-left /></template>
+          策略
+        </a-button>
         <h2>持仓管理</h2>
       </div>
       <label class="toggle-label">
@@ -72,9 +75,7 @@ function formatPnl(pnl: number): string {
           <td :class="pnlClass(p.unrealizedPnl)">{{ formatPnl(p.unrealizedPnl) }}</td>
           <td :class="pnlClass(p.realizedPnl)">{{ formatPnl(p.realizedPnl) }}</td>
           <td>
-            <span class="status-badge" :class="p.status === 'Open' ? 'status-open' : 'status-closed'">
-              {{ p.status === 'Open' ? '持仓中' : '已平仓' }}
-            </span>
+            <a-tag :color="p.status === 'Open' ? 'blue' : ''">{{ p.status === 'Open' ? '持仓中' : '已平仓' }}</a-tag>
           </td>
           <td>{{ new Date(p.openedAtUtc).toLocaleString() }}</td>
         </tr>
@@ -100,7 +101,4 @@ function formatPnl(pnl: number): string {
 .empty { text-align: center; color: var(--text-muted); padding: 2rem; }
 .pnl-positive { color: var(--accent-green); font-weight: 600; }
 .pnl-negative { color: var(--accent-red); font-weight: 600; }
-.status-badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600; }
-.status-open { background: var(--accent-blue); color: var(--text-primary); }
-.status-closed { background: #475569; color: var(--text-primary); }
 </style>

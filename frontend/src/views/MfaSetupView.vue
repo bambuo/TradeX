@@ -55,20 +55,29 @@ function goToDashboard() {
             <code>{{ secret }}</code>
           </div>
         </div>
-        <AppButton variant="primary" icon="test" @click="step = 'verify'">我已设置</AppButton>
+        <a-button type="primary" @click="step = 'verify'">
+          <template #icon><icon-check-circle /></template>
+          我已设置
+        </a-button>
       </div>
 
       <div v-else-if="step === 'verify'" class="step">
         <p class="desc">输入身份验证器中的 6 位验证码以确认设置：</p>
         <div v-if="error" class="error">{{ error }}</div>
         <input v-model="totpCode" placeholder="6 位验证码" maxlength="6" class="input" @keyup.enter="handleVerify" />
-        <AppButton variant="primary" icon="shield" :disabled="loading" @click="handleVerify">{{ loading ? '验证中...' : '确认并启用' }}</AppButton>
+        <a-button type="primary" :loading="loading" @click="handleVerify">
+          <template #icon><icon-safe /></template>
+          {{ loading ? '验证中...' : '确认并启用' }}
+        </a-button>
       </div>
 
       <div v-else class="step">
         <div class="success-icon">✓</div>
         <p class="desc">双重认证已成功启用！</p>
-        <AppButton variant="primary" icon="home" @click="goToDashboard">返回仪表盘</AppButton>
+        <a-button type="primary" @click="goToDashboard">
+          <template #icon><icon-home /></template>
+          返回仪表盘
+        </a-button>
       </div>
     </div>
   </div>
