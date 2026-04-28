@@ -77,7 +77,7 @@ public class BacktestScheduler(
         catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
         {
             logger.LogWarning("Worker[{Index}] 回测任务超时: TaskId={TaskId}, Timeout={Timeout}", workerIndex, taskId, timeout);
-            await FailTaskAsync(taskId, "回测执行超时");
+            await FailTaskAsync(taskId, "回测执行超时", ct);
         }
         catch (OperationCanceledException)
         {
@@ -86,7 +86,7 @@ public class BacktestScheduler(
         catch (Exception ex)
         {
             logger.LogError(ex, "Worker[{Index}] 回测任务异常: TaskId={TaskId}", workerIndex, taskId);
-            await FailTaskAsync(taskId, ex.Message);
+            await FailTaskAsync(taskId, ex.Message, ct);
         }
     }
 
@@ -225,7 +225,7 @@ public class BacktestScheduler(
             var taskRepo = scope.ServiceProvider.GetRequiredService<IBacktestTaskRepository>();
             var strategyRepo = scope.ServiceProvider.GetRequiredService<IStrategyRepository>();
             var deployments = await strategyRepo.GetAllAsync(ct);
-            var stuckTasks = new List<BacktestTask>();
+            List<BacktestTask> stuckTasks = [];
 
             foreach (var dep in deployments)
             {
@@ -250,18 +250,18 @@ public class BacktestScheduler(
         }
     }
 
-    private async Task FailTaskAsync(Guid taskId, string reason)
+    private async Task FailTaskAsync(Guid taskId, string reason, CancellationToken ct = default)
     {
         try
         {
             using var scope = scopeFactory.CreateScope();
             var taskRepo = scope.ServiceProvider.GetRequiredService<IBacktestTaskRepository>();
-            var task = await taskRepo.GetByIdAsync(taskId);
+            var task = await taskRepo.GetByIdAsync(taskId, ct);
             if (task is not null)
             {
                 task.Status = BacktestTaskStatus.Failed;
                 task.CompletedAtUtc = DateTime.UtcNow;
-                await taskRepo.UpdateAsync(task);
+                await taskRepo.UpdateAsync(task, ct);
             }
         }
         catch (Exception ex)
@@ -284,7 +284,7 @@ public class BacktestScheduler(
     private static long GetIntervalMs(string timeframe) =>
         IntervalMs.TryGetValue(timeframe, out var ms) ? ms : 60_000;
 
-    private static async Task<List<Candle>> FetchCandlesWithFallbackAsync(
+    private async Task<List<Candle>> FetchCandlesWithFallbackAsync(
         IIoTDbService iotdb,
         IExchangeClient exchangeClient,
         string exchangeName,
@@ -306,9 +306,9 @@ public class BacktestScheduler(
                 return iotdbCandles.ToList();
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // fallback to exchange
+            logger.LogWarning(ex, "IoTDB 查询失败，回退到交易所直接获取 K 线数据");
         }
 
         return await FetchAllCandlesAsync(exchangeClient, symbol, timeframe, startUtc, endUtc, ct);
@@ -316,7 +316,7 @@ public class BacktestScheduler(
 
     private static async Task<List<Candle>> FetchAllCandlesAsync(IExchangeClient client, string symbol, string timeframe, DateTime startUtc, DateTime endUtc, CancellationToken ct)
     {
-        var allCandles = new List<Candle>();
+        List<Candle> allCandles = [];
         var currentStart = startUtc;
         var intervalMs = GetIntervalMs(timeframe);
 

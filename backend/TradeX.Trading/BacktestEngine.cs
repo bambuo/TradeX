@@ -23,8 +23,8 @@ public class BacktestEngine(
         if (volatilityRule is not null)
             return RunVolatilityGrid(strategy, candles, volatilityRule, initialCapital, onAnalysis, timeframe);
 
-        var trades = new List<BacktestTrade>();
-        var analysis = new List<BacktestCandleAnalysis>();
+        List<BacktestTrade> trades = [];
+        List<BacktestCandleAnalysis> analysis = [];
         var prices = candles.Select(c => c.Close).ToArray();
         var volumes = candles.Select(c => (long)c.Volume).ToArray();
         var entryPrice = 0m;
@@ -156,11 +156,11 @@ public class BacktestEngine(
         Action<BacktestCandleAnalysis>? onAnalysis,
         string? timeframe = null)
     {
-        var trades = new List<BacktestTrade>();
-        var analysis = new List<BacktestCandleAnalysis>();
+        List<BacktestTrade> trades = [];
+        List<BacktestCandleAnalysis> analysis = [];
         var prices = candles.Select(c => c.Close).ToArray();
         var volumes = candles.Select(c => (long)c.Volume).ToArray();
-        var openLegs = new List<OpenLeg>();
+        List<OpenLeg> openLegs = [];
         var remainingCapital = initialCapital;
 
         for (var i = 50; i < prices.Length; i++)
@@ -323,10 +323,10 @@ public class BacktestEngine(
     }
 
     private static BacktestResult CalculateMetrics(
-        List<BacktestTrade> trades,
+        IReadOnlyList<BacktestTrade> trades,
         IReadOnlyList<Candle> candles,
         decimal[] prices,
-        List<BacktestCandleAnalysis> analysis)
+        IReadOnlyList<BacktestCandleAnalysis> analysis)
     {
         var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 

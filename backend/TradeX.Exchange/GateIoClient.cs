@@ -98,7 +98,7 @@ public class GateIoClient : IExchangeClient
         if (string.IsNullOrWhiteSpace(body)) return [];
 
         var doc = JsonDocument.Parse(body);
-        var result = new Dictionary<string, decimal>();
+        Dictionary<string, decimal> result = [];
         foreach (var b in doc.RootElement.EnumerateArray())
         {
             var currency = b.GetProperty("currency").GetString()!;

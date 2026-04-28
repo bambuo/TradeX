@@ -136,7 +136,7 @@ public class TradingEngine(
             .ToList();
         var hasOpenPosition = openSymbolPositions.Count > 0;
 
-        var volatilityRule = VolatilityGridExecutionRuleParser.TryParse(executionRuleJson);
+        var volatilityRule = VolatilityGridExecutionRuleParser.TryParse(executionRuleJson, logger);
         var hasEntryCondition = !string.IsNullOrWhiteSpace(entryConditionJson) && entryConditionJson != "{}";
         var hasExitCondition = !string.IsNullOrWhiteSpace(exitConditionJson) && exitConditionJson != "{}";
         var shouldEvaluateEntry = volatilityRule is not null || (!hasOpenPosition && hasEntryCondition);

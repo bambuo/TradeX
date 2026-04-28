@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 
 namespace TradeX.Trading;
 
@@ -32,7 +33,7 @@ public static class VolatilityGridExecutionRuleParser
         PropertyNameCaseInsensitive = true
     };
 
-    public static VolatilityGridExecutionRule? TryParse(string executionRuleJson)
+    public static VolatilityGridExecutionRule? TryParse(string executionRuleJson, ILogger? logger = null)
     {
         if (string.IsNullOrWhiteSpace(executionRuleJson) || executionRuleJson == "{}")
             return null;
@@ -61,8 +62,9 @@ public static class VolatilityGridExecutionRuleParser
                 SlippageTolerance: parsed.SlippageTolerance >= 0 ? parsed.SlippageTolerance : 0.0005m,
                 MaxDailyLoss: parsed.MaxDailyLoss >= 0 ? parsed.MaxDailyLoss : 200m);
         }
-        catch
+        catch (Exception ex)
         {
+            logger?.LogWarning(ex, "波动率网格执行规则解析失败，回退到默认值");
             return VolatilityGridExecutionRule.Default;
         }
     }

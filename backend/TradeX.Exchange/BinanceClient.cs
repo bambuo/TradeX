@@ -70,7 +70,7 @@ public class BinanceClient : IExchangeClient
         var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
         if (doc is null) return [];
 
-        var result = new Dictionary<string, decimal>();
+        Dictionary<string, decimal> result = [];
         foreach (var b in doc.RootElement.GetProperty("balances").EnumerateArray())
         {
             var asset = b.GetProperty("asset").GetString()!;

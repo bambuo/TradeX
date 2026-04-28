@@ -89,7 +89,7 @@ public class OkxClient : IExchangeClient
         var doc = await SignedGetAsync("/api/v5/account/balance", null, ct);
         if (doc is null) return [];
 
-        var result = new Dictionary<string, decimal>();
+        Dictionary<string, decimal> result = [];
         foreach (var detail in doc.RootElement.GetProperty("data")[0].GetProperty("details").EnumerateArray())
         {
             var ccy = detail.GetProperty("ccy").GetString()!;

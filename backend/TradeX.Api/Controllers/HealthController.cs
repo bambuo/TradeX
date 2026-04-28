@@ -10,7 +10,8 @@ namespace TradeX.Api.Controllers;
 public class HealthController(
     TradeXDbContext db,
     IIoTDbService iotdb,
-    ResourceMonitor resourceMonitor) : ControllerBase
+    ResourceMonitor resourceMonitor,
+    ILogger<HealthController> logger) : ControllerBase
 {
     [HttpGet("/health")]
     public async Task<IActionResult> GetHealth(CancellationToken ct)
@@ -20,9 +21,9 @@ public class HealthController(
         {
             dbConnected = await db.Database.CanConnectAsync(ct);
         }
-        catch
+        catch (Exception ex)
         {
-            // ignore
+            logger.LogWarning(ex, "健康检查: 数据库连接失败");
         }
 
         var iotdbConnected = await iotdb.HealthCheckAsync(ct);

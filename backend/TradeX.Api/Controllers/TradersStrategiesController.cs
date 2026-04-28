@@ -13,7 +13,8 @@ namespace TradeX.Api.Controllers;
 public class TradersStrategiesController(
     ITraderRepository traderRepo,
     IStrategyRepository strategyRepo,
-    IStrategyDeploymentRepository deploymentRepo) : ControllerBase
+    IStrategyDeploymentRepository deploymentRepo,
+    ILogger<TradersStrategiesController> logger) : ControllerBase
 {
     private Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
@@ -185,7 +186,7 @@ public class TradersStrategiesController(
     public record UpdateDeploymentRequest(string? SymbolIds = null, string? Timeframe = null);
     public record ToggleDeploymentRequest(bool Enable);
 
-    private static string[] ParseSymbolIds(string raw)
+    private string[] ParseSymbolIds(string raw)
     {
         if (string.IsNullOrWhiteSpace(raw) || raw == "[]") return [];
         try
@@ -193,8 +194,9 @@ public class TradersStrategiesController(
             var parsed = System.Text.Json.JsonSerializer.Deserialize<string[]>(raw);
             return parsed ?? [];
         }
-        catch
+        catch (Exception ex)
         {
+            logger.LogWarning(ex, "SymbolIds JSON 解析失败，回退到逗号分割");
             return raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         }
     }

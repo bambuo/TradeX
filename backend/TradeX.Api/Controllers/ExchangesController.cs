@@ -240,8 +240,8 @@ public class ExchangesController(
 
             await Task.WhenAll(rulesTask, tickerTask);
 
-            var rules = rulesTask.Result;
-            var tickers = tickerTask.Result;
+            var rules = await rulesTask;
+            var tickers = await tickerTask;
             var tickerMap = tickers.ToDictionary(t => t.Symbol, t => t);
 
             var symbols = rules

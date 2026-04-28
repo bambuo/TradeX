@@ -97,7 +97,7 @@ public class BybitClient : IExchangeClient
         var list = doc.RootElement.GetProperty("result").GetProperty("list").EnumerateArray().FirstOrDefault();
         if (list.ValueKind == JsonValueKind.Undefined) return [];
 
-        var result = new Dictionary<string, decimal>();
+        Dictionary<string, decimal> result = [];
         foreach (var coin in list.GetProperty("coin").EnumerateArray())
         {
             var currency = coin.GetProperty("coin").GetString()!;

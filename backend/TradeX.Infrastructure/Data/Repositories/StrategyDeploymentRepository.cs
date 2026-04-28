@@ -1,11 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 
 namespace TradeX.Infrastructure.Data.Repositories;
 
-public class StrategyDeploymentRepository(TradeXDbContext context) : IStrategyDeploymentRepository
+public class StrategyDeploymentRepository(TradeXDbContext context, ILogger<StrategyDeploymentRepository> logger) : IStrategyDeploymentRepository
 {
     public async Task<StrategyDeployment?> GetByIdAsync(Guid id, CancellationToken ct = default)
         => await context.StrategyDeployments.FirstOrDefaultAsync(s => s.Id == id, ct);
@@ -54,11 +55,15 @@ public class StrategyDeploymentRepository(TradeXDbContext context) : IStrategyDe
         return deployments.Any(s => ParseSymbolIds(s.SymbolIds).Contains(symbolId));
     }
 
-    private static string[] ParseSymbolIds(string raw)
+    private string[] ParseSymbolIds(string raw)
     {
         if (string.IsNullOrWhiteSpace(raw) || raw == "[]") return [];
         try { return JsonSerializer.Deserialize<string[]>(raw) ?? []; }
-        catch { return raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries); }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "SymbolIds JSON 解析失败，回退到逗号分割");
+            return raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        }
     }
 
     public async Task AddAsync(StrategyDeployment deployment, CancellationToken ct = default)

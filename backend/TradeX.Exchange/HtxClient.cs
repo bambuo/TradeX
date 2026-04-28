@@ -93,7 +93,7 @@ public class HtxClient : IExchangeClient
 
         if (balanceResp.RootElement.GetProperty("status").GetString() != "ok") return [];
 
-        var result = new Dictionary<string, decimal>();
+        Dictionary<string, decimal> result = [];
         foreach (var entry in balanceResp.RootElement.GetProperty("data").GetProperty("list").EnumerateArray())
         {
             var currency = entry.GetProperty("currency").GetString()!.ToUpperInvariant();
