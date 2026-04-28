@@ -92,18 +92,9 @@ public class BacktestScheduler(
 
     private async Task ProcessTaskAsync(Guid taskId, CancellationToken ct)
     {
-        using var scope = scopeFactory.CreateScope();
+        using var scope = new BacktestCycleScope(scopeFactory);
 
-        var taskRepo = scope.ServiceProvider.GetRequiredService<IBacktestTaskRepository>();
-        var strategyRepo = scope.ServiceProvider.GetRequiredService<IStrategyRepository>();
-        var exchangeRepo = scope.ServiceProvider.GetRequiredService<IExchangeRepository>();
-        var clientFactory = scope.ServiceProvider.GetRequiredService<IExchangeClientFactory>();
-        var encryptionService = scope.ServiceProvider.GetRequiredService<IEncryptionService>();
-        var indicatorService = scope.ServiceProvider.GetRequiredService<IIndicatorService>();
-        var conditionEvaluator = scope.ServiceProvider.GetRequiredService<IConditionEvaluator>();
-        var iotdb = scope.ServiceProvider.GetRequiredService<IIoTDbService>();
-
-        var task = await taskRepo.GetByIdAsync(taskId, ct);
+        var task = await scope.TaskRepo.GetByIdAsync(taskId, ct);
         if (task is null)
         {
             logger.LogWarning("回测任务不存在: TaskId={TaskId}", taskId);
@@ -112,25 +103,24 @@ public class BacktestScheduler(
 
         task.Status = BacktestTaskStatus.Running;
         task.Phase = BacktestPhase.Queued;
-        await taskRepo.UpdateAsync(task, ct);
+        await scope.TaskRepo.UpdateAsync(task, ct);
 
-        var deploymentRepo = scope.ServiceProvider.GetRequiredService<IStrategyDeploymentRepository>();
         var deployment = task.DeploymentId != Guid.Empty
-            ? await deploymentRepo.GetByIdAsync(task.DeploymentId, ct)
+            ? await scope.StrategyDeploymentRepo.GetByIdAsync(task.DeploymentId, ct)
             : null;
 
-        var strategy = await strategyRepo.GetByIdAsync(task.StrategyId, ct);
+        var strategy = await scope.StrategyRepo.GetByIdAsync(task.StrategyId, ct);
         if (strategy is null)
             throw new InvalidOperationException($"策略不存在: {task.StrategyId}");
 
-        var exchange = await exchangeRepo.GetByIdAsync(task.ExchangeId, ct);
+        var exchange = await scope.ExchangeRepo.GetByIdAsync(task.ExchangeId, ct);
         if (exchange is null)
             throw new InvalidOperationException($"交易所不存在: {task.ExchangeId}");
 
         var exchangeName = exchange.Type.ToString();
 
         task.Phase = BacktestPhase.FetchingData;
-        await taskRepo.UpdateAsync(task, ct);
+        await scope.TaskRepo.UpdateAsync(task, ct);
 
         List<Candle> candles;
         var startUtc = task.StartAtUtc;
@@ -140,11 +130,11 @@ public class BacktestScheduler(
         var tolerance = TimeSpan.FromMilliseconds(GetIntervalMs(timeframe));
         var dataFromIotdb = false;
 
-        var iotdbTask = iotdb.GetKlinesAsync(exchangeName, symbolId, timeframe, startUtc, endUtc, ct);
-        var exchangeClient = clientFactory.CreateClient(
+        var iotdbTask = scope.IoTDb.GetKlinesAsync(exchangeName, symbolId, timeframe, startUtc, endUtc, ct);
+        var exchangeClient = scope.ClientFactory.CreateClient(
             exchange.Type,
-            encryptionService.Decrypt(exchange.ApiKeyEncrypted),
-            encryptionService.Decrypt(exchange.SecretKeyEncrypted));
+            scope.EncryptionService.Decrypt(exchange.ApiKeyEncrypted),
+            scope.EncryptionService.Decrypt(exchange.SecretKeyEncrypted));
         var exchangeTask = exchangeClient.GetKlinesAsync(symbolId, timeframe, startUtc, endUtc, ct);
 
         var completedTask = await Task.WhenAny(iotdbTask, exchangeTask);
@@ -172,18 +162,18 @@ public class BacktestScheduler(
         }
 
         if (!dataFromIotdb)
-            _ = iotdb.WriteKlinesAsync(exchangeName, symbolId, timeframe, candles, ct);
+            _ = scope.IoTDb.WriteKlinesAsync(exchangeName, symbolId, timeframe, candles, ct);
 
         task.Phase = BacktestPhase.Running;
-        await taskRepo.UpdateAsync(task, ct);
+        await scope.TaskRepo.UpdateAsync(task, ct);
 
         analysisStore.Init(task.Id);
 
-        var engine = new BacktestEngine(indicatorService, conditionEvaluator);
+        var engine = new BacktestEngine(scope.IndicatorService, scope.ConditionEvaluator);
         var (result, trades, analysis) = engine.Run(strategy, candles, task.InitialCapital,
             a => analysisStore.Push(task.Id, a), task.Timeframe);
 
-        await taskRepo.AddCandleAnalysesAsync(task.Id, analysis, ct);
+        await scope.TaskRepo.AddCandleAnalysesAsync(task.Id, analysis, ct);
         logger.LogInformation("回测分析数据已写入 SQLite: TaskId={TaskId}, Count={Count}", task.Id, analysis.Count);
 
         var resultWithTask = new BacktestResult
@@ -198,17 +188,17 @@ public class BacktestScheduler(
             ProfitLossRatio = result.ProfitLossRatio,
             DetailJson = result.DetailJson
         };
-        await taskRepo.AddResultAsync(resultWithTask, ct);
+        await scope.TaskRepo.AddResultAsync(resultWithTask, ct);
 
         task.Status = BacktestTaskStatus.Completed;
         task.Phase = null;
         task.CompletedAtUtc = DateTime.UtcNow;
-        await taskRepo.UpdateAsync(task, ct);
+        await scope.TaskRepo.UpdateAsync(task, ct);
 
         if (deployment?.Status == DeploymentStatus.Draft)
         {
             deployment.Status = DeploymentStatus.Passed;
-            await deploymentRepo.UpdateAsync(deployment, ct);
+            await scope.StrategyDeploymentRepo.UpdateAsync(deployment, ct);
         }
 
         analysisStore.Remove(task.Id);
@@ -221,15 +211,13 @@ public class BacktestScheduler(
     {
         try
         {
-            using var scope = scopeFactory.CreateScope();
-            var taskRepo = scope.ServiceProvider.GetRequiredService<IBacktestTaskRepository>();
-            var strategyRepo = scope.ServiceProvider.GetRequiredService<IStrategyRepository>();
-            var deployments = await strategyRepo.GetAllAsync(ct);
+            using var scope = new BacktestCycleScope(scopeFactory);
+            var deployments = await scope.StrategyRepo.GetAllAsync(ct);
             List<BacktestTask> stuckTasks = [];
 
             foreach (var dep in deployments)
             {
-                var tasks = await taskRepo.GetByStrategyIdAsync(dep.Id, ct);
+                var tasks = await scope.TaskRepo.GetByStrategyIdAsync(dep.Id, ct);
                 stuckTasks.AddRange(tasks.Where(t => t.Status == BacktestTaskStatus.Running));
             }
 
@@ -237,7 +225,7 @@ public class BacktestScheduler(
             {
                 logger.LogWarning("恢复卡死的回测任务: TaskId={TaskId}, Strategy={Strategy}", task.Id, task.StrategyName);
                 task.Status = BacktestTaskStatus.Pending;
-                await taskRepo.UpdateAsync(task, ct);
+                await scope.TaskRepo.UpdateAsync(task, ct);
                 await queue.EnqueueAsync(task.Id, ct);
             }
 
@@ -254,14 +242,13 @@ public class BacktestScheduler(
     {
         try
         {
-            using var scope = scopeFactory.CreateScope();
-            var taskRepo = scope.ServiceProvider.GetRequiredService<IBacktestTaskRepository>();
-            var task = await taskRepo.GetByIdAsync(taskId, ct);
+            using var scope = new BacktestCycleScope(scopeFactory);
+            var task = await scope.TaskRepo.GetByIdAsync(taskId, ct);
             if (task is not null)
             {
                 task.Status = BacktestTaskStatus.Failed;
                 task.CompletedAtUtc = DateTime.UtcNow;
-                await taskRepo.UpdateAsync(task, ct);
+                await scope.TaskRepo.UpdateAsync(task, ct);
             }
         }
         catch (Exception ex)

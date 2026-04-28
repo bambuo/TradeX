@@ -1476,5 +1476,5 @@ flowchart LR
 ```
 
 - **AGENTS.md** 是唯一入口：大多数主流 AI 编程工具（Trae、Cursor、Claude Code、Cline 等）会自动识别项目根目录的 `AGENTS.md`
-- **TEAM.md** 是唯一规范：所有角色定义、闭环、防御机制都在此文件中，不拆分
+- **ROLE.md** 是唯一规范：所有角色定义、闭环、防御机制都在此文件中，不拆分
 - **.trae/rules/project_rules.md** 仅 Trae 专属：简短跳转，不做任何业务定义

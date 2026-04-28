@@ -1,4 +1,3 @@
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
@@ -6,16 +5,13 @@ using TradeX.Core.Models;
 namespace TradeX.Trading;
 
 public class BacktestService(
-    IServiceScopeFactory scopeFactory,
+    IStrategyRepository strategyRepo,
+    IBacktestTaskRepository taskRepo,
     IBacktestTaskQueue queue,
     ILogger<BacktestService> logger) : IBacktestService
 {
     public async Task<BacktestTask> StartBacktestAsync(Guid deploymentId, Guid strategyId, Guid exchangeId, string symbolId, string timeframe, DateTime startUtc, DateTime endUtc, decimal initialCapital = 1000m, CancellationToken ct = default)
     {
-        using var scope = scopeFactory.CreateScope();
-        var strategyRepo = scope.ServiceProvider.GetRequiredService<IStrategyRepository>();
-        var taskRepo = scope.ServiceProvider.GetRequiredService<IBacktestTaskRepository>();
-
         var strategy = await strategyRepo.GetByIdAsync(strategyId, ct);
         if (strategy is null)
             throw new ArgumentException($"策略不存在: {strategyId}");
@@ -48,23 +44,11 @@ public class BacktestService(
     }
 
     public async Task<BacktestTask?> GetTaskAsync(Guid taskId, CancellationToken ct = default)
-    {
-        using var scope = scopeFactory.CreateScope();
-        var taskRepo = scope.ServiceProvider.GetRequiredService<IBacktestTaskRepository>();
-        return await taskRepo.GetByIdAsync(taskId, ct);
-    }
+        => await taskRepo.GetByIdAsync(taskId, ct);
 
     public async Task<BacktestResult?> GetResultAsync(Guid taskId, CancellationToken ct = default)
-    {
-        using var scope = scopeFactory.CreateScope();
-        var taskRepo = scope.ServiceProvider.GetRequiredService<IBacktestTaskRepository>();
-        return await taskRepo.GetResultByTaskIdAsync(taskId, ct);
-    }
+        => await taskRepo.GetResultByTaskIdAsync(taskId, ct);
 
     public async Task<List<BacktestTask>> GetTasksByStrategyAsync(Guid strategyId, CancellationToken ct = default)
-    {
-        using var scope = scopeFactory.CreateScope();
-        var taskRepo = scope.ServiceProvider.GetRequiredService<IBacktestTaskRepository>();
-        return await taskRepo.GetByStrategyIdAsync(strategyId, ct);
-    }
+        => await taskRepo.GetByStrategyIdAsync(strategyId, ct);
 }
