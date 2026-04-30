@@ -1470,7 +1470,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    A["AGENTS.md<br/>通用入口"] -->|"第一条指令:<br/>读取 TEAM.md"| B["TEAM.md<br/>核心规范"]
+    A["AGENTS.md<br/>通用入口"] -->|"第一条指令:<br/>读取 ROLE.md"| B["ROLE.md<br/>核心规范"]
     C[".trae/rules/project_rules.md<br/>Trae 自动加载"] -->|"指向"| A
     D["其他 AI 工具<br/>自动识别"] -->|"指向"| A
 ```
