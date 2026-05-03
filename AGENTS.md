@@ -43,11 +43,12 @@ AI 代理唯一编码准则。不遵守 = 拒收 PR。
 | 项 | 值 |
 |---|---|
 | TargetFramework | `net10.0` |
-| LangVersion | `preview` |
+| LangVersion | `14.0` |
 | Nullable | `enable` |
 | ImplicitUsings | `enable` |
 | 测试 | xUnit + NSubstitute |
-| 前端 | Vue 3 + TypeScript + Pinia |
+| 前端 | Blazor Server (InteractiveServer) + Fluent UI |
+| 前端 NuGet | `Microsoft.FluentUI.AspNetCore.Components` v5.0 |
 
 所有代码必须使用以下 C# 14 语法：
 - **主构造函数** — 消除所有简单 DI 字段注入。例外：`IOptions<T>.Value` 延迟访问、循环依赖
@@ -152,7 +153,7 @@ Docker 镜像发布，无单文件产物。
 
 ## 审查清单
 
-- [ ] `net10.0` + `LangVersion=preview` + Nullable 启用
+- [ ] `net10.0` + `LangVersion=14.0` + Nullable 启用
 - [ ] 主构造函数替代简单 DI 注入
 - [ ] 集合用 `[]` 语法
 - [ ] 无 magic string/number
@@ -161,7 +162,7 @@ Docker 镜像发布，无单文件产物。
 - [ ] 新配置在对应 `Settings` 类有强类型属性
 - [ ] 无 Service Locator
 - [ ] Casbin 策略已为新 API 端点添加规则
-- [ ] 前端新页面已添加路由 + 角色守卫
+- [ ] Blazor 新页面已添加路由 + 角色守卫
 
 ---
 

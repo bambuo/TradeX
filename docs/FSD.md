@@ -2344,17 +2344,42 @@ public class TradingHub : Hub
 | `DashboardSummary` | DashboardSummary 对象 | 每 15s |
 | `ExchangeConnectionChanged` | ExchangeConnectionStatus | 连接状态变更 |
 
-### 17.3 前端订阅
+### 17.3 Blazor 端订阅
 
-```typescript
-// TypeScript 类型示例
-interface TradingHub {
-  onPositionUpdated(callback: (position: Position) => void): void;
-  onOrderPlaced(callback: (order: Order) => void): void;
-  onStrategyStatusChanged(callback: (status: StrategyStatus) => void): void;
-  onRiskAlert(callback: (alert: RiskAlert) => void): void;
-  onDashboardSummary(callback: (summary: DashboardSummary) => void): void;
-  onExchangeConnectionChanged(callback: (status: ConnectionStatus) => void): void;
+```csharp
+// Blazor Server 中通过 HubConnection 强类型订阅
+public sealed class TradingHubClient : IAsyncDisposable
+{
+    private HubConnection _hubConnection;
+
+    public async Task InitializeAsync(string hubUrl, string accessToken)
+    {
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(hubUrl, options => options.AccessTokenProvider = () => Task.FromResult(accessToken))
+            .WithAutomaticReconnect()
+            .Build();
+
+        _hubConnection.On<Position>("PositionUpdated", position => OnPositionUpdated?.Invoke(position));
+        _hubConnection.On<Order>("OrderPlaced", order => OnOrderPlaced?.Invoke(order));
+        _hubConnection.On<StrategyStatus>("StrategyStatusChanged", status => OnStrategyStatusChanged?.Invoke(status));
+        _hubConnection.On<RiskAlert>("RiskAlert", alert => OnRiskAlert?.Invoke(riskAlert));
+        _hubConnection.On<DashboardSummary>("DashboardSummary", summary => OnDashboardSummary?.Invoke(summary));
+        _hubConnection.On<ExchangeConnectionStatus>("ExchangeConnectionChanged", status => OnExchangeConnectionChanged?.Invoke(status));
+
+        await _hubConnection.StartAsync();
+    }
+
+    public event Action<Position>? OnPositionUpdated;
+    public event Action<Order>? OnOrderPlaced;
+    public event Action<StrategyStatus>? OnStrategyStatusChanged;
+    public event Action<RiskAlert>? OnRiskAlert;
+    public event Action<DashboardSummary>? OnDashboardSummary;
+    public event Action<ExchangeConnectionStatus>? OnExchangeConnectionChanged;
+
+    public async ValueTask DisposeAsync()
+    {
+        await _hubConnection.DisposeAsync();
+    }
 }
 ```
 
@@ -2727,11 +2752,10 @@ volumes:
 
 ### 23.2 构建要求
 
-- 统一 Dockerfile（根级），3 阶段构建：
-  1. `node:22-alpine` — `npm ci + npm run build` 构建 Vue SPA
-  2. `mcr.microsoft.com/dotnet/sdk:10.0-preview` — `dotnet publish -c Release` 构建后端
-  3. `mcr.microsoft.com/dotnet/aspnet:10.0-preview` — 合并后端产物 + 前端 dist 到 `wwwroot/`
-- 前端 SPA 由 ASP.NET Core 内嵌静态文件服务提供（`UseDefaultFiles()` + `UseStaticFiles()` + `MapFallbackToFile("index.html")`）
+- 统一 Dockerfile（根级），2 阶段构建：
+  1. `mcr.microsoft.com/dotnet/sdk:10.0-preview` — `dotnet publish -c Release` 构建包含 Blazor Server 的全量应用
+  2. `mcr.microsoft.com/dotnet/aspnet:10.0-preview` — 运行编译后的应用
+- Blazor Server UI 与 REST API / SignalR Hub 在同一个 ASP.NET Core 进程中提供服务
 - docker-compose.yml 中配置 healthcheck 指令
 - 环境变量注入关键配置（数据库路径、IoTDB 连接串、JWT Secret）
 
@@ -2854,8 +2878,8 @@ volumes:
 - **Health 端点调度指标**：[依赖③] `HealthController` 注入 `IResourceMonitor`，暴露 runningCount / allowedConcurrency / currentMemoryMb / currentCpuPercent
 
 ### M6-C 仪表盘完善
-- 13 个前端页面全部完成 + 路由 + 角色守卫
-- 前端项目基础框架（Pinia store、SignalR 连接管理、Vue Router）
+- 13 个 Blazor 页面全部完成 + 路由 + 角色守卫
+- 前端项目基础框架（Blazor 服务注册、SignalR HubConnection 管理、Blazor 路由）
 - 前端构建 + Docker 集成
 
 ### M7 测试与收尾

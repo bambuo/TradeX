@@ -395,38 +395,36 @@ flowchart TD
 ```markdown
 ### {ComponentName}
 
-**路径**：`src/components/{domain}/{ComponentName}.{ext}`
+**路径**：`TradeX.Api/Components/Pages/{domain}/{ComponentName}.razor`
 
-**入参 (Props)**：
+**参数 (Parameters)**：
 | 属性 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 
-**出参 (Events)**：
+**事件回调 (EventCallback)**：
 | 事件 | 载荷类型 | 说明 |
 |------|----------|------|
 
 **依赖**：
-- API：`@/api/{module}`
-- 状态管理：`{StoreName}`
+- 服务：`{AuthService}`, `{TraderService}`
 - 子组件：`{ChildA}`, `{ChildB}`
+- 布局：`{AppLayout}`
 ```
 
-**状态管理模板：**
+**服务类模板：**
 
 ```markdown
-### {StoreName}
+### {ServiceName}
 
-**文件**：`src/stores/{module}.{ext}`
+**文件**：`TradeX.Api/Components/Services/{ServiceName}.cs`
 
-**State**：
-| 字段 | 类型 | 初始值 | 说明 |
-|------|------|--------|------|
+**注入依赖**：
+| 服务 | 生命周期 |
+|------|---------|
+| `HttpClient` | Scoped |
+| `TradingHubClient` | Singleton |
 
-**Getters**：
-| 名称 | 返回类型 | 说明 |
-|------|----------|------|
-
-**Actions**：
+**方法**：
 | 名称 | 参数 | 异步 | 说明 |
 |------|------|------|------|
 ```
@@ -443,12 +441,12 @@ flowchart TD
 
 #### 行业规范
 
-- **组件化原则**：单一职责、高内聚低耦合、可组合性
-- **状态管理范式**：单向数据流、不可变状态、可预测的状态变更
-- **类型安全**：启用严格类型检查，避免隐式类型转换
-- **WAI-ARIA 1.2**：Web 无障碍访问标准，角色/状态/属性定义
-- **Core Web Vitals**：LCP ≤ 2.5s、FID ≤ 100ms、CLS ≤ 0.1
-- **样式隔离规范**：BEM / CSS Modules / CSS-in-JS 等方案任选其一
+- **Blazor 组件原则**：单一职责、自包含、参数驱动、避免直接 DOM 操作
+- **Flutter UI / Fluent Design**：遵循 Microsoft Fluent Design System 设计语言，使用 `Microsoft.FluentUI.AspNetCore.Components` v5 组件库
+- **状态管理模式**：DI 单例服务 + `@implements IAsyncDisposable` 生命周期管理，避免静态状态
+- **类型安全**：启用 `<Nullable>enable</Nullable>`，Razor 文件中使用强类型模型绑定
+- **WAI-ARIA 1.2**：Web 无障碍访问标准，角色/状态/属性定义。Fluent UI 组件内建 ARIA 支持
+- **Blazor 渲染模式**：InteractiveServer 模式下注意 SignalR 连接保活、状态管理作用域
 - **Conventional Commits**：`feat:` / `fix:` / `refactor:` 提交信息规范
 
 ---

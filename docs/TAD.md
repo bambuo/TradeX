@@ -31,8 +31,8 @@
 
 | 约束 | 来源 |
 |------|------|
-| 目标框架 `net10.0` + `LangVersion=preview` | AGENTS.md |
-| 前端 Vue 3 + TypeScript + Pinia | AGENTS.md |
+| 目标框架 `net10.0` + `LangVersion=14.0` | AGENTS.md |
+| 前端 Blazor Server + Fluent UI `Microsoft.FluentUI.AspNetCore.Components` v5.0 | AGENTS.md |
 | SQLite 为主存储，IoTDB 为时序存储 | PRD FR-13 |
 | Docker Compose 单机部署，无 K8s | PRD FR-16 |
 | 仅支持现货交易，不涉及合约/杠杆 | FSD §25 待确认 #10 |
@@ -116,28 +116,64 @@ flowchart TB
 
 | 方面 | 方案 | 说明 |
 |------|------|------|
-| 框架 | Vue 3 + TypeScript + Vite | Composition API + `<script setup>` |
-| 状态管理 | Pinia | 按业务域拆分 Store |
-| 路由 | Vue Router 4 | 角色守卫 + 懒加载 |
-| UI 组件库 | Ant Design X v2 / Naive UI | 待 M1 确认 |
-| HTTP 客户端 | Axios | 拦截器：JWT 自动附 token、401 自动 Refresh |
-| 实时通信 | `@microsoft/signalr` | 强类型 Hub 连接管理器 |
+| 框架 | Blazor Server (InteractiveServer) | .NET 10 Interactive Server 渲染模式 |
+| 组件库 | `Microsoft.FluentUI.AspNetCore.Components` v5.0 | Fluent Design System，Office/Microsoft 365 风格 |
+| 路由 | `@page` 指令 + `FluentNav` | 声明式路由 + `AuthorizeView` 角色守卫 |
+| 状态管理 | Blazor DI Singleton 服务 + `FluentDataGrid` | 按业务域拆分服务 |
+| HTTP 客户端 | `HttpClient` + `IHttpClientFactory` | 内置 `Authorization` 消息处理器自动附加 JWT |
+| 实时通信 | `HubConnection` + `@implements IAsyncDisposable` | 强类型 C# 订阅模式 |
+| 图表 | ECharts + `ECharts` Blazor 封装 / 自绘组件 | K 线图、回测图表 |
 
-**Pinia Store 设计**：
+**服务注册（Program.cs）**：
+
+```csharp
+builder.Services.AddFluentUIComponents();
+builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+
+// JWT 自动注入 HttpClient
+builder.Services.AddScoped(sp =>
+{
+    var client = new HttpClient { BaseAddress = new Uri("/") };
+    return client;
+});
+
+// SignalR HubConnection 工厂
+builder.Services.AddSingleton<TradingHubClient>();
+```
+
+**页面路由与角色守卫**：
+
+```razor
+@* 页面定义示例 *@
+@page "/exchanges"
+@attribute [Authorize(Roles = "SuperAdmin,Admin,Operator")]
+
+@* 角色守卫包装 *@
+<AuthorizeView Roles="SuperAdmin,Admin">
+    <Authorized>
+        <FluentButton OnClick="@ShowAdminPanel">管理</FluentButton>
+    </Authorized>
+    <NotAuthorized>
+        <FluentBadge Appearance="BadgeAppearance.Accent">仅管理员</FluentBadge>
+    </NotAuthorized>
+</AuthorizeView>
+```
+
+**Blazor 服务设计**：
 
 ```mermaid
 flowchart LR
-  subgraph Stores["Pinia Stores"]
-    AUTH[useAuthStore<br/>登录/MFA/Token 管理]
-    TRADER[useTraderStore<br/>交易员列表/切换]
-    EXCH[useExchangeStore<br/>交易所配置/连接状态]
-    STRAT[useStrategyStore<br/>策略 CRUD/状态管理]
-    POS[usePositionStore<br/>持仓/实时更新]
-    ORDER[useOrderStore<br/>订单历史/手动下单]
-    DASH[useDashboardStore<br/>仪表盘汇总数据]
-    NOTIF[useNotificationStore<br/>通知渠道配置]
-    BACKTEST[useBacktestStore<br/>回测任务/结果]
-    AUDIT[useAuditLogStore<br/>审计日志查询]
+  subgraph SERVICES["Blazor 服务层 (DI Singleton/Scoped)"]
+    AUTH[AuthService<br/>登录/MFA/Token 管理]
+    TRADER[TraderService<br/>交易员列表/切换]
+    EXCH[ExchangeService<br/>交易所配置/连接状态]
+    STRAT[StrategyService<br/>策略 CRUD/状态管理]
+    POS[PositionService<br/>持仓/实时更新]
+    ORDER[OrderService<br/>订单历史/手动下单]
+    DASH[DashboardService<br/>仪表盘汇总数据]
+    NOTIF[NotificationService<br/>通知渠道配置]
+    BACKTEST[BacktestService<br/>回测任务/结果]
+    AUDIT[AuditLogService<br/>审计日志查询]
   end
 
   AUTH --> TRADER
@@ -152,24 +188,93 @@ flowchart LR
 
 **SignalR 集成模式**：
 
-| Store | 订阅事件 | 数据流向 |
-|-------|---------|---------|
-| `usePositionStore` | `PositionUpdated` | Hub → Store → 组件响应式更新 |
-| `useOrderStore` | `OrderPlaced` | Hub → Store → 通知 |
-| `useStrategyStore` | `StrategyStatusChanged` | Hub → Store → 状态刷新 |
-| `useDashboardStore` | `DashboardSummary` | Hub → Store → KPI 卡片 |
-| `useExchangeStore` | `ExchangeConnectionChanged` | Hub → Store → 状态图标 |
+| Blazor 服务/组件 | 订阅事件 | 数据流向 |
+|-----------------|---------|---------|
+| `PositionService` | `PositionUpdated` | Hub → Service → Blazor 组件 `@onsomeone` 响应式更新 |
+| `OrderService` | `OrderPlaced` | Hub → Service → 通知 |
+| `StrategyService` | `StrategyStatusChanged` | Hub → Service → 状态刷新 |
+| `DashboardService` | `DashboardSummary` | Hub → Service → KPI 卡片 |
+| `ExchangeService` | `ExchangeConnectionChanged` | Hub → Service → 状态图标 |
 
-**条件编辑器架构**（前端最复杂组件）：
+**SignalR HubConnection 生命周期管理**：
+
+```csharp
+// TradingHubClient.cs — Singleton 服务
+public sealed class TradingHubClient : IAsyncDisposable
+{
+    private HubConnection? _hubConnection;
+
+    public async Task StartAsync(string accessToken)
+    {
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl("/hubs/trading", options =>
+                options.AccessTokenProvider = () => Task.FromResult(accessToken))
+            .WithAutomaticReconnect()
+            .Build();
+
+        // 注册事件处理
+        _hubConnection.On<object>("PositionUpdated", data => OnPositionUpdated?.Invoke(data));
+        _hubConnection.On<object>("DashboardSummary", data => OnDashboardSummary?.Invoke(data));
+
+        await _hubConnection.StartAsync();
+    }
+
+    public event Action<object>? OnPositionUpdated;
+    public event Action<object>? OnDashboardSummary;
+}
+```
+
+**前端页面文件结构**：
+
+```
+TradeX.Api/
+└── Components/
+    ├── Layout/
+    │   ├── AppLayout.razor              # FluentLayout 整体布局
+    │   └── MainNav.razor               # FluentNav 侧边导航
+    ├── Pages/
+    │   ├── SetupWizard.razor            # 初始化向导
+    │   ├── Login.razor                  # 登录
+    │   ├── MfaSetup.razor              # MFA 绑定
+    │   ├── Dashboard.razor              # 仪表盘
+    │   ├── Traders/
+    │   │   ├── TraderList.razor        # 交易员列表
+    │   │   └── TraderDetail.razor      # 交易员详情
+    │   ├── Exchanges/
+    │   │   ├── ExchangeList.razor      # 交易所列表
+    │   │   └── ExchangeDetail.razor    # 交易所详情
+    │   ├── Strategies/
+    │   │   ├── StrategyList.razor      # 策略模板列表
+    │   │   └── StrategyEditor.razor    # 策略编辑器（含条件树）
+    │   ├── Positions.razor             # 持仓面板
+    │   ├── Orders.razor                # 订单历史
+    │   ├── Backtests/
+    │   │   ├── BacktestList.razor      # 回测列表
+    │   │   └── BacktestResult.razor    # 回测结果 + K 线回放
+    │   ├── Notifications.razor         # 通知配置
+    │   ├── AuditLogs.razor             # 审计日志
+    │   ├── Users.razor                 # 用户管理
+    │   └── Settings.razor              # 系统设置
+    └── Shared/
+        ├── ConditionTreeEditor.razor    # 条件树编辑器组件
+        ├── ExecutionRuleEditor.razor    # 执行规则表单
+        ├── ExchangeTypeSelect.razor     # 交易所类型下拉选择
+        ├── ErrorBoundary.razor          # 错误边界
+        └── BacktestCharts/
+            ├── BacktestKlineChart.razor # K 线图表
+            └── BacktestChart.razor     # 绩效图表
+```
+
+**条件编辑器架构**（Blazor 最复杂组件）：
 
 ```mermaid
 flowchart TB
   subgraph Editor["策略条件编辑器"]
-    PALLET[条件拖拽面板<br/>指标选择器 + 运算符选择器 + 值输入]
-    CANVAS[条件树画布<br/>TreeView / 嵌套卡]
-    PREVIEW[条件预览<br/>JSON/YAML 实时预览]
-    VALID[验证器<br/>类型检查 + 循环检测 + 边界验证]
-    EXPORT[导出器<br/>序列化为 EntryConditionJson]
+    PALLET[条件拖拽面板<br/>FluentSelect 指标选择 + FluentNumberField 值输入]
+    CANVAS[条件树画布<br/>FluentTreeView / 递归嵌套]
+    PREVIEW[条件预览<br/>JSON 实时显示]
+    VALID[验证器<br/>树深度检查 + 类型检查]
+    EXPORT[序列化器<br/>生成 EntryConditionJson]
   end
 
   PALLET --> CANVAS
@@ -1033,24 +1138,28 @@ flowchart TB
   IOTDB --> VOL_IOTDB_WAL
 ```
 
-### 7.2 静态文件服务配置
+### 7.2 Blazor Server 路由配置
 
-ASP.NET Core 通过 `UseDefaultFiles()` + `UseStaticFiles()` 提供前端 SPA 静态文件，`MapFallbackToFile("index.html")` 处理 Vue Router 历史模式路由回退。无需独立 Nginx 容器。
+Blazor Interactive Server 通过 `MapRazorComponents` 处理所有页面路由，无需独立 Nginx 容器。
 
 ```csharp
 // Program.cs
-app.UseDefaultFiles();
-app.UseStaticFiles();
-app.MapFallbackToFile("index.html");
+app.UseRouting();
+app.MapRazorComponents<App>()
+   .AddInteractiveServerRenderMode();
+app.MapControllers();
+app.MapHub<TradingHub>("/hubs/trading");
+app.MapHealthChecks("/health");
 ```
 
 所有请求流向：
 ```
 /:80
+  ├── /_blazor/*     → Blazor Server SignalR 连接
   ├── /api/*         → Controllers
   ├── /hubs/trading  → SignalR Hub
   ├── /health        → Health Check
-  └── /*              → SPA 静态文件 / index.html 回退
+  └── /*              → Blazor 页面路由
 ```
 
 ### 7.3 环境变量配置清单
