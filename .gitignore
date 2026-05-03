@@ -10,7 +10,7 @@ state/
 *.suo
 *.cache
 .DS_Store
-backend/TradeX.Api/tradex.db
-backend/TradeX.Api/tradex.db-shm
-backend/TradeX.Api/tradex.db-wal
+tradex.db
+tradex.db-shm
+tradex.db-wal
 uploads/

@@ -1,0 +1,193 @@
+﻿@inherits LayoutComponentBase
+@implements IDisposable
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+
+<FluentProviders />
+
+@if (IsStandalonePage)
+{
+    @Body
+}
+else
+{
+    <div class="app-layout">
+        <aside class="app-sidebar" aria-label="主导航">
+            <FluentButton Class="sider-title" Appearance="ButtonAppearance.Transparent" OnClick="GoHome">
+                TradeX
+            </FluentButton>
+
+            <FluentNav Class="sider-nav">
+                @foreach (var item in NavItems)
+                {
+                    <FluentNavItem Class="sider-nav-item" Href="@item.Path" Match="@item.Match">
+                        @item.Label
+                    </FluentNavItem>
+                }
+            </FluentNav>
+        </aside>
+
+        <section class="right-layout">
+            <FluentCard Class="breadcrumb-card">
+                <nav class="breadcrumb" aria-label="面包屑">
+                    <a href="/">首页</a>
+                    @foreach (var crumb in BreadcrumbItems)
+                    {
+                        <span class="breadcrumb-separator">/</span>
+                        @if (crumb.IsLast)
+                        {
+                            <span>@crumb.Label</span>
+                        }
+                        else
+                        {
+                            <a href="@crumb.Path">@crumb.Label</a>
+                        }
+                    }
+                </nav>
+            </FluentCard>
+
+            <main class="app-main">
+                <div class="fab-logout" title="退出登录">
+                    <FluentButton Class="logout-button" OnClick="LogoutAsync">
+                        退出
+                    </FluentButton>
+                </div>
+
+                <FluentCard Class="content-card">
+                    <header class="content-card-title">@PageTitle</header>
+                    <div class="content-card-body">
+                        @Body
+                    </div>
+                </FluentCard>
+            </main>
+        </section>
+    </div>
+}
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    private static readonly IReadOnlyList<NavItem> NavItems =
+    [
+        new("/", "仪表盘", NavLinkMatch.All),
+        new("/traders", "交易员", NavLinkMatch.Prefix),
+        new("/exchanges", "交易所", NavLinkMatch.Prefix),
+        new("/strategies", "策略", NavLinkMatch.Prefix),
+        new("/audit-logs", "审计日志", NavLinkMatch.Prefix),
+        new("/settings", "系统设置", NavLinkMatch.Prefix),
+        new("/notifications", "通知渠道", NavLinkMatch.Prefix),
+        new("/users", "用户管理", NavLinkMatch.Prefix)
+    ];
+
+    private string currentPath = "/";
+    private bool isAuthenticated;
+
+    private bool IsStandalonePage => currentPath is "/login" or "/setup" or "/not-found";
+
+    private string PageTitle => BreadcrumbItems.Count > 0 ? BreadcrumbItems[^1].Label : "仪表盘";
+
+    private IReadOnlyList<BreadcrumbItem> BreadcrumbItems
+    {
+        get
+        {
+            var segments = currentPath.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+            List<BreadcrumbItem> items = [];
+            for (var i = 0; i < segments.Length; i++)
+            {
+                if (Guid.TryParse(segments[i], out _))
+                {
+                    continue;
+                }
+
+                var path = "/" + string.Join('/', segments.Take(i + 1));
+                var label = GetRouteLabel(segments[i]);
+                items.Add(new BreadcrumbItem(path, label, false));
+            }
+
+            if (items.Count > 0)
+            {
+                var last = items[^1];
+                items[^1] = last with { IsLast = true };
+            }
+
+            return items;
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        UpdateCurrentPath();
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !IsStandalonePage)
+        {
+            var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            isAuthenticated = state.User.Identity?.IsAuthenticated == true;
+            if (!isAuthenticated)
+            {
+                Navigation.NavigateTo("/login", replace: true);
+            }
+        }
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        UpdateCurrentPath();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdateCurrentPath()
+    {
+        currentPath = "/" + Navigation.ToBaseRelativePath(Navigation.Uri).Split('?', '#')[0].Trim('/');
+        if (currentPath == "/")
+        {
+            return;
+        }
+
+        currentPath = currentPath.TrimEnd('/');
+    }
+
+    private static string GetRouteLabel(string segment)
+    {
+        return segment switch
+        {
+            "" => "仪表盘",
+            "traders" => "交易员",
+            "strategies" => "策略",
+            "exchanges" => "交易所",
+            "positions" => "持仓",
+            "orders" => "订单",
+            "backtest" => "回测",
+            "audit-logs" => "审计日志",
+            "notifications" => "通知渠道",
+            "users" => "用户管理",
+            "settings" => "系统设置",
+            _ => segment
+        };
+    }
+
+    private void GoHome()
+    {
+        Navigation.NavigateTo("/");
+    }
+
+    private void LogoutAsync()
+    {
+        Navigation.NavigateTo("/auth/logout", forceLoad: true);
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+
+    private sealed record NavItem(string Path, string Label, NavLinkMatch Match);
+    private sealed record BreadcrumbItem(string Path, string Label, bool IsLast);
+}

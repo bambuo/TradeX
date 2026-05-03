@@ -1,0 +1,491 @@
+@page "/exchanges"
+@inject ExchangePageService ExchangeService
+
+<PageTitle>交易所</PageTitle>
+
+<section class="exchanges-page">
+    <header class="page-header">
+        <FluentText As="TextTag.H2">交易所管理</FluentText>
+        <FluentButton Appearance="ButtonAppearance.Primary" OnClick="OpenCreate">
+            添加交易所
+        </FluentButton>
+    </header>
+
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <FluentMessageBar Class="exchange-message" Intent="@messageIntent" Visible="@(!string.IsNullOrWhiteSpace(message))" AllowDismiss="true">
+            @message
+        </FluentMessageBar>
+    }
+
+    @if (showOrders)
+    {
+        <FluentCard Class="orders-panel">
+            <header class="orders-header">
+                <FluentText As="TextTag.H3">@ordersExchangeLabel - @(ordersType == OrderListType.Open ? "当前挂单" : "历史订单")</FluentText>
+                <FluentButton Appearance="ButtonAppearance.Transparent" OnClick="CloseOrders">关闭</FluentButton>
+            </header>
+            <FluentTabs ActiveTabId="@ordersType.ToString()" ActiveTabIdChanged="OnOrdersTabChanged">
+                <FluentTab Id="Open" Header="当前挂单" />
+                <FluentTab Id="History" Header="历史订单" />
+            </FluentTabs>
+            @if (ordersLoading)
+            {
+                <div class="loading"><FluentSpinner /> 加载中...</div>
+            }
+            else
+            {
+                <FluentDataGrid Items="orders.AsQueryable()" Class="orders-grid">
+                    <PropertyColumn Property="@(o => o.Symbol)" Title="交易对" />
+                    <TemplateColumn Title="方向">
+                        <span class="@(context.Side == "Buy" ? "side-buy" : "side-sell")">@(context.Side == "Buy" ? "买入" : "卖出")</span>
+                    </TemplateColumn>
+                    <TemplateColumn Title="类型">@FormatOrderType(context.Type)</TemplateColumn>
+                    <TemplateColumn Title="状态">@FormatOrderStatus(context.Status)</TemplateColumn>
+                    <TemplateColumn Title="价格">@(context.Price > 0 ? context.Price.ToString("N8") : "-")</TemplateColumn>
+                    <TemplateColumn Title="数量">@context.Quantity.ToString("N8")</TemplateColumn>
+                    <TemplateColumn Title="已成交">@context.FilledQuantity.ToString("N8")</TemplateColumn>
+                    <TemplateColumn Title="下单时间">@context.PlacedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</TemplateColumn>
+                </FluentDataGrid>
+                @if (orders.Count == 0)
+                {
+                    <div class="empty">@(ordersType == OrderListType.Open ? "暂无挂单" : "暂无历史订单")</div>
+                }
+            }
+        </FluentCard>
+    }
+
+    @if (loading)
+    {
+        <div class="loading"><FluentSpinner /> 加载中...</div>
+    }
+    else if (accounts.Count == 0)
+    {
+        <div class="empty">暂无交易所</div>
+    }
+    else
+    {
+        <div class="card-grid">
+            @foreach (var account in accounts)
+            {
+                var info = GetExchangeInfo(account.ExchangeType);
+                <FluentCard Class="exchange-card" Style="@($"border-top-color: {info.Color};")">
+                    <div class="card-header">
+                        <div class="card-logo" style="background:@info.BgColor;">
+                            <img src="@info.IconPath" alt="@info.Label" />
+                        </div>
+                        <div class="card-title-area">
+                            <FluentText As="TextTag.H3">@account.Label</FluentText>
+                            <FluentText Color="Color.Custom" CustomColor="@info.Color" As="TextTag.Span" Size="TextSize.Size200" Weight="TextWeight.Semibold">@info.Label</FluentText>
+                        </div>
+                        <div class="card-header-actions">
+                            <FluentButton Appearance="ButtonAppearance.Transparent" IconStart="@Icon.FromImageUrl("/exchanges/edit.svg")" IconOnly="true" Tooltip="编辑" OnClick="@(() => OpenEdit(account))" />
+                            <FluentSwitch Value="@account.IsEnabled" ValueChanged="@(value => ToggleStatusAsync(account.Id, value))" />
+                        </div>
+                    </div>
+
+                    <div class="card-body">
+                        <div class="info-row">
+                            <span class="info-label">状态</span>
+                            <FluentText Color="Color.Custom" CustomColor="@(account.IsEnabled ? "#528a60" : "#9c9590")" As="TextTag.Span" Size="TextSize.Size200" Weight="TextWeight.Semibold">
+                                @(account.IsEnabled ? "启用" : "禁用")
+                            </FluentText>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">模式</span>
+                            <FluentText Color="Color.Custom" CustomColor="#4f7ec9" As="TextTag.Span" Size="TextSize.Size200" Weight="TextWeight.Semibold">主网</FluentText>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">测试结果</span>
+                            <span class="info-value">@GetTestLabel(account)</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">资产</span>
+                            @if (account.IsEnabled)
+                            {
+                                if (assets.TryGetValue(account.Id, out var accountAssets))
+                                {
+                                    <button class="assets-summary" type="button" @onclick="@(() => ToggleAssets(account.Id))">
+                                        @accountAssets.Count 个币种 <span class="expand-arrow @(expandedAssets.Contains(account.Id) ? "expanded" : null)">▶</span>
+                                    </button>
+                                }
+                                else if (assetLoading)
+                                {
+                                    <span class="balance-loading">加载中...</span>
+                                }
+                                else
+                                {
+                                    <FluentButton Appearance="ButtonAppearance.Transparent" OnClick="@(() => FetchAssetsAsync(account.Id))">加载</FluentButton>
+                                }
+                            }
+                            else
+                            {
+                                <span class="info-value">-</span>
+                            }
+                        </div>
+                        @if (expandedAssets.Contains(account.Id) && assets.TryGetValue(account.Id, out var expandedItems))
+                        {
+                            <div class="asset-list">
+                                @foreach (var item in expandedItems)
+                                {
+                                    <div class="asset-row">
+                                        <span class="asset-currency">@item.Currency</span>
+                                        <span class="asset-amount">@item.Balance.ToString("N8")</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <div class="card-footer">
+                        <FluentButton Disabled="@(testingId == account.Id)" OnClick="@(() => TestConnectionAsync(account.Id))">
+                            @(testingId == account.Id ? "测试中" : "测试")
+                        </FluentButton>
+                        <FluentButton OnClick="@(() => LoadOrdersAsync(account.Id, account.Label, OrderListType.Open))">挂单</FluentButton>
+                        <FluentButton OnClick="@(() => LoadOrdersAsync(account.Id, account.Label, OrderListType.History))">历史</FluentButton>
+                    </div>
+                </FluentCard>
+            }
+        </div>
+    }
+</section>
+
+<FluentDialog @ref="formDialog" Modal="true">
+    <FluentDialogBody>
+        <TitleTemplate>
+            @(isEdit ? "编辑交易所" : "添加交易所")
+        </TitleTemplate>
+        <ChildContent>
+        <EditForm Model="form" OnValidSubmit="SaveAsync" class="dialog-form">
+            <DataAnnotationsValidator />
+            <FluentTextInput Width="100%" Size="TextInputSize.Large" Label="名称" Placeholder="名称（如：币安主账户）" @bind-Value="form.Name" />
+            <FluentSelect TOption="ExchangeType" TValue="ExchangeType"
+                          Width="100%"
+                          Label="交易所"
+                          Items="exchangeTypes"
+                          Disabled="@isEdit"
+                          OptionText="@(type => GetExchangeInfo(type).Label)"
+                          OptionValue="@(type => type)"
+                          @bind-Value="form.ExchangeType" />
+            <FluentTextInput Width="100%" Size="TextInputSize.Large" TextInputType="TextInputType.Password" Label="API Key" Placeholder="@(isEdit ? "API Key（留空则不修改）" : "API Key")" @bind-Value="form.ApiKey" />
+            <FluentTextInput Width="100%" Size="TextInputSize.Large" TextInputType="TextInputType.Password" Label="Secret Key" Placeholder="@(isEdit ? "Secret Key（留空则不修改）" : "Secret Key")" @bind-Value="form.SecretKey" />
+            <FluentTextInput Width="100%" Size="TextInputSize.Large" TextInputType="TextInputType.Password" Label="Passphrase" Placeholder="@(isEdit ? "Passphrase（留空则不修改）" : "Passphrase（选填）")" @bind-Value="form.Passphrase" />
+            @if (!string.IsNullOrWhiteSpace(formError))
+            {
+                <FluentText Class="dialog-error" As="TextTag.Paragraph">@formError</FluentText>
+            }
+        </EditForm>
+        </ChildContent>
+        <ActionTemplate>
+        <div class="dialog-actions">
+            <FluentButton Appearance="ButtonAppearance.Primary" Disabled="@saving" OnClick="SaveAsync">
+                @(saving ? "保存中..." : "保存")
+            </FluentButton>
+            <FluentButton Appearance="ButtonAppearance.Transparent" OnClick="CloseFormAsync">取消</FluentButton>
+        </div>
+        </ActionTemplate>
+    </FluentDialogBody>
+</FluentDialog>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationStateTask { get; set; } = default!;
+
+    private List<ExchangeItem> accounts = [];
+    private Dictionary<Guid, IReadOnlyList<AssetBalanceView>> assets = [];
+    private HashSet<Guid> expandedAssets = [];
+    private List<ExchangeOrderDto> orders = [];
+    private ExchangeFormModel form = new();
+    private readonly ExchangeType[] exchangeTypes = Enum.GetValues<ExchangeType>();
+    private FluentDialog formDialog = default!;
+    private bool loading = true;
+    private bool assetLoading;
+    private bool saving;
+    private bool isEdit;
+    private Guid? formExchangeId;
+    private bool showOrders;
+    private bool ordersLoading;
+    private Guid? testingId;
+    private string? message;
+    private string? formError;
+    private MessageBarIntent messageIntent = MessageBarIntent.Info;
+    private string ordersExchangeLabel = string.Empty;
+    private Guid ordersExchangeId;
+    private OrderListType ordersType = OrderListType.Open;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAllAsync();
+    }
+
+    private async Task LoadAllAsync()
+    {
+        loading = true;
+        try
+        {
+            var state = await AuthenticationStateTask;
+            accounts = (await ExchangeService.GetAllAsync(state.User)).ToList();
+            await FetchAssetsAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task FetchAssetsAsync(Guid? exchangeId = null)
+    {
+        if (exchangeId.HasValue)
+        {
+            try
+            {
+                assets[exchangeId.Value] = await ExchangeService.GetAssetsAsync(exchangeId.Value);
+            }
+            catch (Exception ex)
+            {
+                ShowError($"获取资产失败: {ex.Message}");
+            }
+
+            return;
+        }
+
+        var enabled = accounts.Where(a => a.IsEnabled).ToArray();
+        if (enabled.Length == 0)
+        {
+            return;
+        }
+
+        assetLoading = true;
+        foreach (var account in enabled)
+        {
+            try
+            {
+                assets[account.Id] = await ExchangeService.GetAssetsAsync(account.Id);
+            }
+            catch
+            {
+                // 单个交易所资产加载失败不阻断页面展示。
+            }
+        }
+
+        assetLoading = false;
+    }
+
+    private async Task OpenCreate()
+    {
+        form = new ExchangeFormModel();
+        isEdit = false;
+        formExchangeId = null;
+        formError = null;
+        await formDialog.ShowAsync();
+    }
+
+    private async Task OpenEdit(ExchangeItem account)
+    {
+        form = new ExchangeFormModel
+        {
+            Name = account.Label,
+            ExchangeType = account.ExchangeType
+        };
+        isEdit = true;
+        formExchangeId = account.Id;
+        formError = null;
+        await formDialog.ShowAsync();
+    }
+
+    private async Task CloseFormAsync()
+    {
+        await formDialog.HideAsync();
+    }
+
+    private async Task SaveAsync()
+    {
+        formError = null;
+        saving = true;
+        try
+        {
+            var state = await AuthenticationStateTask;
+            if (isEdit && formExchangeId.HasValue)
+            {
+                await ExchangeService.UpdateAsync(formExchangeId.Value, form);
+            }
+            else
+            {
+                await ExchangeService.CreateAsync(state.User, form);
+            }
+
+            await formDialog.HideAsync();
+            ShowSuccess("交易所已保存");
+            await LoadAllAsync();
+        }
+        catch (Exception ex)
+        {
+            formError = ex.Message;
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task ToggleStatusAsync(Guid id, bool enable)
+    {
+        try
+        {
+            await ExchangeService.ToggleAsync(id, enable);
+            await LoadAllAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowError($"切换失败: {ex.Message}");
+        }
+    }
+
+    private async Task TestConnectionAsync(Guid id)
+    {
+        testingId = id;
+        try
+        {
+            var result = await ExchangeService.TestConnectionAsync(id);
+            if (result.Connected)
+            {
+                ShowSuccess("连接测试成功");
+            }
+            else
+            {
+                ShowError($"连接失败{(string.IsNullOrWhiteSpace(result.Error) ? string.Empty : ": " + result.Error)}");
+            }
+
+            await LoadAllAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowError($"请求失败: {ex.Message}");
+        }
+        finally
+        {
+            testingId = null;
+        }
+    }
+
+    private async Task LoadOrdersAsync(Guid id, string label, OrderListType type)
+    {
+        ordersExchangeId = id;
+        ordersExchangeLabel = label;
+        ordersType = type;
+        orders = [];
+        showOrders = true;
+        ordersLoading = true;
+        try
+        {
+            orders = (await ExchangeService.GetOrdersAsync(id, type)).ToList();
+        }
+        catch (Exception ex)
+        {
+            ShowError($"获取订单失败: {ex.Message}");
+        }
+        finally
+        {
+            ordersLoading = false;
+        }
+    }
+
+    private async Task OnOrdersTabChanged(string? tabId)
+    {
+        if (Enum.TryParse<OrderListType>(tabId, out var type))
+        {
+            await LoadOrdersAsync(ordersExchangeId, ordersExchangeLabel, type);
+        }
+    }
+
+    private void CloseOrders()
+    {
+        showOrders = false;
+        orders = [];
+    }
+
+    private void ToggleAssets(Guid id)
+    {
+        if (!expandedAssets.Add(id))
+        {
+            expandedAssets.Remove(id);
+        }
+    }
+
+    private string GetTestLabel(ExchangeItem account)
+    {
+        if (testingId == account.Id)
+        {
+            return "测试中...";
+        }
+
+        if (string.IsNullOrWhiteSpace(account.TestResult))
+        {
+            return "-";
+        }
+
+        return IsTestOk(account.TestResult) ? "连接正常" : "连接异常";
+    }
+
+    private static bool IsTestOk(string testResult)
+    {
+        return !System.Text.RegularExpressions.Regex.IsMatch(
+            testResult,
+            "失败|错误|异常|无权限|error|invalid|unreachable|denied|reject|timeout|expired|HTTP \\d",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+    }
+
+    private void ShowSuccess(string text)
+    {
+        message = text;
+        messageIntent = MessageBarIntent.Success;
+    }
+
+    private void ShowError(string text)
+    {
+        message = text;
+        messageIntent = MessageBarIntent.Error;
+    }
+
+    private static ExchangeInfo GetExchangeInfo(ExchangeType type)
+    {
+        return type switch
+        {
+            ExchangeType.OKX => new ExchangeInfo("OKX", "OKX", "#000000", "rgba(0,0,0,0.08)", "/exchanges/okx.svg"),
+            ExchangeType.Gate => new ExchangeInfo("Gate.io", "G", "#1FBA9F", "rgba(31,186,159,0.12)", "/exchanges/gateio.svg"),
+            ExchangeType.Bybit => new ExchangeInfo("Bybit", "B", "#F7A600", "rgba(247,166,0,0.12)", "/exchanges/bybit.svg"),
+            ExchangeType.HTX => new ExchangeInfo("HTX", "H", "#0C5BFF", "rgba(12,91,255,0.12)", "/exchanges/htx.svg"),
+            _ => new ExchangeInfo("Binance", "B", "#F3BA2F", "rgba(243,186,47,0.12)", "/exchanges/binance.svg")
+        };
+    }
+
+    private static string FormatOrderType(string type)
+    {
+        return type switch
+        {
+            "Market" => "市价",
+            "Limit" => "限价",
+            "StopLimit" => "止损限价",
+            _ => type
+        };
+    }
+
+    private static string FormatOrderStatus(string status)
+    {
+        return status switch
+        {
+            "New" => "待成交",
+            "PartiallyFilled" => "部分成交",
+            "Filled" => "已成交",
+            "Cancelled" => "已撤销",
+            "Expired" => "已过期",
+            _ => status
+        };
+    }
+
+    private sealed record ExchangeInfo(string Label, string ShortName, string Color, string BgColor, string IconPath);
+}
