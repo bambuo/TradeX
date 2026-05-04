@@ -1,0 +1,834 @@
+@page "/strategies"
+@inject IStrategyTemplatePageService StrategyService
+@inject NavigationManager Navigation
+@inject IToastService ToastService
+@using System.Text.Json
+
+<PageTitle>策略模板</PageTitle>
+
+<section class="strategies-page">
+    <header class="page-header">
+        <FluentText As="TextTag.H2">策略模板</FluentText>
+        <FluentButton Appearance="ButtonAppearance.Primary" OnClick="OpenCreate">
+            新建策略
+        </FluentButton>
+    </header>
+
+    @if (loading)
+    {
+        <div class="loading"><FluentSpinner /> 加载中...</div>
+    }
+    else if (strategies.Count == 0)
+    {
+        <div class="empty-state">
+            <FluentText As="TextTag.Paragraph" Weight="TextWeight.Semibold">暂无策略模板</FluentText>
+            <FluentText Color="Color.Custom" CustomColor="var(--tx-muted)" Size="TextSize.Size200">点击上方按钮创建第一个策略模板</FluentText>
+        </div>
+    }
+    else
+    {
+        <div class="card-grid">
+            @foreach (var s in strategies)
+            {
+                <FluentCard Class="strategy-card" Style="border-top-color: #4f7ec9;">
+                    @{
+                        var closeId = $"close-{s.Id}";
+                    }
+                    <FluentButton id="@closeId" Class="card-close-btn" Appearance="ButtonAppearance.Transparent" IconOnly="true" Tooltip="删除" OnClick="@(() => popoverTargetId = s.Id)">
+                        <FlDismissRegular />
+                    </FluentButton>
+                    <FluentPopover AnchorId="@closeId" Opened="@(popoverTargetId == s.Id)" OpenedChanged="@(v => { if (!v) popoverTargetId = null; })" Width="240px">
+                        <div class="popover-confirm">
+                            <FluentText Size="TextSize.Size200">确定删除策略「<strong>@s.Name</strong>」吗？</FluentText>
+                            <div class="popover-actions">
+                                <FluentButton Appearance="ButtonAppearance.Primary" Size="ButtonSize.Small" OnClick="@(async () => { popoverTargetId = null; await DeleteAsync(s.Id); })">确认</FluentButton>
+                                <FluentButton Appearance="ButtonAppearance.Outline" Size="ButtonSize.Small" OnClick="@(() => popoverTargetId = null)">取消</FluentButton>
+                            </div>
+                        </div>
+                    </FluentPopover>
+                    <div class="card-header">
+                        <div class="card-title-area">
+                            <FluentText As="TextTag.H3">@s.Name</FluentText>
+                            <span class="strategy-badge">@HumanizeExecutionRule(s.ExecutionRuleJson)</span>
+                        </div>
+                        <div class="card-header-actions">
+                            <FluentButton Appearance="ButtonAppearance.Transparent" IconOnly="true" Tooltip="编辑" OnClick="@(() => OpenEdit(s))">
+                                <FlEditRegular />
+                            </FluentButton>
+                            <span class="version-badge">v@(s.Version)</span>
+                        </div>
+                    </div>
+
+                    <div class="card-body">
+                        <div class="info-row">
+                            <span class="info-label">入场</span>
+                            <span class="info-value cond-text" title="@s.EntryConditionJson">@HumanizeCondition(s.EntryConditionJson)</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">出场</span>
+                            <span class="info-value cond-text" title="@s.ExitConditionJson">@HumanizeCondition(s.ExitConditionJson)</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">更新</span>
+                            <span class="info-value">@s.UpdatedAt.ToString("yyyy-MM-dd HH:mm")</span>
+                        </div>
+                    </div>
+                </FluentCard>
+            }
+        </div>
+    }
+</section>
+
+<FluentDialog @ref="formDialog" Class="strategy-form-dialog" Modal="true">
+    <FluentDialogBody>
+        <TitleTemplate>
+            @(isEdit ? "编辑策略模板" : "新建策略模板")
+        </TitleTemplate>
+        <ChildContent>
+            <div class="dialog-body-scroll">
+                @if (ShowPresets)
+                {
+                    <div class="presets-section">
+                        <FluentText Color="Color.Custom" CustomColor="var(--tx-muted)" Size="TextSize.Size200">选择一个预设模板快速创建</FluentText>
+                        <div class="preset-cards">
+                            @foreach (var preset in Presets)
+                            {
+                                <button type="button" class="preset-card" @onclick="@(() => ApplyPreset(preset))">
+                                    <FluentText Weight="TextWeight.Semibold">@preset.Name</FluentText>
+                                    <FluentText Color="Color.Custom" CustomColor="var(--tx-muted)" Size="TextSize.Size200">@preset.Description</FluentText>
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @if (AppliedPreset is not null)
+                {
+                    <div class="notes-section">
+                        <FluentText Color="Color.Custom" CustomColor="#4f7ec9" Size="TextSize.Size200" Weight="TextWeight.Semibold">最佳实践参考</FluentText>
+                        <ul class="notes-list">
+                            @foreach (var note in AppliedPreset.Notes)
+                            {
+                                <li>@note</li>
+                            }
+                        </ul>
+                    </div>
+                }
+
+                <div class="dialog-form">
+                    <FluentTextInput Width="100%" Size="TextInputSize.Large" Label="策略名称" Placeholder="策略名称" @bind-Value="formName" />
+
+                    <div class="form-section">
+                        <FluentText Color="Color.Custom" CustomColor="var(--tx-muted)" Size="TextSize.Size200" Weight="TextWeight.Semibold">入场条件</FluentText>
+                        @RenderConditionEditor("entry")
+                    </div>
+
+                    <div class="form-section">
+                        <FluentText Color="Color.Custom" CustomColor="var(--tx-muted)" Size="TextSize.Size200" Weight="TextWeight.Semibold">出场条件</FluentText>
+                        @RenderConditionEditor("exit")
+                    </div>
+
+                    <div class="form-section">
+                        <FluentText Color="Color.Custom" CustomColor="var(--tx-muted)" Size="TextSize.Size200" Weight="TextWeight.Semibold">执行规则</FluentText>
+                        @RenderExecutionRuleEditor()
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(formError))
+                    {
+                        <FluentText Class="dialog-error" As="TextTag.Paragraph">@formError</FluentText>
+                    }
+                </div>
+            </div>
+        </ChildContent>
+        <ActionTemplate>
+            <div class="dialog-actions">
+                <FluentButton Appearance="ButtonAppearance.Primary" Disabled="@saving" OnClick="SaveAsync">
+                    @(saving ? "保存中..." : "保存")
+                </FluentButton>
+                <FluentButton Appearance="ButtonAppearance.Outline" OnClick="CloseFormAsync">取消</FluentButton>
+            </div>
+        </ActionTemplate>
+    </FluentDialogBody>
+</FluentDialog>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationStateTask { get; set; } = default!;
+
+    private List<Strategy> strategies = [];
+    private FluentDialog formDialog = default!;
+    private Guid? popoverTargetId;
+    private bool loading = true;
+    private bool saving;
+    private bool isEdit;
+    private Guid? editId;
+
+    private bool ShowPresets;
+    private Preset? AppliedPreset;
+
+    private string formName = string.Empty;
+
+    private string entryOperator = "AND";
+    private bool entryUseCompound;
+    private List<ConditionRow> entryConditions = [new()];
+
+    private string exitOperator = "AND";
+    private bool exitUseCompound;
+    private List<ConditionRow> exitConditions = [new()];
+
+    private string execType = "custom";
+    private string gridLevels = "5";
+    private string gridSpacingPercent = "1.5";
+    private string trailingStopPercent = "2.0";
+    private string takeProfitPercent = "6.0";
+    private string rebalancePercent = "1.0";
+    private string entryVolatilityPercent = "1.0";
+    private string basePositionSize = "100";
+    private string maxPositionSize = "1000";
+    private string maxDailyLoss = "200";
+    private string slippageTolerance = "0.0005";
+    private string maxPyramidingLevels = "4";
+    private string usePyramiding = "false";
+    private string noStopLoss = "false";
+
+    private string? formError;
+
+    private async Task ShowSuccess(string text)
+        => await ToastService.ShowToastAsync(o => { o.Body = text; o.Intent = ToastIntent.Success; o.Timeout = 3000; });
+
+    private async Task ShowError(string text)
+        => await ToastService.ShowToastAsync(o => { o.Body = text; o.Intent = ToastIntent.Error; });
+
+    private sealed record Preset(string Name, string Description, string[] Notes,
+        string EntryJson, string ExitJson, string ExecJson);
+
+    private sealed record ConditionRow
+    {
+        public string Indicator { get; set; } = "RSI";
+        public string Comparison { get; set; } = ">";
+        public string Value { get; set; } = "30";
+    }
+
+    private static readonly Preset[] Presets =
+    [
+        new("RSI 均值回归", "震荡市低买高卖。RSI < 30 超卖时分批买入、> 70 超买时分批卖出",
+            ["数字货币波动大，层间距 1.5% 适配 BTC/ETH 的 15m~1h 级别",
+             "RSI 30/70 适用于 15m/1h 短线，日线级别建议放宽至 25/75",
+             "每日亏损达 200 USDT（总敞口的 20%）时自动熔断"],
+            """{"indicator":"RSI","comparison":"<","value":30}""",
+            """{"indicator":"RSI","comparison":">","value":70}""",
+            """{"type":"grid","gridLevels":5,"gridSpacingPercent":1.5,"basePositionSize":200,"maxPositionSize":1000,"maxDailyLoss":200,"slippageTolerance":0.0005}"""),
+        new("趋势追踪策略", "捕捉趋势行情。MACD 上穿零轴同时 RSI > 50 确认多头后入场",
+            ["入场 AND + 出场 AND，确保趋势确认一致",
+             "追踪止损 2% 适配 15m/1h 短线",
+             "止盈建议 3 倍盈亏比：止损 2% 时止盈设在 6%"],
+            """{"operator":"AND","conditions":[{"indicator":"MACD_LINE","comparison":"CrossAbove","value":0},{"indicator":"RSI","comparison":">","value":50}]}""",
+            """{"operator":"AND","conditions":[{"indicator":"MACD_LINE","comparison":"CrossBelow","value":0},{"indicator":"RSI","comparison":"<","value":50}]}""",
+            """{"type":"trend_following","trailingStopPercent":2.0,"takeProfitPercent":6.0,"basePositionSize":100,"maxPositionSize":300,"maxDailyLoss":200,"slippageTolerance":0.0005}"""),
+        new("无限网格策略", "极端超跌后左侧布局。RSI 深度超卖 + MACD 零轴下确认恐慌见底",
+            ["RSI < 30 + MACD < 0 双重确认恐慌底",
+             "4 层金字塔：1x → 0.7x → 0.5x → 0.3x",
+             "出场 AND 条件：必须 RSI > 70 超买且 MACD 翻红为正才出场"],
+            """{"operator":"AND","conditions":[{"indicator":"RSI","comparison":"<","value":30},{"indicator":"MACD_LINE","comparison":"<","value":0}]}""",
+            """{"operator":"AND","conditions":[{"indicator":"RSI","comparison":">","value":70},{"indicator":"MACD_LINE","comparison":">","value":0}]}""",
+            """{"type":"infinity_grid","gridLevels":4,"gridSpacingPercent":1.0,"basePositionSize":100,"maxPositionSize":250,"maxDailyLoss":100,"slippageTolerance":0.0005,"usePyramiding":true,"maxPyramidingLevels":4}"""),
+        new("波幅均价再平衡", "5m/15m 观察波动，波幅达到阈值后小仓入场",
+            ["首单触发条件建议设置为 RANGE_PCT >= 1",
+             "加仓条件由执行规则驱动：当前价 <= 均价 × (1 - 1%)",
+             "该风格可关闭单笔止损，建议保留 maxDailyLoss 作为账户级兜底"],
+            """{"indicator":"RANGE_PCT","comparison":">=","value":1}""",
+            "{}",
+            """{"type":"volatility_grid","entryVolatilityPercent":1.0,"rebalancePercent":1.0,"basePositionSize":100,"maxPositionSize":600,"maxPyramidingLevels":5,"noStopLoss":true,"slippageTolerance":0.0005,"maxDailyLoss":200}""")
+    ];
+
+    private static readonly string[] Indicators = ["RSI", "MACD_LINE", "MACD_HIST", "BOLL_UPPER", "BOLL_LOWER", "MA_FAST", "MA_SLOW", "VOLUME", "RANGE_PCT", "ATR"];
+    private static readonly string[] Comparisons = [">", "<", ">=", "<=", "==", "CrossAbove", "CrossBelow"];
+    private static readonly string[] ExecTypes = ["grid", "trend_following", "infinity_grid", "volatility_grid", "custom"];
+
+    private static readonly Dictionary<string, string> CmpLabels = new()
+    {
+        [">"] = ">", ["<"] = "<", [">="] = "≥", ["<="] = "≤",
+        ["=="] = "＝", ["CrossAbove"] = "上穿", ["CrossBelow"] = "下穿"
+    };
+
+    private static readonly Dictionary<string, string> RuleLabels = new()
+    {
+        ["grid"] = "网格", ["trend_following"] = "趋势追踪",
+        ["infinity_grid"] = "无限网格", ["volatility_grid"] = "波幅均价再平衡",
+        ["custom"] = "自定义"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAllAsync();
+    }
+
+    private async Task LoadAllAsync()
+    {
+        loading = true;
+        try
+        {
+            strategies = (await StrategyService.GetAllAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            await ShowError(ex.Message);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/traders");
+    }
+
+    private async Task OpenCreate()
+    {
+        isEdit = false;
+        editId = null;
+        ShowPresets = true;
+        AppliedPreset = null;
+        ResetForm();
+        await formDialog.ShowAsync();
+    }
+
+    private async Task OpenEdit(Strategy strategy)
+    {
+        isEdit = true;
+        editId = strategy.Id;
+        ShowPresets = false;
+        AppliedPreset = null;
+        formName = strategy.Name;
+        ParseConditionJson(strategy.EntryConditionJson, isEntry: true);
+        ParseConditionJson(strategy.ExitConditionJson, isEntry: false);
+        ParseExecRuleJson(strategy.ExecutionRuleJson);
+        formError = null;
+        await formDialog.ShowAsync();
+    }
+
+    private void ResetForm()
+    {
+        formName = string.Empty;
+        entryOperator = "AND";
+        entryUseCompound = false;
+        entryConditions = [new()];
+        exitOperator = "AND";
+        exitUseCompound = false;
+        exitConditions = [new()];
+        execType = "custom";
+        gridLevels = "5";
+        gridSpacingPercent = "1.5";
+        trailingStopPercent = "2.0";
+        takeProfitPercent = "6.0";
+        rebalancePercent = "1.0";
+        entryVolatilityPercent = "1.0";
+        basePositionSize = "100";
+        maxPositionSize = "1000";
+        maxDailyLoss = "200";
+        slippageTolerance = "0.0005";
+        maxPyramidingLevels = "4";
+        usePyramiding = "false";
+        noStopLoss = "false";
+        formError = null;
+    }
+
+    private void ApplyPreset(Preset preset)
+    {
+        ShowPresets = false;
+        AppliedPreset = preset;
+        formName = preset.Name;
+        ParseConditionJson(preset.EntryJson, isEntry: true);
+        ParseConditionJson(preset.ExitJson, isEntry: false);
+        ParseExecRuleJson(preset.ExecJson);
+    }
+
+    private void ParseConditionJson(string json, bool isEntry)
+    {
+        var conditions = isEntry ? entryConditions : exitConditions;
+        conditions.Clear();
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("conditions", out var conds))
+            {
+                if (isEntry) entryUseCompound = true;
+                else exitUseCompound = true;
+
+                if (isEntry)
+                    entryOperator = root.TryGetProperty("operator", out var op) ? op.GetString() ?? "AND" : "AND";
+                else
+                    exitOperator = root.TryGetProperty("operator", out var op) ? op.GetString() ?? "AND" : "AND";
+
+                foreach (var c in conds.EnumerateArray())
+                {
+                    conditions.Add(new ConditionRow
+                    {
+                        Indicator = c.TryGetProperty("indicator", out var i) ? i.GetString() ?? "RSI" : "RSI",
+                        Comparison = c.TryGetProperty("comparison", out var cmp) ? cmp.GetString() ?? ">" : ">",
+                        Value = c.TryGetProperty("value", out var v) ? v.GetRawText() : "0"
+                    });
+                }
+            }
+            else if (root.TryGetProperty("indicator", out var ind))
+            {
+                if (isEntry) entryUseCompound = false;
+                else exitUseCompound = false;
+                conditions.Add(new ConditionRow
+                {
+                    Indicator = ind.GetString() ?? "RSI",
+                    Comparison = root.TryGetProperty("comparison", out var cmp) ? cmp.GetString() ?? ">" : ">",
+                    Value = root.TryGetProperty("value", out var v) ? v.GetRawText() : "0"
+                });
+            }
+            else
+            {
+                conditions.Add(new ConditionRow());
+            }
+        }
+        catch
+        {
+            conditions.Add(new());
+        }
+
+        if (conditions.Count == 0)
+            conditions.Add(new());
+    }
+
+    private void ParseExecRuleJson(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            execType = root.TryGetProperty("type", out var t) ? t.GetString() ?? "custom" : "custom";
+            gridLevels = root.TryGetProperty("gridLevels", out var gl) ? gl.GetRawText() : "5";
+            gridSpacingPercent = root.TryGetProperty("gridSpacingPercent", out var gs) ? gs.GetRawText() : "1.5";
+            trailingStopPercent = root.TryGetProperty("trailingStopPercent", out var tsp) ? tsp.GetRawText() : "2.0";
+            takeProfitPercent = root.TryGetProperty("takeProfitPercent", out var tpp) ? tpp.GetRawText() : "6.0";
+            rebalancePercent = root.TryGetProperty("rebalancePercent", out var rp) ? rp.GetRawText() : "1.0";
+            entryVolatilityPercent = root.TryGetProperty("entryVolatilityPercent", out var evp) ? evp.GetRawText() : "1.0";
+            basePositionSize = root.TryGetProperty("basePositionSize", out var bps) ? bps.GetRawText() : "100";
+            maxPositionSize = root.TryGetProperty("maxPositionSize", out var mps) ? mps.GetRawText() : "1000";
+            maxDailyLoss = root.TryGetProperty("maxDailyLoss", out var mdl) ? mdl.GetRawText() : "200";
+            slippageTolerance = root.TryGetProperty("slippageTolerance", out var st) ? st.GetRawText() : "0.0005";
+            maxPyramidingLevels = root.TryGetProperty("maxPyramidingLevels", out var mpl) ? mpl.GetRawText() : "4";
+            usePyramiding = root.TryGetProperty("usePyramiding", out var up) && up.GetBoolean() ? "true" : "false";
+            noStopLoss = root.TryGetProperty("noStopLoss", out var nsl) && nsl.GetBoolean() ? "true" : "false";
+        }
+        catch
+        {
+            execType = "custom";
+        }
+    }
+
+    private string SerializeConditions(List<ConditionRow> rows, string op, bool useCompound)
+    {
+        if (rows.Count == 0 || rows.All(r => string.IsNullOrWhiteSpace(r.Indicator)))
+            return "{}";
+
+        if (!useCompound && rows.Count == 1)
+        {
+            var r = rows[0];
+            return JsonSerializer.Serialize(new Dictionary<string, object>
+            {
+                ["indicator"] = r.Indicator,
+                ["comparison"] = r.Comparison,
+                ["value"] = double.TryParse(r.Value, out var dv) ? dv : 0
+            });
+        }
+
+        var items = rows.Where(r => !string.IsNullOrWhiteSpace(r.Indicator))
+            .Select(r => (object)new Dictionary<string, object>
+            {
+                ["indicator"] = r.Indicator,
+                ["comparison"] = r.Comparison,
+                ["value"] = double.TryParse(r.Value, out var dv) ? dv : 0
+            }).ToList();
+
+        if (items.Count == 0) return "{}";
+        if (items.Count == 1)
+        {
+            var single = (Dictionary<string, object>)items[0];
+            return JsonSerializer.Serialize(new Dictionary<string, object>
+            {
+                ["indicator"] = single["indicator"],
+                ["comparison"] = single["comparison"],
+                ["value"] = single["value"]
+            });
+        }
+
+        return JsonSerializer.Serialize(new Dictionary<string, object>
+        {
+            ["operator"] = op,
+            ["conditions"] = items
+        });
+    }
+
+    private string SerializeExecRule()
+    {
+        var dict = new Dictionary<string, object>
+        {
+            ["type"] = execType,
+            ["basePositionSize"] = ParseDouble(basePositionSize, 100),
+            ["maxPositionSize"] = ParseDouble(maxPositionSize, 1000),
+            ["maxDailyLoss"] = ParseDouble(maxDailyLoss, 200),
+            ["slippageTolerance"] = ParseDouble(slippageTolerance, 0.0005)
+        };
+
+        switch (execType)
+        {
+            case "grid":
+                dict["gridLevels"] = ParseInt(gridLevels, 5);
+                dict["gridSpacingPercent"] = ParseDouble(gridSpacingPercent, 1.5);
+                break;
+            case "trend_following":
+                dict["trailingStopPercent"] = ParseDouble(trailingStopPercent, 2.0);
+                dict["takeProfitPercent"] = ParseDouble(takeProfitPercent, 6.0);
+                break;
+            case "infinity_grid":
+                dict["gridLevels"] = ParseInt(gridLevels, 5);
+                dict["gridSpacingPercent"] = ParseDouble(gridSpacingPercent, 1.5);
+                dict["usePyramiding"] = usePyramiding == "true";
+                dict["maxPyramidingLevels"] = ParseInt(maxPyramidingLevels, 4);
+                break;
+            case "volatility_grid":
+                dict["entryVolatilityPercent"] = ParseDouble(entryVolatilityPercent, 1.0);
+                dict["rebalancePercent"] = ParseDouble(rebalancePercent, 1.0);
+                dict["maxPyramidingLevels"] = ParseInt(maxPyramidingLevels, 4);
+                dict["noStopLoss"] = noStopLoss == "true";
+                break;
+        }
+
+        return JsonSerializer.Serialize(dict);
+    }
+
+    private static double ParseDouble(string value, double fallback)
+        => double.TryParse(value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var r) ? r : fallback;
+
+    private static int ParseInt(string value, int fallback)
+        => int.TryParse(value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var r) ? r : fallback;
+
+    private void AddCondition(bool isEntry)
+    {
+        var list = isEntry ? entryConditions : exitConditions;
+        list.Add(new());
+    }
+
+    private void RemoveCondition(bool isEntry, int index)
+    {
+        var list = isEntry ? entryConditions : exitConditions;
+        if (list.Count > 1)
+            list.RemoveAt(index);
+    }
+
+    private async Task CloseFormAsync()
+    {
+        await formDialog.HideAsync();
+    }
+
+    private async Task SaveAsync()
+    {
+        formError = null;
+        saving = true;
+        try
+        {
+            var entryJson = SerializeConditions(entryConditions, entryOperator, entryUseCompound);
+            var exitJson = SerializeConditions(exitConditions, exitOperator, exitUseCompound);
+            var execJson = SerializeExecRule();
+
+            if (isEdit && editId.HasValue)
+            {
+                await StrategyService.UpdateAsync(editId.Value, formName, entryJson, exitJson, execJson);
+            }
+            else
+            {
+                await StrategyService.CreateAsync(formName, entryJson, exitJson, execJson);
+            }
+
+            await formDialog.HideAsync();
+            await ShowSuccess(isEdit ? "策略已更新" : "策略已创建");
+            await LoadAllAsync();
+        }
+        catch (Exception ex)
+        {
+            formError = ex.Message;
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        try
+        {
+            await StrategyService.DeleteAsync(id);
+            await ShowSuccess("策略已删除");
+            await LoadAllAsync();
+        }
+        catch (Exception ex)
+        {
+            await ShowError(ex.Message);
+        }
+    }
+
+    private RenderFragment RenderConditionEditor(string prefix) => builder =>
+    {
+        var isEntry = prefix == "entry";
+        var conditions = isEntry ? entryConditions : exitConditions;
+        var useCompound = isEntry ? entryUseCompound : exitUseCompound;
+        var op = isEntry ? entryOperator : exitOperator;
+
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", "condition-editor");
+
+        builder.OpenComponent<FluentCheckbox>(2);
+        builder.AddAttribute(3, "Value", useCompound);
+        builder.AddAttribute(4, "ValueChanged", EventCallback.Factory.Create<bool>(this, v =>
+        {
+            if (isEntry) entryUseCompound = v;
+            else exitUseCompound = v;
+        }));
+        builder.AddAttribute(5, "Label", "复合条件 (AND/OR)");
+        builder.CloseComponent();
+
+        if (useCompound)
+        {
+            builder.OpenComponent<FluentSelect<string, string>>(10);
+            builder.AddAttribute(11, "Width", "160px");
+            builder.AddAttribute(12, "Items", new[] { "AND", "OR" });
+            builder.AddAttribute(13, "Value", op);
+            builder.AddAttribute(14, "ValueChanged", EventCallback.Factory.Create<string>(this, v =>
+            {
+                if (isEntry) entryOperator = v;
+                else exitOperator = v;
+            }));
+            builder.CloseComponent();
+        }
+
+        // 条件行
+        for (var i = 0; i < conditions.Count; i++)
+        {
+            var idx = i;
+            builder.OpenElement(30, "div");
+            builder.AddAttribute(31, "class", "condition-row");
+
+            builder.OpenComponent<FluentSelect<string, string>>(40);
+            builder.AddAttribute(41, "Items", Indicators);
+            builder.AddAttribute(42, "Value", conditions[idx].Indicator);
+            builder.AddAttribute(43, "ValueChanged", EventCallback.Factory.Create<string>(this, v => conditions[idx].Indicator = v));
+            builder.CloseComponent();
+
+            builder.OpenComponent<FluentSelect<string, string>>(50);
+            builder.AddAttribute(51, "Items", Comparisons);
+            builder.AddAttribute(52, "OptionText", (Func<string, string>)(c => CmpLabels.GetValueOrDefault(c, c)));
+            builder.AddAttribute(53, "OptionValue", (Func<string, string>)(c => c));
+            builder.AddAttribute(54, "Value", conditions[idx].Comparison);
+            builder.AddAttribute(55, "ValueChanged", EventCallback.Factory.Create<string>(this, v => conditions[idx].Comparison = v));
+            builder.CloseComponent();
+
+            builder.OpenComponent<FluentTextInput>(60);
+            builder.AddAttribute(61, "Value", conditions[idx].Value);
+            builder.AddAttribute(62, "ValueChanged", EventCallback.Factory.Create<string>(this, v => conditions[idx].Value = v));
+            builder.CloseComponent();
+
+            if (conditions.Count > 1)
+            {
+                builder.OpenComponent<FluentButton>(70);
+                builder.AddAttribute(71, "Appearance", ButtonAppearance.Transparent);
+                builder.AddAttribute(72, "Size", ButtonSize.Small);
+                builder.AddAttribute(73, "OnClick", EventCallback.Factory.Create<MouseEventArgs>(this, _ => RemoveCondition(isEntry, idx)));
+                builder.AddAttribute(74, "ChildContent", (RenderFragment)(b2 => b2.AddContent(0, "×")));
+                builder.CloseComponent();
+            }
+            else
+            {
+                builder.AddContent(75, "");
+            }
+
+            builder.CloseElement();
+        }
+
+        builder.OpenComponent<FluentButton>(80);
+        builder.AddAttribute(81, "Appearance", ButtonAppearance.Outline);
+        builder.AddAttribute(82, "OnClick", EventCallback.Factory.Create<MouseEventArgs>(this, _ => AddCondition(isEntry)));
+        builder.AddAttribute(83, "ChildContent", (RenderFragment)(b2 => b2.AddContent(0, "+ 添加条件")));
+        builder.CloseComponent();
+
+        builder.CloseElement();
+    };
+
+    private RenderFragment RenderExecutionRuleEditor() => builder =>
+    {
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", "exec-rule-editor");
+
+        // 规则类型 — 全宽
+        builder.OpenElement(2, "div");
+        builder.AddAttribute(3, "class", "exec-rule-full");
+        builder.OpenComponent<FluentSelect<string, string>>(10);
+        builder.AddAttribute(11, "Width", "100%");
+        builder.AddAttribute(12, "Label", "规则类型");
+        builder.AddAttribute(13, "Items", ExecTypes);
+        builder.AddAttribute(14, "OptionText", (Func<string, string>)(t => RuleLabels.GetValueOrDefault(t, t)));
+        builder.AddAttribute(15, "OptionValue", (Func<string, string>)(t => t));
+        builder.AddAttribute(16, "Value", execType);
+        builder.AddAttribute(17, "ValueChanged", EventCallback.Factory.Create<string>(this, v => execType = v));
+        builder.CloseComponent();
+        builder.CloseElement();
+
+        if (execType is "grid" or "infinity_grid")
+        {
+            builder.OpenComponent<FluentTextInput>(20);
+            builder.AddAttribute(21, "Label", "网格层数");
+            builder.AddAttribute(22, "Value", gridLevels);
+            builder.AddAttribute(23, "ValueChanged", EventCallback.Factory.Create<string>(this, v => gridLevels = v));
+            builder.CloseComponent();
+
+            builder.OpenComponent<FluentTextInput>(30);
+            builder.AddAttribute(31, "Label", "网格间距 (%)");
+            builder.AddAttribute(32, "Value", gridSpacingPercent);
+            builder.AddAttribute(33, "ValueChanged", EventCallback.Factory.Create<string>(this, v => gridSpacingPercent = v));
+            builder.CloseComponent();
+        }
+
+        if (execType == "trend_following")
+        {
+            builder.OpenComponent<FluentTextInput>(40);
+            builder.AddAttribute(41, "Label", "追踪止损 (%)");
+            builder.AddAttribute(42, "Value", trailingStopPercent);
+            builder.AddAttribute(43, "ValueChanged", EventCallback.Factory.Create<string>(this, v => trailingStopPercent = v));
+            builder.CloseComponent();
+
+            builder.OpenComponent<FluentTextInput>(50);
+            builder.AddAttribute(51, "Label", "止盈 (%)");
+            builder.AddAttribute(52, "Value", takeProfitPercent);
+            builder.AddAttribute(53, "ValueChanged", EventCallback.Factory.Create<string>(this, v => takeProfitPercent = v));
+            builder.CloseComponent();
+        }
+
+        if (execType == "volatility_grid")
+        {
+            builder.OpenComponent<FluentTextInput>(60);
+            builder.AddAttribute(61, "Label", "入场波幅阈值 (%)");
+            builder.AddAttribute(62, "Value", entryVolatilityPercent);
+            builder.AddAttribute(63, "ValueChanged", EventCallback.Factory.Create<string>(this, v => entryVolatilityPercent = v));
+            builder.CloseComponent();
+
+            builder.OpenComponent<FluentTextInput>(70);
+            builder.AddAttribute(71, "Label", "再平衡间距 (%)");
+            builder.AddAttribute(72, "Value", rebalancePercent);
+            builder.AddAttribute(73, "ValueChanged", EventCallback.Factory.Create<string>(this, v => rebalancePercent = v));
+            builder.CloseComponent();
+        }
+
+        if (execType is "infinity_grid" or "volatility_grid")
+        {
+            builder.OpenComponent<FluentTextInput>(80);
+            builder.AddAttribute(81, "Label", "最大加仓层数");
+            builder.AddAttribute(82, "Value", maxPyramidingLevels);
+            builder.AddAttribute(83, "ValueChanged", EventCallback.Factory.Create<string>(this, v => maxPyramidingLevels = v));
+            builder.CloseComponent();
+
+            builder.OpenElement(84, "div");
+            builder.AddAttribute(85, "class", "exec-rule-checkbox");
+
+            if (execType == "infinity_grid")
+            {
+                builder.OpenComponent<FluentCheckbox>(90);
+                builder.AddAttribute(91, "Value", usePyramiding == "true");
+                builder.AddAttribute(92, "ValueChanged", EventCallback.Factory.Create<bool>(this, v => usePyramiding = v ? "true" : "false"));
+                builder.AddAttribute(93, "Label", "启用金字塔加仓");
+                builder.CloseComponent();
+            }
+
+            if (execType == "volatility_grid")
+            {
+                builder.OpenComponent<FluentCheckbox>(100);
+                builder.AddAttribute(101, "Value", noStopLoss == "true");
+                builder.AddAttribute(102, "ValueChanged", EventCallback.Factory.Create<bool>(this, v => noStopLoss = v ? "true" : "false"));
+                builder.AddAttribute(103, "Label", "关闭单笔止损");
+                builder.CloseComponent();
+            }
+
+            builder.CloseElement();
+        }
+
+        // 公共参数 — 两列
+        builder.OpenComponent<FluentTextInput>(110);
+        builder.AddAttribute(111, "Label", "基础仓位 (USDT)");
+        builder.AddAttribute(112, "Value", basePositionSize);
+        builder.AddAttribute(113, "ValueChanged", EventCallback.Factory.Create<string>(this, v => basePositionSize = v));
+        builder.CloseComponent();
+
+        builder.OpenComponent<FluentTextInput>(120);
+        builder.AddAttribute(121, "Label", "最大仓位 (USDT)");
+        builder.AddAttribute(122, "Value", maxPositionSize);
+        builder.AddAttribute(123, "ValueChanged", EventCallback.Factory.Create<string>(this, v => maxPositionSize = v));
+        builder.CloseComponent();
+
+        builder.OpenComponent<FluentTextInput>(130);
+        builder.AddAttribute(131, "Label", "单日最大亏损 (USDT)");
+        builder.AddAttribute(132, "Value", maxDailyLoss);
+        builder.AddAttribute(133, "ValueChanged", EventCallback.Factory.Create<string>(this, v => maxDailyLoss = v));
+        builder.CloseComponent();
+
+        builder.OpenComponent<FluentTextInput>(140);
+        builder.AddAttribute(141, "Label", "滑点容忍度");
+        builder.AddAttribute(142, "Value", slippageTolerance);
+        builder.AddAttribute(143, "ValueChanged", EventCallback.Factory.Create<string>(this, v => slippageTolerance = v));
+        builder.CloseComponent();
+
+        builder.CloseElement();
+    };
+
+    private static string HumanizeCondition(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("indicator", out var indicator))
+            {
+                var ind = indicator.GetString() ?? "?";
+                var cmp = root.TryGetProperty("comparison", out var comp)
+                    ? CmpLabels.GetValueOrDefault(comp.GetString() ?? "", comp.GetString() ?? "?")
+                    : "?";
+                var val = root.TryGetProperty("value", out var v) ? v.GetRawText() : "?";
+                return $"{ind} {cmp} {val}";
+            }
+
+            if (root.TryGetProperty("operator", out var op) && root.TryGetProperty("conditions", out var conds))
+            {
+                var opLabel = op.GetString() == "AND" ? "且" : "或";
+                return $"{opLabel}( {conds.GetArrayLength()} 条件 )";
+            }
+
+            return "无条件";
+        }
+        catch
+        {
+            return json;
+        }
+    }
+
+    private static string HumanizeExecutionRule(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("type", out var type))
+                return RuleLabels.GetValueOrDefault(type.GetString() ?? "", "自定义");
+            return "自定义";
+        }
+        catch { return "自定义"; }
+    }
+}

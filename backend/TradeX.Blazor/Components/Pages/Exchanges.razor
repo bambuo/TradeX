@@ -1,5 +1,6 @@
 @page "/exchanges"
 @inject ExchangePageService ExchangeService
+@inject IToastService ToastService
 
 <PageTitle>交易所</PageTitle>
 
@@ -10,50 +11,6 @@
             添加交易所
         </FluentButton>
     </header>
-
-    @if (!string.IsNullOrWhiteSpace(message))
-    {
-        <FluentMessageBar Class="exchange-message" Intent="@messageIntent" Visible="@(!string.IsNullOrWhiteSpace(message))" AllowDismiss="true">
-            @message
-        </FluentMessageBar>
-    }
-
-    @if (showOrders)
-    {
-        <FluentCard Class="orders-panel">
-            <header class="orders-header">
-                <FluentText As="TextTag.H3">@ordersExchangeLabel - @(ordersType == OrderListType.Open ? "当前挂单" : "历史订单")</FluentText>
-                <FluentButton Appearance="ButtonAppearance.Transparent" OnClick="CloseOrders">关闭</FluentButton>
-            </header>
-            <FluentTabs ActiveTabId="@ordersType.ToString()" ActiveTabIdChanged="OnOrdersTabChanged">
-                <FluentTab Id="Open" Header="当前挂单" />
-                <FluentTab Id="History" Header="历史订单" />
-            </FluentTabs>
-            @if (ordersLoading)
-            {
-                <div class="loading"><FluentSpinner /> 加载中...</div>
-            }
-            else
-            {
-                <FluentDataGrid Items="orders.AsQueryable()" Class="orders-grid">
-                    <PropertyColumn Property="@(o => o.Symbol)" Title="交易对" />
-                    <TemplateColumn Title="方向">
-                        <span class="@(context.Side == "Buy" ? "side-buy" : "side-sell")">@(context.Side == "Buy" ? "买入" : "卖出")</span>
-                    </TemplateColumn>
-                    <TemplateColumn Title="类型">@FormatOrderType(context.Type)</TemplateColumn>
-                    <TemplateColumn Title="状态">@FormatOrderStatus(context.Status)</TemplateColumn>
-                    <TemplateColumn Title="价格">@(context.Price > 0 ? context.Price.ToString("N8") : "-")</TemplateColumn>
-                    <TemplateColumn Title="数量">@context.Quantity.ToString("N8")</TemplateColumn>
-                    <TemplateColumn Title="已成交">@context.FilledQuantity.ToString("N8")</TemplateColumn>
-                    <TemplateColumn Title="下单时间">@context.PlacedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</TemplateColumn>
-                </FluentDataGrid>
-                @if (orders.Count == 0)
-                {
-                    <div class="empty">@(ordersType == OrderListType.Open ? "暂无挂单" : "暂无历史订单")</div>
-                }
-            }
-        </FluentCard>
-    }
 
     @if (loading)
     {
@@ -150,6 +107,54 @@
     }
 </section>
 
+<FluentDialog @ref="ordersDialog" Class="orders-dialog" Modal="true">
+    <FluentDialogBody>
+        <TitleTemplate>
+            @ordersDialogTitle
+        </TitleTemplate>
+        <ChildContent>
+            <div class="orders-dialog-content">
+                <FluentTabs ActiveTabId="@ordersType.ToString()" ActiveTabIdChanged="OnOrdersTabChanged">
+                    <FluentTab Id="Open" Header="当前挂单" />
+                    <FluentTab Id="History" Header="历史订单" />
+                </FluentTabs>
+                @if (ordersLoading)
+                {
+                    <div class="loading"><FluentSpinner /> 加载中...</div>
+                }
+                else if (!string.IsNullOrWhiteSpace(ordersError))
+                {
+                    <div class="orders-error" role="alert">@ordersError</div>
+                }
+                else
+                {
+                    <FluentDataGrid Items="orders.AsQueryable()" Class="orders-grid">
+                        <PropertyColumn Property="@(o => o.Symbol)" Title="交易对" />
+                        <TemplateColumn Title="方向">
+                            <span class="@(context.Side == "Buy" ? "side-buy" : "side-sell")">@(context.Side == "Buy" ? "买入" : "卖出")</span>
+                        </TemplateColumn>
+                        <TemplateColumn Title="类型">@FormatOrderType(context.Type)</TemplateColumn>
+                        <TemplateColumn Title="状态">@FormatOrderStatus(context.Status)</TemplateColumn>
+                        <TemplateColumn Title="价格">@(context.Price > 0 ? context.Price.ToString("N8") : "-")</TemplateColumn>
+                        <TemplateColumn Title="数量">@context.Quantity.ToString("N8")</TemplateColumn>
+                        <TemplateColumn Title="已成交">@context.FilledQuantity.ToString("N8")</TemplateColumn>
+                        <TemplateColumn Title="下单时间">@context.PlacedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</TemplateColumn>
+                    </FluentDataGrid>
+                    @if (orders.Count == 0)
+                    {
+                        <div class="empty">@(ordersType == OrderListType.Open ? "暂无挂单" : "暂无历史订单")</div>
+                    }
+                }
+            </div>
+        </ChildContent>
+        <ActionTemplate>
+            <div class="dialog-actions">
+                <FluentButton Appearance="ButtonAppearance.Outline" OnClick="CloseOrdersAsync">关闭</FluentButton>
+            </div>
+        </ActionTemplate>
+    </FluentDialogBody>
+</FluentDialog>
+
 <FluentDialog @ref="formDialog" Modal="true">
     <FluentDialogBody>
         <TitleTemplate>
@@ -181,7 +186,7 @@
             <FluentButton Appearance="ButtonAppearance.Primary" Disabled="@saving" OnClick="SaveAsync">
                 @(saving ? "保存中..." : "保存")
             </FluentButton>
-            <FluentButton Appearance="ButtonAppearance.Transparent" OnClick="CloseFormAsync">取消</FluentButton>
+            <FluentButton Appearance="ButtonAppearance.Outline" OnClick="CloseFormAsync">取消</FluentButton>
         </div>
         </ActionTemplate>
     </FluentDialogBody>
@@ -198,20 +203,20 @@
     private ExchangeFormModel form = new();
     private readonly ExchangeType[] exchangeTypes = Enum.GetValues<ExchangeType>();
     private FluentDialog formDialog = default!;
+    private FluentDialog ordersDialog = default!;
     private bool loading = true;
     private bool assetLoading;
     private bool saving;
     private bool isEdit;
     private Guid? formExchangeId;
-    private bool showOrders;
     private bool ordersLoading;
     private Guid? testingId;
-    private string? message;
     private string? formError;
-    private MessageBarIntent messageIntent = MessageBarIntent.Info;
+    private string? ordersError;
     private string ordersExchangeLabel = string.Empty;
     private Guid ordersExchangeId;
     private OrderListType ordersType = OrderListType.Open;
+    private string ordersDialogTitle => $"{ordersExchangeLabel} - {(ordersType == OrderListType.Open ? "当前挂单" : "历史订单")}";
 
     protected override async Task OnInitializedAsync()
     {
@@ -229,7 +234,7 @@
         }
         catch (Exception ex)
         {
-            ShowError(ex.Message);
+            await ShowError(ex.Message);
         }
         finally
         {
@@ -247,7 +252,7 @@
             }
             catch (Exception ex)
             {
-                ShowError($"获取资产失败: {ex.Message}");
+                await ShowError($"获取资产失败: {ex.Message}");
             }
 
             return;
@@ -319,7 +324,7 @@
             }
 
             await formDialog.HideAsync();
-            ShowSuccess("交易所已保存");
+            await ShowSuccess("交易所已保存");
             await LoadAllAsync();
         }
         catch (Exception ex)
@@ -341,7 +346,7 @@
         }
         catch (Exception ex)
         {
-            ShowError($"切换失败: {ex.Message}");
+            await ShowError($"切换失败: {ex.Message}");
         }
     }
 
@@ -353,18 +358,18 @@
             var result = await ExchangeService.TestConnectionAsync(id);
             if (result.Connected)
             {
-                ShowSuccess("连接测试成功");
+                await ShowInfo("连接测试成功");
             }
             else
             {
-                ShowError($"连接失败{(string.IsNullOrWhiteSpace(result.Error) ? string.Empty : ": " + result.Error)}");
+                await ShowInfo($"连接测试未通过{(string.IsNullOrWhiteSpace(result.Error) ? string.Empty : ": " + result.Error)}");
             }
 
             await LoadAllAsync();
         }
         catch (Exception ex)
         {
-            ShowError($"请求失败: {ex.Message}");
+            await ShowInfo($"连接测试请求失败: {ex.Message}");
         }
         finally
         {
@@ -378,15 +383,16 @@
         ordersExchangeLabel = label;
         ordersType = type;
         orders = [];
-        showOrders = true;
+        ordersError = null;
         ordersLoading = true;
+        await ordersDialog.ShowAsync();
         try
         {
             orders = (await ExchangeService.GetOrdersAsync(id, type)).ToList();
         }
         catch (Exception ex)
         {
-            ShowError($"获取订单失败: {ex.Message}");
+            ordersError = $"获取订单失败: {ex.Message}";
         }
         finally
         {
@@ -402,10 +408,11 @@
         }
     }
 
-    private void CloseOrders()
+    private async Task CloseOrdersAsync()
     {
-        showOrders = false;
+        await ordersDialog.HideAsync();
         orders = [];
+        ordersError = null;
     }
 
     private void ToggleAssets(Guid id)
@@ -439,17 +446,14 @@
             System.Text.RegularExpressions.RegexOptions.IgnoreCase);
     }
 
-    private void ShowSuccess(string text)
-    {
-        message = text;
-        messageIntent = MessageBarIntent.Success;
-    }
+    private async Task ShowSuccess(string text)
+        => await ToastService.ShowToastAsync(o => { o.Body = text; o.Intent = ToastIntent.Success; o.Timeout = 3000; });
 
-    private void ShowError(string text)
-    {
-        message = text;
-        messageIntent = MessageBarIntent.Error;
-    }
+    private async Task ShowInfo(string text)
+        => await ToastService.ShowToastAsync(o => { o.Body = text; o.Intent = ToastIntent.Info; });
+
+    private async Task ShowError(string text)
+        => await ToastService.ShowToastAsync(o => { o.Body = text; o.Intent = ToastIntent.Error; });
 
     private static ExchangeInfo GetExchangeInfo(ExchangeType type)
     {

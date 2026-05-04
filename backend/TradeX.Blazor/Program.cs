@@ -6,6 +6,7 @@ using TradeX.Api.Services;
 using TradeX.Api.Settings;
 using TradeX.Blazor.Components;
 using TradeX.Blazor.Services;
+using TradeX.Core.Interfaces;
 using TradeX.Exchange;
 using TradeX.Infrastructure;
 using TradeX.Infrastructure.Data;
@@ -21,6 +22,22 @@ builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"))
 builder.Services.AddScoped<AuthSession>();
 builder.Services.AddScoped<AuthWorkflowService>();
 builder.Services.AddScoped<ExchangePageService>();
+builder.Services.AddScoped<TraderPageService>();
+builder.Services.AddScoped<ITraderPageService>(sp =>
+    AuditProxy<ITraderPageService, TraderPageService>.Create(
+        sp.GetRequiredService<TraderPageService>(),
+        sp.GetRequiredService<IAuditLogRepository>()));
+builder.Services.AddScoped<StrategyPageService>();
+builder.Services.AddScoped<IStrategyPageService>(sp =>
+    AuditProxy<IStrategyPageService, StrategyPageService>.Create(
+        sp.GetRequiredService<StrategyPageService>(),
+        sp.GetRequiredService<IAuditLogRepository>()));
+builder.Services.AddScoped<StrategyTemplatePageService>();
+builder.Services.AddScoped<IStrategyTemplatePageService>(sp =>
+    AuditProxy<IStrategyTemplatePageService, StrategyTemplatePageService>.Create(
+        sp.GetRequiredService<StrategyTemplatePageService>(),
+        sp.GetRequiredService<IAuditLogRepository>()));
+builder.Services.AddScoped<AuditLogPageService>();
 builder.Services.AddSingleton<AuthTicketStore>();
 builder.Services.AddSingleton<JwtService>();
 builder.Services.AddSingleton<MfaService>();

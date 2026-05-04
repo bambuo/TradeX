@@ -1,0 +1,330 @@
+@page "/traders"
+@inject ITraderPageService TraderService
+@inject NavigationManager Navigation
+@inject IToastService ToastService
+
+<PageTitle>交易员</PageTitle>
+
+<section class="traders-page">
+    <header class="page-header">
+        <FluentText As="TextTag.H2">交易员管理</FluentText>
+        <FluentButton Appearance="ButtonAppearance.Primary" OnClick="OpenCreate">
+            新建交易员
+        </FluentButton>
+    </header>
+
+    @if (loading)
+    {
+        <div class="loading"><FluentSpinner /> 加载中...</div>
+    }
+    else if (traders.Count == 0)
+    {
+        <div class="empty-state">
+            <FluentText As="TextTag.Paragraph" Weight="TextWeight.Semibold">暂无交易员</FluentText>
+            <FluentText Color="Color.Custom" CustomColor="var(--tx-muted)" Size="TextSize.Size200">点击上方按钮创建第一个交易员</FluentText>
+        </div>
+    }
+    else
+    {
+        <div class="card-grid">
+            @foreach (var trader in traders)
+            {
+                var avatarColor = GetAvatarColor(trader);
+                var isActive = trader.Status == TraderStatus.Active;
+
+                <FluentCard Class="trader-card" Style="@($"border-top-color: {avatarColor};")">
+                    <div class="card-header">
+                        <FluentAvatar Initials="@trader.Name[..1].ToUpperInvariant()" CustomColor="@avatarColor" Src="@trader.AvatarUrl" /> 
+                        <div class="card-title-area">
+                            <FluentText As="TextTag.H3">@trader.Name</FluentText>
+                            <FluentText Color="Color.Custom" CustomColor="@GetStatusColor(trader.Status)" As="TextTag.Span" Size="TextSize.Size200" Weight="TextWeight.Semibold">
+                                @GetStatusLabel(trader.Status)
+                            </FluentText>
+                        </div>
+                        <div class="card-header-actions">
+                            <FluentButton Appearance="ButtonAppearance.Transparent" IconStart="@Icon.FromImageUrl("/exchanges/edit.svg")" IconOnly="true" Tooltip="编辑" OnClick="@(() => OpenEdit(trader))" />
+                            <FluentSwitch Value="@isActive" ValueChanged="@(value => ToggleStatusAsync(trader.Id, value))" />
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(trader.Style))
+                    {
+                        <div class="card-tag-row">
+                            <span class="style-tag" style="@GetStyleTagStyle(trader.Style)">@trader.Style</span>
+                        </div>
+                    }
+
+                    @if (traderStats.TryGetValue(trader.Id, out var stats))
+                    {
+                        <div class="card-stats">
+                            <div class="stat-item">
+                                <span class="stat-num">@stats.TotalTrades</span>
+                                <span class="stat-label">交易次数</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-num @(stats.WinRate >= 50 ? "num-up" : "num-down")">@stats.WinRate%</span>
+                                <span class="stat-label">胜率</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-num @GetProfitClass(stats.ProfitLossRatio)">@stats.ProfitLossRatio.ToString("F2")</span>
+                                <span class="stat-label">盈亏比</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-num @(stats.SharpeRatio >= 1 ? "num-up" : "num-down")">@stats.SharpeRatio.ToString("F2")</span>
+                                <span class="stat-label">夏普率</span>
+                            </div>
+                        </div>
+                    }
+
+                    <div class="card-footer">
+                        <FluentButton OnClick="@(() => Navigation.NavigateTo($"/traders/{trader.Id}/strategies"))">策略部署</FluentButton>
+                        <FluentButton OnClick="@(() => Navigation.NavigateTo($"/traders/{trader.Id}/positions"))">持仓</FluentButton>
+                        <FluentButton OnClick="@(() => Navigation.NavigateTo($"/traders/{trader.Id}/orders"))">订单</FluentButton>
+                    </div>
+                </FluentCard>
+            }
+        </div>
+    }
+</section>
+
+<FluentDialog @ref="formDialog" Modal="true">
+    <FluentDialogBody>
+        <TitleTemplate>
+            @(isEdit ? "编辑交易员" : "新建交易员")
+        </TitleTemplate>
+        <ChildContent>
+            <div class="form-preview">
+                <FluentAvatar Initials="@(string.IsNullOrWhiteSpace(formName) ? "?" : formName[..1].ToUpperInvariant())" CustomColor="@formAvatarColor" />
+                <div class="form-meta">
+                    <FluentText As="TextTag.Paragraph" Weight="TextWeight.Semibold">@(string.IsNullOrWhiteSpace(formName) ? "新交易员" : formName)</FluentText>
+                    <FluentText Color="Color.Custom" CustomColor="var(--tx-muted)" Size="TextSize.Size200">设置名称和头像</FluentText>
+                </div>
+            </div>
+
+            <div class="dialog-form">
+                <FluentTextInput Width="100%" Size="TextInputSize.Large" Label="名称" Placeholder="输入交易员名称" @bind-Value="formName" />
+
+                <FluentSelect TOption="string" TValue="string"
+                    Width="100%"
+                    Label="交易风格"
+                    Items="styleOptions"
+                    @bind-Value="formStyle" />
+
+                @if (!string.IsNullOrWhiteSpace(formError))
+                {
+                    <FluentText Class="dialog-error" As="TextTag.Paragraph">@formError</FluentText>
+                }
+            </div>
+        </ChildContent>
+        <ActionTemplate>
+            <div class="dialog-actions">
+                <FluentButton Appearance="ButtonAppearance.Primary" Disabled="@saving" OnClick="SaveAsync">
+                    @(saving ? "保存中..." : "保存")
+                </FluentButton>
+                <FluentButton Appearance="ButtonAppearance.Outline" OnClick="CloseFormAsync">取消</FluentButton>
+            </div>
+        </ActionTemplate>
+    </FluentDialogBody>
+</FluentDialog>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationStateTask { get; set; } = default!;
+
+    private List<TraderItem> traders = [];
+    private Dictionary<Guid, TraderStatsView> traderStats = [];
+    private FluentDialog formDialog = default!;
+    private bool loading = true;
+    private bool saving;
+    private bool isEdit;
+    private Guid? editId;
+    private string formName = string.Empty;
+    private string formStyle = string.Empty;
+    private string formAvatarColor = string.Empty;
+    private string? formError;
+
+    private static readonly string[] AvatarPalette =
+    [
+        "#4f7ec9", "#528a60", "#b8893a", "#bf4848",
+        "#7c6eb0", "#c97b4a", "#4a9ea0", "#b06e8a"
+    ];
+
+    private static readonly string[] styleOptions =
+    [
+        "稳健型", "激进型", "平衡型", "灵活型"
+    ];
+
+    private static readonly Dictionary<string, string> StyleColors = new()
+    {
+        ["稳健型"] = "#528a60",
+        ["激进型"] = "#bf4848",
+        ["平衡型"] = "#b8893a",
+        ["灵活型"] = "#4f7ec9"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAllAsync();
+    }
+
+    private async Task LoadAllAsync()
+    {
+        loading = true;
+        try
+        {
+            var state = await AuthenticationStateTask;
+            traders = (await TraderService.GetAllAsync(state.User)).ToList();
+
+            foreach (var trader in traders)
+            {
+                try
+                {
+                    var stats = await TraderService.GetStatsAsync(trader.Id);
+                    traderStats[trader.Id] = stats;
+                }
+                catch
+                {
+                    // 单个交易员统计加载失败不阻断页面
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await ShowError(ex.Message);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task OpenCreate()
+    {
+        isEdit = false;
+        editId = null;
+        formName = string.Empty;
+        formStyle = string.Empty;
+        formAvatarColor = AvatarPalette[Random.Shared.Next(AvatarPalette.Length)];
+        formError = null;
+        await formDialog.ShowAsync();
+    }
+
+    private async Task OpenEdit(TraderItem trader)
+    {
+        isEdit = true;
+        editId = trader.Id;
+        formName = trader.Name;
+        formStyle = trader.Style ?? string.Empty;
+        formAvatarColor = trader.AvatarColor ?? GetAvatarColorFromName(trader.Name);
+        formError = null;
+        await formDialog.ShowAsync();
+    }
+
+    private async Task CloseFormAsync()
+    {
+        await formDialog.HideAsync();
+    }
+
+    private async Task SaveAsync()
+    {
+        formError = null;
+        saving = true;
+        try
+        {
+            var state = await AuthenticationStateTask;
+
+            if (isEdit && editId.HasValue)
+            {
+                await TraderService.UpdateAsync(editId.Value, new TraderFormModel
+                {
+                    Name = formName,
+                    Style = string.IsNullOrWhiteSpace(formStyle) ? null : formStyle,
+                    AvatarColor = formAvatarColor
+                });
+            }
+            else
+            {
+                await TraderService.CreateAsync(state.User, new TraderFormModel
+                {
+                    Name = formName,
+                    Style = string.IsNullOrWhiteSpace(formStyle) ? null : formStyle,
+                    AvatarColor = formAvatarColor
+                });
+            }
+
+            await formDialog.HideAsync();
+            await ShowSuccess(isEdit ? "交易员已更新" : "交易员已创建");
+            await LoadAllAsync();
+        }
+        catch (Exception ex)
+        {
+            formError = ex.Message;
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task ToggleStatusAsync(Guid id, bool enable)
+    {
+        try
+        {
+            await TraderService.ToggleAsync(id, enable);
+            await LoadAllAsync();
+        }
+        catch (Exception ex)
+        {
+            await ShowError($"切换失败: {ex.Message}");
+        }
+    }
+
+    private string GetAvatarColor(TraderItem trader)
+    {
+        if (!string.IsNullOrWhiteSpace(trader.AvatarColor))
+            return trader.AvatarColor;
+        return GetAvatarColorFromName(trader.Name);
+    }
+
+    private static string GetAvatarColorFromName(string name)
+    {
+        var hash = 0;
+        foreach (var c in name)
+            hash = c + ((hash << 5) - hash);
+        return AvatarPalette[Math.Abs(hash) % AvatarPalette.Length];
+    }
+
+    private static string GetStatusLabel(TraderStatus status) => status switch
+    {
+        TraderStatus.Active => "在岗",
+        TraderStatus.Disabled => "离岗",
+        TraderStatus.Deleted => "已删除",
+        _ => status.ToString()
+    };
+
+    private static string GetStatusColor(TraderStatus status) => status switch
+    {
+        TraderStatus.Active => "#528a60",
+        TraderStatus.Deleted => "#bf4848",
+        _ => "#9c9590"
+    };
+
+    private static string GetStyleTagStyle(string style)
+    {
+        var color = StyleColors.GetValueOrDefault(style, "#9c9590");
+        return $"background: {color}14; color: {color}; border-color: {color}28";
+    }
+
+    private static string GetProfitClass(decimal ratio) => ratio switch
+    {
+        >= 1.5m => "num-up",
+        >= 1m => "num-neutral",
+        _ => "num-down"
+    };
+
+    private async Task ShowSuccess(string text)
+        => await ToastService.ShowToastAsync(o => { o.Body = text; o.Intent = ToastIntent.Success; o.Timeout = 3000; });
+
+    private async Task ShowError(string text)
+        => await ToastService.ShowToastAsync(o => { o.Body = text; o.Intent = ToastIntent.Error; });
+}
