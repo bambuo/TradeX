@@ -62,9 +62,9 @@
                     </div>
 
                     <div class="card-footer text-end">
-                        <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => OpenDeleteConfirm(s.Id, s.Name)">
+                        <Button Color="Color.Danger" Size="Size.Small" OnClick="@(() => OpenDeleteConfirm(s.Id, s.Name))">
                             删除
-                        </button>
+                        </Button>
                     </div>
                 </div>
             }
@@ -108,10 +108,10 @@
                                 @foreach (var preset in Presets)
                                 {
                                     <div class="col-md-6 mb-2">
-                                        <button type="button" class="btn btn-outline-primary text-start w-100" @onclick="@(() => ApplyPreset(preset))">
+                                        <Button Color="Color.Primary" OnClick="@(() => ApplyPreset(preset))" class="text-start w-100">
                                             <strong>@preset.Name</strong><br />
                                             <small>@preset.Description</small>
-                                        </button>
+                                        </Button>
                                     </div>
                                 }
                             </div>

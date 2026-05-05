@@ -27,16 +27,22 @@
     cursor: pointer;
 }
 
-.sider-nav {
+/* --- Menu 组件适配玻璃侧边栏 --- */
+.app-sidebar ::deep .menu {
     flex: 1;
     padding: 0.25rem 0;
+    --bb-menu-item-hover-bg: rgba(0, 0, 0, 0.04);
+    --bb-menu-item-hover-color: var(--bs-body-color);
+    --bb-menu-active-color: var(--bs-primary);
 }
 
-.sider-nav .nav-item {
+.app-sidebar ::deep .menu .nav {
+    flex-direction: column;
     padding: 0;
+    border-bottom: none;
 }
 
-.sider-nav-item {
+.app-sidebar ::deep .menu .nav .nav-link {
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -48,24 +54,22 @@
     color: var(--bs-body-color);
     text-decoration: none;
     transition: all 0.15s ease;
+    border-bottom: none;
 }
 
-.nav-icon {
-    width: 1.1rem;
-    text-align: center;
-    flex-shrink: 0;
-    font-size: 0.95rem;
-}
-
-.sider-nav-item:hover {
+.app-sidebar ::deep .menu .nav .nav-link:hover {
     background: rgba(0, 0, 0, 0.04);
     color: var(--bs-body-color);
 }
 
-.sider-nav-item.active {
+.app-sidebar ::deep .menu .nav .nav-link.active {
     background: rgba(79, 126, 201, 0.08);
     color: var(--bs-primary);
     font-weight: 600;
+}
+
+.app-sidebar ::deep .menu > .nav > li:after {
+    display: none;
 }
 
 /* --- 右侧内容区 --- */
