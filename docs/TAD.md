@@ -32,7 +32,7 @@
 | 约束 | 来源 |
 |------|------|
 | 目标框架 `net10.0` + `LangVersion=14.0` | AGENTS.md |
-| 前端 Blazor Server + Fluent UI `Microsoft.FluentUI.AspNetCore.Components` v5.0 | AGENTS.md |
+| 前端 Blazor Server + Bootstrap Blazor `BootstrapBlazor` v10.6.0 | AGENTS.md |
 | SQLite 为主存储，IoTDB 为时序存储 | PRD FR-13 |
 | Docker Compose 单机部署，无 K8s | PRD FR-16 |
 | 仅支持现货交易，不涉及合约/杠杆 | FSD §25 待确认 #10 |
@@ -117,9 +117,9 @@ flowchart TB
 | 方面 | 方案 | 说明 |
 |------|------|------|
 | 框架 | Blazor Server (InteractiveServer) | .NET 10 Interactive Server 渲染模式 |
-| 组件库 | `Microsoft.FluentUI.AspNetCore.Components` v5.0 | Fluent Design System，Office/Microsoft 365 风格 |
-| 路由 | `@page` 指令 + `FluentNav` | 声明式路由 + `AuthorizeView` 角色守卫 |
-| 状态管理 | Blazor DI Singleton 服务 + `FluentDataGrid` | 按业务域拆分服务 |
+| 组件库 | `BootstrapBlazor` v10.6.0 | Bootstrap 5 风格，响应式布局，社区活跃 |
+| 路由 | `@page` 指令 + `AuthorizeView` | 声明式路由 + `AuthorizeView` 角色守卫 |
+| 状态管理 | Blazor DI Singleton 服务 + `Table<TItem>` | 按业务域拆分服务 |
 | HTTP 客户端 | `HttpClient` + `IHttpClientFactory` | 内置 `Authorization` 消息处理器自动附加 JWT |
 | 实时通信 | `HubConnection` + `@implements IAsyncDisposable` | 强类型 C# 订阅模式 |
 | 图表 | ECharts + `ECharts` Blazor 封装 / 自绘组件 | K 线图、回测图表 |
@@ -127,7 +127,7 @@ flowchart TB
 **服务注册（Program.cs）**：
 
 ```csharp
-builder.Services.AddFluentUIComponents();
+builder.Services.AddBootstrapBlazor();
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
 // JWT 自动注入 HttpClient
@@ -172,7 +172,7 @@ builder.Services.AddSingleton<TradingHubClient>();
 
 | 约束项 | 要求 |
 |--------|------|
-| 组件库 | `Microsoft.FluentUI.AspNetCore.Components` v5.0 |
+| 组件库 | `BootstrapBlazor` v10.6.0 |
 | 页面分类 | 按业务域拆分为独立目录（Exchanges/Strategies/Backtests 等） |
 | 共享组件 | 条件树编辑器、执行规则表单等公共 UI 抽离至 Shared 目录 |
 | 页面路由 | 通过 `@page` 指令声明，`AuthorizeView` 实现角色守卫 |

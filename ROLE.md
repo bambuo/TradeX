@@ -442,10 +442,10 @@ flowchart TD
 #### 行业规范
 
 - **Blazor 组件原则**：单一职责、自包含、参数驱动、避免直接 DOM 操作
-- **Flutter UI / Fluent Design**：遵循 Microsoft Fluent Design System 设计语言，使用 `Microsoft.FluentUI.AspNetCore.Components` v5 组件库
+- **Bootstrap Blazor**：遵循 Bootstrap 5 设计系统，使用 `BootstrapBlazor` 组件库，响应式布局，社区活跃
 - **状态管理模式**：DI 单例服务 + `@implements IAsyncDisposable` 生命周期管理，避免静态状态
 - **类型安全**：启用 `<Nullable>enable</Nullable>`，Razor 文件中使用强类型模型绑定
-- **WAI-ARIA 1.2**：Web 无障碍访问标准，角色/状态/属性定义。Fluent UI 组件内建 ARIA 支持
+- **WAI-ARIA 1.2**：Web 无障碍访问标准，角色/状态/属性定义。Bootstrap Blazor 组件内建 ARIA 支持
 - **Blazor 渲染模式**：InteractiveServer 模式下注意 SignalR 连接保活、状态管理作用域
 - **Conventional Commits**：`feat:` / `fix:` / `refactor:` 提交信息规范
 

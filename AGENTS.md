@@ -32,9 +32,9 @@ AI 代理唯一编码准则。不遵守 = 拒收 PR。
 
 | 文件 | 作用 |
 |------|------|
-| `AGENTS.md`（本文件） | 通用入口，大多数 AI 工具自动识别 |
+| `AGENTS.md`（本文件） | **通用入口**，大多数 AI 工具自动识别。定义技术栈、项目结构、通讯规范 |
 | `.trae/rules/project_rules.md` | Trae IDE 的自动加载入口，指向此处 |
-| `ROLE.md` | **核心规范文件**，所有角色定义、闭环、防御机制均在其中 |
+| `ROLE.md` | **核心规范文件**，所有角色定义、闭环、防御机制、编码约定均在其中 |
 
 ---
 
@@ -47,8 +47,8 @@ AI 代理唯一编码准则。不遵守 = 拒收 PR。
 | Nullable | `enable` |
 | ImplicitUsings | `enable` |
 | 测试 | xUnit + NSubstitute |
-| 前端 | Blazor Server (InteractiveServer) + Fluent UI |
-| 前端 NuGet | `Microsoft.FluentUI.AspNetCore.Components` v5.0 |
+| 前端 | Blazor Server (InteractiveServer) + Bootstrap Blazor |
+| 前端 NuGet | `BootstrapBlazor` v10.6.0 |
 
 所有代码必须使用以下 C# 14 语法：
 - **主构造函数** — 消除所有简单 DI 字段注入。例外：`IOptions<T>.Value` 延迟访问、循环依赖
@@ -76,93 +76,17 @@ backend/
 
 ---
 
-## 设计模式
-
-| 模式 | 场景 |
-|---|---|
-| Strategy + DI | 可替换算法（费用计算、滑点、条件评估） |
-| Options | 强类型配置绑定，`IOptions<T>` 注入 |
-| Singleton | 无状态/共享服务（ExchangeClientManager, CasbinEnforcer, IRateLimiter） |
-| Factory | 运行时条件创建对象（不同交易所实例） |
-| Repository | 数据持久化抽象 |
-| Chain of Responsibility | 风控管线：日亏损 → 回撤 → 连续亏损 → 熔断 → 滑点 |
-
-**禁止**：Service Locator（`GetService<T>()`，仅 `Program.cs` 允许）、God Object（类 ≤300 行，方法 ≤50 行）、Magic String/Number、`catch(Exception)` 吞异常。
-
----
-
-## DI 规范
-
-- **Singleton**：无状态/共享服务
-- **Scoped**：ASP.NET Core Controller（默认）
-- **Transient**：轻量无状态（`IConditionEvaluator`、通知发送器）
-- 禁止注入 `IServiceProvider`
-- `IOptions<T>` 仅注入需要运行时读配置的服务
-
----
-
-## 命名 & 编码
-
-| 元素 | 规则 |
-|---|---|
-| 类/方法 | PascalCase |
-| 接口 | 前缀 `I` |
-| 局部变量 | camelCase |
-| 私有字段 | `_camelCase` |
-| 参数 | camelCase |
-| 异步方法 | 后缀 `Async` |
-| 常量 | 统一风格：全 PascalCase 或 SCREAMING_SNAKE |
-
-**异步**：I/O 用 `async Task` / `async Task<T>`，传 `CancellationToken`，禁止 `Wait()` / `.Result`。
-
-**错误**：边界层 catch + log 返回默认值；内部层传播异常。结构化日志，禁止字符串拼接：
-```csharp
-_logger.LogWarning("余额不足: {Balance} < {Required}", balance, required); // ✅
-_logger.LogWarning($"余额不足: {balance} < {required}");                   // ❌
-```
-
-**防御**：方法参数用 `IReadOnlyList<T>` 而非 `List<T>`。DTO 用 `record`。
-
----
-
-## 测试
-
-- 每个接口对应测试类，命名 `[ClassName]Tests`
-- 覆盖：正常路径 + 边界 + 异常
-- 方法命名：`{MethodName}_{Scenario}_{ExpectedOutcome}`
-
-```
-TradeX.Tests/
-├── Trading/   (TradeExecutor, ConditionEvaluator, RiskManager, OrderReconciler)
-├── Infrastructure/ (CasbinAuthorization)
-├── Core/      (Position)
-└── Api/       (AuthController)
-```
-
----
-
-## 构建
-
-```bash
-dotnet build && dotnet test && docker compose build
-```
-
-Docker 镜像发布，无单文件产物。
-
----
-
 ## 审查清单
 
 - [ ] `net10.0` + `LangVersion=14.0` + Nullable 启用
 - [ ] 主构造函数替代简单 DI 注入
 - [ ] 集合用 `[]` 语法
-- [ ] 无 magic string/number
+- [ ] 无 Service Locator（仅 `Program.cs` 允许）
 - [ ] I/O 方法传递 `CancellationToken`，后缀 `Async`
-- [ ] 异常边界层正确处理
-- [ ] 新配置在对应 `Settings` 类有强类型属性
-- [ ] 无 Service Locator
+- [ ] 结构化日志，禁止字符串拼接
 - [ ] Casbin 策略已为新 API 端点添加规则
 - [ ] Blazor 新页面已添加路由 + 角色守卫
+- [ ] 详细编码约定见 `ROLE.md`
 
 ---
 

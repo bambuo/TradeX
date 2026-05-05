@@ -11,7 +11,7 @@
 | 基于 TAD | `docs/TAD.md` v1.3 |
 | 更新时间 | 2026-04-27 |
 | 适用阶段 | M1-M7 测试与验收 |
-| 测试框架 | 后端: xUnit + NSubstitute，前端: bUnit + Fluent UI Blazor Test 工具 |
+| 测试框架 | 后端: xUnit + NSubstitute，前端: bUnit |
 
 ---
 
