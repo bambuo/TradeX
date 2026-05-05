@@ -5,9 +5,9 @@
 
 <PageTitle>策略部署</PageTitle>
 
-<section class="strategies-page">
-    <header class="page-header">
-        <div class="header-left">
+<section>
+    <header>
+        <div>
             <FluentButton Appearance="ButtonAppearance.Transparent" OnClick="GoBack">
                 返回
             </FluentButton>
@@ -20,20 +20,20 @@
 
     @if (loading)
     {
-        <div class="loading"><FluentSpinner /> 加载中...</div>
+        <div><FluentSpinner /> 加载中...</div>
     }
     else if (deployments.Count == 0)
     {
-        <div class="empty-state">
+        <div>
             <FluentText As="TextTag.Paragraph" Weight="TextWeight.Semibold">暂无策略部署</FluentText>
-            <FluentText Color="Color.Custom" CustomColor="var(--tx-muted)" Size="TextSize.Size200">点击上方按钮创建第一个策略部署</FluentText>
+            <FluentText Size="TextSize.Size200">点击上方按钮创建第一个策略部署</FluentText>
         </div>
     }
     else
     {
-        <FluentDataGrid Items="@deployments.AsQueryable()" Pagination="@pagination" Class="strategies-grid">
+        <FluentDataGrid Items="@deployments.AsQueryable()" Pagination="@pagination">
             <TemplateColumn Title="作用域">
-                <span class="scope-badge scope-@context.Scope.ToLowerInvariant()">@GetScopeLabel(context.Scope)</span>
+                <span>@GetScopeLabel(context.Scope)</span>
             </TemplateColumn>
             <PropertyColumn Property="@(d => d.StrategyLabel)" Title="策略" />
             <PropertyColumn Property="@(d => d.ExchangeLabel)" Title="交易所" />
@@ -42,11 +42,11 @@
             </TemplateColumn>
             <PropertyColumn Property="@(d => d.Timeframe)" Title="周期" />
             <TemplateColumn Title="状态">
-                <span class="status-badge status-@context.Status.ToString().ToLowerInvariant()">@GetStatusLabel(context.Status)</span>
+                <span>@GetStatusLabel(context.Status)</span>
             </TemplateColumn>
             <PropertyColumn Property="@(d => d.UpdatedAt)" Title="更新时间" />
             <TemplateColumn Title="操作">
-                <div class="actions-group">
+                <div>
                     <FluentButton Size="ButtonSize.Small"
                         Appearance="@(context.Status == DeploymentStatus.Active ? ButtonAppearance.Outline : ButtonAppearance.Primary)"
                         Disabled="@(context.Status == DeploymentStatus.Draft)"
@@ -80,7 +80,7 @@
             @(isEdit ? "编辑部署" : "新建策略部署")
         </TitleTemplate>
         <ChildContent>
-            <div class="dialog-form">
+            <div>
                 <FluentRadioGroup @bind-Value="formScope" Orientation="Orientation.Horizontal">
                     <FluentRadio Value="@("Trader")">交易员级</FluentRadio>
                     <FluentRadio Value="@("Exchange")">交易所级</FluentRadio>
@@ -121,12 +121,12 @@
 
                 @if (!string.IsNullOrWhiteSpace(formError))
                 {
-                    <FluentText Class="dialog-error" As="TextTag.Paragraph">@formError</FluentText>
+                    <FluentText As="TextTag.Paragraph">@formError</FluentText>
                 }
             </div>
         </ChildContent>
         <ActionTemplate>
-            <div class="dialog-actions">
+            <div>
                 <FluentButton Appearance="ButtonAppearance.Primary" Disabled="@saving" OnClick="SaveAsync">
                     @(saving ? "保存中..." : "保存")
                 </FluentButton>

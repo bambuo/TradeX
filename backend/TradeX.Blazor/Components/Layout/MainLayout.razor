@@ -11,29 +11,29 @@
 }
 else
 {
-    <div class="app-layout">
-        <aside class="app-sidebar" aria-label="主导航">
-            <FluentButton Class="sider-title" Appearance="ButtonAppearance.Transparent" OnClick="GoHome">
+    <div>
+        <aside aria-label="主导航">
+            <FluentButton Appearance="ButtonAppearance.Transparent" OnClick="GoHome">
                 TradeX
             </FluentButton>
 
-            <FluentNav Class="sider-nav">
+            <FluentNav>
                 @foreach (var item in NavItems)
                 {
-                    <FluentNavItem Class="sider-nav-item" Href="@item.Path" Match="@item.Match">
+                    <FluentNavItem Href="@item.Path" Match="@item.Match">
                         @item.Label
                     </FluentNavItem>
                 }
             </FluentNav>
         </aside>
 
-        <section class="right-layout">
-            <FluentCard Class="breadcrumb-card">
-                <nav class="breadcrumb" aria-label="面包屑">
+        <section>
+            <FluentCard>
+                <nav aria-label="面包屑">
                     <a href="/">首页</a>
                     @foreach (var crumb in BreadcrumbItems)
                     {
-                        <span class="breadcrumb-separator">/</span>
+                        <span>/</span>
                         @if (crumb.IsLast)
                         {
                             <span>@crumb.Label</span>
@@ -46,16 +46,16 @@ else
                 </nav>
             </FluentCard>
 
-            <main class="app-main">
-                <div class="fab-logout" title="退出登录">
-                    <FluentButton Class="logout-button" OnClick="LogoutAsync">
+            <main>
+                <div title="退出登录">
+                    <FluentButton OnClick="LogoutAsync">
                         退出
                     </FluentButton>
                 </div>
 
-                <FluentCard Class="content-card">
-                    <header class="content-card-title">@PageTitle</header>
-                    <div class="content-card-body">
+                <FluentCard>
+                    <header>@PageTitle</header>
+                    <div>
                         @Body
                     </div>
                 </FluentCard>
@@ -66,8 +66,8 @@ else
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
+    <a href=".">Reload</a>
+    <span>🗙</span>
 </div>
 
 @code {

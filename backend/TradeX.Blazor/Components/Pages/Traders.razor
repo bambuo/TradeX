@@ -5,8 +5,8 @@
 
 <PageTitle>交易员</PageTitle>
 
-<section class="traders-page">
-    <header class="page-header">
+<section>
+    <header>
         <FluentText As="TextTag.H2">交易员管理</FluentText>
         <FluentButton Appearance="ButtonAppearance.Primary" OnClick="OpenCreate">
             新建交易员
@@ -15,33 +15,32 @@
 
     @if (loading)
     {
-        <div class="loading"><FluentSpinner /> 加载中...</div>
+        <div><FluentSpinner /> 加载中...</div>
     }
     else if (traders.Count == 0)
     {
-        <div class="empty-state">
+        <div>
             <FluentText As="TextTag.Paragraph" Weight="TextWeight.Semibold">暂无交易员</FluentText>
-            <FluentText Color="Color.Custom" CustomColor="var(--tx-muted)" Size="TextSize.Size200">点击上方按钮创建第一个交易员</FluentText>
+            <FluentText Size="TextSize.Size200">点击上方按钮创建第一个交易员</FluentText>
         </div>
     }
     else
     {
-        <div class="card-grid">
+        <div>
             @foreach (var trader in traders)
             {
-                var avatarColor = GetAvatarColor(trader);
                 var isActive = trader.Status == TraderStatus.Active;
 
-                <FluentCard Class="trader-card" Style="@($"border-top-color: {avatarColor};")">
-                    <div class="card-header">
-                        <FluentAvatar Initials="@trader.Name[..1].ToUpperInvariant()" CustomColor="@avatarColor" Src="@trader.AvatarUrl" /> 
-                        <div class="card-title-area">
+                <FluentCard>
+                    <div>
+                        <FluentAvatar Initials="@trader.Name[..1].ToUpperInvariant()" Src="@trader.AvatarUrl" /> 
+                        <div>
                             <FluentText As="TextTag.H3">@trader.Name</FluentText>
-                            <FluentText Color="Color.Custom" CustomColor="@GetStatusColor(trader.Status)" As="TextTag.Span" Size="TextSize.Size200" Weight="TextWeight.Semibold">
+                            <FluentText As="TextTag.Span" Size="TextSize.Size200" Weight="TextWeight.Semibold">
                                 @GetStatusLabel(trader.Status)
                             </FluentText>
                         </div>
-                        <div class="card-header-actions">
+                        <div>
                             <FluentButton Appearance="ButtonAppearance.Transparent" IconStart="@Icon.FromImageUrl("/exchanges/edit.svg")" IconOnly="true" Tooltip="编辑" OnClick="@(() => OpenEdit(trader))" />
                             <FluentSwitch Value="@isActive" ValueChanged="@(value => ToggleStatusAsync(trader.Id, value))" />
                         </div>
@@ -49,34 +48,34 @@
 
                     @if (!string.IsNullOrWhiteSpace(trader.Style))
                     {
-                        <div class="card-tag-row">
-                            <span class="style-tag" style="@GetStyleTagStyle(trader.Style)">@trader.Style</span>
+                        <div>
+                            <span>@trader.Style</span>
                         </div>
                     }
 
                     @if (traderStats.TryGetValue(trader.Id, out var stats))
                     {
-                        <div class="card-stats">
-                            <div class="stat-item">
-                                <span class="stat-num">@stats.TotalTrades</span>
-                                <span class="stat-label">交易次数</span>
+                        <div>
+                            <div>
+                                <span>@stats.TotalTrades</span>
+                                <span>交易次数</span>
                             </div>
-                            <div class="stat-item">
-                                <span class="stat-num @(stats.WinRate >= 50 ? "num-up" : "num-down")">@stats.WinRate%</span>
-                                <span class="stat-label">胜率</span>
+                            <div>
+                                <span>@stats.WinRate%</span>
+                                <span>胜率</span>
                             </div>
-                            <div class="stat-item">
-                                <span class="stat-num @GetProfitClass(stats.ProfitLossRatio)">@stats.ProfitLossRatio.ToString("F2")</span>
-                                <span class="stat-label">盈亏比</span>
+                            <div>
+                                <span>@stats.ProfitLossRatio.ToString("F2")</span>
+                                <span>盈亏比</span>
                             </div>
-                            <div class="stat-item">
-                                <span class="stat-num @(stats.SharpeRatio >= 1 ? "num-up" : "num-down")">@stats.SharpeRatio.ToString("F2")</span>
-                                <span class="stat-label">夏普率</span>
+                            <div>
+                                <span>@stats.SharpeRatio.ToString("F2")</span>
+                                <span>夏普率</span>
                             </div>
                         </div>
                     }
 
-                    <div class="card-footer">
+                    <div>
                         <FluentButton OnClick="@(() => Navigation.NavigateTo($"/traders/{trader.Id}/strategies"))">策略部署</FluentButton>
                         <FluentButton OnClick="@(() => Navigation.NavigateTo($"/traders/{trader.Id}/positions"))">持仓</FluentButton>
                         <FluentButton OnClick="@(() => Navigation.NavigateTo($"/traders/{trader.Id}/orders"))">订单</FluentButton>
@@ -93,15 +92,15 @@
             @(isEdit ? "编辑交易员" : "新建交易员")
         </TitleTemplate>
         <ChildContent>
-            <div class="form-preview">
-                <FluentAvatar Initials="@(string.IsNullOrWhiteSpace(formName) ? "?" : formName[..1].ToUpperInvariant())" CustomColor="@formAvatarColor" />
-                <div class="form-meta">
+            <div>
+                <FluentAvatar Initials="@(string.IsNullOrWhiteSpace(formName) ? "?" : formName[..1].ToUpperInvariant())" />
+                <div>
                     <FluentText As="TextTag.Paragraph" Weight="TextWeight.Semibold">@(string.IsNullOrWhiteSpace(formName) ? "新交易员" : formName)</FluentText>
-                    <FluentText Color="Color.Custom" CustomColor="var(--tx-muted)" Size="TextSize.Size200">设置名称和头像</FluentText>
+                    <FluentText Size="TextSize.Size200">设置名称和头像</FluentText>
                 </div>
             </div>
 
-            <div class="dialog-form">
+            <div>
                 <FluentTextInput Width="100%" Size="TextInputSize.Large" Label="名称" Placeholder="输入交易员名称" @bind-Value="formName" />
 
                 <FluentSelect TOption="string" TValue="string"
@@ -112,12 +111,12 @@
 
                 @if (!string.IsNullOrWhiteSpace(formError))
                 {
-                    <FluentText Class="dialog-error" As="TextTag.Paragraph">@formError</FluentText>
+                    <FluentText As="TextTag.Paragraph">@formError</FluentText>
                 }
             </div>
         </ChildContent>
         <ActionTemplate>
-            <div class="dialog-actions">
+            <div>
                 <FluentButton Appearance="ButtonAppearance.Primary" Disabled="@saving" OnClick="SaveAsync">
                     @(saving ? "保存中..." : "保存")
                 </FluentButton>
@@ -154,13 +153,6 @@
         "稳健型", "激进型", "平衡型", "灵活型"
     ];
 
-    private static readonly Dictionary<string, string> StyleColors = new()
-    {
-        ["稳健型"] = "#528a60",
-        ["激进型"] = "#bf4848",
-        ["平衡型"] = "#b8893a",
-        ["灵活型"] = "#4f7ec9"
-    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -279,13 +271,6 @@
         }
     }
 
-    private string GetAvatarColor(TraderItem trader)
-    {
-        if (!string.IsNullOrWhiteSpace(trader.AvatarColor))
-            return trader.AvatarColor;
-        return GetAvatarColorFromName(trader.Name);
-    }
-
     private static string GetAvatarColorFromName(string name)
     {
         var hash = 0;
@@ -300,26 +285,6 @@
         TraderStatus.Disabled => "离岗",
         TraderStatus.Deleted => "已删除",
         _ => status.ToString()
-    };
-
-    private static string GetStatusColor(TraderStatus status) => status switch
-    {
-        TraderStatus.Active => "#528a60",
-        TraderStatus.Deleted => "#bf4848",
-        _ => "#9c9590"
-    };
-
-    private static string GetStyleTagStyle(string style)
-    {
-        var color = StyleColors.GetValueOrDefault(style, "#9c9590");
-        return $"background: {color}14; color: {color}; border-color: {color}28";
-    }
-
-    private static string GetProfitClass(decimal ratio) => ratio switch
-    {
-        >= 1.5m => "num-up",
-        >= 1m => "num-neutral",
-        _ => "num-down"
     };
 
     private async Task ShowSuccess(string text)

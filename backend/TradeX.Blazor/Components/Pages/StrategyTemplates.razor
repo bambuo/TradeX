@@ -6,8 +6,8 @@
 
 <PageTitle>策略模板</PageTitle>
 
-<section class="strategies-page">
-    <header class="page-header">
+<section>
+    <header>
         <FluentText As="TextTag.H2">策略模板</FluentText>
         <FluentButton Appearance="ButtonAppearance.Primary" OnClick="OpenCreate">
             新建策略
@@ -16,61 +16,61 @@
 
     @if (loading)
     {
-        <div class="loading"><FluentSpinner /> 加载中...</div>
+        <div><FluentSpinner /> 加载中...</div>
     }
     else if (strategies.Count == 0)
     {
-        <div class="empty-state">
+        <div>
             <FluentText As="TextTag.Paragraph" Weight="TextWeight.Semibold">暂无策略模板</FluentText>
-            <FluentText Color="Color.Custom" CustomColor="var(--tx-muted)" Size="TextSize.Size200">点击上方按钮创建第一个策略模板</FluentText>
+            <FluentText Size="TextSize.Size200">点击上方按钮创建第一个策略模板</FluentText>
         </div>
     }
     else
     {
-        <div class="card-grid">
+        <div>
             @foreach (var s in strategies)
             {
-                <FluentCard Class="strategy-card" Style="border-top-color: #4f7ec9;">
+                <FluentCard>
                     @{
                         var closeId = $"close-{s.Id}";
                     }
-                    <FluentButton id="@closeId" Class="card-close-btn" Appearance="ButtonAppearance.Transparent" IconOnly="true" Tooltip="删除" OnClick="@(() => popoverTargetId = s.Id)">
+                    <FluentButton id="@closeId" Appearance="ButtonAppearance.Transparent" IconOnly="true" Tooltip="删除" OnClick="@(() => popoverTargetId = s.Id)">
                         <FlDismissRegular />
                     </FluentButton>
                     <FluentPopover AnchorId="@closeId" Opened="@(popoverTargetId == s.Id)" OpenedChanged="@(v => { if (!v) popoverTargetId = null; })" Width="240px">
-                        <div class="popover-confirm">
+                        <div>
                             <FluentText Size="TextSize.Size200">确定删除策略「<strong>@s.Name</strong>」吗？</FluentText>
-                            <div class="popover-actions">
+                            <div>
                                 <FluentButton Appearance="ButtonAppearance.Primary" Size="ButtonSize.Small" OnClick="@(async () => { popoverTargetId = null; await DeleteAsync(s.Id); })">确认</FluentButton>
                                 <FluentButton Appearance="ButtonAppearance.Outline" Size="ButtonSize.Small" OnClick="@(() => popoverTargetId = null)">取消</FluentButton>
                             </div>
                         </div>
                     </FluentPopover>
-                    <div class="card-header">
-                        <div class="card-title-area">
+                    <div>
+                        <div>
                             <FluentText As="TextTag.H3">@s.Name</FluentText>
-                            <span class="strategy-badge">@HumanizeExecutionRule(s.ExecutionRuleJson)</span>
+                            <span>@HumanizeExecutionRule(s.ExecutionRuleJson)</span>
                         </div>
-                        <div class="card-header-actions">
+                        <div>
                             <FluentButton Appearance="ButtonAppearance.Transparent" IconOnly="true" Tooltip="编辑" OnClick="@(() => OpenEdit(s))">
                                 <FlEditRegular />
                             </FluentButton>
-                            <span class="version-badge">v@(s.Version)</span>
+                            <span>v@(s.Version)</span>
                         </div>
                     </div>
 
-                    <div class="card-body">
-                        <div class="info-row">
-                            <span class="info-label">入场</span>
-                            <span class="info-value cond-text" title="@s.EntryConditionJson">@HumanizeCondition(s.EntryConditionJson)</span>
+                    <div>
+                        <div>
+                            <span>入场</span>
+                            <span title="@s.EntryConditionJson">@HumanizeCondition(s.EntryConditionJson)</span>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">出场</span>
-                            <span class="info-value cond-text" title="@s.ExitConditionJson">@HumanizeCondition(s.ExitConditionJson)</span>
+                        <div>
+                            <span>出场</span>
+                            <span title="@s.ExitConditionJson">@HumanizeCondition(s.ExitConditionJson)</span>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">更新</span>
-                            <span class="info-value">@s.UpdatedAt.ToString("yyyy-MM-dd HH:mm")</span>
+                        <div>
+                            <span>更新</span>
+                            <span>@s.UpdatedAt.ToString("yyyy-MM-dd HH:mm")</span>
                         </div>
                     </div>
                 </FluentCard>
@@ -79,23 +79,23 @@
     }
 </section>
 
-<FluentDialog @ref="formDialog" Class="strategy-form-dialog" Modal="true">
+<FluentDialog @ref="formDialog" Modal="true">
     <FluentDialogBody>
         <TitleTemplate>
             @(isEdit ? "编辑策略模板" : "新建策略模板")
         </TitleTemplate>
         <ChildContent>
-            <div class="dialog-body-scroll">
+            <div>
                 @if (ShowPresets)
                 {
-                    <div class="presets-section">
-                        <FluentText Color="Color.Custom" CustomColor="var(--tx-muted)" Size="TextSize.Size200">选择一个预设模板快速创建</FluentText>
-                        <div class="preset-cards">
+                    <div>
+                        <FluentText Size="TextSize.Size200">选择一个预设模板快速创建</FluentText>
+                        <div>
                             @foreach (var preset in Presets)
                             {
-                                <button type="button" class="preset-card" @onclick="@(() => ApplyPreset(preset))">
+                                <button type="button" @onclick="@(() => ApplyPreset(preset))">
                                     <FluentText Weight="TextWeight.Semibold">@preset.Name</FluentText>
-                                    <FluentText Color="Color.Custom" CustomColor="var(--tx-muted)" Size="TextSize.Size200">@preset.Description</FluentText>
+                                    <FluentText Size="TextSize.Size200">@preset.Description</FluentText>
                                 </button>
                             }
                         </div>
@@ -104,9 +104,9 @@
 
                 @if (AppliedPreset is not null)
                 {
-                    <div class="notes-section">
-                        <FluentText Color="Color.Custom" CustomColor="#4f7ec9" Size="TextSize.Size200" Weight="TextWeight.Semibold">最佳实践参考</FluentText>
-                        <ul class="notes-list">
+                    <div>
+                        <FluentText Size="TextSize.Size200" Weight="TextWeight.Semibold">最佳实践参考</FluentText>
+                        <ul>
                             @foreach (var note in AppliedPreset.Notes)
                             {
                                 <li>@note</li>
@@ -115,33 +115,33 @@
                     </div>
                 }
 
-                <div class="dialog-form">
+                <div>
                     <FluentTextInput Width="100%" Size="TextInputSize.Large" Label="策略名称" Placeholder="策略名称" @bind-Value="formName" />
 
-                    <div class="form-section">
-                        <FluentText Color="Color.Custom" CustomColor="var(--tx-muted)" Size="TextSize.Size200" Weight="TextWeight.Semibold">入场条件</FluentText>
+                    <div>
+                        <FluentText Size="TextSize.Size200" Weight="TextWeight.Semibold">入场条件</FluentText>
                         @RenderConditionEditor("entry")
                     </div>
 
-                    <div class="form-section">
-                        <FluentText Color="Color.Custom" CustomColor="var(--tx-muted)" Size="TextSize.Size200" Weight="TextWeight.Semibold">出场条件</FluentText>
+                    <div>
+                        <FluentText Size="TextSize.Size200" Weight="TextWeight.Semibold">出场条件</FluentText>
                         @RenderConditionEditor("exit")
                     </div>
 
-                    <div class="form-section">
-                        <FluentText Color="Color.Custom" CustomColor="var(--tx-muted)" Size="TextSize.Size200" Weight="TextWeight.Semibold">执行规则</FluentText>
+                    <div>
+                        <FluentText Size="TextSize.Size200" Weight="TextWeight.Semibold">执行规则</FluentText>
                         @RenderExecutionRuleEditor()
                     </div>
 
                     @if (!string.IsNullOrWhiteSpace(formError))
                     {
-                        <FluentText Class="dialog-error" As="TextTag.Paragraph">@formError</FluentText>
+                        <FluentText As="TextTag.Paragraph">@formError</FluentText>
                     }
                 </div>
             </div>
         </ChildContent>
         <ActionTemplate>
-            <div class="dialog-actions">
+            <div>
                 <FluentButton Appearance="ButtonAppearance.Primary" Disabled="@saving" OnClick="SaveAsync">
                     @(saving ? "保存中..." : "保存")
                 </FluentButton>

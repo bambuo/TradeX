@@ -4,8 +4,8 @@
 
 <PageTitle>交易所</PageTitle>
 
-<section class="exchanges-page">
-    <header class="page-header">
+<section>
+    <header>
         <FluentText As="TextTag.H2">交易所管理</FluentText>
         <FluentButton Appearance="ButtonAppearance.Primary" OnClick="OpenCreate">
             添加交易所
@@ -14,61 +14,61 @@
 
     @if (loading)
     {
-        <div class="loading"><FluentSpinner /> 加载中...</div>
+        <div><FluentSpinner /> 加载中...</div>
     }
     else if (accounts.Count == 0)
     {
-        <div class="empty">暂无交易所</div>
+        <div>暂无交易所</div>
     }
     else
     {
-        <div class="card-grid">
+        <div>
             @foreach (var account in accounts)
             {
                 var info = GetExchangeInfo(account.ExchangeType);
-                <FluentCard Class="exchange-card" Style="@($"border-top-color: {info.Color};")">
-                    <div class="card-header">
-                        <div class="card-logo" style="background:@info.BgColor;">
+                <FluentCard>
+                    <div>
+                        <div>
                             <img src="@info.IconPath" alt="@info.Label" />
                         </div>
-                        <div class="card-title-area">
+                        <div>
                             <FluentText As="TextTag.H3">@account.Label</FluentText>
-                            <FluentText Color="Color.Custom" CustomColor="@info.Color" As="TextTag.Span" Size="TextSize.Size200" Weight="TextWeight.Semibold">@info.Label</FluentText>
+                            <FluentText As="TextTag.Span" Size="TextSize.Size200" Weight="TextWeight.Semibold">@info.Label</FluentText>
                         </div>
-                        <div class="card-header-actions">
+                        <div>
                             <FluentButton Appearance="ButtonAppearance.Transparent" IconStart="@Icon.FromImageUrl("/exchanges/edit.svg")" IconOnly="true" Tooltip="编辑" OnClick="@(() => OpenEdit(account))" />
                             <FluentSwitch Value="@account.IsEnabled" ValueChanged="@(value => ToggleStatusAsync(account.Id, value))" />
                         </div>
                     </div>
 
-                    <div class="card-body">
-                        <div class="info-row">
-                            <span class="info-label">状态</span>
-                            <FluentText Color="Color.Custom" CustomColor="@(account.IsEnabled ? "#528a60" : "#9c9590")" As="TextTag.Span" Size="TextSize.Size200" Weight="TextWeight.Semibold">
+                    <div>
+                        <div>
+                            <span>状态</span>
+                            <FluentText As="TextTag.Span" Size="TextSize.Size200" Weight="TextWeight.Semibold">
                                 @(account.IsEnabled ? "启用" : "禁用")
                             </FluentText>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">模式</span>
-                            <FluentText Color="Color.Custom" CustomColor="#4f7ec9" As="TextTag.Span" Size="TextSize.Size200" Weight="TextWeight.Semibold">主网</FluentText>
+                        <div>
+                            <span>模式</span>
+                            <FluentText As="TextTag.Span" Size="TextSize.Size200" Weight="TextWeight.Semibold">主网</FluentText>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">测试结果</span>
-                            <span class="info-value">@GetTestLabel(account)</span>
+                        <div>
+                            <span>测试结果</span>
+                            <span>@GetTestLabel(account)</span>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">资产</span>
+                        <div>
+                            <span>资产</span>
                             @if (account.IsEnabled)
                             {
                                 if (assets.TryGetValue(account.Id, out var accountAssets))
                                 {
-                                    <button class="assets-summary" type="button" @onclick="@(() => ToggleAssets(account.Id))">
-                                        @accountAssets.Count 个币种 <span class="expand-arrow @(expandedAssets.Contains(account.Id) ? "expanded" : null)">▶</span>
+                                    <button type="button" @onclick="@(() => ToggleAssets(account.Id))">
+                                        @accountAssets.Count 个币种 <span>▶</span>
                                     </button>
                                 }
                                 else if (assetLoading)
                                 {
-                                    <span class="balance-loading">加载中...</span>
+                                    <span>加载中...</span>
                                 }
                                 else
                                 {
@@ -77,24 +77,24 @@
                             }
                             else
                             {
-                                <span class="info-value">-</span>
+                                <span>-</span>
                             }
                         </div>
                         @if (expandedAssets.Contains(account.Id) && assets.TryGetValue(account.Id, out var expandedItems))
                         {
-                            <div class="asset-list">
+                            <div>
                                 @foreach (var item in expandedItems)
                                 {
-                                    <div class="asset-row">
-                                        <span class="asset-currency">@item.Currency</span>
-                                        <span class="asset-amount">@item.Balance.ToString("N8")</span>
+                                    <div>
+                                        <span>@item.Currency</span>
+                                        <span>@item.Balance.ToString("N8")</span>
                                     </div>
                                 }
                             </div>
                         }
                     </div>
 
-                    <div class="card-footer">
+                    <div>
                         <FluentButton Disabled="@(testingId == account.Id)" OnClick="@(() => TestConnectionAsync(account.Id))">
                             @(testingId == account.Id ? "测试中" : "测试")
                         </FluentButton>
@@ -107,31 +107,31 @@
     }
 </section>
 
-<FluentDialog @ref="ordersDialog" Class="orders-dialog" Modal="true">
+<FluentDialog @ref="ordersDialog" Modal="true">
     <FluentDialogBody>
         <TitleTemplate>
             @ordersDialogTitle
         </TitleTemplate>
         <ChildContent>
-            <div class="orders-dialog-content">
+            <div>
                 <FluentTabs ActiveTabId="@ordersType.ToString()" ActiveTabIdChanged="OnOrdersTabChanged">
                     <FluentTab Id="Open" Header="当前挂单" />
                     <FluentTab Id="History" Header="历史订单" />
                 </FluentTabs>
                 @if (ordersLoading)
                 {
-                    <div class="loading"><FluentSpinner /> 加载中...</div>
+                    <div><FluentSpinner /> 加载中...</div>
                 }
                 else if (!string.IsNullOrWhiteSpace(ordersError))
                 {
-                    <div class="orders-error" role="alert">@ordersError</div>
+                    <div role="alert">@ordersError</div>
                 }
                 else
                 {
-                    <FluentDataGrid Items="orders.AsQueryable()" Class="orders-grid">
+                    <FluentDataGrid Items="orders.AsQueryable()">
                         <PropertyColumn Property="@(o => o.Symbol)" Title="交易对" />
                         <TemplateColumn Title="方向">
-                            <span class="@(context.Side == "Buy" ? "side-buy" : "side-sell")">@(context.Side == "Buy" ? "买入" : "卖出")</span>
+                            <span>@(context.Side == "Buy" ? "买入" : "卖出")</span>
                         </TemplateColumn>
                         <TemplateColumn Title="类型">@FormatOrderType(context.Type)</TemplateColumn>
                         <TemplateColumn Title="状态">@FormatOrderStatus(context.Status)</TemplateColumn>
@@ -142,13 +142,13 @@
                     </FluentDataGrid>
                     @if (orders.Count == 0)
                     {
-                        <div class="empty">@(ordersType == OrderListType.Open ? "暂无挂单" : "暂无历史订单")</div>
+                        <div>@(ordersType == OrderListType.Open ? "暂无挂单" : "暂无历史订单")</div>
                     }
                 }
             </div>
         </ChildContent>
         <ActionTemplate>
-            <div class="dialog-actions">
+            <div>
                 <FluentButton Appearance="ButtonAppearance.Outline" OnClick="CloseOrdersAsync">关闭</FluentButton>
             </div>
         </ActionTemplate>
@@ -161,7 +161,7 @@
             @(isEdit ? "编辑交易所" : "添加交易所")
         </TitleTemplate>
         <ChildContent>
-        <EditForm Model="form" OnValidSubmit="SaveAsync" class="dialog-form">
+        <EditForm Model="form" OnValidSubmit="SaveAsync">
             <DataAnnotationsValidator />
             <FluentTextInput Width="100%" Size="TextInputSize.Large" Label="名称" Placeholder="名称（如：币安主账户）" @bind-Value="form.Name" />
             <FluentSelect TOption="ExchangeType" TValue="ExchangeType"
@@ -177,12 +177,12 @@
             <FluentTextInput Width="100%" Size="TextInputSize.Large" TextInputType="TextInputType.Password" Label="Passphrase" Placeholder="@(isEdit ? "Passphrase（留空则不修改）" : "Passphrase（选填）")" @bind-Value="form.Passphrase" />
             @if (!string.IsNullOrWhiteSpace(formError))
             {
-                <FluentText Class="dialog-error" As="TextTag.Paragraph">@formError</FluentText>
+                <FluentText As="TextTag.Paragraph">@formError</FluentText>
             }
         </EditForm>
         </ChildContent>
         <ActionTemplate>
-        <div class="dialog-actions">
+        <div>
             <FluentButton Appearance="ButtonAppearance.Primary" Disabled="@saving" OnClick="SaveAsync">
                 @(saving ? "保存中..." : "保存")
             </FluentButton>
@@ -459,11 +459,11 @@
     {
         return type switch
         {
-            ExchangeType.OKX => new ExchangeInfo("OKX", "OKX", "#000000", "rgba(0,0,0,0.08)", "/exchanges/okx.svg"),
-            ExchangeType.Gate => new ExchangeInfo("Gate.io", "G", "#1FBA9F", "rgba(31,186,159,0.12)", "/exchanges/gateio.svg"),
-            ExchangeType.Bybit => new ExchangeInfo("Bybit", "B", "#F7A600", "rgba(247,166,0,0.12)", "/exchanges/bybit.svg"),
-            ExchangeType.HTX => new ExchangeInfo("HTX", "H", "#0C5BFF", "rgba(12,91,255,0.12)", "/exchanges/htx.svg"),
-            _ => new ExchangeInfo("Binance", "B", "#F3BA2F", "rgba(243,186,47,0.12)", "/exchanges/binance.svg")
+            ExchangeType.OKX => new ExchangeInfo("OKX", "OKX", "/exchanges/okx.svg"),
+            ExchangeType.Gate => new ExchangeInfo("Gate.io", "G", "/exchanges/gateio.svg"),
+            ExchangeType.Bybit => new ExchangeInfo("Bybit", "B", "/exchanges/bybit.svg"),
+            ExchangeType.HTX => new ExchangeInfo("HTX", "H", "/exchanges/htx.svg"),
+            _ => new ExchangeInfo("Binance", "B", "/exchanges/binance.svg")
         };
     }
 
@@ -491,5 +491,5 @@
         };
     }
 
-    private sealed record ExchangeInfo(string Label, string ShortName, string Color, string BgColor, string IconPath);
+    private sealed record ExchangeInfo(string Label, string ShortName, string IconPath);
 }
