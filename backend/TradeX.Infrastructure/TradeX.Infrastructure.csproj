@@ -12,7 +12,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Apache.IoTDB" Version="2.0.8" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0-preview.3.25171.6" />
     <PackageReference Include="Casbin.NET" Version="2.14.0" />
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />

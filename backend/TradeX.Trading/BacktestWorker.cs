@@ -117,8 +117,6 @@ public class BacktestScheduler(
         if (exchange is null)
             throw new InvalidOperationException($"交易所不存在: {task.ExchangeId}");
 
-        var exchangeName = exchange.Type.ToString();
-
         task.Phase = BacktestPhase.FetchingData;
         await scope.TaskRepo.UpdateAsync(task, ct);
 
@@ -127,42 +125,13 @@ public class BacktestScheduler(
         var endUtc = task.EndAtUtc;
         var symbolId = task.SymbolId;
         var timeframe = task.Timeframe;
-        var tolerance = TimeSpan.FromMilliseconds(GetIntervalMs(timeframe));
-        var dataFromIotdb = false;
 
-        var iotdbTask = scope.IoTDb.GetKlinesAsync(exchangeName, symbolId, timeframe, startUtc, endUtc, ct);
         var exchangeClient = scope.ClientFactory.CreateClient(
             exchange.Type,
             scope.EncryptionService.Decrypt(exchange.ApiKeyEncrypted),
             scope.EncryptionService.Decrypt(exchange.SecretKeyEncrypted));
-        var exchangeTask = exchangeClient.GetKlinesAsync(symbolId, timeframe, startUtc, endUtc, ct);
 
-        var completedTask = await Task.WhenAny(iotdbTask, exchangeTask);
-
-        if (completedTask == iotdbTask)
-        {
-            var iotdbCandles = await iotdbTask;
-            var iotdbValid = iotdbCandles.Length >= 2
-                 && iotdbCandles[0].Timestamp <= startUtc + tolerance
-                 && iotdbCandles[^1].Timestamp >= endUtc - tolerance;
-            if (iotdbValid)
-            {
-                candles = iotdbCandles.ToList();
-                dataFromIotdb = true;
-                logger.LogInformation("从 IoTDB 缓存读取 K 线数据: {Count} 条", candles.Count);
-            }
-            else
-            {
-                candles = await FetchAllCandlesAsync(exchangeClient, symbolId, timeframe, startUtc, endUtc, ct);
-            }
-        }
-        else
-        {
-            candles = await FetchAllCandlesAsync(exchangeClient, symbolId, timeframe, startUtc, endUtc, ct);
-        }
-
-        if (!dataFromIotdb)
-            _ = scope.IoTDb.WriteKlinesAsync(exchangeName, symbolId, timeframe, candles, ct);
+        candles = await FetchAllCandlesAsync(exchangeClient, symbolId, timeframe, startUtc, endUtc, ct);
 
         task.Phase = BacktestPhase.Running;
         await scope.TaskRepo.UpdateAsync(task, ct);
@@ -270,36 +239,6 @@ public class BacktestScheduler(
 
     private static long GetIntervalMs(string timeframe) =>
         IntervalMs.TryGetValue(timeframe, out var ms) ? ms : 60_000;
-
-    private async Task<List<Candle>> FetchCandlesWithFallbackAsync(
-        IIoTDbService iotdb,
-        IExchangeClient exchangeClient,
-        string exchangeName,
-        string symbol,
-        string timeframe,
-        DateTime startUtc,
-        DateTime endUtc,
-        CancellationToken ct)
-    {
-        var tolerance = TimeSpan.FromMilliseconds(GetIntervalMs(timeframe));
-
-        try
-        {
-            var iotdbCandles = await iotdb.GetKlinesAsync(exchangeName, symbol, timeframe, startUtc, endUtc, ct);
-            if (iotdbCandles.Length >= 2
-                && iotdbCandles[0].Timestamp <= startUtc + tolerance
-                && iotdbCandles[^1].Timestamp >= endUtc - tolerance)
-            {
-                return iotdbCandles.ToList();
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "IoTDB 查询失败，回退到交易所直接获取 K 线数据");
-        }
-
-        return await FetchAllCandlesAsync(exchangeClient, symbol, timeframe, startUtc, endUtc, ct);
-    }
 
     private static async Task<List<Candle>> FetchAllCandlesAsync(IExchangeClient client, string symbol, string timeframe, DateTime startUtc, DateTime endUtc, CancellationToken ct)
     {

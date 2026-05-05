@@ -16,13 +16,10 @@ flowchart TB
     end
 
     subgraph Services["外部服务"]
-        F["SQLite (配置)"]
-        G["IoTDB (时序)"]
+        F["SQLite (数据库)"]
     end
 
     B -->|EF Core| F
-    B -->|IoTDB Client| G
-    C -->|SignalR| G
 ```
 
 ## 技术栈
@@ -31,7 +28,7 @@ flowchart TB
 |---|------|
 | 后端 | ASP.NET Core 10 + C# 14（主构造函数、集合表达式 `[]`、`field` 关键字）|
 | 前端 | Vue 3 + TypeScript + Pinia |
-| 数据库 | SQLite（配置）+ IoTDB（时序数据）|
+| 数据库 | SQLite |
 | 鉴权 | Casbin.NET RBAC + JWT + MFA TOTP |
 | 实时通信 | SignalR |
 | 通知 | Telegram / Discord / Email |
@@ -61,7 +58,7 @@ JWT_SECRET=your-secret-key docker compose up --build
 TradeX/
 ├── AGENTS.md                # AI 代理编码规范（多角色协作、技术约束）
 ├── Dockerfile               # 统一三阶段构建（frontend build → backend build → runtime）
-├── docker-compose.yml       # tradex + iotdb 编排
+├── docker-compose.yml       # tradex 编排
 ├── backend/
 │   ├── TradeX.slnx
 │   ├── TradeX.Api/          # ASP.NET Core Web API + SPA 静态文件
@@ -74,7 +71,7 @@ TradeX/
 │   ├── TradeX.Exchange/     # 交易所客户端（Binance/OKX/Gate/Bybit/HTX）
 │   ├── TradeX.Indicators/   # 技术指标（Skender.Stock.Indicators）
 │   ├── TradeX.Trading/      # 策略引擎 + 风控管线 + 回测 + Reconciliation
-│   ├── TradeX.Infrastructure/ # EF Core + Casbin + IoTDB Client
+│   ├── TradeX.Infrastructure/ # EF Core + Casbin
 │   ├── TradeX.Notifications/  # Telegram/Discord/Email 通知
 │   └── TradeX.Tests/        # xUnit + NSubstitute（14 文件，118+ 测试方法）
 ├── frontend/                # Vue 3 + TypeScript SPA（Vite 构建）

@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using TradeX.Core.Interfaces;
 using TradeX.Infrastructure.Data;
 using TradeX.Trading;
 
@@ -9,7 +8,6 @@ namespace TradeX.Api.Controllers;
 [ApiController]
 public class HealthController(
     TradeXDbContext db,
-    IIoTDbService iotdb,
     ResourceMonitor resourceMonitor,
     ILogger<HealthController> logger) : ControllerBase
 {
@@ -26,15 +24,12 @@ public class HealthController(
             logger.LogWarning(ex, "健康检查: 数据库连接失败");
         }
 
-        var iotdbConnected = await iotdb.HealthCheckAsync(ct);
-
         var status = dbConnected ? "Ok" : "Degraded";
 
         return Ok(new
         {
             status,
             database = dbConnected ? "Connected" : "Disconnected",
-            iotdb = iotdbConnected ? "Connected" : "Disconnected",
             timestamp = DateTime.UtcNow,
             backtestScheduler = new
             {

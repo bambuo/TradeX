@@ -20,7 +20,7 @@
 | # | 原则 | 说明 |
 |---|------|------|
 | P1 | **防御第一** | 所有外部输入视为不可信；资金操作必须过风控链；交易所 API 调用必须过限流器 |
-| P2 | **离线韧性** | 每个交易所 WebSocket 断线、IoTDB 不可用、交易所 API 5xx，均不可导致系统崩溃；应有降级路径 |
+| P2 | **离线韧性** | 每个交易所 WebSocket 断线、交易所 API 5xx，均不可导致系统崩溃；应有降级路径 |
 | P3 | **可观测性内建** | 结构化日志、审计日志、Health 端点、风控事件，不是后加的功能 |
 | P4 | **状态显式化** | 策略状态机、订单状态机、持仓状态机全部用枚举 + 状态转换表驱动，禁止 if/else 隐式状态 |
 | P5 | **依赖单向** | `Api → Trading → Exchange / Indicators / Infrastructure / Notifications`，Core 是叶节点，零依赖 |
@@ -33,7 +33,7 @@
 |------|------|
 | 目标框架 `net10.0` + `LangVersion=14.0` | AGENTS.md |
 | 前端 Blazor Server + Bootstrap Blazor `BootstrapBlazor` v10.6.0 | AGENTS.md |
-| SQLite 为主存储，IoTDB 为时序存储 | PRD FR-13 |
+| SQLite 为主存储 | PRD FR-13 |
 | Docker Compose 单机部署，无 K8s | PRD FR-16 |
 | 仅支持现货交易，不涉及合约/杠杆 | FSD §25 待确认 #10 |
 | 交易所 SDK 统一使用 JKorf 系列 | FSD v1.3 |
@@ -90,14 +90,12 @@ flowchart TB
 
   SQLITE[("SQLite<br/>EF Core")]:::db
   TRADEX[ASP.NET Core 10<br/>REST + SPA + SignalR + BackgroundService]:::container
-  IOTDB[("IoTDB<br/>时序数据库")]:::db
 
   EXCHANGES[交易所集群<br/>Binance / OKX / Gate / Bybit / HTX]:::ext
   NOTIF[通知渠道<br/>Telegram / Discord / Email]:::ext
 
   ADMIN -->|"HTTP :80"| TRADEX
   TRADEX -->|"EF Core (ADO.NET)"| SQLITE
-  TRADEX -->|"IoTDB REST (Thrift)"| IOTDB
   TRADEX -->|"行情 WSS + 交易 REST"| EXCHANGES
   TRADEX -->|"告警推送 (HTTPS/SMTP)"| NOTIF
 ```
@@ -108,7 +106,6 @@ flowchart TB
 |------|------|--------|-----------|--------|
 | Backend (API+SPA) | ASP.NET Core 10 | 1 | 有状态（内存 K 线缓存） | 仅垂直（单实例 Trading Engine） |
 | SQLite | Microsoft.Data.Sqlite | 1 | 文件持久卷 | N/A（单实例写） |
-| IoTDB | apache/iotdb:1.3.3 | 1 | 文件持久卷 | 仅垂直（单实例） |
 
 > **关键约束**：Trading Engine 作为 `BackgroundService` 维护策略评估循环和内存 K 线缓存，当前架构仅支持单后端实例。多实例部署需引入分布式缓存（Redis）和分布式锁，属于后期可演进方向。
 
@@ -339,7 +336,7 @@ flowchart TD
 
 | 方面 | 设计决策 |
 |------|---------|
-| **回放模式** | 逐 K 线回放（Tick 级回放对现货意义不大）。从 SQLite/IoTDB 读取历史 K 线，以 Close Time 为时间轴步进 |
+| **回放模式** | 逐 K 线回放（Tick 级回放对现货意义不大）。从 SQLite 读取历史 K 线，以 Close Time 为时间轴步进 |
 | **策略执行** | 同一个 `ConditionTreeEvaluator` + `TradeExecutor`（mock 模式），每次 K 线闭合时评估入场/出场条件。风控链仅在回测统计中标记，不拦截 |
 | **费用模型** | 可配置：maker/taker 费率（从 `ExchangeSymbolRuleSnapshot` 读取），默认 taker 0.1%。滑点模拟：按成交量百分比线性滑点（默认 0.05%） |
 | **绩效指标** | 总收益率、年化收益率、最大回撤 (MDD)、夏普比率、胜率、盈亏比、总交易次数、平均持仓时间 |
@@ -429,7 +426,6 @@ flowchart TB
     DBCONTEXT[TradeXDbContext<br/>EF Core DbContext]:::component
     REPOS[Repositories<br/>仓储模式]:::component
     CASBIN[CasbinEnforcer<br/>Casbin.NET Enforcer]:::component
-    IOTDB_CLIENT[IoTDbClient<br/>时序数据访问<br/>K 线写入与查询]:::component
     CRYPTO[CryptoService<br/>AES-256-GCM<br/>API Key / MFA Secret 加密]:::component
     HASHER[PasswordHasher<br/>bcrypt<br/>密码哈希]:::component
   end
@@ -565,7 +561,7 @@ public interface IIndicatorCalculator<TResult>
 | 策略 / 订单 | SQLite | 中频读写 | 强一致 | 同上 |
 | 持仓 | SQLite | 高频更新（15s/cycle） | 最终一致 | 同上 |
 | 审计日志 | SQLite | 仅追加写 + 低频范围查 | 最终一致 | 同上 + 归档 |
-| K 线历史 | IoTDB | 高频追加写 + 范围读 | 最终一致 | IoTDB snapshot |
+| K 线历史 | 交易所 REST API | 回测时实时拉取 | 最终一致 | — |
 | 归档订单 | JSON (gzip) | 极低频读 | 最终一致 | 与 SQLite 同卷 |
 
 ### 4.2 ER 图 (核心实体)
@@ -690,23 +686,6 @@ erDiagram
   }
 ```
 
-### 4.3 IoTDB 时序数据设计
-
-| 序列路径 | 数据类型 | 说明 |
-|----------|---------|------|
-| `root.tradex.{exchange}.{symbol}.kline.{interval}.open` | DOUBLE | 开盘价 |
-| `root.tradex.{exchange}.{symbol}.kline.{interval}.high` | DOUBLE | 最高价 |
-| `root.tradex.{exchange}.{symbol}.kline.{interval}.low` | DOUBLE | 最低价 |
-| `root.tradex.{exchange}.{symbol}.kline.{interval}.close` | DOUBLE | 收盘价 |
-| `root.tradex.{exchange}.{symbol}.kline.{interval}.volume` | DOUBLE | 成交量 |
-| `root.tradex.{exchange}.{symbol}.kline.{interval}.closeTime` | INT64 | 收盘时间戳 |
-
-**存储组设计**: `root.tradex` 单存储组（单机部署，无需跨组）
-
-**保留策略**: 90 天滚动删除（通过 IoTDB 的 TTL 设置）
-
----
-
 ## 5. 数据流架构
 
 ### 5.1 实时交易数据流
@@ -730,7 +709,7 @@ flowchart LR
 
   subgraph 执行层
     EX[Trade Executor]
-    DB[(SQLite / IoTDB)]
+    DB[(SQLite)]
     SR[SignalR Push]
     NF[Notification]
   end
@@ -778,7 +757,6 @@ sequenceDiagram
   participant WS as WebSocket Manager
   participant MC as Memory Cache
   participant REST as Exchange REST API
-  participant IoTDB as IoTDB
 
   WS->>WS: 检测断线
   WS->>WS: 指数退避重连<br/>1s → 2s → 4s → ... → 30s max
@@ -788,7 +766,6 @@ sequenceDiagram
   REST-->>WS: 缺失区间 K 线数据
 
   WS->>MC: 写入内存缓存
-  WS->>IoTDB: 写入时序数据库（去重）
   WS->>WS: 恢复实时 WS 订阅
 ```
 
@@ -890,15 +867,15 @@ sequenceDiagram
 | **后果** | 不支持多实例并发写；写锁争用需注意（Trading Engine 15s/cycle 写入 Order）；归档机制可缓解单表增长 |
 | **替代否决** | PostgreSQL（增加运维复杂度，单机场景过重） |
 
-### ADR-002: IoTDB 为时序数据库
+### ADR-002: [已废弃] IoTDB 为时序数据库
 
 | 属性 | 值 |
 |------|-----|
-| **状态** | **Accepted** |
+| **状态** | **Deprecated — 已移除** |
 | **上下文** | K 线数据是典型的时序数据：高频追加写、范围读、无需事务 |
-| **决策** | 使用 Apache IoTDB 1.3.3 存储历史 K 线 |
-| **理由** | 原生支持时间序列（优于 SQLite）、列式压缩存储空间、内置 TTL 过期、Docker 化部署简单 |
-| **后果** | 引入额外容器依赖；初期可 SQLite 降级（FR-13 K 线预热可直接从交易所 REST 拉取） |
+| **决策** | 移除 IoTDB。回测 K 线数据直接通过交易所 REST API 实时拉取，不再独立缓存 |
+| **理由** | 减少容器依赖、简化部署运维。回测为离线任务，对延迟不敏感 |
+| **后果** | 已删除 IIoTDbService 接口、IoTDbService 实现、IoTDbOptions 配置，移除 docker-compose 中的 iotdb 服务 |
 | **替代否决** | InfluxDB（Docker 镜像 > 300MB vs IoTDB ~200MB）；TimescaleDB（依赖 PostgreSQL） |
 
 ### ADR-003: Casbin.NET 为鉴权引擎
@@ -1027,22 +1004,12 @@ flowchart TB
       API[ASP.NET Core 10<br/>REST + SPA + SignalR + BackgroundService<br/>:80]
     end
 
-    subgraph TSDB["iotdb"]
-      IOTDB[IoTDB :6667 :8181]
-    end
-
     VOL_DATA[(tradex-data)]:::volume
-    VOL_IOTDB_DATA[(iotdb-data)]:::volume
-    VOL_IOTDB_WAL[(iotdb-wal)]:::volume
   end
 
   USER --> API
   API --> VOL_DATA
-  API --> IOTDB
   API --> EXS
-
-  IOTDB --> VOL_IOTDB_DATA
-  IOTDB --> VOL_IOTDB_WAL
 ```
 
 ### 7.2 路由策略
@@ -1069,8 +1036,6 @@ Blazor Server 与 REST API 共享同一 ASP.NET Core 进程，无需独立 Nginx
 | `Jwt__Secret` | — | **必填**，JWT 签名密钥 |
 | `Jwt__AccessTokenExpiresMinutes` | 30 | AccessToken 有效期 |
 | `Jwt__RefreshTokenExpiresDays` | 7 | RefreshToken 有效期 |
-| `IoTDB__Host` | localhost | IoTDB 主机 |
-| `IoTDB__Port` | 6667 | IoTDB Thrift 端口 |
 | `Serilog__MinimumLevel__Default` | Information | 日志级别 |
 
 ---

@@ -30,12 +30,6 @@ public static class DependencyInjection
         services.AddScoped<INotificationChannelRepository, NotificationChannelRepository>();
 
         services.AddSingleton<IEncryptionService, EncryptionService>();
-
-        services.AddOptions<IoTDbOptions>()
-            .BindConfiguration("IoTDb");
-
-        services.AddSingleton<IIoTDbService, IoTDbService>();
-
         services.AddSingleton<CasbinEnforcer>();
 
         return services;

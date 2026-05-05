@@ -56,7 +56,7 @@
 | `TradeX.Exchange` | `IExchangeClient` 统一抽象 + 各交易所 SDK 适配（Binance.Net / JK.OKX.Net / GateIo.Net / Bybit.Net / JKorf.HTX.Net）+ WebSocket 连接管理器 + 统一限流层 |
 | `TradeX.Indicators` | 基于 Skender.Stock.Indicators 的技术指标封装库，首批 8 个指标（RSI/MACD/SMA/EMA/BB/Volume SMA/OBV/KDJ） |
 | `TradeX.Trading` | 策略引擎（条件树评估）、风控链（Chain of Responsibility）、回测引擎、订单 Reconciliation |
-| `TradeX.Infrastructure` | EF Core + SQLite + Casbin Enforcer + IoTDB Client + 安全能力（AES/PasswordHasher/JWT） |
+| `TradeX.Infrastructure` | EF Core + SQLite + Casbin Enforcer + 安全能力（AES/PasswordHasher/JWT） |
 | `TradeX.Notifications` | 通知渠道客户端（Telegram/Discord/Email）+ 模板渲染 |
 | `TradeX.Tests` | xUnit + NSubstitute，按模块分目录 |
 
@@ -2832,9 +2832,8 @@ volumes:
 
 | # | 依赖 | 状态 | 替代方案 |
 |---|---|---|---|
-| 1 | IoTDB 生产可用性 | 需确认 | 可初期用 SQLite 存储 K 线作为降级 |
-| 2 | 各交易所 WebSocket 订阅限制 | 需调研 | 统一连接管理器做连接复用 |
-| 3 | Skender.Stock.Indicators 在 net10.0 上的兼容性 | 已验证 | 完美适配 |
+| 1 | 各交易所 WebSocket 订阅限制 | 需调研 | 统一连接管理器做连接复用 |
+| 2 | Skender.Stock.Indicators 在 net10.0 上的兼容性 | 已验证 | 完美适配 |
 
 ---
 

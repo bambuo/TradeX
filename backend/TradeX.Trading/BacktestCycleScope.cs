@@ -15,7 +15,6 @@ internal sealed class BacktestCycleScope(IServiceScopeFactory scopeFactory) : ID
     public IEncryptionService EncryptionService => _scope.ServiceProvider.GetRequiredService<IEncryptionService>();
     public IIndicatorService IndicatorService => _scope.ServiceProvider.GetRequiredService<IIndicatorService>();
     public IConditionEvaluator ConditionEvaluator => _scope.ServiceProvider.GetRequiredService<IConditionEvaluator>();
-    public IIoTDbService IoTDb => _scope.ServiceProvider.GetRequiredService<IIoTDbService>();
     public IStrategyDeploymentRepository StrategyDeploymentRepo => _scope.ServiceProvider.GetRequiredService<IStrategyDeploymentRepository>();
 
     public void Dispose() => _scope.Dispose();
