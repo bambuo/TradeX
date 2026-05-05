@@ -103,14 +103,14 @@ else
 
     private IEnumerable<MenuItem> menuItems =>
     [
-        new() { Text = "仪表盘", Icon = "fa-solid fa-gauge-high", Url = "/", Match = NavLinkMatch.All },
-        new() { Text = "交易员", Icon = "fa-solid fa-user", Url = "/traders", Match = NavLinkMatch.Prefix },
-        new() { Text = "交易所", Icon = "fa-solid fa-building-columns", Url = "/exchanges", Match = NavLinkMatch.Prefix },
-        new() { Text = "策略", Icon = "fa-solid fa-clipboard", Url = "/strategies", Match = NavLinkMatch.Prefix },
-        new() { Text = "审计日志", Icon = "fa-solid fa-file-lines", Url = "/audit-logs", Match = NavLinkMatch.Prefix },
-        new() { Text = "系统设置", Icon = "fa-solid fa-gear", Url = "/settings", Match = NavLinkMatch.Prefix },
-        new() { Text = "通知渠道", Icon = "fa-solid fa-bell", Url = "/notifications", Match = NavLinkMatch.Prefix },
-        new() { Text = "用户管理", Icon = "fa-solid fa-user-group", Url = "/users", Match = NavLinkMatch.Prefix }
+        new() { Text = "仪表盘", Icon = "bi bi-speedometer2", Url = "/", Match = NavLinkMatch.All },
+        new() { Text = "交易员", Icon = "bi bi-person", Url = "/traders", Match = NavLinkMatch.Prefix },
+        new() { Text = "交易所", Icon = "bi bi-arrow-left-right", Url = "/exchanges", Match = NavLinkMatch.Prefix },
+        new() { Text = "策略", Icon = "bi bi-clipboard-data", Url = "/strategies", Match = NavLinkMatch.Prefix },
+        new() { Text = "审计日志", Icon = "bi bi-file-text", Url = "/audit-logs", Match = NavLinkMatch.Prefix },
+        new() { Text = "系统设置", Icon = "bi bi-gear", Url = "/settings", Match = NavLinkMatch.Prefix },
+        new() { Text = "通知渠道", Icon = "bi bi-bell", Url = "/notifications", Match = NavLinkMatch.Prefix },
+        new() { Text = "用户管理", Icon = "bi bi-people", Url = "/users", Match = NavLinkMatch.Prefix }
     ];
 
     protected override void OnInitialized()
