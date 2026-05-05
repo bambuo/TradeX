@@ -1,0 +1,25 @@
+.strategy-card {
+    transition: box-shadow 0.15s ease;
+}
+
+.strategy-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.presets-section {
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.condition-editor {
+    background: var(--bs-gray-100);
+}
+
+.condition-row select,
+.condition-row input {
+    min-width: 0;
+}
+
+.exec-rule-editor {
+    background: var(--bs-gray-100);
+}

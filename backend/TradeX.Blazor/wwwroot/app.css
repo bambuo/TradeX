@@ -1,0 +1,132 @@
+/* ========================================
+   TradeX — 全局样式
+   共享布局工具 + CSS 变量 + Bootstrap 覆盖
+   ======================================== */
+
+/* --- CSS 变量 --- */
+:root {
+    --tx-sidebar-width: 220px;
+    --tx-muted: #6c757d;
+}
+
+/* --- 基础重置 --- */
+html,
+body {
+    height: 100%;
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* --- 共享页面工具类 --- */
+
+/* 页面头部：标题 + 操作按钮行 */
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+}
+
+.page-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+/* 加载状态 */
+.loading {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 3rem 0;
+    justify-content: center;
+    color: var(--bs-gray-500);
+}
+
+/* 空状态 */
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--bs-gray-500);
+}
+
+/* 卡片网格（多页面复用） */
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 1rem;
+}
+
+/* 卡片标题行 */
+.card-title-area {
+    flex: 1;
+    min-width: 0;
+}
+
+.card-title-area h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.card-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+/* 卡片操作按钮组 */
+.card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+/* --- BootstrapBlazor 全局调优 --- */
+
+/* Switch 组件对齐 */
+.switch {
+    margin: 0;
+}
+
+/* Button 组件在表格中的紧凑模式 */
+.btn-group-sm .btn {
+    font-size: 0.8rem;
+}
+
+/* Modal 中 BootstrapBlazor Button 间距 */
+.modal-footer .btn {
+    margin-left: 0.5rem;
+}
+
+/* Select 下拉框统一宽度 */
+.form-select {
+    min-width: 120px;
+}
+
+/* --- Blazor Error UI --- */
+#blazor-error-ui {
+    background: var(--bs-danger);
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+    color: #fff;
+}
+
+#blazor-error-ui .reload {
+    color: #fff;
+    text-decoration: underline;
+    margin-left: 1rem;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    float: right;
+    margin-left: 1rem;
+}

@@ -1,0 +1,85 @@
+.dashboard-placeholder {
+    padding: 0;
+}
+
+.dashboard-hero-card {
+    padding: 2rem;
+    background: linear-gradient(135deg, var(--bs-primary) 0%, #1a5fb4 100%);
+    color: #fff;
+    border-radius: var(--bs-border-radius-lg);
+    margin-bottom: 1.5rem;
+}
+
+.dashboard-kicker {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.5rem;
+    opacity: 0.8;
+}
+
+.dashboard-hero-card h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 0.25rem;
+}
+
+.dashboard-hero-card p {
+    margin: 0;
+    opacity: 0.85;
+    font-size: 0.9rem;
+}
+
+.dashboard-risk-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    background: var(--bs-success-bg-subtle);
+    border: 1px solid var(--bs-success-border-subtle);
+    border-radius: var(--bs-border-radius-lg);
+    margin-bottom: 1.5rem;
+}
+
+.dashboard-risk-card strong {
+    color: var(--bs-success);
+    font-size: 1.1rem;
+}
+
+.dashboard-risk-card small {
+    color: var(--bs-gray-500);
+    margin-left: auto;
+}
+
+.dashboard-metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.dashboard-metric-grid article {
+    padding: 1.25rem;
+    background: var(--bs-card-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+}
+
+.dashboard-metric-grid article span {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--bs-gray-500);
+    margin-bottom: 0.25rem;
+}
+
+.dashboard-metric-grid article strong {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+}
+
+.dashboard-metric-grid article small {
+    font-size: 0.75rem;
+    color: var(--bs-gray-500);
+}
