@@ -1,140 +1,171 @@
 @page "/traders/{TraderId:guid}/strategies"
 @inject IStrategyPageService StrategyService
 @inject NavigationManager Navigation
-@inject IToastService ToastService
+@inject ToastService ToastService
 
 <PageTitle>策略部署</PageTitle>
 
-<section>
-    <header>
-        <div>
-            <FluentButton Appearance="ButtonAppearance.Transparent" OnClick="GoBack">
+<section class="strategies-page">
+    <header class="page-header">
+        <div class="header-left">
+            <Button Color="Color.None" OnClick="GoBack">
                 返回
-            </FluentButton>
-            <FluentText As="TextTag.H2">策略部署</FluentText>
+            </Button>
+            <h2>策略部署</h2>
         </div>
-        <FluentButton Appearance="ButtonAppearance.Primary" OnClick="OpenCreate">
+        <Button Color="Color.Primary" OnClick="OpenCreate">
             新建部署
-        </FluentButton>
+        </Button>
     </header>
 
     @if (loading)
     {
-        <div><FluentSpinner /> 加载中...</div>
+        <div class="loading"><Spinner /> 加载中...</div>
     }
     else if (deployments.Count == 0)
     {
-        <div>
-            <FluentText As="TextTag.Paragraph" Weight="TextWeight.Semibold">暂无策略部署</FluentText>
-            <FluentText Size="TextSize.Size200">点击上方按钮创建第一个策略部署</FluentText>
+        <div class="empty-state">
+            <p class="fw-semibold">暂无策略部署</p>
+            <small class="text-muted">点击上方按钮创建第一个策略部署</small>
         </div>
     }
     else
     {
-        <FluentDataGrid Items="@deployments.AsQueryable()" Pagination="@pagination">
-            <TemplateColumn Title="作用域">
-                <span>@GetScopeLabel(context.Scope)</span>
-            </TemplateColumn>
-            <PropertyColumn Property="@(d => d.StrategyLabel)" Title="策略" />
-            <PropertyColumn Property="@(d => d.ExchangeLabel)" Title="交易所" />
-            <TemplateColumn Title="交易对">
-                @FormatSymbolIds(context.SymbolIds)
-            </TemplateColumn>
-            <PropertyColumn Property="@(d => d.Timeframe)" Title="周期" />
-            <TemplateColumn Title="状态">
-                <span>@GetStatusLabel(context.Status)</span>
-            </TemplateColumn>
-            <PropertyColumn Property="@(d => d.UpdatedAt)" Title="更新时间" />
-            <TemplateColumn Title="操作">
-                <div>
-                    <FluentButton Size="ButtonSize.Small"
-                        Appearance="@(context.Status == DeploymentStatus.Active ? ButtonAppearance.Outline : ButtonAppearance.Primary)"
-                        Disabled="@(context.Status == DeploymentStatus.Draft)"
-                        OnClick="@(() => ToggleAsync(context.Id, context.Status != DeploymentStatus.Active))">
-                        @GetToggleLabel(context.Status)
-                    </FluentButton>
-                    <FluentButton Size="ButtonSize.Small" Appearance="ButtonAppearance.Outline"
-                        Disabled="@(context.Status == DeploymentStatus.Active)"
-                        OnClick="@(() => OpenEdit(context))">
-                        编辑
-                    </FluentButton>
-                    <FluentButton Size="ButtonSize.Small" Appearance="ButtonAppearance.Outline"
-                        OnClick="@(() => Navigation.NavigateTo($"/traders/{TraderId}/strategies/{context.Id}/backtest"))">
-                        回测
-                    </FluentButton>
-                    <FluentButton Size="ButtonSize.Small" Appearance="ButtonAppearance.Outline"
-                        Disabled="@(context.Status == DeploymentStatus.Active)"
-                        OnClick="@(() => DeleteAsync(context.Id))">
-                        删除
-                    </FluentButton>
-                </div>
-            </TemplateColumn>
-        </FluentDataGrid>
-        <FluentPaginator State="@pagination" />
+        <table class="table table-striped strategies-grid">
+            <thead>
+                <tr>
+                    <th>作用域</th>
+                    <th>策略</th>
+                    <th>交易所</th>
+                    <th>交易对</th>
+                    <th>周期</th>
+                    <th>状态</th>
+                    <th>更新时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var d in deployments)
+                {
+                    <tr>
+                        <td><span class="badge bg-secondary">@GetScopeLabel(d.Scope)</span></td>
+                        <td>@d.StrategyLabel</td>
+                        <td>@d.ExchangeLabel</td>
+                        <td>@FormatSymbolIds(d.SymbolIds)</td>
+                        <td>@d.Timeframe</td>
+                        <td><span class="badge @GetStatusBadgeClass(d.Status)">@GetStatusLabel(d.Status)</span></td>
+                        <td>@d.UpdatedAt</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <Button Size="Size.Small"
+                                    Color="@(d.Status == DeploymentStatus.Active ? Color.Warning : Color.Primary)"
+                                    IsDisabled="@(d.Status == DeploymentStatus.Draft)"
+                                    OnClick="@(() => ToggleAsync(d.Id, d.Status != DeploymentStatus.Active))">
+                                    @GetToggleLabel(d.Status)
+                                </Button>
+                                <Button Size="Size.Small" Color="Color.Secondary"
+                                    IsDisabled="@(d.Status == DeploymentStatus.Active)"
+                                    OnClick="@(() => OpenEdit(d))">
+                                    编辑
+                                </Button>
+                                <Button Size="Size.Small" Color="Color.Secondary"
+                                    OnClick="@(() => Navigation.NavigateTo($"/traders/{TraderId}/strategies/{d.Id}/backtest"))">
+                                    回测
+                                </Button>
+                                <Button Size="Size.Small" Color="Color.Danger"
+                                    IsDisabled="@(d.Status == DeploymentStatus.Active)"
+                                    OnClick="@(() => DeleteAsync(d.Id))">
+                                    删除
+                                </Button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
     }
 </section>
 
-<FluentDialog @ref="formDialog" Modal="true">
-    <FluentDialogBody>
-        <TitleTemplate>
-            @(isEdit ? "编辑部署" : "新建策略部署")
-        </TitleTemplate>
-        <ChildContent>
-            <div>
-                <FluentRadioGroup @bind-Value="formScope" Orientation="Orientation.Horizontal">
-                    <FluentRadio Value="@("Trader")">交易员级</FluentRadio>
-                    <FluentRadio Value="@("Exchange")">交易所级</FluentRadio>
-                    <FluentRadio Value="@("Symbol")">交易对级</FluentRadio>
-                </FluentRadioGroup>
+@if (showDialog)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(isEdit ? "编辑部署" : "新建策略部署")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseFormAsync"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">作用域</label>
+                        <div class="btn-group w-100" role="group">
+                            @foreach (var scope in new[] { "Trader", "Exchange", "Symbol" })
+                            {
+                                <button type="button" class="btn @(formScope == scope ? "btn-primary" : "btn-outline-primary")"
+                                    @onclick="() => formScope = scope">
+                                    @(scope switch { "Trader" => "交易员级", "Exchange" => "交易所级", _ => "交易对级" })
+                                </button>
+                            }
+                        </div>
+                    </div>
 
-                <FluentSelect TOption="StrategyOption" TValue="Guid"
-                    Width="100%"
-                    Label="策略模板"
-                    Items="strategies"
-                    Disabled="@isEdit"
-                    OptionText="@(s => s.Name)"
-                    OptionValue="@(s => s.Id)"
-                    @bind-Value="formStrategyId" />
+                    <div class="mb-3">
+                        <label class="form-label">策略模板</label>
+                        <select class="form-select" @bind="formStrategyId" disabled="@isEdit">
+                            @foreach (var s in strategies)
+                            {
+                                <option value="@s.Id">@s.Name</option>
+                            }
+                        </select>
+                    </div>
 
-                @if (formScope != "Trader")
-                {
-                    <FluentSelect TOption="ExchangeOption" TValue="Guid?"
-                        Width="100%"
-                        Label="交易所账户"
-                        Items="exchangeOptions"
-                        Disabled="@isEdit"
-                        OptionText="@(e => e.Name)"
-                        OptionValue="@(e => (Guid?)e.Id)"
-                        @bind-Value="formExchangeId" />
-                }
+                    @if (formScope != "Trader")
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">交易所账户</label>
+                            <select class="form-select" @bind="formExchangeId" disabled="@isEdit">
+                                @foreach (var e in exchangeOptions)
+                                {
+                                    <option value="@e.Id">@e.Name</option>
+                                }
+                            </select>
+                        </div>
+                    }
 
-                @if (formScope == "Symbol")
-                {
-                    <FluentTextInput Width="100%" Size="TextInputSize.Large" Label="交易对" Placeholder="输入交易对，逗号分隔（如 BTCUSDT,ETHUSDT）" @bind-Value="formSymbolsInput" />
-                }
+                    @if (formScope == "Symbol")
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">交易对</label>
+                            <input class="form-control form-control-lg" @bind="formSymbolsInput" placeholder="输入交易对，逗号分隔（如 BTCUSDT,ETHUSDT）" />
+                        </div>
+                    }
 
-                <FluentSelect TOption="string" TValue="string"
-                    Width="100%"
-                    Label="时间周期"
-                    Items="timeframes"
-                    @bind-Value="formTimeframe" />
+                    <div class="mb-3">
+                        <label class="form-label">时间周期</label>
+                        <select class="form-select" @bind="formTimeframe">
+                            @foreach (var tf in timeframes)
+                            {
+                                <option value="@tf">@tf</option>
+                            }
+                        </select>
+                    </div>
 
-                @if (!string.IsNullOrWhiteSpace(formError))
-                {
-                    <FluentText As="TextTag.Paragraph">@formError</FluentText>
-                }
+                    @if (!string.IsNullOrWhiteSpace(formError))
+                    {
+                        <p class="text-danger mb-0">@formError</p>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <Button Color="Color.Primary" IsDisabled="@saving" OnClick="SaveAsync">
+                        @(saving ? "保存中..." : "保存")
+                    </Button>
+                    <Button Color="Color.Secondary" OnClick="CloseFormAsync">取消</Button>
+                </div>
             </div>
-        </ChildContent>
-        <ActionTemplate>
-            <div>
-                <FluentButton Appearance="ButtonAppearance.Primary" Disabled="@saving" OnClick="SaveAsync">
-                    @(saving ? "保存中..." : "保存")
-                </FluentButton>
-                <FluentButton Appearance="ButtonAppearance.Outline" OnClick="CloseFormAsync">取消</FluentButton>
-            </div>
-        </ActionTemplate>
-    </FluentDialogBody>
-</FluentDialog>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
 
 @code {
     [Parameter]
@@ -146,10 +177,9 @@
     private List<DeploymentItem> deployments = [];
     private List<StrategyOption> strategies = [];
     private List<ExchangeOption> exchangeOptions = [];
-    private FluentDialog formDialog = default!;
-    private PaginationState pagination = new() { ItemsPerPage = 10 };
     private bool loading = true;
     private bool saving;
+    private bool showDialog;
     private bool isEdit;
     private Guid? editId;
     private string formScope = "Symbol";
@@ -205,7 +235,7 @@
         formSymbolsInput = string.Empty;
         formTimeframe = "15m";
         formError = null;
-        await formDialog.ShowAsync();
+        showDialog = true;
     }
 
     private async Task OpenEdit(DeploymentItem item)
@@ -218,12 +248,12 @@
         formSymbolsInput = FormatSymbolIds(item.SymbolIds);
         formTimeframe = item.Timeframe;
         formError = null;
-        await formDialog.ShowAsync();
+        showDialog = true;
     }
 
     private async Task CloseFormAsync()
     {
-        await formDialog.HideAsync();
+        showDialog = false;
     }
 
     private async Task SaveAsync()
@@ -259,7 +289,7 @@
                 });
             }
 
-            await formDialog.HideAsync();
+            showDialog = false;
             await ShowSuccess(isEdit ? "部署已更新" : "部署已创建");
             await LoadAllAsync();
         }
@@ -319,6 +349,16 @@
         _ => status.ToString()
     };
 
+    private static string GetStatusBadgeClass(DeploymentStatus status) => status switch
+    {
+        DeploymentStatus.Draft => "bg-secondary",
+        DeploymentStatus.Backtesting => "bg-info",
+        DeploymentStatus.Passed => "bg-success",
+        DeploymentStatus.Active => "bg-primary",
+        DeploymentStatus.Disabled => "bg-secondary",
+        _ => "bg-secondary"
+    };
+
     private static string GetToggleLabel(DeploymentStatus status) => status switch
     {
         DeploymentStatus.Active => "禁用",
@@ -349,8 +389,8 @@
     }
 
     private async Task ShowSuccess(string text)
-        => await ToastService.ShowToastAsync(o => { o.Body = text; o.Intent = ToastIntent.Success; o.Timeout = 3000; });
+        => await ToastService.Success("成功", text);
 
     private async Task ShowError(string text)
-        => await ToastService.ShowToastAsync(o => { o.Body = text; o.Intent = ToastIntent.Error; });
+        => await ToastService.Error("错误", text);
 }

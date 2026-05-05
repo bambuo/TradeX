@@ -1,165 +1,182 @@
 @page "/strategies"
 @inject IStrategyTemplatePageService StrategyService
 @inject NavigationManager Navigation
-@inject IToastService ToastService
+@inject ToastService ToastService
 @using System.Text.Json
 
 <PageTitle>策略模板</PageTitle>
 
-<section>
-    <header>
-        <FluentText As="TextTag.H2">策略模板</FluentText>
-        <FluentButton Appearance="ButtonAppearance.Primary" OnClick="OpenCreate">
+<section class="strategies-page">
+    <header class="page-header">
+        <h2>策略模板</h2>
+        <Button Color="Color.Primary" OnClick="OpenCreate">
             新建策略
-        </FluentButton>
+        </Button>
     </header>
 
     @if (loading)
     {
-        <div><FluentSpinner /> 加载中...</div>
+        <div class="loading"><Spinner /> 加载中...</div>
     }
     else if (strategies.Count == 0)
     {
-        <div>
-            <FluentText As="TextTag.Paragraph" Weight="TextWeight.Semibold">暂无策略模板</FluentText>
-            <FluentText Size="TextSize.Size200">点击上方按钮创建第一个策略模板</FluentText>
+        <div class="empty-state">
+            <p class="fw-semibold">暂无策略模板</p>
+            <small class="text-muted">点击上方按钮创建第一个策略模板</small>
         </div>
     }
     else
     {
-        <div>
+        <div class="card-grid">
             @foreach (var s in strategies)
             {
-                <FluentCard>
-                    @{
-                        var closeId = $"close-{s.Id}";
-                    }
-                    <FluentButton id="@closeId" Appearance="ButtonAppearance.Transparent" IconOnly="true" Tooltip="删除" OnClick="@(() => popoverTargetId = s.Id)">
-                        <FlDismissRegular />
-                    </FluentButton>
-                    <FluentPopover AnchorId="@closeId" Opened="@(popoverTargetId == s.Id)" OpenedChanged="@(v => { if (!v) popoverTargetId = null; })" Width="240px">
-                        <div>
-                            <FluentText Size="TextSize.Size200">确定删除策略「<strong>@s.Name</strong>」吗？</FluentText>
-                            <div>
-                                <FluentButton Appearance="ButtonAppearance.Primary" Size="ButtonSize.Small" OnClick="@(async () => { popoverTargetId = null; await DeleteAsync(s.Id); })">确认</FluentButton>
-                                <FluentButton Appearance="ButtonAppearance.Outline" Size="ButtonSize.Small" OnClick="@(() => popoverTargetId = null)">取消</FluentButton>
-                            </div>
+                <div class="card strategy-card">
+                    <div class="card-header">
+                        <div class="card-title-area">
+                            <h5 class="mb-0">@s.Name</h5>
+                            <span class="badge bg-info">@HumanizeExecutionRule(s.ExecutionRuleJson)</span>
                         </div>
-                    </FluentPopover>
-                    <div>
-                        <div>
-                            <FluentText As="TextTag.H3">@s.Name</FluentText>
-                            <span>@HumanizeExecutionRule(s.ExecutionRuleJson)</span>
-                        </div>
-                        <div>
-                            <FluentButton Appearance="ButtonAppearance.Transparent" IconOnly="true" Tooltip="编辑" OnClick="@(() => OpenEdit(s))">
-                                <FlEditRegular />
-                            </FluentButton>
-                            <span>v@(s.Version)</span>
+                        <div class="card-header-actions">
+                            <Button Color="Color.None" Size="Size.Small" OnClick="@(() => OpenEdit(s))">
+                                编辑
+                            </Button>
+                            <span class="badge bg-secondary">v@(s.Version)</span>
                         </div>
                     </div>
 
-                    <div>
-                        <div>
-                            <span>入场</span>
-                            <span title="@s.EntryConditionJson">@HumanizeCondition(s.EntryConditionJson)</span>
+                    <div class="card-body">
+                        <div class="mb-2">
+                            <small class="text-muted">入场</small>
+                            <p class="mb-0 text-truncate" title="@s.EntryConditionJson">@HumanizeCondition(s.EntryConditionJson)</p>
+                        </div>
+                        <div class="mb-2">
+                            <small class="text-muted">出场</small>
+                            <p class="mb-0 text-truncate" title="@s.ExitConditionJson">@HumanizeCondition(s.ExitConditionJson)</p>
                         </div>
                         <div>
-                            <span>出场</span>
-                            <span title="@s.ExitConditionJson">@HumanizeCondition(s.ExitConditionJson)</span>
-                        </div>
-                        <div>
-                            <span>更新</span>
-                            <span>@s.UpdatedAt.ToString("yyyy-MM-dd HH:mm")</span>
+                            <small class="text-muted">更新</small>
+                            <p class="mb-0">@s.UpdatedAt.ToString("yyyy-MM-dd HH:mm")</p>
                         </div>
                     </div>
-                </FluentCard>
+
+                    <div class="card-footer text-end">
+                        <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => OpenDeleteConfirm(s.Id, s.Name)">
+                            删除
+                        </button>
+                    </div>
+                </div>
             }
         </div>
     }
 </section>
 
-<FluentDialog @ref="formDialog" Modal="true">
-    <FluentDialogBody>
-        <TitleTemplate>
-            @(isEdit ? "编辑策略模板" : "新建策略模板")
-        </TitleTemplate>
-        <ChildContent>
-            <div>
-                @if (ShowPresets)
-                {
-                    <div>
-                        <FluentText Size="TextSize.Size200">选择一个预设模板快速创建</FluentText>
-                        <div>
-                            @foreach (var preset in Presets)
-                            {
-                                <button type="button" @onclick="@(() => ApplyPreset(preset))">
-                                    <FluentText Weight="TextWeight.Semibold">@preset.Name</FluentText>
-                                    <FluentText Size="TextSize.Size200">@preset.Description</FluentText>
-                                </button>
-                            }
+@if (showDeleteConfirm)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-body">
+                    <p>确定删除策略「<strong>@deleteTargetName</strong>」吗？</p>
+                </div>
+                <div class="modal-footer">
+                    <Button Color="Color.Danger" OnClick="ConfirmDeleteAsync">确认</Button>
+                    <Button Color="Color.Secondary" OnClick="CancelDelete">取消</Button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@if (showDialog)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(isEdit ? "编辑策略模板" : "新建策略模板")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseFormAsync"></button>
+                </div>
+                <div class="modal-body">
+                    @if (ShowPresets)
+                    {
+                        <div class="presets-section mb-3">
+                            <small class="text-muted">选择一个预设模板快速创建</small>
+                            <div class="row mt-2">
+                                @foreach (var preset in Presets)
+                                {
+                                    <div class="col-md-6 mb-2">
+                                        <button type="button" class="btn btn-outline-primary text-start w-100" @onclick="@(() => ApplyPreset(preset))">
+                                            <strong>@preset.Name</strong><br />
+                                            <small>@preset.Description</small>
+                                        </button>
+                                    </div>
+                                }
+                            </div>
                         </div>
+                    }
+
+                    @if (AppliedPreset is not null)
+                    {
+                        <div class="alert alert-info">
+                            <strong>最佳实践参考</strong>
+                            <ul class="mb-0 mt-1">
+                                @foreach (var note in AppliedPreset.Notes)
+                                {
+                                    <li>@note</li>
+                                }
+                            </ul>
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label">策略名称</label>
+                        <input class="form-control form-control-lg" @bind="formName" placeholder="策略名称" />
                     </div>
-                }
 
-                @if (AppliedPreset is not null)
-                {
-                    <div>
-                        <FluentText Size="TextSize.Size200" Weight="TextWeight.Semibold">最佳实践参考</FluentText>
-                        <ul>
-                            @foreach (var note in AppliedPreset.Notes)
-                            {
-                                <li>@note</li>
-                            }
-                        </ul>
-                    </div>
-                }
-
-                <div>
-                    <FluentTextInput Width="100%" Size="TextInputSize.Large" Label="策略名称" Placeholder="策略名称" @bind-Value="formName" />
-
-                    <div>
-                        <FluentText Size="TextSize.Size200" Weight="TextWeight.Semibold">入场条件</FluentText>
+                    <div class="mb-3">
+                        <label class="fw-semibold small">入场条件</label>
                         @RenderConditionEditor("entry")
                     </div>
 
-                    <div>
-                        <FluentText Size="TextSize.Size200" Weight="TextWeight.Semibold">出场条件</FluentText>
+                    <div class="mb-3">
+                        <label class="fw-semibold small">出场条件</label>
                         @RenderConditionEditor("exit")
                     </div>
 
-                    <div>
-                        <FluentText Size="TextSize.Size200" Weight="TextWeight.Semibold">执行规则</FluentText>
+                    <div class="mb-3">
+                        <label class="fw-semibold small">执行规则</label>
                         @RenderExecutionRuleEditor()
                     </div>
 
                     @if (!string.IsNullOrWhiteSpace(formError))
                     {
-                        <FluentText As="TextTag.Paragraph">@formError</FluentText>
+                        <p class="text-danger mb-0">@formError</p>
                     }
                 </div>
+                <div class="modal-footer">
+                    <Button Color="Color.Primary" IsDisabled="@saving" OnClick="SaveAsync">
+                        @(saving ? "保存中..." : "保存")
+                    </Button>
+                    <Button Color="Color.Secondary" OnClick="CloseFormAsync">取消</Button>
+                </div>
             </div>
-        </ChildContent>
-        <ActionTemplate>
-            <div>
-                <FluentButton Appearance="ButtonAppearance.Primary" Disabled="@saving" OnClick="SaveAsync">
-                    @(saving ? "保存中..." : "保存")
-                </FluentButton>
-                <FluentButton Appearance="ButtonAppearance.Outline" OnClick="CloseFormAsync">取消</FluentButton>
-            </div>
-        </ActionTemplate>
-    </FluentDialogBody>
-</FluentDialog>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
 
 @code {
     [CascadingParameter]
     private Task<AuthenticationState> AuthenticationStateTask { get; set; } = default!;
 
     private List<Strategy> strategies = [];
-    private FluentDialog formDialog = default!;
-    private Guid? popoverTargetId;
     private bool loading = true;
     private bool saving;
+    private bool showDialog;
+    private bool showDeleteConfirm;
+    private string? deleteTargetId;
+    private string deleteTargetName = string.Empty;
     private bool isEdit;
     private Guid? editId;
 
@@ -194,10 +211,10 @@
     private string? formError;
 
     private async Task ShowSuccess(string text)
-        => await ToastService.ShowToastAsync(o => { o.Body = text; o.Intent = ToastIntent.Success; o.Timeout = 3000; });
+        => await ToastService.Success("成功", text);
 
     private async Task ShowError(string text)
-        => await ToastService.ShowToastAsync(o => { o.Body = text; o.Intent = ToastIntent.Error; });
+        => await ToastService.Error("错误", text);
 
     private sealed record Preset(string Name, string Description, string[] Notes,
         string EntryJson, string ExitJson, string ExecJson);
@@ -280,11 +297,6 @@
         }
     }
 
-    private void GoBack()
-    {
-        Navigation.NavigateTo("/traders");
-    }
-
     private async Task OpenCreate()
     {
         isEdit = false;
@@ -292,7 +304,7 @@
         ShowPresets = true;
         AppliedPreset = null;
         ResetForm();
-        await formDialog.ShowAsync();
+        showDialog = true;
     }
 
     private async Task OpenEdit(Strategy strategy)
@@ -306,7 +318,39 @@
         ParseConditionJson(strategy.ExitConditionJson, isEntry: false);
         ParseExecRuleJson(strategy.ExecutionRuleJson);
         formError = null;
-        await formDialog.ShowAsync();
+        showDialog = true;
+    }
+
+    private void OpenDeleteConfirm(Guid id, string name)
+    {
+        deleteTargetId = id.ToString();
+        deleteTargetName = name;
+        showDeleteConfirm = true;
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (Guid.TryParse(deleteTargetId, out var id))
+        {
+            showDeleteConfirm = false;
+            try
+            {
+                await StrategyService.DeleteAsync(id);
+                await ShowSuccess("策略已删除");
+                await LoadAllAsync();
+            }
+            catch (Exception ex)
+            {
+                await ShowError(ex.Message);
+            }
+        }
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteConfirm = false;
+        deleteTargetId = null;
+        deleteTargetName = string.Empty;
     }
 
     private void ResetForm()
@@ -529,7 +573,7 @@
 
     private async Task CloseFormAsync()
     {
-        await formDialog.HideAsync();
+        showDialog = false;
     }
 
     private async Task SaveAsync()
@@ -551,7 +595,7 @@
                 await StrategyService.CreateAsync(formName, entryJson, exitJson, execJson);
             }
 
-            await formDialog.HideAsync();
+            showDialog = false;
             await ShowSuccess(isEdit ? "策略已更新" : "策略已创建");
             await LoadAllAsync();
         }
@@ -565,20 +609,6 @@
         }
     }
 
-    private async Task DeleteAsync(Guid id)
-    {
-        try
-        {
-            await StrategyService.DeleteAsync(id);
-            await ShowSuccess("策略已删除");
-            await LoadAllAsync();
-        }
-        catch (Exception ex)
-        {
-            await ShowError(ex.Message);
-        }
-    }
-
     private RenderFragment RenderConditionEditor(string prefix) => builder =>
     {
         var isEntry = prefix == "entry";
@@ -586,208 +616,217 @@
         var useCompound = isEntry ? entryUseCompound : exitUseCompound;
         var op = isEntry ? entryOperator : exitOperator;
 
-        builder.OpenElement(0, "div");
-        builder.AddAttribute(1, "class", "condition-editor");
+        var currentUseCompound = useCompound;
+        var currentOp = op;
 
-        builder.OpenComponent<FluentCheckbox>(2);
-        builder.AddAttribute(3, "Value", useCompound);
-        builder.AddAttribute(4, "ValueChanged", EventCallback.Factory.Create<bool>(this, v =>
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", "condition-editor border rounded p-2 mt-1");
+
+        builder.OpenElement(2, "div");
+        builder.AddAttribute(3, "class", "form-check form-switch mb-2");
+        builder.OpenElement(4, "input");
+        builder.AddAttribute(5, "class", "form-check-input");
+        builder.AddAttribute(6, "type", "checkbox");
+        builder.AddAttribute(7, "role", "switch");
+        builder.AddAttribute(8, "checked", currentUseCompound);
+        builder.AddAttribute(9, "onchange", EventCallback.Factory.Create<bool>(this, v =>
         {
             if (isEntry) entryUseCompound = v;
             else exitUseCompound = v;
         }));
-        builder.AddAttribute(5, "Label", "复合条件 (AND/OR)");
-        builder.CloseComponent();
+        builder.CloseElement();
+        builder.OpenElement(10, "label");
+        builder.AddAttribute(11, "class", "form-check-label");
+        builder.AddContent(12, "复合条件 (AND/OR)");
+        builder.CloseElement();
+        builder.CloseElement();
 
-        if (useCompound)
+        if (currentUseCompound)
         {
-            builder.OpenComponent<FluentSelect<string, string>>(10);
-            builder.AddAttribute(11, "Width", "160px");
-            builder.AddAttribute(12, "Items", new[] { "AND", "OR" });
-            builder.AddAttribute(13, "Value", op);
-            builder.AddAttribute(14, "ValueChanged", EventCallback.Factory.Create<string>(this, v =>
+            builder.OpenElement(13, "select");
+            builder.AddAttribute(14, "class", "form-select form-select-sm mb-2");
+            builder.AddAttribute(15, "style", "width:160px");
+            builder.AddAttribute(16, "value", currentOp);
+            builder.AddAttribute(17, "onchange", EventCallback.Factory.Create<string>(this, v =>
             {
                 if (isEntry) entryOperator = v;
                 else exitOperator = v;
             }));
-            builder.CloseComponent();
+            builder.AddContent(18, "AND");
+            builder.AddContent(19, "OR");
+            builder.CloseElement();
         }
 
-        // 条件行
         for (var i = 0; i < conditions.Count; i++)
         {
             var idx = i;
-            builder.OpenElement(30, "div");
-            builder.AddAttribute(31, "class", "condition-row");
+            builder.OpenElement(20, "div");
+            builder.AddAttribute(21, "class", "condition-row d-flex gap-2 align-items-center mb-1");
 
-            builder.OpenComponent<FluentSelect<string, string>>(40);
-            builder.AddAttribute(41, "Items", Indicators);
-            builder.AddAttribute(42, "Value", conditions[idx].Indicator);
-            builder.AddAttribute(43, "ValueChanged", EventCallback.Factory.Create<string>(this, v => conditions[idx].Indicator = v));
-            builder.CloseComponent();
+            builder.OpenElement(22, "select");
+            builder.AddAttribute(23, "class", "form-select form-select-sm");
+            builder.AddAttribute(24, "value", conditions[idx].Indicator);
+            builder.AddAttribute(25, "onchange", EventCallback.Factory.Create<string>(this, v => conditions[idx].Indicator = v));
+            foreach (var ind in Indicators)
+            {
+                builder.OpenElement(26, "option");
+                builder.AddAttribute(27, "value", ind);
+                builder.AddAttribute(28, "selected", conditions[idx].Indicator == ind);
+                builder.AddContent(29, ind);
+                builder.CloseElement();
+            }
+            builder.CloseElement();
 
-            builder.OpenComponent<FluentSelect<string, string>>(50);
-            builder.AddAttribute(51, "Items", Comparisons);
-            builder.AddAttribute(52, "OptionText", (Func<string, string>)(c => CmpLabels.GetValueOrDefault(c, c)));
-            builder.AddAttribute(53, "OptionValue", (Func<string, string>)(c => c));
-            builder.AddAttribute(54, "Value", conditions[idx].Comparison);
-            builder.AddAttribute(55, "ValueChanged", EventCallback.Factory.Create<string>(this, v => conditions[idx].Comparison = v));
-            builder.CloseComponent();
+            builder.OpenElement(30, "select");
+            builder.AddAttribute(31, "class", "form-select form-select-sm");
+            builder.AddAttribute(32, "value", conditions[idx].Comparison);
+            builder.AddAttribute(33, "onchange", EventCallback.Factory.Create<string>(this, v => conditions[idx].Comparison = v));
+            foreach (var cmp in Comparisons)
+            {
+                builder.OpenElement(34, "option");
+                builder.AddAttribute(35, "value", cmp);
+                builder.AddAttribute(36, "selected", conditions[idx].Comparison == cmp);
+                builder.AddContent(37, CmpLabels.GetValueOrDefault(cmp, cmp));
+                builder.CloseElement();
+            }
+            builder.CloseElement();
 
-            builder.OpenComponent<FluentTextInput>(60);
-            builder.AddAttribute(61, "Value", conditions[idx].Value);
-            builder.AddAttribute(62, "ValueChanged", EventCallback.Factory.Create<string>(this, v => conditions[idx].Value = v));
-            builder.CloseComponent();
+            builder.OpenElement(38, "input");
+            builder.AddAttribute(39, "class", "form-control form-control-sm");
+            builder.AddAttribute(40, "style", "width:100px");
+            builder.AddAttribute(41, "value", conditions[idx].Value);
+            builder.AddAttribute(42, "onchange", EventCallback.Factory.Create<string>(this, v => conditions[idx].Value = v));
+            builder.CloseElement();
 
             if (conditions.Count > 1)
             {
-                builder.OpenComponent<FluentButton>(70);
-                builder.AddAttribute(71, "Appearance", ButtonAppearance.Transparent);
-                builder.AddAttribute(72, "Size", ButtonSize.Small);
-                builder.AddAttribute(73, "OnClick", EventCallback.Factory.Create<MouseEventArgs>(this, _ => RemoveCondition(isEntry, idx)));
-                builder.AddAttribute(74, "ChildContent", (RenderFragment)(b2 => b2.AddContent(0, "×")));
-                builder.CloseComponent();
-            }
-            else
-            {
-                builder.AddContent(75, "");
+                builder.OpenElement(43, "button");
+                builder.AddAttribute(44, "class", "btn btn-outline-danger btn-sm");
+                builder.AddAttribute(45, "onclick", EventCallback.Factory.Create<MouseEventArgs>(this, _ => RemoveCondition(isEntry, idx)));
+                builder.AddContent(46, "×");
+                builder.CloseElement();
             }
 
             builder.CloseElement();
         }
 
-        builder.OpenComponent<FluentButton>(80);
-        builder.AddAttribute(81, "Appearance", ButtonAppearance.Outline);
-        builder.AddAttribute(82, "OnClick", EventCallback.Factory.Create<MouseEventArgs>(this, _ => AddCondition(isEntry)));
-        builder.AddAttribute(83, "ChildContent", (RenderFragment)(b2 => b2.AddContent(0, "+ 添加条件")));
-        builder.CloseComponent();
+        builder.OpenElement(47, "button");
+        builder.AddAttribute(48, "class", "btn btn-outline-primary btn-sm mt-1");
+        builder.AddAttribute(49, "onclick", EventCallback.Factory.Create<MouseEventArgs>(this, _ => AddCondition(isEntry)));
+        builder.AddContent(50, "+ 添加条件");
+        builder.CloseElement();
 
         builder.CloseElement();
     };
 
     private RenderFragment RenderExecutionRuleEditor() => builder =>
     {
-        builder.OpenElement(0, "div");
-        builder.AddAttribute(1, "class", "exec-rule-editor");
+        var s = seq++;
 
-        // 规则类型 — 全宽
-        builder.OpenElement(2, "div");
-        builder.AddAttribute(3, "class", "exec-rule-full");
-        builder.OpenComponent<FluentSelect<string, string>>(10);
-        builder.AddAttribute(11, "Width", "100%");
-        builder.AddAttribute(12, "Label", "规则类型");
-        builder.AddAttribute(13, "Items", ExecTypes);
-        builder.AddAttribute(14, "OptionText", (Func<string, string>)(t => RuleLabels.GetValueOrDefault(t, t)));
-        builder.AddAttribute(15, "OptionValue", (Func<string, string>)(t => t));
-        builder.AddAttribute(16, "Value", execType);
-        builder.AddAttribute(17, "ValueChanged", EventCallback.Factory.Create<string>(this, v => execType = v));
-        builder.CloseComponent();
+        builder.OpenElement(s, "div");
+        builder.AddAttribute(s + 1, "class", "exec-rule-editor border rounded p-2 mt-1");
+
+        builder.OpenElement(s + 2, "div");
+        builder.AddAttribute(s + 3, "class", "mb-2");
+        builder.OpenElement(s + 4, "select");
+        builder.AddAttribute(s + 5, "class", "form-select");
+        builder.AddAttribute(s + 6, "value", execType);
+        builder.AddAttribute(s + 7, "onchange", EventCallback.Factory.Create<string>(this, v => execType = v));
+        foreach (var t in ExecTypes)
+        {
+            builder.OpenElement(s + 8, "option");
+            builder.AddAttribute(s + 9, "value", t);
+            builder.AddAttribute(s + 10, "selected", execType == t);
+            builder.AddContent(s + 11, RuleLabels.GetValueOrDefault(t, t));
+            builder.CloseElement();
+        }
+        builder.CloseElement();
         builder.CloseElement();
 
         if (execType is "grid" or "infinity_grid")
         {
-            builder.OpenComponent<FluentTextInput>(20);
-            builder.AddAttribute(21, "Label", "网格层数");
-            builder.AddAttribute(22, "Value", gridLevels);
-            builder.AddAttribute(23, "ValueChanged", EventCallback.Factory.Create<string>(this, v => gridLevels = v));
-            builder.CloseComponent();
-
-            builder.OpenComponent<FluentTextInput>(30);
-            builder.AddAttribute(31, "Label", "网格间距 (%)");
-            builder.AddAttribute(32, "Value", gridSpacingPercent);
-            builder.AddAttribute(33, "ValueChanged", EventCallback.Factory.Create<string>(this, v => gridSpacingPercent = v));
-            builder.CloseComponent();
+            builder.AddContent(s + 12, AddInputField("网格层数", gridLevels, v => gridLevels = v));
+            builder.AddContent(s + 13, AddInputField("网格间距 (%)", gridSpacingPercent, v => gridSpacingPercent = v));
         }
 
         if (execType == "trend_following")
         {
-            builder.OpenComponent<FluentTextInput>(40);
-            builder.AddAttribute(41, "Label", "追踪止损 (%)");
-            builder.AddAttribute(42, "Value", trailingStopPercent);
-            builder.AddAttribute(43, "ValueChanged", EventCallback.Factory.Create<string>(this, v => trailingStopPercent = v));
-            builder.CloseComponent();
-
-            builder.OpenComponent<FluentTextInput>(50);
-            builder.AddAttribute(51, "Label", "止盈 (%)");
-            builder.AddAttribute(52, "Value", takeProfitPercent);
-            builder.AddAttribute(53, "ValueChanged", EventCallback.Factory.Create<string>(this, v => takeProfitPercent = v));
-            builder.CloseComponent();
+            builder.AddContent(s + 14, AddInputField("追踪止损 (%)", trailingStopPercent, v => trailingStopPercent = v));
+            builder.AddContent(s + 15, AddInputField("止盈 (%)", takeProfitPercent, v => takeProfitPercent = v));
         }
 
         if (execType == "volatility_grid")
         {
-            builder.OpenComponent<FluentTextInput>(60);
-            builder.AddAttribute(61, "Label", "入场波幅阈值 (%)");
-            builder.AddAttribute(62, "Value", entryVolatilityPercent);
-            builder.AddAttribute(63, "ValueChanged", EventCallback.Factory.Create<string>(this, v => entryVolatilityPercent = v));
-            builder.CloseComponent();
-
-            builder.OpenComponent<FluentTextInput>(70);
-            builder.AddAttribute(71, "Label", "再平衡间距 (%)");
-            builder.AddAttribute(72, "Value", rebalancePercent);
-            builder.AddAttribute(73, "ValueChanged", EventCallback.Factory.Create<string>(this, v => rebalancePercent = v));
-            builder.CloseComponent();
+            builder.AddContent(s + 16, AddInputField("入场波幅阈值 (%)", entryVolatilityPercent, v => entryVolatilityPercent = v));
+            builder.AddContent(s + 17, AddInputField("再平衡间距 (%)", rebalancePercent, v => rebalancePercent = v));
         }
 
         if (execType is "infinity_grid" or "volatility_grid")
         {
-            builder.OpenComponent<FluentTextInput>(80);
-            builder.AddAttribute(81, "Label", "最大加仓层数");
-            builder.AddAttribute(82, "Value", maxPyramidingLevels);
-            builder.AddAttribute(83, "ValueChanged", EventCallback.Factory.Create<string>(this, v => maxPyramidingLevels = v));
-            builder.CloseComponent();
+            builder.AddContent(s + 18, AddInputField("最大加仓层数", maxPyramidingLevels, v => maxPyramidingLevels = v));
 
-            builder.OpenElement(84, "div");
-            builder.AddAttribute(85, "class", "exec-rule-checkbox");
+            builder.OpenElement(s + 19, "div");
+            builder.AddAttribute(s + 20, "class", "form-check form-switch mb-2");
 
             if (execType == "infinity_grid")
             {
-                builder.OpenComponent<FluentCheckbox>(90);
-                builder.AddAttribute(91, "Value", usePyramiding == "true");
-                builder.AddAttribute(92, "ValueChanged", EventCallback.Factory.Create<bool>(this, v => usePyramiding = v ? "true" : "false"));
-                builder.AddAttribute(93, "Label", "启用金字塔加仓");
-                builder.CloseComponent();
+                builder.OpenElement(s + 21, "input");
+                builder.AddAttribute(s + 22, "class", "form-check-input");
+                builder.AddAttribute(s + 23, "type", "checkbox");
+                builder.AddAttribute(s + 24, "role", "switch");
+                builder.AddAttribute(s + 25, "checked", usePyramiding == "true");
+                builder.AddAttribute(s + 26, "onchange", EventCallback.Factory.Create<bool>(this, v => usePyramiding = v ? "true" : "false"));
+                builder.CloseElement();
+                builder.OpenElement(s + 27, "label");
+                builder.AddAttribute(s + 28, "class", "form-check-label");
+                builder.AddContent(s + 29, "启用金字塔加仓");
+                builder.CloseElement();
             }
 
             if (execType == "volatility_grid")
             {
-                builder.OpenComponent<FluentCheckbox>(100);
-                builder.AddAttribute(101, "Value", noStopLoss == "true");
-                builder.AddAttribute(102, "ValueChanged", EventCallback.Factory.Create<bool>(this, v => noStopLoss = v ? "true" : "false"));
-                builder.AddAttribute(103, "Label", "关闭单笔止损");
-                builder.CloseComponent();
+                builder.OpenElement(s + 30, "input");
+                builder.AddAttribute(s + 31, "class", "form-check-input");
+                builder.AddAttribute(s + 32, "type", "checkbox");
+                builder.AddAttribute(s + 33, "role", "switch");
+                builder.AddAttribute(s + 34, "checked", noStopLoss == "true");
+                builder.AddAttribute(s + 35, "onchange", EventCallback.Factory.Create<bool>(this, v => noStopLoss = v ? "true" : "false"));
+                builder.CloseElement();
+                builder.OpenElement(s + 36, "label");
+                builder.AddAttribute(s + 37, "class", "form-check-label");
+                builder.AddContent(s + 38, "关闭单笔止损");
+                builder.CloseElement();
             }
 
             builder.CloseElement();
         }
 
-        // 公共参数 — 两列
-        builder.OpenComponent<FluentTextInput>(110);
-        builder.AddAttribute(111, "Label", "基础仓位 (USDT)");
-        builder.AddAttribute(112, "Value", basePositionSize);
-        builder.AddAttribute(113, "ValueChanged", EventCallback.Factory.Create<string>(this, v => basePositionSize = v));
-        builder.CloseComponent();
-
-        builder.OpenComponent<FluentTextInput>(120);
-        builder.AddAttribute(121, "Label", "最大仓位 (USDT)");
-        builder.AddAttribute(122, "Value", maxPositionSize);
-        builder.AddAttribute(123, "ValueChanged", EventCallback.Factory.Create<string>(this, v => maxPositionSize = v));
-        builder.CloseComponent();
-
-        builder.OpenComponent<FluentTextInput>(130);
-        builder.AddAttribute(131, "Label", "单日最大亏损 (USDT)");
-        builder.AddAttribute(132, "Value", maxDailyLoss);
-        builder.AddAttribute(133, "ValueChanged", EventCallback.Factory.Create<string>(this, v => maxDailyLoss = v));
-        builder.CloseComponent();
-
-        builder.OpenComponent<FluentTextInput>(140);
-        builder.AddAttribute(141, "Label", "滑点容忍度");
-        builder.AddAttribute(142, "Value", slippageTolerance);
-        builder.AddAttribute(143, "ValueChanged", EventCallback.Factory.Create<string>(this, v => slippageTolerance = v));
-        builder.CloseComponent();
+        builder.AddContent(s + 39, AddInputField("基础仓位 (USDT)", basePositionSize, v => basePositionSize = v));
+        builder.AddContent(s + 40, AddInputField("最大仓位 (USDT)", maxPositionSize, v => maxPositionSize = v));
+        builder.AddContent(s + 41, AddInputField("单日最大亏损 (USDT)", maxDailyLoss, v => maxDailyLoss = v));
+        builder.AddContent(s + 42, AddInputField("滑点容忍度", slippageTolerance, v => slippageTolerance = v));
 
         builder.CloseElement();
     };
+
+    private RenderFragment AddInputField(string label, string value, Action<string> setter) => builder =>
+    {
+        var s = seq++;
+        builder.OpenElement(s, "div");
+        builder.AddAttribute(s + 1, "class", "mb-2");
+        builder.OpenElement(s + 2, "label");
+        builder.AddAttribute(s + 3, "class", "form-label small");
+        builder.AddContent(s + 4, label);
+        builder.CloseElement();
+        builder.OpenElement(s + 5, "input");
+        builder.AddAttribute(s + 6, "class", "form-control form-control-sm");
+        builder.AddAttribute(s + 7, "value", value);
+        builder.AddAttribute(s + 8, "onchange", EventCallback.Factory.Create<string>(this, setter));
+        builder.CloseElement();
+        builder.CloseElement();
+    };
+
+    private int seq;
 
     private static string HumanizeCondition(string json)
     {

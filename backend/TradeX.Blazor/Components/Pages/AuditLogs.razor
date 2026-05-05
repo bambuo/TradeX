@@ -1,79 +1,126 @@
 @page "/audit-logs"
 @inject AuditLogPageService AuditLogService
-@inject IToastService ToastService
+@inject ToastService ToastService
 
 <PageTitle>审计日志</PageTitle>
 
-<section>
-    <header>
-        <FluentText As="TextTag.H2">审计日志</FluentText>
-        <FluentSelect TOption="string" TValue="string" Width="180px"
-            Items="resourceTypes" Placeholder="全部类型"
-            @bind-Value="filterResourceType"
-            @bind-Value:after="ReloadAsync" />
+<section class="audit-page">
+    <header class="page-header">
+        <h2>审计日志</h2>
+        <select class="form-select" style="width:180px" @bind="filterResourceType" @bind:after="ReloadAsync">
+            <option value="">全部类型</option>
+            @foreach (var rt in resourceTypes)
+            {
+                <option value="@rt">@rt</option>
+            }
+        </select>
     </header>
 
-    <FluentDataGrid ItemsProvider="@dataProvider" Pagination="@pagination" Virtualize="false">
-        <PropertyColumn Property="@(e => e.Timestamp)" Title="时间" Format="yyyy-MM-dd HH:mm:ss" />
-        <PropertyColumn Property="@(e => e.Action)" Title="操作" />
-        <PropertyColumn Property="@(e => e.Resource)" Title="资源" />
-        <TemplateColumn Title="详情">
-            <FluentButton Size="ButtonSize.Small" Appearance="ButtonAppearance.Outline" OnClick="@(() => OpenDetail(context))">查看</FluentButton>
-        </TemplateColumn>
-    </FluentDataGrid>
-    <FluentPaginator State="@pagination" />
+    <table class="table table-striped audit-grid">
+        <thead>
+            <tr>
+                <th>时间</th>
+                <th>操作</th>
+                <th>资源</th>
+                <th>详情</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var entry in pagedData)
+            {
+                <tr>
+                    <td>@entry.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    <td>@entry.Action</td>
+                    <td>@entry.Resource</td>
+                    <td>
+                        <Button Size="Size.Small" Color="Color.Secondary" OnClick="@(() => OpenDetail(entry))">查看</Button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <nav>
+        <ul class="pagination">
+            <li class="page-item @(currentPage == 0 ? "disabled" : "")">
+                <button class="page-link" @onclick="() => ChangePageAsync(0)">«</button>
+            </li>
+            @for (var i = 0; i < pageCount; i++)
+            {
+                <li class="page-item @(i == currentPage ? "active" : "")">
+                    <button class="page-link" @onclick="() => ChangePageAsync(i)">@(i + 1)</button>
+                </li>
+            }
+            <li class="page-item @(currentPage >= pageCount - 1 ? "disabled" : "")">
+                <button class="page-link" @onclick="() => ChangePageAsync(pageCount - 1)">»</button>
+            </li>
+        </ul>
+    </nav>
 </section>
 
-<FluentDialog @ref="detailDialog" Modal="true">
-    <FluentDialogBody>
-        <TitleTemplate>审计详情</TitleTemplate>
-        <ChildContent>
-            <div>
-                <div>
-                    <span>操作</span>
-                    <span>@detailAction</span>
+@if (showDetailDialog)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">审计详情</h5>
+                    <button type="button" class="btn-close" @onclick="CloseDetailAsync"></button>
                 </div>
-                <div>
-                    <span>资源</span>
-                    <span>@detailResource</span>
+                <div class="modal-body">
+                    <table class="table table-sm table-borderless">
+                        <tbody>
+                            <tr>
+                                <td class="fw-semibold" style="width:80px">操作</td>
+                                <td>@detailAction</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">资源</td>
+                                <td>@detailResource</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">IP 地址</td>
+                                <td>@detailIp</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">用户 ID</td>
+                                <td>@detailUserId</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">时间</td>
+                                <td>@detailTime</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    @if (!string.IsNullOrWhiteSpace(detailJson))
+                    {
+                        <div>
+                            <strong class="small">原始数据</strong>
+                            <pre class="bg-light p-2 rounded mt-1"><code>@detailJson</code></pre>
+                        </div>
+                    }
                 </div>
-                <div>
-                    <span>IP 地址</span>
-                    <span>@detailIp</span>
+                <div class="modal-footer">
+                    <Button Color="Color.Secondary" OnClick="CloseDetailAsync">关闭</Button>
                 </div>
-                <div>
-                    <span>用户 ID</span>
-                    <span>@detailUserId</span>
-                </div>
-                <div>
-                    <span>时间</span>
-                    <span>@detailTime</span>
-                </div>
-                @if (!string.IsNullOrWhiteSpace(detailJson))
-                {
-                    <div>
-                        <FluentText Size="TextSize.Size200" Weight="TextWeight.Semibold">原始数据</FluentText>
-                        <pre>@detailJson</pre>
-                    </div>
-                }
             </div>
-        </ChildContent>
-        <ActionTemplate>
-            <div>
-                <FluentButton Appearance="ButtonAppearance.Outline" OnClick="CloseDetailAsync">关闭</FluentButton>
-            </div>
-        </ActionTemplate>
-    </FluentDialogBody>
-</FluentDialog>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
 
 @code {
     [CascadingParameter]
     private Task<AuthenticationState> AuthenticationStateTask { get; set; } = default!;
 
-    private FluentDialog detailDialog = default!;
-    private PaginationState pagination = new() { ItemsPerPage = 15 };
+    private List<AuditLogEntryView> allData = [];
+    private List<AuditLogEntryView> pagedData = [];
     private string? filterResourceType;
+    private int currentPage;
+    private int pageCount;
+    private const int PageSize = 15;
 
+    private bool showDetailDialog;
     private string detailAction = string.Empty;
     private string detailResource = string.Empty;
     private string detailIp = string.Empty;
@@ -87,31 +134,47 @@
         "测试连接", "手动下单", "登录", "登出", "MFA设置", "MFA验证", "回测"
     ];
 
-    private GridItemsProvider<AuditLogEntryView> dataProvider = default!;
-
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        dataProvider = async request =>
-        {
-            try
-            {
-                var page = (request.StartIndex / pagination.ItemsPerPage) + 1;
-                var (items, total) = await AuditLogService.GetPagedAsync(
-                    page, pagination.ItemsPerPage, null, null, filterResourceType, null, null);
+        await LoadDataAsync();
+    }
 
-                return GridItemsProviderResult.From<AuditLogEntryView>(items.ToList(), total);
-            }
-            catch (Exception ex)
-            {
-                await ShowError(ex.Message);
-                return GridItemsProviderResult.From<AuditLogEntryView>([], 0);
-            }
-        };
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            var (items, total) = await AuditLogService.GetPagedAsync(
+                1, int.MaxValue, null, null, filterResourceType, null, null);
+            allData = items.ToList();
+            pageCount = (int)Math.Ceiling((double)allData.Count / PageSize);
+            if (pageCount == 0) pageCount = 1;
+            currentPage = 0;
+            ApplyPaging();
+        }
+        catch (Exception ex)
+        {
+            await ShowError(ex.Message);
+        }
+    }
+
+    private void ApplyPaging()
+    {
+        pagedData = allData
+            .Skip(currentPage * PageSize)
+            .Take(PageSize)
+            .ToList();
+    }
+
+    private async Task ChangePageAsync(int page)
+    {
+        currentPage = page;
+        ApplyPaging();
     }
 
     private async Task ReloadAsync()
     {
-        await pagination.SetCurrentPageIndexAsync(0);
+        currentPage = 0;
+        await LoadDataAsync();
     }
 
     private async Task OpenDetail(AuditLogEntryView entry)
@@ -122,14 +185,14 @@
         detailUserId = entry.UserId?.ToString() ?? "-";
         detailTime = entry.Timestamp.ToString("yyyy-MM-dd HH:mm:ss");
         detailJson = entry.Detail;
-        await detailDialog.ShowAsync();
+        showDetailDialog = true;
     }
 
     private async Task CloseDetailAsync()
     {
-        await detailDialog.HideAsync();
+        showDetailDialog = false;
     }
 
     private async Task ShowError(string text)
-        => await ToastService.ShowToastAsync(o => { o.Body = text; o.Intent = ToastIntent.Error; });
+        => await ToastService.Error("错误", text);
 }

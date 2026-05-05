@@ -13,8 +13,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="EasyAppDev.Blazor.Icons.FluentUI" Version="2.0.4" />
-        <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" Version="5.0.0-rc.2-26098.1" />
+        <PackageReference Include="BootstrapBlazor" Version="10.6.0" />
     </ItemGroup>
 
 </Project>

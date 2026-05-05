@@ -1,7 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.FluentUI.AspNetCore.Components;
+using BootstrapBlazor.Components;
 using TradeX.Api.Services;
 using TradeX.Api.Settings;
 using TradeX.Blazor.Components;
@@ -16,7 +16,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
-builder.Services.AddFluentUIComponents();
+builder.Services.AddBootstrapBlazor();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 builder.Services.AddScoped<AuthSession>();

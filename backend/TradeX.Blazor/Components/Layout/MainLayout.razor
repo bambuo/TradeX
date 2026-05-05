@@ -1,9 +1,7 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 @implements IDisposable
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager Navigation
-
-<FluentProviders />
 
 @if (IsStandalonePage)
 {
@@ -11,54 +9,60 @@
 }
 else
 {
-    <div>
-        <aside aria-label="主导航">
-            <FluentButton Appearance="ButtonAppearance.Transparent" OnClick="GoHome">
+    <div class="app-layout">
+        <aside class="app-sidebar" aria-label="主导航">
+            <Button Color="Color.None" OnClick="GoHome" class="sider-title">
                 TradeX
-            </FluentButton>
+            </Button>
 
-            <FluentNav>
+            <ul class="nav flex-column sider-nav">
                 @foreach (var item in NavItems)
                 {
-                    <FluentNavItem Href="@item.Path" Match="@item.Match">
-                        @item.Label
-                    </FluentNavItem>
+                    <li class="nav-item">
+                        <NavLink class="nav-link sider-nav-item" href="@item.Path" Match="@item.Match">
+                            @item.Label
+                        </NavLink>
+                    </li>
                 }
-            </FluentNav>
+            </ul>
         </aside>
 
-        <section>
-            <FluentCard>
-                <nav aria-label="面包屑">
-                    <a href="/">首页</a>
-                    @foreach (var crumb in BreadcrumbItems)
-                    {
-                        <span>/</span>
-                        @if (crumb.IsLast)
+        <section class="right-layout">
+            <div class="card breadcrumb-card">
+                <div class="card-body">
+                    <nav aria-label="面包屑">
+                        <a href="/">首页</a>
+                        @foreach (var crumb in BreadcrumbItems)
                         {
-                            <span>@crumb.Label</span>
+                            <span class="breadcrumb-separator">/</span>
+                            @if (crumb.IsLast)
+                            {
+                                <span>@crumb.Label</span>
+                            }
+                            else
+                            {
+                                <a href="@crumb.Path">@crumb.Label</a>
+                            }
                         }
-                        else
-                        {
-                            <a href="@crumb.Path">@crumb.Label</a>
-                        }
-                    }
-                </nav>
-            </FluentCard>
+                    </nav>
+                </div>
+            </div>
 
-            <main>
-                <div title="退出登录">
-                    <FluentButton OnClick="LogoutAsync">
+            <main class="app-main">
+                <div class="fab-logout" title="退出登录">
+                    <Button OnClick="LogoutAsync" class="logout-button">
                         退出
-                    </FluentButton>
+                    </Button>
                 </div>
 
-                <FluentCard>
-                    <header>@PageTitle</header>
-                    <div>
-                        @Body
+                <div class="card content-card">
+                    <div class="card-body">
+                        <header class="content-card-title">@PageTitle</header>
+                        <div class="content-card-body">
+                            @Body
+                        </div>
                     </div>
-                </FluentCard>
+                </div>
             </main>
         </section>
     </div>
@@ -66,8 +70,8 @@ else
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
-    <a href=".">Reload</a>
-    <span>🗙</span>
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
 </div>
 
 @code {

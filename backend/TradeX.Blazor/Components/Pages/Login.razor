@@ -6,111 +6,113 @@
 
 <PageTitle>登录 TradeX</PageTitle>
 
-<main>
-    <FluentCard>
-        @if (step == LoginStep.Login)
-        {
-            <EditForm Model="loginForm" OnValidSubmit="LoginAsync">
-                <DataAnnotationsValidator />
-                <FluentText As="TextTag.H1">TradeX</FluentText>
-                <FluentText As="TextTag.Paragraph">多交易所现货交易系统</FluentText>
+<main class="login-container">
+    <div class="card login-form">
+        <div class="card-body">
+            @if (step == LoginStep.Login)
+            {
+                <EditForm Model="loginForm" OnValidSubmit="LoginAsync" class="login-form-content">
+                    <DataAnnotationsValidator />
+                    <h1 class="login-title">TradeX</h1>
+                    <p class="login-subtitle">多交易所现货交易系统</p>
 
-                @if (!string.IsNullOrWhiteSpace(errorMessage))
-                {
-                    <FluentText As="TextTag.Paragraph" role="alert">@errorMessage</FluentText>
-                }
+                    @if (!string.IsNullOrWhiteSpace(errorMessage))
+                    {
+                        <p class="login-error" role="alert">@errorMessage</p>
+                    }
 
-                <label>
-                    <FluentTextInput Width="100%" Size="TextInputSize.Large" @bind-Value="loginForm.UserName" AutoComplete="username" Placeholder="用户名" />
-                    <ValidationMessage For="@(() => loginForm.UserName)" />
-                </label>
+                    <label class="login-field">
+                        <input class="form-control form-control-lg w-100" @bind="loginForm.UserName" autocomplete="username" placeholder="用户名" />
+                        <ValidationMessage For="@(() => loginForm.UserName)" />
+                    </label>
 
-                <label>
-                    <FluentTextInput Width="100%" Size="TextInputSize.Large" TextInputType="TextInputType.Password" @bind-Value="loginForm.Password" AutoComplete="current-password" Placeholder="密码" />
-                    <ValidationMessage For="@(() => loginForm.Password)" />
-                </label>
+                    <label class="login-field">
+                        <input class="form-control form-control-lg w-100" type="password" @bind="loginForm.Password" autocomplete="current-password" placeholder="密码" />
+                        <ValidationMessage For="@(() => loginForm.Password)" />
+                    </label>
 
-                <FluentButton Size="ButtonSize.Large" Type="ButtonType.Submit" Appearance="ButtonAppearance.Primary" Disabled="@isLoading">
-                    @(isLoading ? "登录中..." : "登录")
-                </FluentButton>
-            </EditForm>
-        }
-        else if (step == LoginStep.MfaSetup)
-        {
-            <EditForm Model="mfaForm" OnValidSubmit="VerifyMfaSetupAsync">
-                <DataAnnotationsValidator />
-                <FluentText As="TextTag.H1">绑定双重认证</FluentText>
+                    <Button Size="Size.Large" ButtonType="ButtonType.Submit" Color="Color.Primary" IsDisabled="@isLoading" class="login-button w-100">
+                        @(isLoading ? "登录中..." : "登录")
+                    </Button>
+                </EditForm>
+            }
+            else if (step == LoginStep.MfaSetup)
+            {
+                <EditForm Model="mfaForm" OnValidSubmit="VerifyMfaSetupAsync" class="login-form-content">
+                    <DataAnnotationsValidator />
+                    <h1 class="login-title">绑定双重认证</h1>
 
-                @if (!string.IsNullOrWhiteSpace(errorMessage))
-                {
-                    <FluentText As="TextTag.Paragraph" role="alert">@errorMessage</FluentText>
-                }
+                    @if (!string.IsNullOrWhiteSpace(errorMessage))
+                    {
+                        <p class="login-error" role="alert">@errorMessage</p>
+                    }
 
-                @if (mfaSetup is null)
-                {
-                    <div>
-                        <FluentProgressBar Indeterminate="true" />
-                        <FluentText As="TextTag.Paragraph">正在获取 MFA 配置...</FluentText>
-                    </div>
-                }
-                else
-                {
-                    <FluentText As="TextTag.Paragraph">使用身份验证器应用扫描以下二维码：</FluentText>
-                    <div>
-                        <img src="@mfaSetup.QrCodeImage" alt="MFA 绑定二维码" />
-                        <div>
-                            <FluentText>密钥：</FluentText>
-                            <code>@mfaSetup.SecretKey</code>
+                    @if (mfaSetup is null)
+                    {
+                        <div class="login-loading-state">
+                            <Progress IsIndeterminate="true" />
+                            <p class="login-loading-text">正在获取 MFA 配置...</p>
                         </div>
-                    </div>
+                    }
+                    else
+                    {
+                        <p class="login-subtitle">使用身份验证器应用扫描以下二维码：</p>
+                        <div class="qr-section">
+                            <img class="qr" src="@mfaSetup.QrCodeImage" alt="MFA 绑定二维码" />
+                            <div class="secret-box">
+                                <span>密钥：</span>
+                                <code>@mfaSetup.SecretKey</code>
+                            </div>
+                        </div>
 
-                    <FluentText As="TextTag.Paragraph">扫描完成后，输入应用中的 6 位验证码：</FluentText>
+                        <p class="login-subtitle">扫描完成后，输入应用中的 6 位验证码：</p>
 
-                    <label>
-                        <FluentTextInput Width="100%" Size="TextInputSize.Large" Maxlength="6" @bind-Value="mfaForm.Code" AutoComplete="one-time-code" Placeholder="6 位验证码" />
-                        <ValidationMessage For="@(() => mfaForm.Code)" />
-                    </label>
+                        <label class="login-field">
+                            <input class="form-control form-control-lg w-100" @bind="mfaForm.Code" maxlength="6" autocomplete="one-time-code" placeholder="6 位验证码" />
+                            <ValidationMessage For="@(() => mfaForm.Code)" />
+                        </label>
 
-                    <FluentButton Size="ButtonSize.Large" Type="ButtonType.Submit" Appearance="ButtonAppearance.Primary" Disabled="@isLoading">
-                        @(isLoading ? "验证中..." : "确认并绑定")
-                    </FluentButton>
-                }
-            </EditForm>
-        }
-        else
-        {
-            <EditForm Model="mfaForm" OnValidSubmit="VerifyMfaAsync">
-                <DataAnnotationsValidator />
-                <FluentText As="TextTag.H1">@(step == LoginStep.Recovery ? "恢复码验证" : "MFA 验证")</FluentText>
-                <FluentText As="TextTag.Paragraph">@(step == LoginStep.Recovery ? "输入一个恢复码（格式：XXXX-XXXX）" : "请输入身份验证器中的 6 位代码")</FluentText>
+                        <Button Size="Size.Large" ButtonType="ButtonType.Submit" Color="Color.Primary" IsDisabled="@isLoading" class="login-button w-100">
+                            @(isLoading ? "验证中..." : "确认并绑定")
+                        </Button>
+                    }
+                </EditForm>
+            }
+            else
+            {
+                <EditForm Model="mfaForm" OnValidSubmit="VerifyMfaAsync" class="login-form-content">
+                    <DataAnnotationsValidator />
+                    <h1 class="login-title">@(step == LoginStep.Recovery ? "恢复码验证" : "MFA 验证")</h1>
+                    <p class="login-subtitle">@(step == LoginStep.Recovery ? "输入一个恢复码（格式：XXXX-XXXX）" : "请输入身份验证器中的 6 位代码")</p>
 
-                @if (!string.IsNullOrWhiteSpace(errorMessage))
-                {
-                    <FluentText As="TextTag.Paragraph" role="alert">@errorMessage</FluentText>
-                }
+                    @if (!string.IsNullOrWhiteSpace(errorMessage))
+                    {
+                        <p class="login-error" role="alert">@errorMessage</p>
+                    }
 
-                @if (step == LoginStep.Recovery)
-                {
-                    <label>
-                        <FluentTextInput Width="100%" Size="TextInputSize.Large" @bind-Value="mfaForm.RecoveryCode" AutoComplete="one-time-code" Placeholder="XXXX-XXXX" />
-                    </label>
-                }
-                else
-                {
-                    <label>
-                        <FluentTextInput Width="100%" Size="TextInputSize.Large" Maxlength="6" @bind-Value="mfaForm.Code" AutoComplete="one-time-code" Placeholder="6 位验证码" />
-                    </label>
-                }
+                    @if (step == LoginStep.Recovery)
+                    {
+                        <label class="login-field">
+                            <input class="form-control form-control-lg w-100" @bind="mfaForm.RecoveryCode" autocomplete="one-time-code" placeholder="XXXX-XXXX" />
+                        </label>
+                    }
+                    else
+                    {
+                        <label class="login-field">
+                            <input class="form-control form-control-lg w-100" @bind="mfaForm.Code" maxlength="6" autocomplete="one-time-code" placeholder="6 位验证码" />
+                        </label>
+                    }
 
-                <FluentButton Size="ButtonSize.Large" Type="ButtonType.Submit" Appearance="ButtonAppearance.Primary" Disabled="@isLoading">
-                    @(isLoading ? "验证中..." : "验证")
-                </FluentButton>
-                <FluentButton Size="ButtonSize.Large" Appearance="ButtonAppearance.Transparent" OnClick="ToggleRecoveryMode">
-                    @(step == LoginStep.Recovery ? "使用 TOTP 验证码" : "使用恢复码")
-                </FluentButton>
-            </EditForm>
-        }
-    </FluentCard>
+                    <Button Size="Size.Large" ButtonType="ButtonType.Submit" Color="Color.Primary" IsDisabled="@isLoading" class="login-button w-100">
+                        @(isLoading ? "验证中..." : "验证")
+                    </Button>
+                    <Button Size="Size.Large" Color="Color.None" OnClick="ToggleRecoveryMode" class="login-text-button w-100">
+                        @(step == LoginStep.Recovery ? "使用 TOTP 验证码" : "使用恢复码")
+                    </Button>
+                </EditForm>
+            }
+        </div>
+    </div>
 </main>
 
 @code {

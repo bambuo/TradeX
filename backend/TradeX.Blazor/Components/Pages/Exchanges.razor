@@ -1,196 +1,258 @@
 @page "/exchanges"
 @inject ExchangePageService ExchangeService
-@inject IToastService ToastService
+@inject ToastService ToastService
 
 <PageTitle>交易所</PageTitle>
 
-<section>
-    <header>
-        <FluentText As="TextTag.H2">交易所管理</FluentText>
-        <FluentButton Appearance="ButtonAppearance.Primary" OnClick="OpenCreate">
+<section class="exchanges-page">
+    <header class="page-header">
+        <h2>交易所管理</h2>
+        <Button Color="Color.Primary" OnClick="OpenCreate">
             添加交易所
-        </FluentButton>
+        </Button>
     </header>
 
     @if (loading)
     {
-        <div><FluentSpinner /> 加载中...</div>
+        <div class="loading"><Spinner /> 加载中...</div>
     }
     else if (accounts.Count == 0)
     {
-        <div>暂无交易所</div>
+        <div class="empty-state">暂无交易所</div>
     }
     else
     {
-        <div>
+        <div class="card-grid">
             @foreach (var account in accounts)
             {
                 var info = GetExchangeInfo(account.ExchangeType);
-                <FluentCard>
-                    <div>
-                        <div>
-                            <img src="@info.IconPath" alt="@info.Label" />
-                        </div>
-                        <div>
-                            <FluentText As="TextTag.H3">@account.Label</FluentText>
-                            <FluentText As="TextTag.Span" Size="TextSize.Size200" Weight="TextWeight.Semibold">@info.Label</FluentText>
-                        </div>
-                        <div>
-                            <FluentButton Appearance="ButtonAppearance.Transparent" IconStart="@Icon.FromImageUrl("/exchanges/edit.svg")" IconOnly="true" Tooltip="编辑" OnClick="@(() => OpenEdit(account))" />
-                            <FluentSwitch Value="@account.IsEnabled" ValueChanged="@(value => ToggleStatusAsync(account.Id, value))" />
-                        </div>
-                    </div>
 
-                    <div>
-                        <div>
-                            <span>状态</span>
-                            <FluentText As="TextTag.Span" Size="TextSize.Size200" Weight="TextWeight.Semibold">
-                                @(account.IsEnabled ? "启用" : "禁用")
-                            </FluentText>
+                <div class="card exchange-card">
+                    <div class="card-body">
+                        <div class="card-header-row">
+                            <div class="exchange-icon">
+                                <img src="@info.IconPath" alt="@info.Label" />
+                            </div>
+                            <div>
+                                <h3>@account.Label</h3>
+                                <span class="fw-semibold small">@info.Label</span>
+                            </div>
+                            <div class="card-header-actions">
+                                <Button Color="Color.None" OnClick="@(() => OpenEdit(account))">编辑</Button>
+                                <Switch Value="@account.IsEnabled" OnValueChanged="@(value => ToggleStatusAsync(account.Id, value))" />
+                            </div>
                         </div>
-                        <div>
-                            <span>模式</span>
-                            <FluentText As="TextTag.Span" Size="TextSize.Size200" Weight="TextWeight.Semibold">主网</FluentText>
-                        </div>
-                        <div>
-                            <span>测试结果</span>
-                            <span>@GetTestLabel(account)</span>
-                        </div>
-                        <div>
-                            <span>资产</span>
-                            @if (account.IsEnabled)
-                            {
-                                if (assets.TryGetValue(account.Id, out var accountAssets))
+
+                        <div class="exchange-details">
+                            <div class="detail-item">
+                                <small class="text-muted">状态</small>
+                                <span class="fw-semibold small @(account.IsEnabled ? "text-success" : "text-muted")">
+                                    @(account.IsEnabled ? "启用" : "禁用")
+                                </span>
+                            </div>
+                            <div class="detail-item">
+                                <small class="text-muted">模式</small>
+                                <span class="fw-semibold small">主网</span>
+                            </div>
+                            <div class="detail-item">
+                                <small class="text-muted">测试结果</small>
+                                <span class="small">@GetTestLabel(account)</span>
+                            </div>
+                            <div class="detail-item">
+                                <small class="text-muted">资产</small>
+                                @if (account.IsEnabled)
                                 {
-                                    <button type="button" @onclick="@(() => ToggleAssets(account.Id))">
-                                        @accountAssets.Count 个币种 <span>▶</span>
-                                    </button>
-                                }
-                                else if (assetLoading)
-                                {
-                                    <span>加载中...</span>
+                                    if (assets.TryGetValue(account.Id, out var accountAssets))
+                                    {
+                                        <button type="button" class="btn btn-link btn-sm p-0" @onclick="@(() => ToggleAssets(account.Id))">
+                                            @accountAssets.Count 个币种
+                                        </button>
+                                    }
+                                    else if (assetLoading)
+                                    {
+                                        <span class="small">加载中...</span>
+                                    }
+                                    else
+                                    {
+                                        <Button Color="Color.None" OnClick="@(() => FetchAssetsAsync(account.Id))">加载</Button>
+                                    }
                                 }
                                 else
                                 {
-                                    <FluentButton Appearance="ButtonAppearance.Transparent" OnClick="@(() => FetchAssetsAsync(account.Id))">加载</FluentButton>
-                                }
-                            }
-                            else
-                            {
-                                <span>-</span>
-                            }
-                        </div>
-                        @if (expandedAssets.Contains(account.Id) && assets.TryGetValue(account.Id, out var expandedItems))
-                        {
-                            <div>
-                                @foreach (var item in expandedItems)
-                                {
-                                    <div>
-                                        <span>@item.Currency</span>
-                                        <span>@item.Balance.ToString("N8")</span>
-                                    </div>
+                                    <span class="small">-</span>
                                 }
                             </div>
-                        }
-                    </div>
+                        </div>
 
-                    <div>
-                        <FluentButton Disabled="@(testingId == account.Id)" OnClick="@(() => TestConnectionAsync(account.Id))">
-                            @(testingId == account.Id ? "测试中" : "测试")
-                        </FluentButton>
-                        <FluentButton OnClick="@(() => LoadOrdersAsync(account.Id, account.Label, OrderListType.Open))">挂单</FluentButton>
-                        <FluentButton OnClick="@(() => LoadOrdersAsync(account.Id, account.Label, OrderListType.History))">历史</FluentButton>
+                        @if (expandedAssets.Contains(account.Id) && assets.TryGetValue(account.Id, out var expandedItems))
+                        {
+                            <div class="asset-list">
+                                <table class="table table-sm table-striped mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>币种</th>
+                                            <th>余额</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var item in expandedItems)
+                                        {
+                                            <tr>
+                                                <td>@item.Currency</td>
+                                                <td>@item.Balance.ToString("N8")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+
+                        <div class="card-actions">
+                            <Button IsDisabled="@(testingId == account.Id)" OnClick="@(() => TestConnectionAsync(account.Id))" class="me-1">
+                                @(testingId == account.Id ? "测试中" : "测试")
+                            </Button>
+                            <Button OnClick="@(() => LoadOrdersAsync(account.Id, account.Label, OrderListType.Open))" class="me-1">挂单</Button>
+                            <Button OnClick="@(() => LoadOrdersAsync(account.Id, account.Label, OrderListType.History))">历史</Button>
+                        </div>
                     </div>
-                </FluentCard>
+                </div>
             }
         </div>
     }
 </section>
 
-<FluentDialog @ref="ordersDialog" Modal="true">
-    <FluentDialogBody>
-        <TitleTemplate>
-            @ordersDialogTitle
-        </TitleTemplate>
-        <ChildContent>
-            <div>
-                <FluentTabs ActiveTabId="@ordersType.ToString()" ActiveTabIdChanged="OnOrdersTabChanged">
-                    <FluentTab Id="Open" Header="当前挂单" />
-                    <FluentTab Id="History" Header="历史订单" />
-                </FluentTabs>
-                @if (ordersLoading)
-                {
-                    <div><FluentSpinner /> 加载中...</div>
-                }
-                else if (!string.IsNullOrWhiteSpace(ordersError))
-                {
-                    <div role="alert">@ordersError</div>
-                }
-                else
-                {
-                    <FluentDataGrid Items="orders.AsQueryable()">
-                        <PropertyColumn Property="@(o => o.Symbol)" Title="交易对" />
-                        <TemplateColumn Title="方向">
-                            <span>@(context.Side == "Buy" ? "买入" : "卖出")</span>
-                        </TemplateColumn>
-                        <TemplateColumn Title="类型">@FormatOrderType(context.Type)</TemplateColumn>
-                        <TemplateColumn Title="状态">@FormatOrderStatus(context.Status)</TemplateColumn>
-                        <TemplateColumn Title="价格">@(context.Price > 0 ? context.Price.ToString("N8") : "-")</TemplateColumn>
-                        <TemplateColumn Title="数量">@context.Quantity.ToString("N8")</TemplateColumn>
-                        <TemplateColumn Title="已成交">@context.FilledQuantity.ToString("N8")</TemplateColumn>
-                        <TemplateColumn Title="下单时间">@context.PlacedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</TemplateColumn>
-                    </FluentDataGrid>
-                    @if (orders.Count == 0)
-                    {
-                        <div>@(ordersType == OrderListType.Open ? "暂无挂单" : "暂无历史订单")</div>
-                    }
-                }
-            </div>
-        </ChildContent>
-        <ActionTemplate>
-            <div>
-                <FluentButton Appearance="ButtonAppearance.Outline" OnClick="CloseOrdersAsync">关闭</FluentButton>
-            </div>
-        </ActionTemplate>
-    </FluentDialogBody>
-</FluentDialog>
+@if (showOrdersDialog)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@ordersDialogTitle</h5>
+                    <button type="button" class="btn-close" @onclick="CloseOrdersAsync"></button>
+                </div>
+                <div class="modal-body">
+                    <ul class="nav nav-tabs mb-3">
+                        <li class="nav-item">
+                            <button class="nav-link @(ordersType == OrderListType.Open ? "active" : "")" @onclick="@(() => SwitchOrdersTab(OrderListType.Open))">当前挂单</button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link @(ordersType == OrderListType.History ? "active" : "")" @onclick="@(() => SwitchOrdersTab(OrderListType.History))">历史订单</button>
+                        </li>
+                    </ul>
 
-<FluentDialog @ref="formDialog" Modal="true">
-    <FluentDialogBody>
-        <TitleTemplate>
-            @(isEdit ? "编辑交易所" : "添加交易所")
-        </TitleTemplate>
-        <ChildContent>
-        <EditForm Model="form" OnValidSubmit="SaveAsync">
-            <DataAnnotationsValidator />
-            <FluentTextInput Width="100%" Size="TextInputSize.Large" Label="名称" Placeholder="名称（如：币安主账户）" @bind-Value="form.Name" />
-            <FluentSelect TOption="ExchangeType" TValue="ExchangeType"
-                          Width="100%"
-                          Label="交易所"
-                          Items="exchangeTypes"
-                          Disabled="@isEdit"
-                          OptionText="@(type => GetExchangeInfo(type).Label)"
-                          OptionValue="@(type => type)"
-                          @bind-Value="form.ExchangeType" />
-            <FluentTextInput Width="100%" Size="TextInputSize.Large" TextInputType="TextInputType.Password" Label="API Key" Placeholder="@(isEdit ? "API Key（留空则不修改）" : "API Key")" @bind-Value="form.ApiKey" />
-            <FluentTextInput Width="100%" Size="TextInputSize.Large" TextInputType="TextInputType.Password" Label="Secret Key" Placeholder="@(isEdit ? "Secret Key（留空则不修改）" : "Secret Key")" @bind-Value="form.SecretKey" />
-            <FluentTextInput Width="100%" Size="TextInputSize.Large" TextInputType="TextInputType.Password" Label="Passphrase" Placeholder="@(isEdit ? "Passphrase（留空则不修改）" : "Passphrase（选填）")" @bind-Value="form.Passphrase" />
-            @if (!string.IsNullOrWhiteSpace(formError))
-            {
-                <FluentText As="TextTag.Paragraph">@formError</FluentText>
-            }
-        </EditForm>
-        </ChildContent>
-        <ActionTemplate>
-        <div>
-            <FluentButton Appearance="ButtonAppearance.Primary" Disabled="@saving" OnClick="SaveAsync">
-                @(saving ? "保存中..." : "保存")
-            </FluentButton>
-            <FluentButton Appearance="ButtonAppearance.Outline" OnClick="CloseFormAsync">取消</FluentButton>
+                    @if (ordersLoading)
+                    {
+                        <div class="loading"><Spinner /> 加载中...</div>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(ordersError))
+                    {
+                        <div class="alert alert-danger" role="alert">@ordersError</div>
+                    }
+                    else
+                    {
+                        <table class="table table-striped table-sm orders-grid">
+                            <thead>
+                                <tr>
+                                    <th>交易对</th>
+                                    <th>方向</th>
+                                    <th>类型</th>
+                                    <th>状态</th>
+                                    <th>价格</th>
+                                    <th>数量</th>
+                                    <th>已成交</th>
+                                    <th>下单时间</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var o in orders)
+                                {
+                                    <tr>
+                                        <td>@o.Symbol</td>
+                                        <td><span class="@(o.Side == "Buy" ? "side-buy" : "side-sell")">@(o.Side == "Buy" ? "买入" : "卖出")</span></td>
+                                        <td>@FormatOrderType(o.Type)</td>
+                                        <td>@FormatOrderStatus(o.Status)</td>
+                                        <td>@(o.Price > 0 ? o.Price.ToString("N8") : "-")</td>
+                                        <td>@o.Quantity.ToString("N8")</td>
+                                        <td>@o.FilledQuantity.ToString("N8")</td>
+                                        <td>@o.PlacedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                        @if (orders.Count == 0)
+                        {
+                            <p class="text-muted">@(ordersType == OrderListType.Open ? "暂无挂单" : "暂无历史订单")</p>
+                        }
+                    }
+                </div>
+                <div class="modal-footer">
+                    <Button Color="Color.Secondary" OnClick="CloseOrdersAsync">关闭</Button>
+                </div>
+            </div>
         </div>
-        </ActionTemplate>
-    </FluentDialogBody>
-</FluentDialog>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@if (showFormDialog)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(isEdit ? "编辑交易所" : "添加交易所")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseFormAsync"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="form" OnValidSubmit="SaveAsync">
+                        <DataAnnotationsValidator />
+                        <div class="mb-3">
+                            <label class="form-label">名称</label>
+                            <input class="form-control form-control-lg" @bind="form.Name" placeholder="名称（如：币安主账户）" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">交易所</label>
+                            <select class="form-select form-select-lg" @bind="form.ExchangeType" disabled="@isEdit">
+                                @foreach (var type in exchangeTypes)
+                                {
+                                    <option value="@type">@GetExchangeInfo(type).Label</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">API Key</label>
+                            <input class="form-control form-control-lg" type="password" @bind="form.ApiKey" placeholder="@(isEdit ? "API Key（留空则不修改）" : "API Key")" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Secret Key</label>
+                            <input class="form-control form-control-lg" type="password" @bind="form.SecretKey" placeholder="@(isEdit ? "Secret Key（留空则不修改）" : "Secret Key")" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Passphrase</label>
+                            <input class="form-control form-control-lg" type="password" @bind="form.Passphrase" placeholder="@(isEdit ? "Passphrase（留空则不修改）" : "Passphrase（选填）")" />
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(formError))
+                        {
+                            <p class="text-danger mb-0">@formError</p>
+                        }
+                    </EditForm>
+                </div>
+                <div class="modal-footer">
+                    <Button Color="Color.Primary" IsDisabled="@saving" OnClick="SaveAsync">
+                        @(saving ? "保存中..." : "保存")
+                    </Button>
+                    <Button Color="Color.Secondary" OnClick="CloseFormAsync">取消</Button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
 
 @code {
     [CascadingParameter]
@@ -202,12 +264,12 @@
     private List<ExchangeOrderDto> orders = [];
     private ExchangeFormModel form = new();
     private readonly ExchangeType[] exchangeTypes = Enum.GetValues<ExchangeType>();
-    private FluentDialog formDialog = default!;
-    private FluentDialog ordersDialog = default!;
     private bool loading = true;
     private bool assetLoading;
     private bool saving;
     private bool isEdit;
+    private bool showFormDialog;
+    private bool showOrdersDialog;
     private Guid? formExchangeId;
     private bool ordersLoading;
     private Guid? testingId;
@@ -286,7 +348,7 @@
         isEdit = false;
         formExchangeId = null;
         formError = null;
-        await formDialog.ShowAsync();
+        showFormDialog = true;
     }
 
     private async Task OpenEdit(ExchangeItem account)
@@ -299,12 +361,12 @@
         isEdit = true;
         formExchangeId = account.Id;
         formError = null;
-        await formDialog.ShowAsync();
+        showFormDialog = true;
     }
 
     private async Task CloseFormAsync()
     {
-        await formDialog.HideAsync();
+        showFormDialog = false;
     }
 
     private async Task SaveAsync()
@@ -323,7 +385,7 @@
                 await ExchangeService.CreateAsync(state.User, form);
             }
 
-            await formDialog.HideAsync();
+            showFormDialog = false;
             await ShowSuccess("交易所已保存");
             await LoadAllAsync();
         }
@@ -385,7 +447,7 @@
         orders = [];
         ordersError = null;
         ordersLoading = true;
-        await ordersDialog.ShowAsync();
+        showOrdersDialog = true;
         try
         {
             orders = (await ExchangeService.GetOrdersAsync(id, type)).ToList();
@@ -400,9 +462,9 @@
         }
     }
 
-    private async Task OnOrdersTabChanged(string? tabId)
+    private async Task SwitchOrdersTab(OrderListType type)
     {
-        if (Enum.TryParse<OrderListType>(tabId, out var type))
+        if (type != ordersType)
         {
             await LoadOrdersAsync(ordersExchangeId, ordersExchangeLabel, type);
         }
@@ -410,7 +472,7 @@
 
     private async Task CloseOrdersAsync()
     {
-        await ordersDialog.HideAsync();
+        showOrdersDialog = false;
         orders = [];
         ordersError = null;
     }
@@ -447,13 +509,13 @@
     }
 
     private async Task ShowSuccess(string text)
-        => await ToastService.ShowToastAsync(o => { o.Body = text; o.Intent = ToastIntent.Success; o.Timeout = 3000; });
+        => await ToastService.Success("成功", text);
 
     private async Task ShowInfo(string text)
-        => await ToastService.ShowToastAsync(o => { o.Body = text; o.Intent = ToastIntent.Info; });
+        => await ToastService.Information("信息", text);
 
     private async Task ShowError(string text)
-        => await ToastService.ShowToastAsync(o => { o.Body = text; o.Intent = ToastIntent.Error; });
+        => await ToastService.Error("错误", text);
 
     private static ExchangeInfo GetExchangeInfo(ExchangeType type)
     {

@@ -4,59 +4,61 @@
 
 <PageTitle>初始化 TradeX</PageTitle>
 
-<main>
-    <FluentCard>
-        @if (step == SetupStep.Checking)
-        {
-            <div>
-                <FluentProgressBar Indeterminate="true" />
-                <FluentText As="TextTag.Paragraph">正在检查系统初始化状态...</FluentText>
-            </div>
-        }
-        else if (step == SetupStep.Success)
-        {
-            <div>
-                <div>✓</div>
-                <FluentText As="TextTag.H2">初始化成功！</FluentText>
-                <FluentText As="TextTag.Paragraph">系统已创建 Super Admin 账户，请继续登录并绑定 MFA。</FluentText>
-                <FluentButton Size="ButtonSize.Large" Appearance="ButtonAppearance.Primary" OnClick="GoToLogin">
-                    前往登录
-                </FluentButton>
-            </div>
-        }
-        else
-        {
-            <EditForm Model="form" OnValidSubmit="InitializeAsync">
-                <DataAnnotationsValidator />
-                <FluentText As="TextTag.H1">TradeX 初始化</FluentText>
-                <FluentText As="TextTag.Paragraph">首次部署，请创建 Super Admin 账户</FluentText>
+<main class="setup-page">
+    <div class="card setup-card">
+        <div class="card-body">
+            @if (step == SetupStep.Checking)
+            {
+                <div class="setup-state">
+                    <Progress IsIndeterminate="true" />
+                    <p class="setup-state-text">正在检查系统初始化状态...</p>
+                </div>
+            }
+            else if (step == SetupStep.Success)
+            {
+                <div class="setup-state success-state">
+                    <div class="setup-success-icon">✓</div>
+                    <h2 class="setup-state-title">初始化成功！</h2>
+                    <p class="setup-state-text">系统已创建 Super Admin 账户，请继续登录并绑定 MFA。</p>
+                    <Button Size="Size.Large" Color="Color.Primary" OnClick="GoToLogin" class="setup-submit">
+                        前往登录
+                    </Button>
+                </div>
+            }
+            else
+            {
+                <EditForm Model="form" OnValidSubmit="InitializeAsync" class="setup-form">
+                    <DataAnnotationsValidator />
+                    <h1 class="setup-title">TradeX 初始化</h1>
+                    <p class="setup-subtitle">首次部署，请创建 Super Admin 账户</p>
 
-                @if (!string.IsNullOrWhiteSpace(errorMessage))
-                {
-                    <FluentText As="TextTag.Paragraph" role="alert">@errorMessage</FluentText>
-                }
+                    @if (!string.IsNullOrWhiteSpace(errorMessage))
+                    {
+                        <p class="text-danger" role="alert">@errorMessage</p>
+                    }
 
-                <label>
-                    <FluentTextInput Width="100%" Size="TextInputSize.Large" @bind-Value="form.UserName" AutoComplete="username" Placeholder="Super Admin 用户名" />
-                    <ValidationMessage For="@(() => form.UserName)" />
-                </label>
+                    <label class="setup-field">
+                        <input class="form-control form-control-lg w-100" @bind="form.UserName" autocomplete="username" placeholder="Super Admin 用户名" />
+                        <ValidationMessage For="@(() => form.UserName)" />
+                    </label>
 
-                <label>
-                    <FluentTextInput Width="100%" Size="TextInputSize.Large" TextInputType="TextInputType.Password" @bind-Value="form.Password" AutoComplete="new-password" Placeholder="密码 (至少 8 位)" />
-                    <ValidationMessage For="@(() => form.Password)" />
-                </label>
+                    <label class="setup-field">
+                        <input class="form-control form-control-lg w-100" type="password" @bind="form.Password" autocomplete="new-password" placeholder="密码 (至少 8 位)" />
+                        <ValidationMessage For="@(() => form.Password)" />
+                    </label>
 
-                <label>
-                    <FluentTextInput Width="100%" Size="TextInputSize.Large" TextInputType="TextInputType.Password" @bind-Value="form.ConfirmPassword" AutoComplete="new-password" Placeholder="确认密码" />
-                    <ValidationMessage For="@(() => form.ConfirmPassword)" />
-                </label>
+                    <label class="setup-field">
+                        <input class="form-control form-control-lg w-100" type="password" @bind="form.ConfirmPassword" autocomplete="new-password" placeholder="确认密码" />
+                        <ValidationMessage For="@(() => form.ConfirmPassword)" />
+                    </label>
 
-                <FluentButton Size="ButtonSize.Large" Type="ButtonType.Submit" Appearance="ButtonAppearance.Primary" Disabled="@isLoading">
-                    @(isLoading ? "初始化中..." : "初始化系统")
-                </FluentButton>
-            </EditForm>
-        }
-    </FluentCard>
+                    <Button Size="Size.Large" ButtonType="ButtonType.Submit" Color="Color.Primary" IsDisabled="@isLoading" class="setup-submit w-100">
+                        @(isLoading ? "初始化中..." : "初始化系统")
+                    </Button>
+                </EditForm>
+            }
+        </div>
+    </div>
 </main>
 
 @code {
