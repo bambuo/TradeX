@@ -141,147 +141,54 @@ builder.Services.AddScoped(sp =>
 builder.Services.AddSingleton<TradingHubClient>();
 ```
 
-**页面路由与角色守卫**：
+**页面路由与角色守卫策略**：
 
-```razor
-@* 页面定义示例 *@
-@page "/exchanges"
-@attribute [Authorize(Roles = "SuperAdmin,Admin,Operator")]
+| 控制点 | 方式 |
+|--------|------|
+| 页面路由 | Blazor `@page` 指令声明式路由 |
+| 角色守卫 | `AuthorizeView` + `[Authorize(Roles=)]` 两级控制 |
+| 前端访问控制 | 与后端 Casbin RBAC 策略保持一致
 
-@* 角色守卫包装 *@
-<AuthorizeView Roles="SuperAdmin,Admin">
-    <Authorized>
-        <FluentButton OnClick="@ShowAdminPanel">管理</FluentButton>
-    </Authorized>
-    <NotAuthorized>
-        <FluentBadge Appearance="BadgeAppearance.Accent">仅管理员</FluentBadge>
-    </NotAuthorized>
-</AuthorizeView>
-```
+**Blazor 服务约束**：前端按业务域拆分为独立服务（Auth、Trader、Exchange、Strategy、Position、Order、Dashboard 等），通过 DI 注入。服务通过 SignalR 事件总线接收后端推送。
 
-**Blazor 服务设计**：
+**SignalR 事件订阅**：
 
-```mermaid
-flowchart LR
-  subgraph SERVICES["Blazor 服务层 (DI Singleton/Scoped)"]
-    AUTH[AuthService<br/>登录/MFA/Token 管理]
-    TRADER[TraderService<br/>交易员列表/切换]
-    EXCH[ExchangeService<br/>交易所配置/连接状态]
-    STRAT[StrategyService<br/>策略 CRUD/状态管理]
-    POS[PositionService<br/>持仓/实时更新]
-    ORDER[OrderService<br/>订单历史/手动下单]
-    DASH[DashboardService<br/>仪表盘汇总数据]
-    NOTIF[NotificationService<br/>通知渠道配置]
-    BACKTEST[BacktestService<br/>回测任务/结果]
-    AUDIT[AuditLogService<br/>审计日志查询]
-  end
+| 事件 | 推送方向 | 消费方 |
+|------|---------|--------|
+| `PositionUpdated` | Server → Client | 前端持仓面板 |
+| `OrderPlaced` | Server → Client | 前端订单列表 |
+| `StrategyStatusChanged` | Server → Client | 前端策略列表 |
+| `RiskAlert` | Server → Client | 前端风控告警 |
+| `DashboardSummary` | Server → Client | 前端仪表盘 |
+| `ExchangeConnectionChanged` | Server → Client | 前端连接状态 |
 
-  AUTH --> TRADER
-  TRADER --> EXCH
-  TRADER --> STRAT
-  STRAT --> POS
-  STRAT --> ORDER
-  STRAT --> BACKTEST
-  POS --> DASH
-  ORDER --> DASH
-```
+> 前端服务的具体设计与组件消费方式由 frontend 角色产出。
 
-**SignalR 集成模式**：
+**SignalR 集成模式**：前端通过 `TradingHubClient`（Singleton）管理与后端的 SignalR 连接，自动重连，通过事件订阅接收实时推送。
 
-| Blazor 服务/组件 | 订阅事件 | 数据流向 |
-|-----------------|---------|---------|
-| `PositionService` | `PositionUpdated` | Hub → Service → Blazor 组件 `@onsomeone` 响应式更新 |
-| `OrderService` | `OrderPlaced` | Hub → Service → 通知 |
-| `StrategyService` | `StrategyStatusChanged` | Hub → Service → 状态刷新 |
-| `DashboardService` | `DashboardSummary` | Hub → Service → KPI 卡片 |
-| `ExchangeService` | `ExchangeConnectionChanged` | Hub → Service → 状态图标 |
+> 前端 HubConnection 的具体实现由 frontend 角色完成。
 
-**SignalR HubConnection 生命周期管理**：
+**前端组件约束**：
 
-```csharp
-// TradingHubClient.cs — Singleton 服务
-public sealed class TradingHubClient : IAsyncDisposable
-{
-    private HubConnection? _hubConnection;
+| 约束项 | 要求 |
+|--------|------|
+| 组件库 | `Microsoft.FluentUI.AspNetCore.Components` v5.0 |
+| 页面分类 | 按业务域拆分为独立目录（Exchanges/Strategies/Backtests 等） |
+| 共享组件 | 条件树编辑器、执行规则表单等公共 UI 抽离至 Shared 目录 |
+| 页面路由 | 通过 `@page` 指令声明，`AuthorizeView` 实现角色守卫 |
+| 文件位置 | 所有 Razor 组件位于 `TradeX.Api/Components/` 下 |
 
-    public async Task StartAsync(string accessToken)
-    {
-        _hubConnection = new HubConnectionBuilder()
-            .WithUrl("/hubs/trading", options =>
-                options.AccessTokenProvider = () => Task.FromResult(accessToken))
-            .WithAutomaticReconnect()
-            .Build();
+> 具体页面清单与组件设计由 frontend 角色在设计阶段产出。
 
-        // 注册事件处理
-        _hubConnection.On<object>("PositionUpdated", data => OnPositionUpdated?.Invoke(data));
-        _hubConnection.On<object>("DashboardSummary", data => OnDashboardSummary?.Invoke(data));
+**条件编辑器架构约束**：
 
-        await _hubConnection.StartAsync();
-    }
+| 约束 | 说明 |
+|------|------|
+| 数据结构 | 条件树为嵌套 JSON，结构定义见 FSD §8.1 |
+| 验证规则 | 树深度 ≤ 5 层、NOT 节点仅 1 子节点、Indicator 节点为叶节点 |
+| 序列化 | 编辑结果序列化为 JSON 存入数据库 |
 
-    public event Action<object>? OnPositionUpdated;
-    public event Action<object>? OnDashboardSummary;
-}
-```
-
-**前端页面文件结构**：
-
-```
-TradeX.Api/
-└── Components/
-    ├── Layout/
-    │   ├── AppLayout.razor              # FluentLayout 整体布局
-    │   └── MainNav.razor               # FluentNav 侧边导航
-    ├── Pages/
-    │   ├── SetupWizard.razor            # 初始化向导
-    │   ├── Login.razor                  # 登录
-    │   ├── MfaSetup.razor              # MFA 绑定
-    │   ├── Dashboard.razor              # 仪表盘
-    │   ├── Traders/
-    │   │   ├── TraderList.razor        # 交易员列表
-    │   │   └── TraderDetail.razor      # 交易员详情
-    │   ├── Exchanges/
-    │   │   ├── ExchangeList.razor      # 交易所列表
-    │   │   └── ExchangeDetail.razor    # 交易所详情
-    │   ├── Strategies/
-    │   │   ├── StrategyList.razor      # 策略模板列表
-    │   │   └── StrategyEditor.razor    # 策略编辑器（含条件树）
-    │   ├── Positions.razor             # 持仓面板
-    │   ├── Orders.razor                # 订单历史
-    │   ├── Backtests/
-    │   │   ├── BacktestList.razor      # 回测列表
-    │   │   └── BacktestResult.razor    # 回测结果 + K 线回放
-    │   ├── Notifications.razor         # 通知配置
-    │   ├── AuditLogs.razor             # 审计日志
-    │   ├── Users.razor                 # 用户管理
-    │   └── Settings.razor              # 系统设置
-    └── Shared/
-        ├── ConditionTreeEditor.razor    # 条件树编辑器组件
-        ├── ExecutionRuleEditor.razor    # 执行规则表单
-        ├── ExchangeTypeSelect.razor     # 交易所类型下拉选择
-        ├── ErrorBoundary.razor          # 错误边界
-        └── BacktestCharts/
-            ├── BacktestKlineChart.razor # K 线图表
-            └── BacktestChart.razor     # 绩效图表
-```
-
-**条件编辑器架构**（Blazor 最复杂组件）：
-
-```mermaid
-flowchart TB
-  subgraph Editor["策略条件编辑器"]
-    PALLET[条件拖拽面板<br/>FluentSelect 指标选择 + FluentNumberField 值输入]
-    CANVAS[条件树画布<br/>FluentTreeView / 递归嵌套]
-    PREVIEW[条件预览<br/>JSON 实时显示]
-    VALID[验证器<br/>树深度检查 + 类型检查]
-    EXPORT[序列化器<br/>生成 EntryConditionJson]
-  end
-
-  PALLET --> CANVAS
-  CANVAS --> VALID
-  VALID --> EXPORT
-  CANVAS --> PREVIEW
-```
+> 编辑器的 UI 组件设计（拖拽面板、画布、预览等）由 frontend 角色完成。
 
 ---
 
@@ -1138,29 +1045,19 @@ flowchart TB
   IOTDB --> VOL_IOTDB_WAL
 ```
 
-### 7.2 Blazor Server 路由配置
+### 7.2 路由策略
 
-Blazor Interactive Server 通过 `MapRazorComponents` 处理所有页面路由，无需独立 Nginx 容器。
+所有请求在同一端口 (80) 上按路径分发：
 
-```csharp
-// Program.cs
-app.UseRouting();
-app.MapRazorComponents<App>()
-   .AddInteractiveServerRenderMode();
-app.MapControllers();
-app.MapHub<TradingHub>("/hubs/trading");
-app.MapHealthChecks("/health");
-```
+| 路径 | 目标 | 说明 |
+|------|------|------|
+| `/_blazor/*` | Blazor Server SignalR | 前端交互连接 |
+| `/api/*` | REST Controllers | 后端 API |
+| `/hubs/trading` | SignalR Hub | 实时数据推送 |
+| `/health` | Health Check | 健康检查 |
+| `/*` | Blazor 页面路由 | SPA 页面导航 |
 
-所有请求流向：
-```
-/:80
-  ├── /_blazor/*     → Blazor Server SignalR 连接
-  ├── /api/*         → Controllers
-  ├── /hubs/trading  → SignalR Hub
-  ├── /health        → Health Check
-  └── /*              → Blazor 页面路由
-```
+Blazor Server 与 REST API 共享同一 ASP.NET Core 进程，无需独立 Nginx 容器。
 
 ### 7.3 环境变量配置清单
 
