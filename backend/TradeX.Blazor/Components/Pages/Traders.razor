@@ -32,7 +32,7 @@
                 var isActive = trader.Status == TraderStatus.Active;
                 var avatarColor = GetAvatarColorFromName(trader.Name);
 
-                <div class="card trader-card">
+                <div class="card trader-card" style="border-top-color: @avatarColor;">
                     <div class="card-body">
                         <div class="card-header-row">
                             <Avatar Name="@trader.Name" />

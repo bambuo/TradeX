@@ -27,7 +27,9 @@
             {
                 var info = GetExchangeInfo(account.ExchangeType);
 
-                <div class="card exchange-card">
+                var borderColor = GetExchangeColor(account.ExchangeType);
+
+                <div class="card exchange-card" style="border-top-color: @borderColor;">
                     <div class="card-body">
                         <div class="card-header-row">
                             <div class="exchange-icon">
@@ -552,6 +554,15 @@
             _ => status
         };
     }
+
+    private static string GetExchangeColor(ExchangeType type) => type switch
+    {
+        ExchangeType.OKX => "#1757e0",
+        ExchangeType.Gate => "#1e6a5e",
+        ExchangeType.Bybit => "#2d3748",
+        ExchangeType.HTX => "#0084ff",
+        _ => "#f0b90b"
+    };
 
     private sealed record ExchangeInfo(string Label, string ShortName, string IconPath);
 }

@@ -30,7 +30,9 @@
         <div class="card-grid">
             @foreach (var s in strategies)
             {
-                <div class="card strategy-card">
+                var cardColor = GetStrategyColor(s.Id);
+
+                <div class="card strategy-card" style="border-top-color: @cardColor;">
                     <div class="card-header">
                         <div class="card-title-area">
                             <h5 class="mb-0">@s.Name</h5>
@@ -215,6 +217,12 @@
 
     private async Task ShowError(string text)
         => await ToastService.Error("错误", text);
+
+    private static string GetStrategyColor(Guid id)
+    {
+        var palette = new[] { "#4f7ec9", "#528a60", "#b8893a", "#bf4848", "#7c6eb0", "#c97b4a", "#4a9ea0", "#b06e8a" };
+        return palette[Math.Abs(id.GetHashCode()) % palette.Length];
+    }
 
     private sealed record Preset(string Name, string Description, string[] Notes,
         string EntryJson, string ExitJson, string ExecJson);
