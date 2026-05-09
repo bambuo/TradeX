@@ -14,3 +14,5 @@ tradex.db
 tradex.db-shm
 tradex.db-wal
 uploads/
+*-lock.json
+*.lock
