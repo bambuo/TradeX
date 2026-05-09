@@ -36,13 +36,14 @@
     --bb-menu-active-color: var(--bs-primary);
 }
 
-.app-sidebar ::deep .menu .nav {
+.app-sidebar ::deep .menu .submenu {
     flex-direction: column;
     padding: 0;
     border-bottom: none;
+    list-style: none;
 }
 
-.app-sidebar ::deep .menu .nav .nav-link {
+.app-sidebar ::deep .menu .submenu .nav-link {
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -57,19 +58,19 @@
     border-bottom: none;
 }
 
-.app-sidebar ::deep .menu .nav .nav-link:hover {
+.app-sidebar ::deep .menu .submenu .nav-link .submenu-link {
+    padding-left: 0.75rem;
+}
+
+.app-sidebar ::deep .menu .submenu .nav-link:hover {
     background: rgba(0, 0, 0, 0.04);
     color: var(--bs-body-color);
 }
 
-.app-sidebar ::deep .menu .nav .nav-link.active {
+.app-sidebar ::deep .menu .submenu .nav-link.active {
     background: rgba(79, 126, 201, 0.08);
     color: var(--bs-primary);
     font-weight: 600;
-}
-
-.app-sidebar ::deep .menu > .nav > li:after {
-    display: none;
 }
 
 /* --- 右侧内容区 --- */
