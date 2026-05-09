@@ -39,8 +39,9 @@ async function handleLogout() {
 const navItems = [
   { path: '/', label: '仪表盘', icon: 'dashboard' },
   { path: '/traders', label: '交易员', icon: 'traders' },
-  { path: '/exchanges', label: '交易所', icon: 'exchange' },
   { path: '/strategies', label: '策略', icon: 'strategy' },
+  { path: '/backtests', label: '回测', icon: 'backtest' },
+  { path: '/exchanges', label: '交易所', icon: 'exchange' },
   { path: '/audit-logs', label: '审计日志', icon: 'audit' },
   { path: '/settings', label: '系统设置', icon: 'settings' },
   { path: '/notifications', label: '通知渠道', icon: 'notification' },
@@ -50,6 +51,7 @@ const navItems = [
 const iconMap: Record<string, string> = {
   dashboard: 'icon-dashboard',
   traders: 'icon-user-group',
+  backtest: 'icon-common',
   exchange: 'icon-storage',
   strategy: 'icon-common',
   audit: 'icon-file',
@@ -60,32 +62,36 @@ const iconMap: Record<string, string> = {
 
 const selectedKeys = computed(() => [route.path])
 
-const routeLabelMap: Record<string, string> = {
-  '': '仪表盘',
+// Path segment → breadcrumb label mapping
+const segmentLabel: Record<string, string> = {
   traders: '交易员',
+  backtests: '回测',
   strategies: '策略',
-  exchanges: '交易所',
-  positions: '持仓',
-  orders: '订单',
-  backtest: '回测',
-  'audit-logs': '审计日志',
-  notifications: '通知渠道',
-  users: '用户管理',
-  settings: '系统设置'
+  positions: '交易员',
+  orders: '交易员'
 }
 
 const breadcrumbItems = computed(() => {
   const segments = route.path.split('/').filter(Boolean)
-  const items: { path: string; label: string; isLast: boolean }[] = []
-  for (let i = 0; i < segments.length; i++) {
-    if (/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(segments[i])) continue
-    items.push({
-      path: '/' + segments.slice(0, i + 1).join('/'),
-      label: routeLabelMap[segments[i]] || segments[i],
-      isLast: false
-    })
+  // Find last non-UUID segment index
+  const uuidRe = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/
+  let lastSegIdx = -1
+  for (let i = segments.length - 1; i >= 0; i--) {
+    if (!uuidRe.test(segments[i])) { lastSegIdx = i; break }
   }
-  if (items.length > 0) items[items.length - 1].isLast = true
+
+  const items: { path: string; label: string; isLast: boolean }[] = []
+  let accumulated = ''
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i]
+    if (uuidRe.test(seg)) continue
+    accumulated = accumulated ? `${accumulated}/${seg}` : seg
+    const isLast = i === lastSegIdx
+    const label = isLast
+      ? (route.meta?.label as string) || segmentLabel[seg] || seg
+      : segmentLabel[seg] || seg
+    items.push({ path: '/' + accumulated, label, isLast })
+  }
   return items
 })
 
