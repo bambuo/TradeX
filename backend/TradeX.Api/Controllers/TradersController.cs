@@ -14,7 +14,7 @@ namespace TradeX.Api.Controllers;
 [Authorize]
 public class TradersController(
     ITraderRepository traderRepo,
-    IStrategyDeploymentRepository deploymentRepo,
+    IStrategyBindingRepository bindingRepo,
     TradeXDbContext dbContext) : ControllerBase
 {
     private Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
@@ -87,11 +87,11 @@ public class TradersController(
             if (request.Status.Value == TradeX.Core.Enums.TraderStatus.Disabled
                 && trader.Status == TradeX.Core.Enums.TraderStatus.Active)
             {
-                var activeDeployments = await deploymentRepo.GetByTraderIdAsync(trader.Id, ct);
-                foreach (var deployment in activeDeployments.Where(d => d.Status == DeploymentStatus.Active))
+                var activeBindings = await bindingRepo.GetByTraderIdAsync(trader.Id, ct);
+                foreach (var binding in activeBindings.Where(d => d.Status == BindingStatus.Active))
                 {
-                    deployment.Status = DeploymentStatus.Disabled;
-                    await deploymentRepo.UpdateAsync(deployment, ct);
+                    binding.Status = BindingStatus.Disabled;
+                    await bindingRepo.UpdateAsync(binding, ct);
                 }
             }
 
@@ -116,8 +116,8 @@ public class TradersController(
         if (trader is null || trader.UserId != UserId)
             return NotFound(new { message = "交易员不存在" });
 
-        var activeDeployments = await deploymentRepo.GetByTraderIdAsync(trader.Id, ct);
-        if (activeDeployments.Any(d => d.Status == DeploymentStatus.Active))
+        var activeBindings = await bindingRepo.GetByTraderIdAsync(trader.Id, ct);
+        if (activeBindings.Any(d => d.Status == BindingStatus.Active))
             return Conflict(new { code = "TRADER_HAS_ACTIVE_STRATEGIES", message = "交易员存在活跃策略，无法删除，请先禁用所有策略" });
 
         await traderRepo.DeleteAsync(trader, ct);

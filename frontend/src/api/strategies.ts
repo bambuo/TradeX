@@ -3,21 +3,21 @@ import client from './client'
 export interface Strategy {
   id: string
   name: string
-  entryConditionJson: string
-  exitConditionJson: string
-  executionRuleJson: string
+  entryCondition: string
+  exitCondition: string
+  executionRule: string
   version: number
   createdAt: string
   updatedAt: string
 }
 
-export interface StrategyDeployment {
+export interface StrategyBinding {
   id: string
   strategyId: string
   name?: string
   traderId: string
   exchangeId: string
-  symbolIds: string
+  pairs: string
   timeframe: string
   status: string
   scope: string
@@ -25,34 +25,34 @@ export interface StrategyDeployment {
   updatedAt: string
 }
 
-export interface GlobalDeployment extends StrategyDeployment {
+export interface GlobalBinding extends StrategyBinding {
   traderName: string
 }
 
-export interface CreateDeploymentRequest {
+export interface CreateBindingRequest {
   strategyId: string
   exchangeId: string
-  symbolIds?: string
+  pairs?: string
   timeframe?: string
 }
 
-export interface UpdateDeploymentRequest {
-  symbolIds?: string
+export interface UpdateBindingRequest {
+  pairs?: string
   timeframe?: string
 }
 
 export interface CreateStrategyRequest {
   name: string
-  entryConditionJson?: string
-  exitConditionJson?: string
-  executionRuleJson?: string
+  entryCondition?: string
+  exitCondition?: string
+  executionRule?: string
 }
 
 export interface UpdateStrategyRequest {
   name?: string
-  entryConditionJson?: string
-  exitConditionJson?: string
-  executionRuleJson?: string
+  entryCondition?: string
+  exitCondition?: string
+  executionRule?: string
 }
 
 export const strategiesApi = {
@@ -73,16 +73,16 @@ export const strategiesApi = {
   },
 
   getAll(traderId: string) {
-    return client.get<StrategyDeployment[]>(`/traders/${traderId}/strategies`)
+    return client.get<StrategyBinding[]>(`/traders/${traderId}/strategies`)
   },
   getById(traderId: string, id: string) {
-    return client.get<StrategyDeployment>(`/traders/${traderId}/strategies/${id}`)
+    return client.get<StrategyBinding>(`/traders/${traderId}/strategies/${id}`)
   },
-  create(traderId: string, data: CreateDeploymentRequest) {
-    return client.post<StrategyDeployment>(`/traders/${traderId}/strategies`, data)
+  create(traderId: string, data: CreateBindingRequest) {
+    return client.post<StrategyBinding>(`/traders/${traderId}/strategies`, data)
   },
-  update(traderId: string, id: string, data: UpdateDeploymentRequest) {
-    return client.put<StrategyDeployment>(`/traders/${traderId}/strategies/${id}`, data)
+  update(traderId: string, id: string, data: UpdateBindingRequest) {
+    return client.put<StrategyBinding>(`/traders/${traderId}/strategies/${id}`, data)
   },
   delete(traderId: string, id: string) {
     return client.delete<{ message: string }>(`/traders/${traderId}/strategies/${id}`)

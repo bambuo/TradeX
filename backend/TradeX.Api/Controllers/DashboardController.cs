@@ -16,8 +16,8 @@ public class DashboardController(TradeXDbContext dbContext) : ControllerBase
     public async Task<IActionResult> GetSummary(CancellationToken ct)
     {
         var traderCount = await dbContext.Traders.CountAsync(ct);
-        var strategyCount = await dbContext.StrategyDeployments.CountAsync(ct);
-        var activeStrategyCount = await dbContext.StrategyDeployments.CountAsync(s => s.Status == DeploymentStatus.Active, ct);
+        var strategyCount = await dbContext.StrategyBindings.CountAsync(ct);
+        var activeStrategyCount = await dbContext.StrategyBindings.CountAsync(s => s.Status == BindingStatus.Active, ct);
         var openPositionCount = await dbContext.Positions.CountAsync(p => p.Status == PositionStatus.Open, ct);
         var todayOrderCount = await dbContext.Orders.CountAsync(
             o => o.PlacedAtUtc >= DateTime.UtcNow.Date, ct);

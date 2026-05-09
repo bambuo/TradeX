@@ -10,7 +10,7 @@ public interface ITradingEventBus
         string symbolId, string side, string type, string status,
         decimal quantity, DateTime placedAtUtc, CancellationToken ct = default);
 
-    Task DeploymentStatusChangedAsync(Guid traderId, Guid strategyId, string oldStatus,
+    Task BindingStatusChangedAsync(Guid traderId, Guid strategyId, string oldStatus,
         string newStatus, string? reason, CancellationToken ct = default);
 
     Task RiskAlertAsync(Guid traderId, string level, string category, Guid? strategyId,

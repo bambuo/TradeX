@@ -8,7 +8,7 @@ internal sealed class TradingCycleScope(IServiceScopeFactory scopeFactory) : IDi
 {
     private readonly IServiceScope _scope = scopeFactory.CreateScope();
 
-    public IStrategyDeploymentRepository StrategyDeploymentRepo => _scope.ServiceProvider.GetRequiredService<IStrategyDeploymentRepository>();
+    public IStrategyBindingRepository StrategyBindingRepo => _scope.ServiceProvider.GetRequiredService<IStrategyBindingRepository>();
     public IStrategyRepository StrategyRepo => _scope.ServiceProvider.GetRequiredService<IStrategyRepository>();
     public IPositionRepository PositionRepo => _scope.ServiceProvider.GetRequiredService<IPositionRepository>();
     public ISystemConfigRepository SystemConfigRepo => _scope.ServiceProvider.GetRequiredService<ISystemConfigRepository>();

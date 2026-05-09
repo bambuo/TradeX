@@ -267,7 +267,7 @@ onMounted(loadTraders)
         <div class="card-actions">
           <a-button size="small" @click="router.push(`/traders/${t.id}/strategies`)">
             <template #icon><icon-common /></template>
-            策略部署
+            策略
           </a-button>
           <a-button size="small" @click="router.push(`/traders/${t.id}/positions`)">
             <template #icon><icon-common /></template>

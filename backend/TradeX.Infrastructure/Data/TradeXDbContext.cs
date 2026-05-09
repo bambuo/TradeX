@@ -15,12 +15,12 @@ public class TradeXDbContext(DbContextOptions<TradeXDbContext> options) : DbCont
     public DbSet<Exchange> Exchanges => Set<Exchange>();
     public DbSet<AuditLogEntry> AuditLogs => Set<AuditLogEntry>();
     public DbSet<Strategy> Strategies => Set<Strategy>();
-    public DbSet<StrategyDeployment> StrategyDeployments => Set<StrategyDeployment>();
+    public DbSet<StrategyBinding> StrategyBindings => Set<StrategyBinding>();
     public DbSet<Position> Positions => Set<Position>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<BacktestTask> BacktestTasks => Set<BacktestTask>();
     public DbSet<BacktestResult> BacktestResults => Set<BacktestResult>();
-    public DbSet<BacktestCandleAnalysisEntity> BacktestCandleAnalyses => Set<BacktestCandleAnalysisEntity>();
+    public DbSet<BacktestKlineAnalysisEntity> BacktestKlineAnalyses => Set<BacktestKlineAnalysisEntity>();
     public DbSet<Symbol> Symbols => Set<Symbol>();
     public DbSet<ExchangeSymbolRuleSnapshot> ExchangeSymbolRules => Set<ExchangeSymbolRuleSnapshot>();
     public DbSet<NotificationChannel> NotificationChannels => Set<NotificationChannel>();
@@ -113,13 +113,13 @@ public class TradeXDbContext(DbContextOptions<TradeXDbContext> options) : DbCont
             e.Property(x => x.Name).HasMaxLength(100).IsRequired();
         });
 
-        modelBuilder.Entity<StrategyDeployment>(e =>
+        modelBuilder.Entity<StrategyBinding>(e =>
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.Status);
             e.Property(x => x.Timeframe).HasMaxLength(10).IsRequired();
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
-            e.Property(x => x.SymbolIds).HasMaxLength(500);
+            e.Property(x => x.Pairs).HasMaxLength(500);
         });
 
         modelBuilder.Entity<Position>(e =>
@@ -138,7 +138,7 @@ public class TradeXDbContext(DbContextOptions<TradeXDbContext> options) : DbCont
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
             e.Property(x => x.Phase).HasConversion<string>().HasMaxLength(20);
             e.Property(x => x.StrategyName).HasMaxLength(200);
-            e.Property(x => x.SymbolId).HasMaxLength(50);
+            e.Property(x => x.Pair).HasMaxLength(50);
             e.Property(x => x.Timeframe).HasMaxLength(10);
         });
 
@@ -148,9 +148,9 @@ public class TradeXDbContext(DbContextOptions<TradeXDbContext> options) : DbCont
             e.HasIndex(x => x.TaskId).IsUnique();
         });
 
-        modelBuilder.Entity<BacktestCandleAnalysisEntity>(e =>
+        modelBuilder.Entity<BacktestKlineAnalysisEntity>(e =>
         {
-            e.ToTable("BacktestCandleAnalyses");
+            e.ToTable("BacktestKlineAnalyses");
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.TaskId);
             e.HasIndex(x => new { x.TaskId, x.Index }).IsUnique();

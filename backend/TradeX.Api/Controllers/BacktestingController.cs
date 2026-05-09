@@ -9,7 +9,7 @@ namespace TradeX.Api.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("api/traders/{traderId:guid}/strategies/{strategyId:guid}/backtests")]
+[Route("api/backtests")]
 public class BacktestingController(
     IBacktestService backtestService,
     TaskAnalysisStore analysisStore,
@@ -18,26 +18,26 @@ public class BacktestingController(
 {
     [HttpPost]
     public async Task<IActionResult> StartBacktest(
-        Guid strategyId,
-        [FromQuery] Guid deploymentId,
+        [FromQuery] Guid strategyId,
         [FromQuery] Guid exchangeId,
-        [FromQuery] string symbolId,
+        [FromQuery] string pair,
         [FromQuery] string timeframe,
-        [FromQuery] DateTime startUtc,
-        [FromQuery] DateTime endUtc,
-        [FromQuery] decimal initialCapital = 1000m,
+        [FromQuery] DateTime startAt,
+        [FromQuery] DateTime endAt,
+        [FromQuery] decimal initialCapital,
+        [FromQuery] decimal? positionSize = null,
         CancellationToken ct = default)
     {
         try
         {
-            var task = await backtestService.StartBacktestAsync(deploymentId, strategyId, exchangeId, symbolId, timeframe, startUtc, endUtc, initialCapital, ct);
+            var task = await backtestService.StartBacktestAsync(strategyId, exchangeId, pair, timeframe, startAt, endAt, initialCapital, positionSize, ct);
             return Ok(new
             {
                 taskId = task.Id,
                 status = task.Status.ToString(),
                 createdAt = task.CreatedAt,
                 strategyName = task.StrategyName,
-                symbolId = task.SymbolId,
+                pair = task.Pair,
                 timeframe = task.Timeframe
             });
         }
@@ -48,16 +48,19 @@ public class BacktestingController(
     }
 
     [HttpGet("tasks")]
-    public async Task<IActionResult> GetTasks(Guid strategyId, CancellationToken ct)
+    public async Task<IActionResult> GetTasks([FromQuery] Guid? strategyId, CancellationToken ct)
     {
-        var tasks = await backtestService.GetTasksByStrategyAsync(strategyId, ct);
+        if (strategyId is null || strategyId.Value == Guid.Empty)
+            return Ok(Array.Empty<object>());
+
+        var tasks = await backtestService.GetTasksByStrategyAsync(strategyId.Value, ct);
         return Ok(tasks.Select(t => new
         {
-            t.Id, t.StrategyId, t.StrategyName, t.SymbolId, t.Timeframe, t.InitialCapital,
+            t.Id, t.StrategyId, t.StrategyName, t.Pair, t.Timeframe, t.InitialCapital,
             status = t.Status.ToString(),
             phase = t.Phase?.ToString(),
-            t.StartAtUtc, t.EndAtUtc,
-            t.CreatedAt, t.CompletedAtUtc
+            t.StartAt, t.EndAt,
+            t.CreatedAt, t.CompletedAt
         }));
     }
 
@@ -71,8 +74,8 @@ public class BacktestingController(
             task.Id, task.StrategyId,
             status = task.Status.ToString(),
             phase = task.Phase?.ToString(),
-            task.StartAtUtc, task.EndAtUtc,
-            task.CreatedAt, task.CompletedAtUtc
+            task.StartAt, task.EndAt,
+            task.CreatedAt, task.CompletedAt
         });
     }
 
@@ -82,7 +85,7 @@ public class BacktestingController(
         var task = await backtestService.GetTaskAsync(taskId, ct);
         if (task is null) return NotFound(new { error = "回测任务不存在" });
 
-        if (task.Status != Core.Models.BacktestTaskStatus.Completed)
+        if (task.Status != BacktestTaskStatus.Completed)
             return BadRequest(new { error = "回测尚未完成", status = task.Status.ToString() });
 
         var result = await backtestService.GetResultAsync(taskId, ct);
@@ -97,8 +100,8 @@ public class BacktestingController(
             result.TotalTrades,
             result.SharpeRatio,
             result.ProfitLossRatio,
-            analysisCount = await taskRepo.GetCandleAnalysesCountAsync(taskId, null, ct),
-            trades = JsonSerializer.Deserialize<object>(result.DetailJson)
+            analysisCount = await taskRepo.GetKlineAnalysesCountAsync(taskId, null, ct),
+            trades = JsonSerializer.Deserialize<object>(result.Details)
         });
     }
 
@@ -158,8 +161,8 @@ public class BacktestingController(
         if (task.Status != BacktestTaskStatus.Completed)
             return NotFound(new { error = "没有运行中的分析数据" });
 
-        var dbItems = await taskRepo.GetCandleAnalysesPageAsync(taskId, page, pageSize, action, ct);
-        var dbTotal = await taskRepo.GetCandleAnalysesCountAsync(taskId, action, ct);
+        var dbItems = await taskRepo.GetKlineAnalysesPageAsync(taskId, page, pageSize, action, ct);
+        var dbTotal = await taskRepo.GetKlineAnalysesCountAsync(taskId, action, ct);
 
         return Ok(new
         {
@@ -202,8 +205,6 @@ public class BacktestingController(
         var runningList = analysisStore.Get(taskId);
         if (runningList is null)
         {
-            // Race: Worker may not have called Init() yet — wait for store to be ready
-            // Also handles case: Worker completed and called Remove() while we waited
             var btTask = await backtestService.GetTaskAsync(taskId, ct);
             if (btTask?.Status == BacktestTaskStatus.Running)
             {
@@ -216,7 +217,6 @@ public class BacktestingController(
                         await Task.Delay(200, waitCts.Token);
                         runningList = analysisStore.Get(taskId);
                         if (runningList is not null) break;
-                        // Fall back to DB if task completed while waiting
                         btTask = await backtestService.GetTaskAsync(taskId, ct);
                         if (btTask?.Status != BacktestTaskStatus.Running) break;
                     }
@@ -256,7 +256,7 @@ public class BacktestingController(
             return;
         }
 
-        var allData = await taskRepo.GetCandleAnalysesAllAsync(taskId, ct);
+        var allData = await taskRepo.GetKlineAnalysesAllAsync(taskId, ct);
         if (allData.Length == 0)
         {
             await WriteCompleteAsync(Response, ss, ct);
@@ -266,7 +266,6 @@ public class BacktestingController(
         var delayMs = 300 / speed;
         var total = allData.Length;
 
-        // Send total count first
         var metaPayload = JsonSerializer.Serialize(new { type = "meta", total }, ss);
         await Response.WriteAsync($"data: {metaPayload}\n\n", ct);
         await Response.Body.FlushAsync(ct);
@@ -281,7 +280,7 @@ public class BacktestingController(
         await WriteCompleteAsync(Response, ss, ct);
     }
 
-    private static object FormatItem(BacktestCandleAnalysis a) => new
+    private static object FormatItem(BacktestKlineAnalysis a) => new
     {
         a.Index, a.Timestamp, a.Open, a.High, a.Low, a.Close, a.Volume,
         indicators = a.IndicatorValues,
@@ -297,7 +296,7 @@ public class BacktestingController(
         a.PositionPnlPercent
     };
 
-    private static async Task WriteItemAsync(HttpResponse response, BacktestCandleAnalysis a, JsonSerializerOptions ss, CancellationToken ct)
+    private static async Task WriteItemAsync(HttpResponse response, BacktestKlineAnalysis a, JsonSerializerOptions ss, CancellationToken ct)
     {
         var payload = JsonSerializer.Serialize(new
         {

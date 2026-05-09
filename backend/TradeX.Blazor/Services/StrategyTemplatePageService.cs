@@ -20,9 +20,9 @@ public sealed class StrategyTemplatePageService(
         var strategy = new Strategy
         {
             Name = name,
-            EntryConditionJson = string.IsNullOrWhiteSpace(entryConditionJson) ? "{}" : entryConditionJson,
-            ExitConditionJson = string.IsNullOrWhiteSpace(exitConditionJson) ? "{}" : exitConditionJson,
-            ExecutionRuleJson = string.IsNullOrWhiteSpace(executionRuleJson) ? "{}" : executionRuleJson
+            EntryCondition = string.IsNullOrWhiteSpace(entryConditionJson) ? "{}" : entryConditionJson,
+            ExitCondition = string.IsNullOrWhiteSpace(exitConditionJson) ? "{}" : exitConditionJson,
+            ExecutionRule = string.IsNullOrWhiteSpace(executionRuleJson) ? "{}" : executionRuleJson
         };
 
         await strategyRepo.AddAsync(strategy, ct);
@@ -38,13 +38,13 @@ public sealed class StrategyTemplatePageService(
             strategy.Name = name;
 
         if (entryConditionJson is not null)
-            strategy.EntryConditionJson = string.IsNullOrWhiteSpace(entryConditionJson) ? "{}" : entryConditionJson;
+            strategy.EntryCondition = string.IsNullOrWhiteSpace(entryConditionJson) ? "{}" : entryConditionJson;
 
         if (exitConditionJson is not null)
-            strategy.ExitConditionJson = string.IsNullOrWhiteSpace(exitConditionJson) ? "{}" : exitConditionJson;
+            strategy.ExitCondition = string.IsNullOrWhiteSpace(exitConditionJson) ? "{}" : exitConditionJson;
 
         if (executionRuleJson is not null)
-            strategy.ExecutionRuleJson = string.IsNullOrWhiteSpace(executionRuleJson) ? "{}" : executionRuleJson;
+            strategy.ExecutionRule = string.IsNullOrWhiteSpace(executionRuleJson) ? "{}" : executionRuleJson;
 
         await strategyRepo.UpdateAsync(strategy, ct);
     }

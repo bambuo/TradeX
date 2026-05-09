@@ -54,7 +54,7 @@ public class TradingEngine(
         var cycleStart = DateTime.UtcNow;
         using var cycle = new TradingCycleScope(scopeFactory);
 
-        var activeStrategies = await cycle.StrategyDeploymentRepo.GetAllActiveAsync(ct);
+        var activeStrategies = await cycle.StrategyBindingRepo.GetAllActiveAsync(ct);
         if (activeStrategies.Count == 0)
             return;
 
@@ -73,19 +73,19 @@ public class TradingEngine(
         }
 
         await UpdateAllPositionsPnlAsync(cycle.PositionRepo, ct);
-        await PushDashboardSummaryAsync(cycle.PositionRepo, cycle.StrategyDeploymentRepo, ct);
+        await PushDashboardSummaryAsync(cycle.PositionRepo, cycle.StrategyBindingRepo, ct);
 
         logger.LogInformation("评估周期完成: {StrategyCount} 个活跃策略, 耗时 {Elapsed:F1}s",
             activeStrategies.Count, (DateTime.UtcNow - cycleStart).TotalSeconds);
     }
 
     private async Task EvaluateStrategyAsync(
-        Core.Models.StrategyDeployment strategy,
+        Core.Models.StrategyBinding strategy,
         TradingCycleScope cycle,
         TimeSpan volatilityGridDedupWindow,
         CancellationToken ct)
     {
-        var symbolIds = strategy.SymbolIds.Split(',', StringSplitOptions.RemoveEmptyEntries);
+        var symbolIds = strategy.Pairs.Split(',', StringSplitOptions.RemoveEmptyEntries);
         if (symbolIds.Length == 0)
             return;
 
@@ -127,9 +127,9 @@ public class TradingEngine(
         var strategyTemplate = strategy.StrategyId != Guid.Empty
             ? await cycle.StrategyRepo.GetByIdAsync(strategy.StrategyId, ct)
             : null;
-        var entryConditionJson = strategyTemplate?.EntryConditionJson ?? "{}";
-        var exitConditionJson = strategyTemplate?.ExitConditionJson ?? "{}";
-        var executionRuleJson = strategyTemplate?.ExecutionRuleJson ?? "{}";
+        var entryConditionJson = strategyTemplate?.EntryCondition ?? "{}";
+        var exitConditionJson = strategyTemplate?.ExitCondition ?? "{}";
+        var executionRuleJson = strategyTemplate?.ExecutionRule ?? "{}";
         var openSymbolPositions = openPositions
             .Where(p => p.Status == PositionStatus.Open && p.SymbolId.Equals(symbolId, StringComparison.OrdinalIgnoreCase))
             .OrderBy(p => p.OpenedAtUtc)
@@ -431,12 +431,12 @@ public class TradingEngine(
         }
     }
 
-    private async Task PushDashboardSummaryAsync(IPositionRepository positionRepo, IStrategyDeploymentRepository strategyDeploymentRepo, CancellationToken ct)
+    private async Task PushDashboardSummaryAsync(IPositionRepository positionRepo, IStrategyBindingRepository strategyBindingRepo, CancellationToken ct)
     {
         try
         {
             var allPositions = await positionRepo.GetAllOpenAsync(ct);
-            var activeStrategies = await strategyDeploymentRepo.GetAllActiveAsync(ct);
+            var activeStrategies = await strategyBindingRepo.GetAllActiveAsync(ct);
 
             var traderGroups = allPositions.GroupBy(p => p.TraderId);
             foreach (var group in traderGroups)

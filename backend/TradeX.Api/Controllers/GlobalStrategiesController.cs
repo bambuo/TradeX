@@ -19,8 +19,8 @@ public class StrategiesController(
         {
             data = strategies.Select(s => new
             {
-                s.Id, s.Name, s.EntryConditionJson, s.ExitConditionJson,
-                s.ExecutionRuleJson, s.Version, s.CreatedAt, s.UpdatedAt
+                s.Id, s.Name, s.EntryCondition, s.ExitCondition,
+                s.ExecutionRule, s.Version, s.CreatedAt, s.UpdatedAt
             })
         });
     }
@@ -34,8 +34,8 @@ public class StrategiesController(
 
         return Ok(new
         {
-            strategy.Id, strategy.Name, strategy.EntryConditionJson,
-            strategy.ExitConditionJson, strategy.ExecutionRuleJson,
+            strategy.Id, strategy.Name, strategy.EntryCondition,
+            strategy.ExitCondition, strategy.ExecutionRule,
             strategy.Version, strategy.CreatedAt, strategy.UpdatedAt
         });
     }
@@ -49,9 +49,9 @@ public class StrategiesController(
         var strategy = new Strategy
         {
             Name = request.Name,
-            EntryConditionJson = request.EntryConditionJson ?? "{}",
-            ExitConditionJson = request.ExitConditionJson ?? "{}",
-            ExecutionRuleJson = request.ExecutionRuleJson ?? "{}"
+            EntryCondition = request.EntryCondition ?? "{}",
+            ExitCondition = request.ExitCondition ?? "{}",
+            ExecutionRule = request.ExecutionRule ?? "{}"
         };
 
         await strategyRepo.AddAsync(strategy, ct);
@@ -71,12 +71,12 @@ public class StrategiesController(
 
         if (request.Name is not null)
             strategy.Name = request.Name;
-        if (request.EntryConditionJson is not null)
-            strategy.EntryConditionJson = request.EntryConditionJson;
-        if (request.ExitConditionJson is not null)
-            strategy.ExitConditionJson = request.ExitConditionJson;
-        if (request.ExecutionRuleJson is not null)
-            strategy.ExecutionRuleJson = request.ExecutionRuleJson;
+        if (request.EntryCondition is not null)
+            strategy.EntryCondition = request.EntryCondition;
+        if (request.ExitCondition is not null)
+            strategy.ExitCondition = request.ExitCondition;
+        if (request.ExecutionRule is not null)
+            strategy.ExecutionRule = request.ExecutionRule;
 
         strategy.Version++;
         await strategyRepo.UpdateAsync(strategy, ct);
@@ -96,8 +96,8 @@ public class StrategiesController(
     }
 
     public record CreateStrategyRequest(
-        string Name, string? EntryConditionJson = null, string? ExitConditionJson = null, string? ExecutionRuleJson = null);
+        string Name, string? EntryCondition = null, string? ExitCondition = null, string? ExecutionRule = null);
 
     public record UpdateStrategyRequest(
-        string? Name = null, string? EntryConditionJson = null, string? ExitConditionJson = null, string? ExecutionRuleJson = null);
+        string? Name = null, string? EntryCondition = null, string? ExitCondition = null, string? ExecutionRule = null);
 }

@@ -5,7 +5,6 @@ using Microsoft.Extensions.Options;
 using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
-using TradeX.Indicators;
 
 namespace TradeX.Trading;
 
@@ -92,9 +91,13 @@ public class BacktestScheduler(
 
     private async Task ProcessTaskAsync(Guid taskId, CancellationToken ct)
     {
-        using var scope = new BacktestCycleScope(scopeFactory);
+        using var scope = scopeFactory.CreateScope();
+        var taskRepo = scope.ServiceProvider.GetRequiredService<IBacktestTaskRepository>();
+        var strategyRepo = scope.ServiceProvider.GetRequiredService<IStrategyRepository>();
+        var exchangeRepo = scope.ServiceProvider.GetRequiredService<IExchangeRepository>();
+        var clientFactory = scope.ServiceProvider.GetRequiredService<IExchangeClientFactory>();
 
-        var task = await scope.TaskRepo.GetByIdAsync(taskId, ct);
+        var task = await taskRepo.GetByIdAsync(taskId, ct);
         if (task is null)
         {
             logger.LogWarning("回测任务不存在: TaskId={TaskId}", taskId);
@@ -103,51 +106,53 @@ public class BacktestScheduler(
 
         task.Status = BacktestTaskStatus.Running;
         task.Phase = BacktestPhase.Queued;
-        await scope.TaskRepo.UpdateAsync(task, ct);
+        await taskRepo.UpdateAsync(task, ct);
 
-        var deployment = task.DeploymentId != Guid.Empty
-            ? await scope.StrategyDeploymentRepo.GetByIdAsync(task.DeploymentId, ct)
-            : null;
-
-        var strategy = await scope.StrategyRepo.GetByIdAsync(task.StrategyId, ct);
+        var strategy = await strategyRepo.GetByIdAsync(task.StrategyId, ct);
         if (strategy is null)
             throw new InvalidOperationException($"策略不存在: {task.StrategyId}");
 
-        var exchange = await scope.ExchangeRepo.GetByIdAsync(task.ExchangeId, ct);
+        var exchange = await exchangeRepo.GetByIdAsync(task.ExchangeId, ct);
         if (exchange is null)
             throw new InvalidOperationException($"交易所不存在: {task.ExchangeId}");
 
         task.Phase = BacktestPhase.FetchingData;
-        await scope.TaskRepo.UpdateAsync(task, ct);
+        await taskRepo.UpdateAsync(task, ct);
 
+        // Public kline API — no API key needed
+        var klineReader = clientFactory.CreateClient(exchange.Type, "", "");
         List<Candle> candles;
-        var startUtc = task.StartAtUtc;
-        var endUtc = task.EndAtUtc;
-        var symbolId = task.SymbolId;
-        var timeframe = task.Timeframe;
-
-        var exchangeClient = scope.ClientFactory.CreateClient(
-            exchange.Type,
-            scope.EncryptionService.Decrypt(exchange.ApiKeyEncrypted),
-            scope.EncryptionService.Decrypt(exchange.SecretKeyEncrypted));
-
-        candles = await FetchAllCandlesAsync(exchangeClient, symbolId, timeframe, startUtc, endUtc, ct);
+        try
+        {
+            candles = await FetchAllKlinesAsync(klineReader, task.Pair, task.Timeframe, task.StartAt, task.EndAt, ct);
+        }
+        finally
+        {
+            if (klineReader is IDisposable d) d.Dispose();
+        }
 
         task.Phase = BacktestPhase.Running;
-        await scope.TaskRepo.UpdateAsync(task, ct);
+        await taskRepo.UpdateAsync(task, ct);
 
         analysisStore.Init(task.Id);
 
-        var engine = new BacktestEngine(scope.IndicatorService, scope.ConditionEvaluator);
-        var (result, trades, analysis) = engine.Run(strategy, candles, task.InitialCapital,
+        var engine = new BacktestEngine();
+        var (result, trades, analysis) = engine.Run(strategy, task.Pair, candles, task.InitialCapital, task.PositionSize,
             a => analysisStore.Push(task.Id, a), task.Timeframe);
 
-        await scope.TaskRepo.AddCandleAnalysesAsync(task.Id, analysis, ct);
+        await taskRepo.AddKlineAnalysesAsync(task.Id, analysis, ct);
         logger.LogInformation("回测分析数据已写入 SQLite: TaskId={TaskId}, Count={Count}", task.Id, analysis.Count);
 
         var resultWithTask = new BacktestResult
         {
             TaskId = task.Id,
+            StrategyName = task.StrategyName,
+            Pair = task.Pair,
+            Timeframe = task.Timeframe,
+            StartAt = task.StartAt,
+            EndAt = task.EndAt,
+            InitialCapital = task.InitialCapital,
+            FinalValue = result.FinalValue,
             TotalReturnPercent = result.TotalReturnPercent,
             AnnualizedReturnPercent = result.AnnualizedReturnPercent,
             MaxDrawdownPercent = result.MaxDrawdownPercent,
@@ -155,20 +160,14 @@ public class BacktestScheduler(
             TotalTrades = result.TotalTrades,
             SharpeRatio = result.SharpeRatio,
             ProfitLossRatio = result.ProfitLossRatio,
-            DetailJson = result.DetailJson
+            Details = result.Details
         };
-        await scope.TaskRepo.AddResultAsync(resultWithTask, ct);
+        await taskRepo.AddResultAsync(resultWithTask, ct);
 
         task.Status = BacktestTaskStatus.Completed;
         task.Phase = null;
-        task.CompletedAtUtc = DateTime.UtcNow;
-        await scope.TaskRepo.UpdateAsync(task, ct);
-
-        if (deployment?.Status == DeploymentStatus.Draft)
-        {
-            deployment.Status = DeploymentStatus.Passed;
-            await scope.StrategyDeploymentRepo.UpdateAsync(deployment, ct);
-        }
+        task.CompletedAt = DateTime.UtcNow;
+        await taskRepo.UpdateAsync(task, ct);
 
         analysisStore.Remove(task.Id);
 
@@ -180,21 +179,18 @@ public class BacktestScheduler(
     {
         try
         {
-            using var scope = new BacktestCycleScope(scopeFactory);
-            var deployments = await scope.StrategyRepo.GetAllAsync(ct);
-            List<BacktestTask> stuckTasks = [];
+            using var scope = scopeFactory.CreateScope();
+            var taskRepo = scope.ServiceProvider.GetRequiredService<IBacktestTaskRepository>();
+            var queue = scope.ServiceProvider.GetRequiredService<IBacktestTaskQueue>();
 
-            foreach (var dep in deployments)
-            {
-                var tasks = await scope.TaskRepo.GetByStrategyIdAsync(dep.Id, ct);
-                stuckTasks.AddRange(tasks.Where(t => t.Status == BacktestTaskStatus.Running));
-            }
+            var allTasks = await taskRepo.GetByStrategyIdAsync(Guid.Empty, ct);
+            var stuckTasks = allTasks.Where(t => t.Status == BacktestTaskStatus.Running).ToList();
 
             foreach (var task in stuckTasks)
             {
                 logger.LogWarning("恢复卡死的回测任务: TaskId={TaskId}, Strategy={Strategy}", task.Id, task.StrategyName);
                 task.Status = BacktestTaskStatus.Pending;
-                await scope.TaskRepo.UpdateAsync(task, ct);
+                await taskRepo.UpdateAsync(task, ct);
                 await queue.EnqueueAsync(task.Id, ct);
             }
 
@@ -211,13 +207,15 @@ public class BacktestScheduler(
     {
         try
         {
-            using var scope = new BacktestCycleScope(scopeFactory);
-            var task = await scope.TaskRepo.GetByIdAsync(taskId, ct);
+            using var scope = scopeFactory.CreateScope();
+            var taskRepo = scope.ServiceProvider.GetRequiredService<IBacktestTaskRepository>();
+
+            var task = await taskRepo.GetByIdAsync(taskId, ct);
             if (task is not null)
             {
                 task.Status = BacktestTaskStatus.Failed;
-                task.CompletedAtUtc = DateTime.UtcNow;
-                await scope.TaskRepo.UpdateAsync(task, ct);
+                task.CompletedAt = DateTime.UtcNow;
+                await taskRepo.UpdateAsync(task, ct);
             }
         }
         catch (Exception ex)
@@ -240,33 +238,31 @@ public class BacktestScheduler(
     private static long GetIntervalMs(string timeframe) =>
         IntervalMs.TryGetValue(timeframe, out var ms) ? ms : 60_000;
 
-    private static async Task<List<Candle>> FetchAllCandlesAsync(IExchangeClient client, string symbol, string timeframe, DateTime startUtc, DateTime endUtc, CancellationToken ct)
+    private static async Task<List<Candle>> FetchAllKlinesAsync(IExchangeClient client, string pair, string timeframe, DateTime startAt, DateTime endAt, CancellationToken ct)
     {
-        List<Candle> allCandles = [];
-        var currentStart = startUtc;
+        List<Candle> allKlines = [];
+        var currentStart = startAt;
         var intervalMs = GetIntervalMs(timeframe);
 
-        while (currentStart < endUtc && !ct.IsCancellationRequested)
+        while (currentStart < endAt && !ct.IsCancellationRequested)
         {
-            var chunk = await client.GetKlinesAsync(symbol, timeframe, currentStart, endUtc, ct);
+            var chunk = await client.GetKlinesAsync(pair, timeframe, currentStart, endAt, ct);
             if (chunk.Length == 0) break;
 
-            var converted = chunk.Select(k => new Candle(k.Timestamp, k.Open, k.High, k.Low, k.Close, k.Volume)).ToList();
-
-            var newCandles = converted
-                .Where(c => c.Timestamp >= currentStart && !allCandles.Any(ex => ex.Timestamp == c.Timestamp))
+            var newKlines = chunk
+                .Where(c => c.Timestamp >= currentStart && !allKlines.Any(ex => ex.Timestamp == c.Timestamp))
                 .ToList();
 
-            if (newCandles.Count == 0) break;
+            if (newKlines.Count == 0) break;
 
-            allCandles.AddRange(newCandles);
+            allKlines.AddRange(newKlines);
 
-            var lastTime = newCandles[^1].Timestamp;
-            if (lastTime >= endUtc - TimeSpan.FromMilliseconds(intervalMs)) break;
+            var lastTime = newKlines[^1].Timestamp;
+            if (lastTime >= endAt - TimeSpan.FromMilliseconds(intervalMs)) break;
 
             currentStart = lastTime.AddMilliseconds(intervalMs);
         }
 
-        return allCandles;
+        return allKlines;
     }
 }

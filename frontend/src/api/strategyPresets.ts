@@ -2,9 +2,9 @@ export interface StrategyPreset {
   name: string
   description: string
   notes: string[]
-  entryConditionJson: string
-  exitConditionJson: string
-  executionRuleJson: string
+  entryCondition: string
+  exitCondition: string
+  executionRule: string
 }
 
 export const strategyPresets: StrategyPreset[] = [
@@ -17,19 +17,19 @@ export const strategyPresets: StrategyPreset[] = [
       'RSI 30/70 适用于 15m/1h 短线，日线级别建议放宽至 25/75 以减少假信号',
       '每日亏损达 200 USDT（总敞口的 20%）时自动熔断，防止单边行情持续亏损'
     ],
-    entryConditionJson: JSON.stringify({
+    entryCondition: JSON.stringify({
       operator: '',
       indicator: 'RSI',
       comparison: '<',
       value: 30
     }),
-    exitConditionJson: JSON.stringify({
+    exitCondition: JSON.stringify({
       operator: '',
       indicator: 'RSI',
       comparison: '>',
       value: 70
     }),
-    executionRuleJson: JSON.stringify({
+    executionRule: JSON.stringify({
       type: 'grid',
       gridLevels: 5,
       gridSpacingPercent: 1.5,
@@ -48,21 +48,21 @@ export const strategyPresets: StrategyPreset[] = [
       '止盈建议 3 倍盈亏比：止损 2% 时止盈设在 6%，单比正期望值 = 60%胜率 × 6% - 40%败率 × 2% = +2.8%',
       '单笔风险 ≤ 总资金 2%，连续亏损 3 次应暂停策略，检查市场是否处于长期震荡不适合趋势策略'
     ],
-    entryConditionJson: JSON.stringify({
+    entryCondition: JSON.stringify({
       operator: 'AND',
       conditions: [
         { operator: '', indicator: 'MACD_LINE', comparison: 'CrossAbove', value: 0 },
         { operator: '', indicator: 'RSI', comparison: '>', value: 50 }
       ]
     }),
-    exitConditionJson: JSON.stringify({
+    exitCondition: JSON.stringify({
       operator: 'AND',
       conditions: [
         { operator: '', indicator: 'MACD_LINE', comparison: 'CrossBelow', value: 0 },
         { operator: '', indicator: 'RSI', comparison: '<', value: 50 }
       ]
     }),
-    executionRuleJson: JSON.stringify({
+    executionRule: JSON.stringify({
       type: 'trend_following',
       trailingStopPercent: 2.0,
       takeProfitPercent: 6.0,
@@ -82,21 +82,21 @@ export const strategyPresets: StrategyPreset[] = [
       '每轮按 4 层 × 1% 间距 = 4% 价格覆盖范围，匹配 BTC 单次恐慌下跌的典型深度（3~8%）',
       '风控：每层独立止损 5%（超过 5 层间距），极端行情继续下探时逐层止损退出'
     ],
-    entryConditionJson: JSON.stringify({
+    entryCondition: JSON.stringify({
       operator: 'AND',
       conditions: [
         { operator: '', indicator: 'RSI', comparison: '<', value: 30 },
         { operator: '', indicator: 'MACD_LINE', comparison: '<', value: 0 }
       ]
     }),
-    exitConditionJson: JSON.stringify({
+    exitCondition: JSON.stringify({
       operator: 'AND',
       conditions: [
         { operator: '', indicator: 'RSI', comparison: '>', value: 70 },
         { operator: '', indicator: 'MACD_LINE', comparison: '>', value: 0 }
       ]
     }),
-    executionRuleJson: JSON.stringify({
+    executionRule: JSON.stringify({
       type: 'infinity_grid',
       gridLevels: 4,
       gridSpacingPercent: 1.0,
@@ -117,14 +117,14 @@ export const strategyPresets: StrategyPreset[] = [
       '减仓条件由执行规则驱动：当前价 >= 均价 * (1 + 1%)，每次减一笔，逐步锁定利润',
       '该风格可关闭单笔止损，但建议保留 maxDailyLoss 作为账户级兜底'
     ],
-    entryConditionJson: JSON.stringify({
+    entryCondition: JSON.stringify({
       operator: '',
       indicator: 'RANGE_PCT',
       comparison: '>=',
       value: 1
     }),
-    exitConditionJson: '{}',
-    executionRuleJson: JSON.stringify({
+    exitCondition: '{}',
+    executionRule: JSON.stringify({
       type: 'volatility_grid',
       entryVolatilityPercent: 1.0,
       rebalancePercent: 1.0,

@@ -5,15 +5,15 @@ namespace TradeX.Core.Models;
 public record BacktestTrade(
     int EntryIndex,
     int ExitIndex,
-    DateTime EntryTime,
-    DateTime ExitTime,
+    DateTime EnteredAt,
+    DateTime ExitedAt,
     decimal EntryPrice,
     decimal ExitPrice,
     decimal Quantity,
-    decimal Pnl,
-    decimal PnlPercent);
+    decimal PnL,
+    decimal PnLPercent);
 
-public record BacktestCandleAnalysis(
+public record BacktestKlineAnalysis(
     int Index,
     DateTime Timestamp,
     decimal Open,

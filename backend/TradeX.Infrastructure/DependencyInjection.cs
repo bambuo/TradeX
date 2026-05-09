@@ -22,7 +22,7 @@ public static class DependencyInjection
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
         services.AddScoped<IExchangeRepository, ExchangeRepository>();
         services.AddScoped<IStrategyRepository, StrategyRepository>();
-        services.AddScoped<IStrategyDeploymentRepository, StrategyDeploymentRepository>();
+        services.AddScoped<IStrategyBindingRepository, StrategyBindingRepository>();
         services.AddScoped<IPositionRepository, PositionRepository>();
         services.AddScoped<IOrderRepository, OrderRepository>();
         services.AddScoped<IBacktestTaskRepository, BacktestTaskRepository>();

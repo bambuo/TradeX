@@ -22,7 +22,7 @@
     {
         <div class="loading"><Spinner /> 加载中...</div>
     }
-    else if (deployments.Count == 0)
+    else if (bindings.Count == 0)
     {
         <div class="empty-state">
             <p class="fw-semibold">暂无策略部署</p>
@@ -45,26 +45,26 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach (var d in deployments)
+                @foreach (var d in bindings)
                 {
                     <tr>
                         <td><span class="badge bg-secondary">@GetScopeLabel(d.Scope)</span></td>
                         <td>@d.StrategyLabel</td>
                         <td>@d.ExchangeLabel</td>
-                        <td>@FormatSymbolIds(d.SymbolIds)</td>
+                        <td>@FormatPairs(d.Pairs)</td>
                         <td>@d.Timeframe</td>
                         <td><span class="badge @GetStatusBadgeClass(d.Status)">@GetStatusLabel(d.Status)</span></td>
                         <td>@d.UpdatedAt</td>
                         <td>
                             <div class="btn-group btn-group-sm">
                                 <Button Size="Size.Small"
-                                    Color="@(d.Status == DeploymentStatus.Active ? Color.Warning : Color.Primary)"
-                                    IsDisabled="@(d.Status == DeploymentStatus.Draft)"
-                                    OnClick="@(() => ToggleAsync(d.Id, d.Status != DeploymentStatus.Active))">
+                                    Color="@(d.Status == BindingStatus.Active ? Color.Warning : Color.Primary)"
+                                    IsDisabled="@false"
+                                    OnClick="@(() => ToggleAsync(d.Id, d.Status != BindingStatus.Active))">
                                     @GetToggleLabel(d.Status)
                                 </Button>
                                 <Button Size="Size.Small" Color="Color.Secondary"
-                                    IsDisabled="@(d.Status == DeploymentStatus.Active)"
+                                    IsDisabled="@(d.Status == BindingStatus.Active)"
                                     OnClick="@(() => OpenEdit(d))">
                                     编辑
                                 </Button>
@@ -73,7 +73,7 @@
                                     回测
                                 </Button>
                                 <Button Size="Size.Small" Color="Color.Danger"
-                                    IsDisabled="@(d.Status == DeploymentStatus.Active)"
+                                    IsDisabled="@(d.Status == BindingStatus.Active)"
                                     OnClick="@(() => DeleteAsync(d.Id))">
                                     删除
                                 </Button>
@@ -174,7 +174,7 @@
     [CascadingParameter]
     private Task<AuthenticationState> AuthenticationStateTask { get; set; } = default!;
 
-    private List<DeploymentItem> deployments = [];
+    private List<BindingItem> bindings = [];
     private List<StrategyOption> strategies = [];
     private List<ExchangeOption> exchangeOptions = [];
     private bool loading = true;
@@ -204,7 +204,7 @@
         try
         {
             var state = await AuthenticationStateTask;
-            deployments = (await StrategyService.GetAllAsync(state.User, TraderId)).ToList();
+            bindings = (await StrategyService.GetAllAsync(state.User, TraderId)).ToList();
             strategies = (await StrategyService.GetAllStrategiesAsync())
                 .Select(s => new StrategyOption(s.Id, s.Name))
                 .ToList();
@@ -238,14 +238,14 @@
         showDialog = true;
     }
 
-    private async Task OpenEdit(DeploymentItem item)
+    private async Task OpenEdit(BindingItem item)
     {
         isEdit = true;
         editId = item.Id;
         formScope = item.Scope;
         formStrategyId = item.StrategyId;
         formExchangeId = item.ExchangeId != Guid.Empty ? item.ExchangeId : null;
-        formSymbolsInput = FormatSymbolIds(item.SymbolIds);
+        formSymbolsInput = FormatPairs(item.Pairs);
         formTimeframe = item.Timeframe;
         formError = null;
         showDialog = true;
@@ -265,26 +265,26 @@
             var state = await AuthenticationStateTask;
             var exchangeId = formScope == "Trader" ? null : formExchangeId;
             var symbolIds = formScope == "Symbol"
-                ? SerializeSymbolIds(formSymbolsInput)
+                ? SerializePairs(formSymbolsInput)
                 : "[]";
 
             if (isEdit && editId.HasValue)
             {
-                await StrategyService.UpdateAsync(editId.Value, new StrategyDeploymentFormModel
+                await StrategyService.UpdateAsync(editId.Value, new StrategyBindingFormModel
                 {
                     StrategyId = formStrategyId,
                     ExchangeId = exchangeId,
-                    SymbolIds = symbolIds,
+                    Pairs = symbolIds,
                     Timeframe = formTimeframe
                 });
             }
             else
             {
-                await StrategyService.CreateAsync(state.User, TraderId, new StrategyDeploymentFormModel
+                await StrategyService.CreateAsync(state.User, TraderId, new StrategyBindingFormModel
                 {
                     StrategyId = formStrategyId,
                     ExchangeId = exchangeId,
-                    SymbolIds = symbolIds,
+                    Pairs = symbolIds,
                     Timeframe = formTimeframe
                 });
             }
@@ -339,33 +339,33 @@
         _ => scope
     };
 
-    private static string GetStatusLabel(DeploymentStatus status) => status switch
+    private static string GetStatusLabel(BindingStatus status) => status switch
     {
-        DeploymentStatus.Draft => "草稿",
-        DeploymentStatus.Backtesting => "回测中",
-        DeploymentStatus.Passed => "已通过",
-        DeploymentStatus.Active => "活跃",
-        DeploymentStatus.Disabled => "已禁用",
+        BindingStatus.Draft => "草稿",
+        BindingStatus.Backtesting => "回测中",
+        BindingStatus.Passed => "已通过",
+        BindingStatus.Active => "活跃",
+        BindingStatus.Disabled => "已禁用",
         _ => status.ToString()
     };
 
-    private static string GetStatusBadgeClass(DeploymentStatus status) => status switch
+    private static string GetStatusBadgeClass(BindingStatus status) => status switch
     {
-        DeploymentStatus.Draft => "bg-secondary",
-        DeploymentStatus.Backtesting => "bg-info",
-        DeploymentStatus.Passed => "bg-success",
-        DeploymentStatus.Active => "bg-primary",
-        DeploymentStatus.Disabled => "bg-secondary",
+        BindingStatus.Draft => "bg-secondary",
+        BindingStatus.Backtesting => "bg-info",
+        BindingStatus.Passed => "bg-success",
+        BindingStatus.Active => "bg-primary",
+        BindingStatus.Disabled => "bg-secondary",
         _ => "bg-secondary"
     };
 
-    private static string GetToggleLabel(DeploymentStatus status) => status switch
+    private static string GetToggleLabel(BindingStatus status) => status switch
     {
-        DeploymentStatus.Active => "禁用",
+        BindingStatus.Active => "禁用",
         _ => "启用"
     };
 
-    private static string FormatSymbolIds(string symbolIds)
+    private static string FormatPairs(string symbolIds)
     {
         if (string.IsNullOrWhiteSpace(symbolIds) || symbolIds == "[]")
             return "-";
@@ -380,7 +380,7 @@
         }
     }
 
-    private static string SerializeSymbolIds(string input)
+    private static string SerializePairs(string input)
     {
         if (string.IsNullOrWhiteSpace(input))
             return "[]";

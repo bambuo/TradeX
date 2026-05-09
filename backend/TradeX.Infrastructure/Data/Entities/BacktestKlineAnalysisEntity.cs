@@ -2,7 +2,7 @@ using TradeX.Core.Models;
 
 namespace TradeX.Infrastructure.Data.Entities;
 
-public class BacktestCandleAnalysisEntity
+public class BacktestKlineAnalysisEntity
 {
     public Guid Id { get; init; } = Guid.NewGuid();
     public Guid TaskId { get; init; }
@@ -25,14 +25,14 @@ public class BacktestCandleAnalysisEntity
     public decimal? PositionPnl { get; set; }
     public decimal? PositionPnlPercent { get; set; }
 
-    public BacktestCandleAnalysis ToDomain() => new(
+    public BacktestKlineAnalysis ToDomain() => new(
         Index, Timestamp, Open, High, Low, Close, Volume,
         System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, decimal>>(IndicatorsJson,
             new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }) ?? [],
         EntryConditionResult, ExitConditionResult, InPosition, Action,
         AvgEntryPrice, PositionQuantity, PositionCost, PositionValue, PositionPnl, PositionPnlPercent);
 
-    public static BacktestCandleAnalysisEntity FromDomain(Guid taskId, BacktestCandleAnalysis a) => new()
+    public static BacktestKlineAnalysisEntity FromDomain(Guid taskId, BacktestKlineAnalysis a) => new()
     {
         Id = Guid.NewGuid(),
         TaskId = taskId,

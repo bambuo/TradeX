@@ -47,7 +47,7 @@ public class BacktestServiceTests
         var service = sp.GetRequiredService<IBacktestService>();
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            service.StartBacktestAsync(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "BTCUSDT", "1h", DateTime.UtcNow.AddDays(-30), DateTime.UtcNow));
+            service.StartBacktestAsync(Guid.NewGuid(), Guid.NewGuid(), "BTCUSDT", "1h", DateTime.UtcNow.AddDays(-30), DateTime.UtcNow, 1000m));
     }
 
     [Fact]
@@ -56,12 +56,12 @@ public class BacktestServiceTests
         using var sp = BuildProvider();
         var strategyRepo = sp.GetRequiredService<IStrategyRepository>();
         strategyRepo.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns(new Strategy { EntryConditionJson = "{}" });
+            .Returns(new Strategy { EntryCondition = "{}" });
 
         var service = sp.GetRequiredService<IBacktestService>();
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            service.StartBacktestAsync(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "BTCUSDT", "1h", DateTime.UtcNow.AddDays(-30), DateTime.UtcNow));
+            service.StartBacktestAsync(Guid.NewGuid(), Guid.NewGuid(), "BTCUSDT", "1h", DateTime.UtcNow.AddDays(-30), DateTime.UtcNow, 1000m));
     }
 
     [Fact]
@@ -75,7 +75,7 @@ public class BacktestServiceTests
             {
                 Id = strategyId,
                 Name = "测试策略",
-                EntryConditionJson = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":30}""",
+                EntryCondition = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":30}""",
                 CreatedBy = Guid.NewGuid()
             });
 
@@ -85,13 +85,13 @@ public class BacktestServiceTests
             {
                 var task = call.Arg<BacktestTask>();
                 Assert.Equal(BacktestTaskStatus.Pending, task.Status);
-                Assert.Equal("BTCUSDT", task.SymbolId);
+                Assert.Equal("BTCUSDT", task.Pair);
                 Assert.Equal("1h", task.Timeframe);
                 Assert.Equal(2000m, task.InitialCapital);
             });
 
         var service = sp.GetRequiredService<IBacktestService>();
-        var result = await service.StartBacktestAsync(Guid.NewGuid(), strategyId, Guid.NewGuid(), "BTCUSDT", "1h",
+        var result = await service.StartBacktestAsync(strategyId, Guid.NewGuid(), "BTCUSDT", "1h",
             DateTime.UtcNow.AddDays(-30), DateTime.UtcNow, 2000m);
 
         Assert.Equal(BacktestTaskStatus.Pending, result.Status);

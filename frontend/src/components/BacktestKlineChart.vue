@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { createChart, ColorType, CandlestickSeries, HistogramSeries, createSeriesMarkers, type IChartApi, type ISeriesApi, type ISeriesMarkersPluginApi, type CandlestickData, type HistogramData, type Time } from 'lightweight-charts'
-import type { BacktestCandleAnalysis } from '../api/backtests'
+import type { BacktestKlineAnalysis } from '../api/backtests'
 import { formatSmallNumber } from '../utils/format'
 
 const props = defineProps<{
-  analysis: BacktestCandleAnalysis[]
+  analysis: BacktestKlineAnalysis[]
   currentIndex?: number
 }>()
 

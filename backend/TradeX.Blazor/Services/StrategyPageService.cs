@@ -9,27 +9,27 @@ namespace TradeX.Blazor.Services;
 public sealed class StrategyPageService(
     ITraderRepository traderRepo,
     IStrategyRepository strategyRepo,
-    IStrategyDeploymentRepository deploymentRepo,
+    IStrategyBindingRepository bindingRepo,
     IExchangeRepository exchangeRepo) : IStrategyPageService
 {
-    public async Task<IReadOnlyList<DeploymentItem>> GetAllAsync(ClaimsPrincipal user, Guid traderId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<BindingItem>> GetAllAsync(ClaimsPrincipal user, Guid traderId, CancellationToken ct = default)
     {
         var userId = GetUserId(user);
         var trader = await traderRepo.GetByIdAsync(traderId, ct);
         if (trader is null || trader.UserId != userId)
             throw new InvalidOperationException("交易员不存在");
 
-        var deployments = await deploymentRepo.GetByTraderIdAsync(traderId, ct);
+        var bindings = await bindingRepo.GetByTraderIdAsync(traderId, ct);
         var strategies = await strategyRepo.GetAllAsync(ct);
         var strategyMap = strategies.ToDictionary(s => s.Id, s => s.Name);
         var exchanges = await exchangeRepo.GetAllByUserIdAsync(userId, ct);
         var exchangeMap = exchanges.ToDictionary(e => e.Id, e => e.Name);
 
-        return deployments
-            .Select(d => new DeploymentItem(
+        return bindings
+            .Select(d => new BindingItem(
                 d.Id, d.StrategyId, d.Name, d.TraderId, d.ExchangeId,
-                d.SymbolIds, d.Timeframe, d.Status,
-                ResolveScope(d.SymbolIds, d.ExchangeId),
+                d.Pairs, d.Timeframe, d.Status,
+                ResolveScope(d.Pairs, d.ExchangeId),
                 strategyMap.GetValueOrDefault(d.StrategyId, "未知策略"),
                 d.ExchangeId != Guid.Empty
                     ? exchangeMap.GetValueOrDefault(d.ExchangeId, "未知交易所")
@@ -52,7 +52,7 @@ public sealed class StrategyPageService(
             .ToArray();
     }
 
-    public async Task CreateAsync(ClaimsPrincipal user, Guid traderId, StrategyDeploymentFormModel form, CancellationToken ct = default)
+    public async Task CreateAsync(ClaimsPrincipal user, Guid traderId, StrategyBindingFormModel form, CancellationToken ct = default)
     {
         var userId = GetUserId(user);
         var trader = await traderRepo.GetByIdAsync(traderId, ct);
@@ -65,72 +65,68 @@ public sealed class StrategyPageService(
 
         var exchangeId = form.ExchangeId ?? Guid.Empty;
 
-        var deployment = new StrategyDeployment
+        var binding = new StrategyBinding
         {
             TraderId = traderId,
             StrategyId = form.StrategyId,
             Name = strategy.Name,
             ExchangeId = exchangeId,
-            SymbolIds = form.SymbolIds,
+            Pairs = form.Pairs,
             Timeframe = form.Timeframe,
             CreatedBy = userId
         };
 
-        await deploymentRepo.AddAsync(deployment, ct);
+        await bindingRepo.AddAsync(binding, ct);
     }
 
-    public async Task UpdateAsync(Guid id, StrategyDeploymentFormModel form, CancellationToken ct = default)
+    public async Task UpdateAsync(Guid id, StrategyBindingFormModel form, CancellationToken ct = default)
     {
-        var deployment = await GetDeploymentAsync(id, ct);
-        if (deployment.Status == DeploymentStatus.Active)
+        var binding = await GetBindingAsync(id, ct);
+        if (binding.Status == BindingStatus.Active)
             throw new InvalidOperationException("活跃策略不可编辑，请先禁用");
 
-        deployment.SymbolIds = form.SymbolIds;
-        deployment.Timeframe = form.Timeframe;
+        binding.Pairs = form.Pairs;
+        binding.Timeframe = form.Timeframe;
 
-        await deploymentRepo.UpdateAsync(deployment, ct);
+        await bindingRepo.UpdateAsync(binding, ct);
     }
 
     public async Task ToggleAsync(Guid id, bool enable, CancellationToken ct = default)
     {
-        var deployment = await GetDeploymentAsync(id, ct);
+        var binding = await GetBindingAsync(id, ct);
 
         if (enable)
         {
-            if (deployment.Status == DeploymentStatus.Draft)
-                throw new InvalidOperationException("草稿策略必须先通过回测才能启用");
-
-            var symbolIds = ParseSymbolIds(deployment.SymbolIds);
-            foreach (var symbolId in symbolIds)
+            var pairs = ParsePairs(binding.Pairs);
+            foreach (var pair in pairs)
             {
-                var hasConflict = await deploymentRepo.ExistsActiveAsync(
-                    deployment.TraderId, deployment.ExchangeId, symbolId, id, ct);
+                var hasConflict = await bindingRepo.ExistsActiveAsync(binding.TraderId, binding.ExchangeId, pair, id, ct);
                 if (hasConflict)
-                    throw new InvalidOperationException($"交易对 {symbolId} 上已有活跃策略");
+                    throw new InvalidOperationException($"交易对 {pair} 上已有活跃策略");
             }
 
-            deployment.Status = DeploymentStatus.Active;
+            binding.Status = BindingStatus.Active;
         }
         else
         {
-            deployment.Status = DeploymentStatus.Disabled;
+            binding.Status = BindingStatus.Disabled;
         }
 
-        await deploymentRepo.UpdateAsync(deployment, ct);
+        await bindingRepo.UpdateAsync(binding, ct);
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken ct = default)
     {
-        var deployment = await GetDeploymentAsync(id, ct);
-        if (deployment.Status == DeploymentStatus.Active)
+        var binding = await GetBindingAsync(id, ct);
+        if (binding.Status == BindingStatus.Active)
             throw new InvalidOperationException("活跃策略不可删除，请先禁用");
 
-        await deploymentRepo.DeleteAsync(deployment, ct);
+        await bindingRepo.DeleteAsync(binding, ct);
     }
 
-    private async Task<StrategyDeployment> GetDeploymentAsync(Guid id, CancellationToken ct)
+    private async Task<StrategyBinding> GetBindingAsync(Guid id, CancellationToken ct)
     {
-        return await deploymentRepo.GetByIdAsync(id, ct)
+        return await bindingRepo.GetByIdAsync(id, ct)
             ?? throw new InvalidOperationException("策略部署不存在");
     }
 
@@ -144,7 +140,7 @@ public sealed class StrategyPageService(
         return "Trader";
     }
 
-    private static string[] ParseSymbolIds(string raw)
+    private static string[] ParsePairs(string raw)
     {
         if (string.IsNullOrWhiteSpace(raw) || raw == "[]") return [];
         try
@@ -172,15 +168,15 @@ public sealed class StrategyPageService(
     }
 }
 
-public sealed record DeploymentItem(
+public sealed record BindingItem(
     Guid Id,
     Guid StrategyId,
     string Name,
     Guid TraderId,
     Guid ExchangeId,
-    string SymbolIds,
+    string Pairs,
     string Timeframe,
-    DeploymentStatus Status,
+    BindingStatus Status,
     string Scope,
     string StrategyLabel,
     string ExchangeLabel,
@@ -189,10 +185,10 @@ public sealed record DeploymentItem(
 
 public sealed record ExchangeOption(Guid Id, string Name, ExchangeType Type);
 
-public sealed class StrategyDeploymentFormModel
+public sealed class StrategyBindingFormModel
 {
     public Guid StrategyId { get; set; }
     public Guid? ExchangeId { get; set; }
-    public string SymbolIds { get; set; } = "[]";
+    public string Pairs { get; set; } = "[]";
     public string Timeframe { get; set; } = "15m";
 }

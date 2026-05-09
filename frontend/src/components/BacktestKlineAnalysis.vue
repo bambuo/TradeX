@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import type { BacktestCandleAnalysis } from '../api/backtests'
+import type { BacktestKlineAnalysis } from '../api/backtests'
 import BacktestKlineChart from './BacktestKlineChart.vue'
 import { formatSmallNumber } from '../utils/format'
 
 const props = defineProps<{
-  analysis: BacktestCandleAnalysis[]
+  analysis: BacktestKlineAnalysis[]
   chartOnly?: boolean
   tableOnly?: boolean
   currentIndex?: number

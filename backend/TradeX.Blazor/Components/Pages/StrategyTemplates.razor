@@ -36,7 +36,7 @@
                     <div class="card-header">
                         <div class="card-title-area">
                             <h5 class="mb-0">@s.Name</h5>
-                            <span class="badge bg-info">@HumanizeExecutionRule(s.ExecutionRuleJson)</span>
+                            <span class="badge bg-info">@HumanizeExecutionRule(s.ExecutionRule)</span>
                         </div>
                         <div class="card-header-actions">
                             <Button Color="Color.None" Size="Size.Small" OnClick="@(() => OpenEdit(s))">
@@ -49,11 +49,11 @@
                     <div class="card-body">
                         <div class="mb-2">
                             <small class="text-muted">入场</small>
-                            <p class="mb-0 text-truncate" title="@s.EntryConditionJson">@HumanizeCondition(s.EntryConditionJson)</p>
+                            <p class="mb-0 text-truncate" title="@s.EntryCondition">@HumanizeCondition(s.EntryCondition)</p>
                         </div>
                         <div class="mb-2">
                             <small class="text-muted">出场</small>
-                            <p class="mb-0 text-truncate" title="@s.ExitConditionJson">@HumanizeCondition(s.ExitConditionJson)</p>
+                            <p class="mb-0 text-truncate" title="@s.ExitCondition">@HumanizeCondition(s.ExitCondition)</p>
                         </div>
                         <div>
                             <small class="text-muted">更新</small>
@@ -322,9 +322,9 @@
         ShowPresets = false;
         AppliedPreset = null;
         formName = strategy.Name;
-        ParseConditionJson(strategy.EntryConditionJson, isEntry: true);
-        ParseConditionJson(strategy.ExitConditionJson, isEntry: false);
-        ParseExecRuleJson(strategy.ExecutionRuleJson);
+        ParseConditionJson(strategy.EntryCondition, isEntry: true);
+        ParseConditionJson(strategy.ExitCondition, isEntry: false);
+        ParseExecRuleJson(strategy.ExecutionRule);
         formError = null;
         showDialog = true;
     }

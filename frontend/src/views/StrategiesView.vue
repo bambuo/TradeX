@@ -106,18 +106,18 @@ function openCreate() {
 function openEdit(s: Strategy) {
   editId.value = s.id
   formName.value = s.name
-  entryNode.value = conditionToNode(s.entryConditionJson)
-  exitNode.value = conditionToNode(s.exitConditionJson)
-  formExecutionRule.value = s.executionRuleJson
+  entryNode.value = conditionToNode(s.entryCondition)
+  exitNode.value = conditionToNode(s.exitCondition)
+  formExecutionRule.value = s.executionRule
   showPresets.value = false
   showForm.value = true
 }
 
 function applyPreset(preset: typeof strategyPresets[0]) {
   formName.value = preset.name
-  entryNode.value = conditionToNode(preset.entryConditionJson)
-  exitNode.value = conditionToNode(preset.exitConditionJson)
-  formExecutionRule.value = preset.executionRuleJson
+  entryNode.value = conditionToNode(preset.entryCondition)
+  exitNode.value = conditionToNode(preset.exitCondition)
+  formExecutionRule.value = preset.executionRule
   activePreset.value = preset
   showPresets.value = false
 }
@@ -129,16 +129,16 @@ async function save() {
   if (editId.value) {
     await strategiesApi.updatePure(editId.value, {
       name: formName.value,
-      entryConditionJson: entryJson,
-      exitConditionJson: exitJson,
-      executionRuleJson: formExecutionRule.value
+      entryCondition: entryJson,
+      exitCondition: exitJson,
+      executionRule: formExecutionRule.value
     })
   } else {
     await strategiesApi.createPure({
       name: formName.value,
-      entryConditionJson: entryJson,
-      exitConditionJson: exitJson,
-      executionRuleJson: formExecutionRule.value
+      entryCondition: entryJson,
+      exitCondition: exitJson,
+      executionRule: formExecutionRule.value
     })
   }
   showForm.value = false
@@ -231,7 +231,7 @@ onMounted(load)
         <div class="card-header">
           <div class="card-title-area">
             <h3>{{ s.name }}</h3>
-            <span class="card-badge">{{ humanizeExecutionRule(s.executionRuleJson) }}</span>
+            <span class="card-badge">{{ humanizeExecutionRule(s.executionRule) }}</span>
           </div>
           <div class="card-header-actions">
             <span class="card-meta">v{{ s.version }}</span>
@@ -241,11 +241,11 @@ onMounted(load)
         <div class="card-body">
           <div class="info-row">
             <span class="info-label">入场</span>
-            <span class="info-value cond-text">{{ humanizeCondition(s.entryConditionJson) }}</span>
+            <span class="info-value cond-text">{{ humanizeCondition(s.entryCondition) }}</span>
           </div>
           <div class="info-row">
             <span class="info-label">出场</span>
-            <span class="info-value cond-text">{{ humanizeCondition(s.exitConditionJson) }}</span>
+            <span class="info-value cond-text">{{ humanizeCondition(s.exitCondition) }}</span>
           </div>
           <div class="info-row">
             <span class="info-label">更新</span>

@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { strategiesApi, type StrategyDeployment } from '../api/strategies'
-import { backtestsApi, type BacktestTask, type BacktestResult, type BacktestCandleAnalysis } from '../api/backtests'
-import BacktestCandleAnalysisView from '../components/BacktestCandleAnalysis.vue'
+import { strategiesApi, type StrategyBinding } from '../api/strategies'
+import { backtestsApi, type BacktestTask, type BacktestResult, type BacktestKlineAnalysis } from '../api/backtests'
+import BacktestKlineAnalysisView from '../components/BacktestKlineAnalysis.vue'
 
 const route = useRoute()
 const traderId = route.params.traderId as string
 const deploymentId = route.params.strategyId as string
 
-const strategy = ref<StrategyDeployment | null>(null)
+const strategy = ref<StrategyBinding | null>(null)
 const tasks = ref<BacktestTask[]>([])
 const loading = ref(true)
 const running = ref(false)
@@ -22,12 +22,12 @@ const activeTab = ref<'overview' | 'analysis'>('overview')
 
 const analysisViewMode = ref<'chart' | 'table'>('chart')
 
-const replayBuffer = ref<BacktestCandleAnalysis[]>([])
+const replayBuffer = ref<BacktestKlineAnalysis[]>([])
 const replayIndex = ref(0)
 const replayTotal = ref(0)
 const replayPlaying = ref(false)
 const replaySpeed = ref(1)
-const tableBuffer = ref<BacktestCandleAnalysis[]>([])
+const tableBuffer = ref<BacktestKlineAnalysis[]>([])
 const tableLoading = ref(false)
 const tablePage = ref(1)
 const tablePageSize = ref(10)
@@ -108,9 +108,9 @@ const displayTasks = computed(() => {
   return tasks.value.slice(start, start + pageSize.value).map(t => ({
     ...t,
     key: t.id,
-    symbol: t.symbolId || '-',
+    symbol: t.pair || '-',
     capital: `$${t.initialCapital?.toLocaleString() ?? 1000}`,
-    dateRange: `${formatDate(t.startAtUtc)} ~ ${formatDate(t.endAtUtc)}`,
+    dateRange: `${formatDate(t.startAt)} ~ ${formatDate(t.endAt)}`,
     createdAt: formatTime(t.createdAt)
   }))
 })
@@ -170,7 +170,7 @@ function closeAnalysisStream() {
 
 async function refreshTasks(templateId: string) {
   try {
-    const { data: tasksData } = await backtestsApi.getTasks(traderId, templateId)
+    const { data: tasksData } = await backtestsApi.getTasks(templateId)
     tasks.value = tasksData
     const active = tasksData.some(t => t.status === 'Pending' || t.status === 'Running')
     hasActiveTasks.value = active
@@ -187,18 +187,18 @@ async function startBacktest() {
   running.value = true
   error.value = ''
   try {
-    const endUtc = new Date().toISOString()
-    const startUtc = new Date(Date.now() - days.value * 86400000).toISOString()
-    const templateId = strategy.value.strategyId
+    const endAt = new Date().toISOString()
+    const startAt = new Date(Date.now() - days.value * 86400000).toISOString()
+    const firstPair = strategy.value.pairs.replace(/[\[\]"]/g, '').split(',')[0] || ''
     await backtestsApi.start(
-      traderId, templateId, strategy.value.id,
+      strategy.value.strategyId,
       strategy.value.exchangeId,
-      strategy.value.symbolIds.replace(/[\[\]"]/g, '').split(',')[0] || '',
+      firstPair,
       strategy.value.timeframe,
-      startUtc, endUtc,
+      startAt, endAt,
       initialCapital.value
     )
-    await refreshTasks(templateId)
+    await refreshTasks(strategy.value.strategyId)
   } catch (e: any) {
     error.value = e.response?.data?.error || '回测启动失败'
   } finally {
@@ -219,7 +219,7 @@ async function openDetail(task: BacktestTask) {
   if (task.status !== 'Completed') return
   detailLoading.value = true
   try {
-    const { data } = await backtestsApi.getResult(traderId, task.strategyId, task.id)
+    const { data } = await backtestsApi.getResult(task.id)
     selectedResult.value = data
   } catch {
     selectedResult.value = null
@@ -252,7 +252,7 @@ function startReplay() {
     return
   }
 
-  backtestsApi.getAnalysis(traderId, task.strategyId, task.id, 1, 100000).then(({ data }) => {
+  backtestsApi.getAnalysis(task.id, 1, 100000).then(({ data }) => {
     replayBuffer.value = data.items ?? []
     replayTotal.value = data.total
     replayIndex.value = 0
@@ -403,7 +403,7 @@ function loadTablePage(page: number) {
   if (!selectedTask.value) return
   tablePage.value = Math.min(Math.max(page, 1), tableTotalPages.value)
   tableLoading.value = true
-  backtestsApi.getAnalysis(traderId, selectedTask.value.strategyId, selectedTask.value.id, tablePage.value, tablePageSize.value, tableActionFilter.value).then(({ data }) => {
+  backtestsApi.getAnalysis(selectedTask.value.id, tablePage.value, tablePageSize.value, tableActionFilter.value).then(({ data }) => {
     tableBuffer.value = data.items ?? []
     replayTotal.value = data.total
   }).catch(() => {}).finally(() => {
@@ -446,7 +446,7 @@ function formatCurrency(v: number | null | undefined): string {
   return `$${v.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
 }
 
-function enrichPositionMetrics(items: BacktestCandleAnalysis[], initialValue: number): BacktestCandleAnalysis[] {
+function enrichPositionMetrics(items: BacktestKlineAnalysis[], initialValue: number): BacktestKlineAnalysis[] {
   const fallbackEntryValue = Math.min(100, initialValue)
   const legs: { quantity: number; cost: number }[] = []
   let realizedPnl = 0
@@ -592,9 +592,9 @@ function enrichPositionMetrics(items: BacktestCandleAnalysis[], initialValue: nu
             {{ statusLabels[selectedTask.status] || selectedTask.status }}
           </a-tag>
           <span>{{ selectedTask.strategyName || selectedTask.strategyId }}</span>
-          <span>{{ selectedTask.symbolId }} {{ selectedTask.timeframe }}</span>
+          <span>{{ selectedTask.pair }} {{ selectedTask.timeframe }}</span>
           <span>初始资金 ${{ selectedTask.initialCapital?.toLocaleString() ?? 1000 }}</span>
-          <span class="meta-date">{{ new Date(selectedTask.startAtUtc).toLocaleDateString() }} ~ {{ new Date(selectedTask.endAtUtc).toLocaleDateString() }}</span>
+          <span class="meta-date">{{ new Date(selectedTask.startAt).toLocaleDateString() }} ~ {{ new Date(selectedTask.endAt).toLocaleDateString() }}</span>
         </div>
 
         <div v-if="detailLoading" class="loading-hint">加载结果中...</div>
@@ -719,7 +719,7 @@ function enrichPositionMetrics(items: BacktestCandleAnalysis[], initialValue: nu
                 </span>
               </div>
             </div>
-            <BacktestCandleAnalysisView
+            <BacktestKlineAnalysisView
               v-if="chartAnalysisData.length > 0"
               :analysis="chartAnalysisData"
               :current-index="chartReplayIndex"
@@ -791,7 +791,7 @@ function enrichPositionMetrics(items: BacktestCandleAnalysis[], initialValue: nu
             </div>
             <div v-if="tableLoading" class="loading-hint">加载当前页...</div>
             <div v-else-if="tableDisplayItems.length > 0">
-              <BacktestCandleAnalysisView :analysis="tableDisplayItems" table-only />
+              <BacktestKlineAnalysisView :analysis="tableDisplayItems" table-only />
             </div>
             <div v-else class="loading-hint">没有可用的 K 线分析数据</div>
           </div>

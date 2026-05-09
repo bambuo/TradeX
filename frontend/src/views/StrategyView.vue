@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { strategiesApi, type Strategy, type StrategyDeployment } from '../api/strategies'
+import { strategiesApi, type Strategy, type StrategyBinding } from '../api/strategies'
 import { exchangesApi, type Exchange } from '../api/exchanges'
 import { formatSmallNumber } from '../utils/format'
 
@@ -10,7 +10,7 @@ const route = useRoute()
 const router = useRouter()
 const traderId = route.params.traderId as string
 
-const deployments = ref<StrategyDeployment[]>([])
+const deployments = ref<StrategyBinding[]>([])
 const templates = ref<Strategy[]>([])
 const exchanges = ref<Exchange[]>([])
 const loading = ref(true)
@@ -22,21 +22,21 @@ const page = ref(1)
 const pageSize = ref(15)
 
 const scopeTagColors: Record<string, string> = {
-  Trader: '', Exchange: 'green', Symbol: 'blue'
+  Trader: '', Exchange: 'green', Pair: 'blue'
 }
 
 const columns = [
-  { title: '作用域', dataIndex: 'scope', slotName: 'scope', width: 90 },
-  { title: '策略', dataIndex: 'strategyName', width: 180, ellipsis: true },
-  { title: '交易所', dataIndex: 'exchangeName', width: 130, ellipsis: true },
-  { title: '交易对', dataIndex: 'symbolList', width: 170, ellipsis: true },
+  { title: '作用域', dataIndex: 'scope', slotName: 'scope', width: 70 },
+  { title: '策略', dataIndex: 'strategyName', width: 150, ellipsis: true },
+  { title: '交易所', dataIndex: 'exchangeName', width: 110, ellipsis: true },
+  { title: '交易对', dataIndex: 'pairList', width: 150, ellipsis: true },
   { title: '周期', dataIndex: 'timeframe', width: 60 },
-  { title: '状态', dataIndex: 'status', slotName: 'status', width: 80 },
-  { title: '更新时间', dataIndex: 'updatedAt', width: 160 },
-  { title: '操作', dataIndex: 'actions', slotName: 'actions', width: 340 }
+  { title: '状态', dataIndex: 'status', slotName: 'status', width: 70 },
+  { title: '更新时间', dataIndex: 'updatedAt', width: 170 },
+  { title: '操作', dataIndex: 'actions', slotName: 'actions', width: 240 }
 ]
 
-const scope = ref<'Trader' | 'Exchange' | 'Symbol'>('Symbol')
+const scope = ref<'Trader' | 'Exchange' | 'Pair'>('Pair')
 const formStrategyId = ref(route.query.strategyId as string || '')
 const formExchangeId = ref('')
 const formSymbolIds = ref<string[]>([])
@@ -57,13 +57,13 @@ const timeframes = ['1m', '5m', '15m', '30m', '1h', '4h', '1d']
 const scopeLabels: Record<string, string> = {
   Trader: '交易员级',
   Exchange: '交易所级',
-  Symbol: '交易对级'
+  Pair: '交易对级'
 }
 
 const scopeDescriptions: Record<string, string> = {
   Trader: '全局作用于整个交易员账号，不绑定交易所和交易对',
   Exchange: '仅针对选定交易所生效，覆盖交易员级配置',
-  Symbol: '对选定的交易对执行精确策略，优先级最高'
+  Pair: '对选定的交易对执行精确策略，优先级最高'
 }
 
 const statusLabels: Record<string, string> = {
@@ -183,7 +183,7 @@ const displayDeployments = computed(() => {
     actions: '',
     strategyName: getTemplateName(d.strategyId),
     exchangeName: d.exchangeId && d.exchangeId !== '00000000-0000-0000-0000-000000000000' ? getExchangeLabel(d.exchangeId) : '-',
-    symbolList: d.scope === 'Symbol' ? parseSymbolIds(d.symbolIds).join(', ') : '-'
+    pairList: d.scope === 'Pair' ? parseSymbolIds(d.pairs).join(', ') : '-'
   }))
   return list.slice(start, start + pageSize.value)
 })
@@ -203,12 +203,12 @@ async function fetchSymbols(exchangeId: string) {
 }
 
 watch(formExchangeId, (val) => {
-  if (scope.value === 'Symbol' && val) fetchSymbols(val)
+  if (scope.value === 'Pair' && val) fetchSymbols(val)
 })
 
 function openCreate() {
   editId.value = null
-  scope.value = 'Symbol'
+  scope.value = 'Pair'
   formStrategyId.value = templates.value[0]?.id ?? ''
   formExchangeId.value = exchanges.value[0]?.id ?? ''
   formSymbolIds.value = []
@@ -217,15 +217,15 @@ function openCreate() {
   showForm.value = true
 }
 
-function openEdit(d: StrategyDeployment) {
+function openEdit(d: StrategyBinding) {
   editId.value = d.id
-  scope.value = (d.scope as any) || 'Symbol'
+  scope.value = (d.scope === 'Trader' || d.scope === 'Exchange' || d.scope === 'Pair' ? d.scope : 'Pair') as 'Trader' | 'Exchange' | 'Pair'
   formStrategyId.value = d.strategyId
   formExchangeId.value = d.exchangeId
-  formSymbolIds.value = parseSymbolIds(d.symbolIds)
+  formSymbolIds.value = parseSymbolIds(d.pairs)
   formTimeframe.value = d.timeframe
   symbolSearch.value = ''
-  if (scope.value === 'Symbol' && d.exchangeId && d.exchangeId !== '00000000-0000-0000-0000-000000000000') {
+  if (scope.value === 'Pair' && d.exchangeId && d.exchangeId !== '00000000-0000-0000-0000-000000000000') {
     fetchSymbols(d.exchangeId)
   }
   showForm.value = true
@@ -246,11 +246,11 @@ function toggleSymbol(symbol: string) {
 }
 
 function serializeSymbolIds(): string {
-  if (scope.value !== 'Symbol') return '[]'
+  if (scope.value !== 'Pair') return '[]'
   return JSON.stringify(formSymbolIds.value)
 }
 
-function swapScope(newScope: 'Trader' | 'Exchange' | 'Symbol') {
+function swapScope(newScope: 'Trader' | 'Exchange' | 'Pair') {
   scope.value = newScope
   if (newScope === 'Trader') {
     formExchangeId.value = ''
@@ -269,14 +269,14 @@ async function save() {
   const symbolIdsStr = serializeSymbolIds()
   if (editId.value) {
     await strategiesApi.update(traderId, editId.value, {
-      symbolIds: symbolIdsStr,
+      pairs: symbolIdsStr,
       timeframe: formTimeframe.value
     })
   } else {
     await strategiesApi.create(traderId, {
       strategyId: formStrategyId.value,
-      exchangeId: ['Exchange', 'Symbol'].includes(scope.value) ? formExchangeId.value : '00000000-0000-0000-0000-000000000000',
-      symbolIds: symbolIdsStr,
+      exchangeId: ['Exchange', 'Pair'].includes(scope.value) ? formExchangeId.value : '00000000-0000-0000-0000-000000000000',
+      pairs: symbolIdsStr,
       timeframe: formTimeframe.value
     })
   }
@@ -291,7 +291,7 @@ async function remove(id: string) {
 
 const errorMsg = ref('')
 
-async function toggle(d: StrategyDeployment) {
+async function toggle(d: StrategyBinding) {
   toggleLoading.value = d.id
   errorMsg.value = ''
   try {
@@ -316,19 +316,19 @@ onMounted(load)
             <template #icon><icon-left /></template>
             返回
           </a-button>
-          <span class="header-title">策略部署</span>
+          <span class="header-title">策略</span>
         </div>
         <a-button type="primary" @click="openCreate">
           <template #icon><icon-plus /></template>
-          新建部署
+          绑定策略
         </a-button>
       </div>
     </a-card>
 
-    <a-modal v-model:visible="showForm" :title="editId ? '编辑部署' : '新建策略部署'" width="xl" :mask-closable="false">
+    <a-modal v-model:visible="showForm" :title="editId ? '编辑绑定' : '绑定策略'" width="xl" :mask-closable="false">
       <div class="scope-tabs">
           <button
-            v-for="s in (['Trader', 'Exchange', 'Symbol'] as const)"
+            v-for="s in (['Trader', 'Exchange', 'Pair'] as const)"
             :key="s"
             class="scope-tab"
             :class="{ active: scope === s }"
@@ -364,7 +364,7 @@ onMounted(load)
             </a-select>
           </div>
 
-          <div v-if="scope === 'Symbol'" class="form-group full">
+          <div v-if="scope === 'Pair'" class="form-group full">
             <label>
               交易对
               <span class="selected-count">已选 {{ formSymbolIds.length }} 个</span>
@@ -504,10 +504,6 @@ onMounted(load)
           <a-button size="mini" :disabled="isActive(record.status)" @click="openEdit(record)">
             <template #icon><icon-edit /></template>
             编辑
-          </a-button>
-          <a-button size="mini" @click="router.push(`/traders/${traderId}/strategies/${record.id}/backtest`)">
-            <template #icon><icon-common /></template>
-            回测
           </a-button>
           <a-button size="mini" status="danger" :disabled="isActive(record.status)" @click="remove(record.id)">
             <template #icon><icon-delete /></template>

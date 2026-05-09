@@ -7,7 +7,7 @@ public class TradingHub : Hub
 {
     public const string PositionUpdated = "PositionUpdated";
     public const string OrderPlaced = "OrderPlaced";
-    public const string DeploymentStatusChanged = "DeploymentStatusChanged";
+    public const string BindingStatusChanged = "BindingStatusChanged";
     public const string RiskAlert = "RiskAlert";
     public const string DashboardSummary = "DashboardSummary";
     public const string ExchangeConnectionChanged = "ExchangeConnectionChanged";
@@ -33,7 +33,7 @@ public record OrderPlacedEvent(
     string SymbolId, string Side, string Type, string Status,
     decimal Quantity, DateTime PlacedAtUtc);
 
-public record DeploymentStatusChangedEvent(
+public record BindingStatusChangedEvent(
     Guid StrategyId, Guid TraderId, string OldStatus, string NewStatus,
     string? Reason, DateTime ChangedAtUtc);
 

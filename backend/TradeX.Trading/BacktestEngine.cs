@@ -1,32 +1,27 @@
 using System.Text.Json;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
-using TradeX.Indicators;
 
 namespace TradeX.Trading;
 
-public class BacktestEngine(
-    IIndicatorService indicatorService,
-    IConditionEvaluator conditionEvaluator)
+public class BacktestEngine
 {
-    public (BacktestResult Result, List<BacktestTrade> Trades, List<BacktestCandleAnalysis> Analysis) Run(
+    public (BacktestResult Result, List<BacktestTrade> Trades, List<BacktestKlineAnalysis> Analysis) Run(
         Strategy strategy,
-        IReadOnlyList<Candle> candles,
+        string pair,
+        IReadOnlyList<Candle> klines,
         decimal initialCapital = 1000m,
-        Action<BacktestCandleAnalysis>? onAnalysis = null,
+        decimal? positionSize = null,
+        Action<BacktestKlineAnalysis>? onAnalysis = null,
         string? timeframe = null)
     {
-        if (candles.Count < 50)
+        if (klines.Count < 50)
             return (CreateEmptyResult("数据不足，至少需要 50 根 K 线"), [], []);
 
-        var volatilityRule = VolatilityGridExecutionRuleParser.TryParse(strategy.ExecutionRuleJson);
-        if (volatilityRule is not null)
-            return RunVolatilityGrid(strategy, candles, volatilityRule, initialCapital, onAnalysis, timeframe);
-
         List<BacktestTrade> trades = [];
-        List<BacktestCandleAnalysis> analysis = [];
-        var prices = candles.Select(c => c.Close).ToArray();
-        var volumes = candles.Select(c => (long)c.Volume).ToArray();
+        List<BacktestKlineAnalysis> analysis = [];
+        var prices = klines.Select(c => c.Close).ToArray();
+        var volumes = klines.Select(c => (long)c.Volume).ToArray();
         var entryPrice = 0m;
         var entryIndex = 0;
         var entryQuantity = 0m;
@@ -41,75 +36,75 @@ public class BacktestEngine(
 
             Dictionary<string, decimal> currentValues = new()
             {
-                ["RSI"] = indicatorService.CalculateRsi(window),
-                ["SMA_20"] = indicatorService.CalculateSma(window, 20),
-                ["SMA_50"] = indicatorService.CalculateSma(window, 50),
-                ["EMA_20"] = indicatorService.CalculateEma(window, 20),
-                ["MACD_LINE"] = indicatorService.CalculateMacd(window).MacdLine,
-                ["MACD_SIGNAL"] = indicatorService.CalculateMacd(window).SignalLine,
-                ["BB_UPPER"] = indicatorService.CalculateBollingerBands(window).UpperBand,
-                ["BB_LOWER"] = indicatorService.CalculateBollingerBands(window).LowerBand,
-                ["OBV"] = indicatorService.CalculateObv(prices[..(i + 1)], volWindow),
-                ["VOLUME_SMA"] = indicatorService.CalculateVolumeSma(volWindow),
-                ["RANGE_PCT"] = candles[i].Open > 0 ? (candles[i].High - candles[i].Low) / candles[i].Open * 100m : 0m,
+                ["RSI"] = CalculateRsi(window),
+                ["SMA_20"] = CalculateSma(window, 20),
+                ["SMA_50"] = CalculateSma(window, 50),
+                ["EMA_20"] = CalculateEma(window, 20),
+                ["MACD_LINE"] = CalculateMacd(window).MacdLine,
+                ["MACD_SIGNAL"] = CalculateMacd(window).SignalLine,
+                ["BB_UPPER"] = CalculateBollingerBands(window).UpperBand,
+                ["BB_LOWER"] = CalculateBollingerBands(window).LowerBand,
+                ["OBV"] = CalculateObv(prices[..(i + 1)], volWindow),
+                ["VOLUME_SMA"] = CalculateVolumeSma(volWindow),
+                ["RANGE_PCT"] = klines[i].Open > 0 ? (klines[i].High - klines[i].Low) / klines[i].Open * 100m : 0m,
             };
 
             Dictionary<string, decimal> previousValues = new()
             {
-                ["RSI"] = indicatorService.CalculateRsi(prevWindow),
-                ["SMA_20"] = indicatorService.CalculateSma(prevWindow, 20),
-                ["SMA_50"] = indicatorService.CalculateSma(prevWindow, 50),
-                ["EMA_20"] = indicatorService.CalculateEma(prevWindow, 20),
-                ["MACD_LINE"] = indicatorService.CalculateMacd(prevWindow).MacdLine,
-                ["MACD_SIGNAL"] = indicatorService.CalculateMacd(prevWindow).SignalLine,
-                ["RANGE_PCT"] = candles[i - 1].Open > 0 ? (candles[i - 1].High - candles[i - 1].Low) / candles[i - 1].Open * 100m : 0m,
+                ["RSI"] = CalculateRsi(prevWindow),
+                ["SMA_20"] = CalculateSma(prevWindow, 20),
+                ["SMA_50"] = CalculateSma(prevWindow, 50),
+                ["EMA_20"] = CalculateEma(prevWindow, 20),
+                ["MACD_LINE"] = CalculateMacd(prevWindow).MacdLine,
+                ["MACD_SIGNAL"] = CalculateMacd(prevWindow).SignalLine,
+                ["RANGE_PCT"] = klines[i - 1].Open > 0 ? (klines[i - 1].High - klines[i - 1].Low) / klines[i - 1].Open * 100m : 0m,
             };
 
-            var candle = candles[i];
+            var kline = klines[i];
             var action = "none";
 
             if (!inPosition)
             {
-                var shouldEnter = conditionEvaluator.Evaluate(strategy.EntryConditionJson, currentValues, previousValues);
+                var shouldEnter = EvaluateCondition(strategy.EntryCondition, currentValues, previousValues);
                 if (shouldEnter)
                 {
                     inPosition = true;
                     action = "enter";
-                    entryPrice = candle.Close;
+                    entryPrice = kline.Close;
                     entryIndex = i;
                     entryQuantity = entryPrice > 0 ? workedCapital / entryPrice : 0m;
                 }
 
-                analysis.Add(new BacktestCandleAnalysis(
-                    i, candle.Timestamp, candle.Open, candle.High, candle.Low, candle.Close, candle.Volume,
+                analysis.Add(new BacktestKlineAnalysis(
+                    i, kline.Timestamp, kline.Open, kline.High, kline.Low, kline.Close, kline.Volume,
                     currentValues, shouldEnter, null, inPosition, action,
                     entryPrice > 0 ? entryPrice : null,
                     entryQuantity > 0 ? entryQuantity : null,
                     entryQuantity > 0 ? entryPrice * entryQuantity : null,
-                    entryQuantity > 0 ? candle.Close * entryQuantity : null,
-                    entryQuantity > 0 ? (candle.Close - entryPrice) * entryQuantity : null,
-                    entryPrice > 0 ? (candle.Close - entryPrice) / entryPrice * 100m : null));
+                    entryQuantity > 0 ? kline.Close * entryQuantity : null,
+                    entryQuantity > 0 ? (kline.Close - entryPrice) * entryQuantity : null,
+                    entryPrice > 0 ? (kline.Close - entryPrice) / entryPrice * 100m : null));
             }
             else
             {
-                var shouldExit = conditionEvaluator.Evaluate(strategy.ExitConditionJson, currentValues, previousValues);
+                var shouldExit = EvaluateCondition(strategy.ExitCondition, currentValues, previousValues);
                 var avgEntryForRow = entryPrice;
                 var quantityForRow = entryQuantity;
                 decimal? costForRow = quantityForRow > 0 ? avgEntryForRow * quantityForRow : null;
-                decimal? valueForRow = quantityForRow > 0 ? candle.Close * quantityForRow : null;
-                decimal? pnlForRow = quantityForRow > 0 ? (candle.Close - avgEntryForRow) * quantityForRow : null;
-                decimal? pnlPercentForRow = avgEntryForRow > 0 ? (candle.Close - avgEntryForRow) / avgEntryForRow * 100m : null;
+                decimal? valueForRow = quantityForRow > 0 ? kline.Close * quantityForRow : null;
+                decimal? pnlForRow = quantityForRow > 0 ? (kline.Close - avgEntryForRow) * quantityForRow : null;
+                decimal? pnlPercentForRow = avgEntryForRow > 0 ? (kline.Close - avgEntryForRow) / avgEntryForRow * 100m : null;
 
                 if (shouldExit || i == prices.Length - 1)
                 {
-                    var exitPrice = candle.Close;
+                    var exitPrice = kline.Close;
                     var qty = entryQuantity;
                     var pnl = (exitPrice - entryPrice) * qty;
                     var pnlPercent = (exitPrice - entryPrice) / entryPrice * 100;
 
                     trades.Add(new BacktestTrade(
                         entryIndex, i,
-                        candles[entryIndex].Timestamp, candle.Timestamp,
+                        klines[entryIndex].Timestamp, kline.Timestamp,
                         entryPrice, exitPrice, qty, pnl, pnlPercent));
 
                     inPosition = false;
@@ -117,8 +112,8 @@ public class BacktestEngine(
                     entryQuantity = 0m;
                 }
 
-                analysis.Add(new BacktestCandleAnalysis(
-                    i, candle.Timestamp, candle.Open, candle.High, candle.Low, candle.Close, candle.Volume,
+                analysis.Add(new BacktestKlineAnalysis(
+                    i, kline.Timestamp, kline.Open, kline.High, kline.Low, kline.Close, kline.Volume,
                     currentValues, null, shouldExit, quantityForRow > 0, action,
                     avgEntryForRow > 0 ? avgEntryForRow : null,
                     quantityForRow > 0 ? quantityForRow : null,
@@ -134,199 +129,25 @@ public class BacktestEngine(
         if (inPosition)
         {
             var lastIdx = prices.Length - 1;
-            var exitPrice = candles[lastIdx].Close;
+            var exitPrice = klines[lastIdx].Close;
             var qty = workedCapital / entryPrice;
             var pnl = (exitPrice - entryPrice) * qty;
             var pnlPercent = (exitPrice - entryPrice) / entryPrice * 100;
             trades.Add(new BacktestTrade(
                 entryIndex, lastIdx,
-                candles[entryIndex].Timestamp, candles[lastIdx].Timestamp,
+                klines[entryIndex].Timestamp, klines[lastIdx].Timestamp,
                 entryPrice, exitPrice, qty, pnl, pnlPercent));
         }
 
-        var result = CalculateMetrics(trades, candles, prices, analysis);
-        return (result, trades, analysis);
-    }
-
-    private (BacktestResult Result, List<BacktestTrade> Trades, List<BacktestCandleAnalysis> Analysis) RunVolatilityGrid(
-        Strategy strategy,
-        IReadOnlyList<Candle> candles,
-        VolatilityGridExecutionRule rule,
-        decimal initialCapital,
-        Action<BacktestCandleAnalysis>? onAnalysis,
-        string? timeframe = null)
-    {
-        List<BacktestTrade> trades = [];
-        List<BacktestCandleAnalysis> analysis = [];
-        var prices = candles.Select(c => c.Close).ToArray();
-        var volumes = candles.Select(c => (long)c.Volume).ToArray();
-        List<OpenLeg> openLegs = [];
-        var remainingCapital = initialCapital;
-
-        for (var i = 50; i < prices.Length; i++)
-        {
-            var window = prices[..(i + 1)];
-            var prevWindow = prices[..i];
-            var volWindow = volumes[..(i + 1)];
-            var candle = candles[i];
-
-            Dictionary<string, decimal> currentValues = new()
-            {
-                ["RSI"] = indicatorService.CalculateRsi(window),
-                ["SMA_20"] = indicatorService.CalculateSma(window, 20),
-                ["SMA_50"] = indicatorService.CalculateSma(window, 50),
-                ["EMA_20"] = indicatorService.CalculateEma(window, 20),
-                ["MACD_LINE"] = indicatorService.CalculateMacd(window).MacdLine,
-                ["MACD_SIGNAL"] = indicatorService.CalculateMacd(window).SignalLine,
-                ["BB_UPPER"] = indicatorService.CalculateBollingerBands(window).UpperBand,
-                ["BB_LOWER"] = indicatorService.CalculateBollingerBands(window).LowerBand,
-                ["OBV"] = indicatorService.CalculateObv(prices[..(i + 1)], volWindow),
-                ["VOLUME_SMA"] = indicatorService.CalculateVolumeSma(volWindow),
-                ["RANGE_PCT"] = candle.Open > 0 ? (candle.High - candle.Low) / candle.Open * 100m : 0m,
-            };
-
-            Dictionary<string, decimal> previousValues = new()
-            {
-                ["RSI"] = indicatorService.CalculateRsi(prevWindow),
-                ["SMA_20"] = indicatorService.CalculateSma(prevWindow, 20),
-                ["SMA_50"] = indicatorService.CalculateSma(prevWindow, 50),
-                ["EMA_20"] = indicatorService.CalculateEma(prevWindow, 20),
-                ["MACD_LINE"] = indicatorService.CalculateMacd(prevWindow).MacdLine,
-                ["MACD_SIGNAL"] = indicatorService.CalculateMacd(prevWindow).SignalLine,
-                ["RANGE_PCT"] = candles[i - 1].Open > 0 ? (candles[i - 1].High - candles[i - 1].Low) / candles[i - 1].Open * 100m : 0m,
-            };
-
-            var rangePct = currentValues["RANGE_PCT"];
-            var hasEntryCondition = !string.IsNullOrWhiteSpace(strategy.EntryConditionJson) && strategy.EntryConditionJson != "{}";
-            var hasOpenPosition = openLegs.Count > 0;
-            var avgEntry = CalculateAverageEntry(openLegs);
-            var positionQuantity = openLegs.Sum(l => l.Quantity);
-            var positionCost = openLegs.Sum(l => l.EntryPrice * l.Quantity);
-            var canPyramid = openLegs.Count < rule.MaxPyramidingLevels + 1;
-
-            var shouldEnter = !hasOpenPosition
-                ? CheckWindowedVolatility(candles, i, timeframe, rule.EntryVolatilityPercent, candle.Close)
-                : canPyramid && avgEntry > 0 && candle.Close <= avgEntry * (1 - rule.RebalancePercent / 100m);
-
-            var shouldExit = hasOpenPosition
-                && avgEntry > 0
-                && candle.Close >= avgEntry * (1 + rule.RebalancePercent / 100m);
-
-            var action = "none";
-            decimal? rowAvgEntry = null;
-            decimal? rowPositionQuantity = null;
-            decimal? rowPositionCost = null;
-            decimal? rowPositionValue = null;
-            decimal? rowPositionPnl = null;
-            decimal? rowPositionPnlPercent = null;
-
-            if (shouldEnter && remainingCapital > 0)
-            {
-                var budget = Math.Min(rule.BasePositionSize, remainingCapital);
-                var qty = candle.Close > 0 ? budget / candle.Close : 0m;
-                if (qty > 0)
-                {
-                    openLegs.Add(new OpenLeg(i, candle.Timestamp, candle.Close, qty));
-                    remainingCapital -= budget;
-                    action = "enter";
-                }
-            }
-            else if (shouldExit && openLegs.Count > 0)
-            {
-                rowAvgEntry = avgEntry > 0 ? avgEntry : null;
-                rowPositionQuantity = positionQuantity > 0 ? positionQuantity : null;
-                rowPositionCost = positionCost > 0 ? positionCost : null;
-                rowPositionValue = positionQuantity > 0 ? candle.Close * positionQuantity : null;
-                rowPositionPnl = rowPositionValue is not null ? rowPositionValue - positionCost : null;
-                rowPositionPnlPercent = positionCost > 0 && rowPositionPnl is not null ? rowPositionPnl / positionCost * 100m : null;
-
-                var leg = openLegs[0];
-                openLegs.RemoveAt(0);
-
-                var pnl = (candle.Close - leg.EntryPrice) * leg.Quantity;
-                var pnlPercent = (candle.Close - leg.EntryPrice) / leg.EntryPrice * 100m;
-                trades.Add(new BacktestTrade(
-                    leg.EntryIndex,
-                    i,
-                    leg.EntryTime,
-                    candle.Timestamp,
-                    leg.EntryPrice,
-                    candle.Close,
-                    leg.Quantity,
-                    pnl,
-                    pnlPercent));
-
-                remainingCapital += candle.Close * leg.Quantity;
-                action = "exit";
-            }
-
-            avgEntry = CalculateAverageEntry(openLegs);
-            positionQuantity = openLegs.Sum(l => l.Quantity);
-            positionCost = openLegs.Sum(l => l.EntryPrice * l.Quantity);
-            var positionValue = positionQuantity > 0 ? candle.Close * positionQuantity : 0m;
-            var positionPnl = positionValue - positionCost;
-            var positionPnlPercent = positionCost > 0 ? positionPnl / positionCost * 100m : 0m;
-
-            rowAvgEntry ??= avgEntry > 0 ? avgEntry : null;
-            rowPositionQuantity ??= positionQuantity > 0 ? positionQuantity : null;
-            rowPositionCost ??= positionCost > 0 ? positionCost : null;
-            rowPositionValue ??= positionValue > 0 ? positionValue : null;
-            rowPositionPnl ??= positionCost > 0 ? positionPnl : null;
-            rowPositionPnlPercent ??= positionCost > 0 ? positionPnlPercent : null;
-
-            var item = new BacktestCandleAnalysis(
-                i,
-                candle.Timestamp,
-                candle.Open,
-                candle.High,
-                candle.Low,
-                candle.Close,
-                candle.Volume,
-                currentValues,
-                shouldEnter,
-                shouldExit,
-                rowPositionQuantity > 0,
-                action,
-                rowAvgEntry,
-                rowPositionQuantity,
-                rowPositionCost,
-                rowPositionValue,
-                rowPositionPnl,
-                rowPositionPnlPercent);
-            analysis.Add(item);
-            onAnalysis?.Invoke(item);
-        }
-
-        if (openLegs.Count > 0)
-        {
-            var lastIdx = candles.Count - 1;
-            var lastCandle = candles[lastIdx];
-            foreach (var leg in openLegs)
-            {
-                var pnl = (lastCandle.Close - leg.EntryPrice) * leg.Quantity;
-                var pnlPercent = (lastCandle.Close - leg.EntryPrice) / leg.EntryPrice * 100m;
-                trades.Add(new BacktestTrade(
-                    leg.EntryIndex,
-                    lastIdx,
-                    leg.EntryTime,
-                    lastCandle.Timestamp,
-                    leg.EntryPrice,
-                    lastCandle.Close,
-                    leg.Quantity,
-                    pnl,
-                    pnlPercent));
-            }
-        }
-
-        var result = CalculateMetrics(trades, candles, prices, analysis);
+        var result = CalculateMetrics(trades, klines, prices, analysis);
         return (result, trades, analysis);
     }
 
     private static BacktestResult CalculateMetrics(
         IReadOnlyList<BacktestTrade> trades,
-        IReadOnlyList<Candle> candles,
+        IReadOnlyList<Candle> klines,
         decimal[] prices,
-        IReadOnlyList<BacktestCandleAnalysis> analysis)
+        IReadOnlyList<BacktestKlineAnalysis> analysis)
     {
         var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
@@ -340,14 +161,14 @@ public class BacktestEngine(
                 TotalTrades = 0,
                 SharpeRatio = 0,
                 ProfitLossRatio = 0,
-                DetailJson = $"{{\"message\":\"无交易产生\"}}"
+                Details = $"{{\"message\":\"无交易产生\"}}"
             };
 
-        var wins = trades.Count(t => t.Pnl > 0);
+        var wins = trades.Count(t => t.PnL > 0);
         var winRate = (decimal)wins / trades.Count * 100;
 
-        var totalReturn = trades.Sum(t => t.PnlPercent);
-        var totalDays = (candles[^1].Timestamp - candles[0].Timestamp).TotalDays;
+        var totalReturn = trades.Sum(t => t.PnLPercent);
+        var totalDays = (klines[^1].Timestamp - klines[0].Timestamp).TotalDays;
         var annualizedReturn = 0m;
         if (totalDays > 0)
         {
@@ -367,20 +188,20 @@ public class BacktestEngine(
             if (dd > maxDrawdown) maxDrawdown = dd;
         }
 
-        var avgReturn = trades.Count > 0 ? trades.Average(t => t.PnlPercent) : 0;
+        var avgReturn = trades.Count > 0 ? trades.Average(t => t.PnLPercent) : 0;
         var stdDev = trades.Count > 1
-            ? (decimal)Math.Sqrt(Math.Max(0, Math.Min(1e10, trades.Average(t => Math.Pow((double)Math.Max(-9999, Math.Min(9999, t.PnlPercent - avgReturn)), 2)))))
+            ? (decimal)Math.Sqrt(Math.Max(0, Math.Min(1e10, trades.Average(t => Math.Pow((double)Math.Max(-9999, Math.Min(9999, t.PnLPercent - avgReturn)), 2)))))
             : 1;
         var sharpe = stdDev > 0 ? avgReturn / stdDev * (decimal)Math.Sqrt(365) : 0;
 
-        var totalWin = trades.Where(t => t.Pnl > 0).Sum(t => t.Pnl);
-        var totalLoss = trades.Where(t => t.Pnl <= 0).Sum(t => Math.Abs(t.Pnl));
+        var totalWin = trades.Where(t => t.PnL > 0).Sum(t => t.PnL);
+        var totalLoss = trades.Where(t => t.PnL <= 0).Sum(t => Math.Abs(t.PnL));
         var profitLossRatio = totalLoss > 0 ? totalWin / totalLoss : totalWin > 0 ? totalWin : 0;
 
-        var detailJson = JsonSerializer.Serialize(trades.Select(t => new
+        var details = JsonSerializer.Serialize(trades.Select(t => new
         {
-            t.EntryTime, t.ExitTime, t.EntryPrice, t.ExitPrice,
-            t.Quantity, t.Pnl, t.PnlPercent
+            t.EnteredAt, t.ExitedAt, t.EntryPrice, t.ExitPrice,
+            t.Quantity, t.PnL, t.PnLPercent
         }), jsonOptions);
 
         return new BacktestResult
@@ -392,7 +213,7 @@ public class BacktestEngine(
             TotalTrades = trades.Count,
             SharpeRatio = Math.Round(sharpe, 2),
             ProfitLossRatio = Math.Round(profitLossRatio, 2),
-            DetailJson = detailJson
+            Details = details
         };
     }
 
@@ -406,90 +227,156 @@ public class BacktestEngine(
             TotalTrades = 0,
             SharpeRatio = 0,
             ProfitLossRatio = 0,
-            DetailJson = $"{{\"message\":\"{reason}\"}}"
+            Details = $"{{\"message\":\"{reason}\"}}"
         };
 
-    private static decimal CalculateAverageEntry(IReadOnlyList<OpenLeg> openLegs)
+    private static bool EvaluateCondition(string conditionJson, Dictionary<string, decimal> currentValues, Dictionary<string, decimal> previousValues)
     {
-        var totalQuantity = openLegs.Sum(l => l.Quantity);
-        if (totalQuantity <= 0)
-            return 0m;
-
-        var totalCost = openLegs.Sum(l => l.EntryPrice * l.Quantity);
-        return totalCost / totalQuantity;
-    }
-
-    private static bool CheckWindowedVolatility(
-        IReadOnlyList<Candle> primaryCandles,
-        int currentIndex,
-        string? timeframe,
-        decimal thresholdPercent,
-        decimal currentPrice)
-    {
-        var minsPerCandle = timeframe switch
-        {
-            "1m" => 1, "5m" => 5, "15m" => 15, "30m" => 30,
-            "1h" => 60, "4h" => 240, "1d" => 1440,
-            _ => 15
-        };
-
-        var (fiveMinWin, fiveMinLookback) = WindowParams(minsPerCandle, 5);
-        if (CheckVolatilityWindow(primaryCandles, currentIndex, fiveMinWin, fiveMinLookback, thresholdPercent, currentPrice))
-            return true;
-
-        var (fifteenMinWin, fifteenMinLookback) = WindowParams(minsPerCandle, 15);
-        if (CheckVolatilityWindow(primaryCandles, currentIndex, fifteenMinWin, fifteenMinLookback, thresholdPercent, currentPrice))
-            return true;
-
-        return false;
-    }
-
-    private static (int windowSize, int lookbackCandles) WindowParams(int minsPerCandle, int targetMinutes)
-    {
-        if (minsPerCandle >= targetMinutes)
-            return (1, 30);
-        var windowSize = targetMinutes / minsPerCandle;
-        var lookbackCandles = targetMinutes * 30 / minsPerCandle;
-        return (windowSize, lookbackCandles);
-    }
-
-    private static bool CheckVolatilityWindow(
-        IReadOnlyList<Candle> primaryCandles,
-        int currentIndex,
-        int windowSize,
-        int lookbackCandles,
-        decimal thresholdPercent,
-        decimal currentPrice)
-    {
-        var start = Math.Max(0, currentIndex - lookbackCandles + 1);
-        if (start >= currentIndex)
+        // Simple JSON-based condition evaluator for backtest
+        if (string.IsNullOrWhiteSpace(conditionJson) || conditionJson == "{}")
             return false;
 
-        for (var j = start; j + windowSize - 1 <= currentIndex; j += windowSize)
+        try
         {
-            var winOpen = primaryCandles[j].Open;
-            var winHigh = primaryCandles[j].High;
-            var winLow = primaryCandles[j].Low;
-            for (var k = j + 1; k < j + windowSize; k++)
-            {
-                if (primaryCandles[k].High > winHigh) winHigh = primaryCandles[k].High;
-                if (primaryCandles[k].Low < winLow) winLow = primaryCandles[k].Low;
-            }
-
-            if (winOpen <= 0)
-                continue;
-
-            var rangePct = (winHigh - winLow) / winOpen * 100m;
-            if (rangePct >= thresholdPercent)
-            {
-                var midPrice = (winHigh + winLow) / 2m;
-                if (currentPrice < midPrice)
-                    return true;
-            }
+            var node = JsonSerializer.Deserialize<ConditionNode>(conditionJson);
+            return EvaluateNode(node, currentValues, previousValues);
         }
-
-        return false;
+        catch
+        {
+            return false;
+        }
     }
 
-    private sealed record OpenLeg(int EntryIndex, DateTime EntryTime, decimal EntryPrice, decimal Quantity);
+    private static bool EvaluateNode(ConditionNode? node, Dictionary<string, decimal> currentValues, Dictionary<string, decimal> previousValues)
+    {
+        if (node is null) return false;
+
+        if (node.Operator == "AND")
+            return node.Conditions?.All(c => EvaluateNode(c, currentValues, previousValues)) ?? true;
+
+        if (node.Operator == "OR")
+            return node.Conditions?.Any(c => EvaluateNode(c, currentValues, previousValues)) ?? false;
+
+        if (node.Operator == "NOT")
+            return node.Conditions?.Length == 1 && !EvaluateNode(node.Conditions[0], currentValues, previousValues);
+
+        // Leaf node
+        var indicator = node.Indicator ?? "";
+        var currentVal = currentValues.GetValueOrDefault(indicator, 0m);
+        var prevVal = previousValues.GetValueOrDefault(indicator, 0m);
+
+        var refIndicator = node.Ref;
+        decimal compareValue = node.Value;
+        if (!string.IsNullOrEmpty(refIndicator))
+        {
+            var refVal = currentValues.GetValueOrDefault(refIndicator, 1m);
+            compareValue = refVal * node.Value;
+        }
+
+        return node.Comparison switch
+        {
+            ">" => currentVal > compareValue,
+            "<" => currentVal < compareValue,
+            ">=" => currentVal >= compareValue,
+            "<=" => currentVal <= compareValue,
+            "==" => Math.Abs(currentVal - compareValue) < 0.0001m,
+            "CA" => prevVal <= compareValue && currentVal > compareValue,
+            "CB" => prevVal >= compareValue && currentVal < compareValue,
+            _ => false
+        };
+    }
+
+    // Indicator calculations (inlined for backtest independence)
+    private static decimal CalculateRsi(IReadOnlyList<decimal> prices)
+    {
+        const int period = 14;
+        if (prices.Count < period + 1) return 50m;
+        var gains = 0m; var losses = 0m;
+        for (var i = prices.Count - period; i < prices.Count; i++)
+        {
+            var diff = prices[i] - prices[i - 1];
+            if (diff > 0) gains += diff; else losses -= diff;
+        }
+        var avgGain = gains / period; var avgLoss = losses / period;
+        if (avgLoss == 0) return 100m;
+        var rs = avgGain / avgLoss;
+        return 100m - 100m / (1 + rs);
+    }
+
+    private static decimal CalculateSma(IReadOnlyList<decimal> prices, int period)
+    {
+        if (prices.Count < period) return 0m;
+        var sum = 0m;
+        for (var i = prices.Count - period; i < prices.Count; i++) sum += prices[i];
+        return sum / period;
+    }
+
+    private static decimal CalculateEma(IReadOnlyList<decimal> prices, int period)
+    {
+        if (prices.Count < period + 1) return prices[^1];
+        var sliced = new List<decimal>(prices.Count - 1);
+        for (var i = 0; i < prices.Count - 1; i++) sliced.Add(prices[i]);
+        var sma = CalculateSma(sliced, period);
+        var multiplier = 2m / (period + 1);
+        return (prices[^1] - sma) * multiplier + sma;
+    }
+
+    private static (decimal MacdLine, decimal SignalLine) CalculateMacd(IReadOnlyList<decimal> prices)
+    {
+        if (prices.Count < 27) return (0, 0);
+        var ema12 = CalculateEma(prices, 12);
+        var ema26 = CalculateEma(prices, 26);
+        var macdLine = ema12 - ema26;
+        var signalPrices = new List<decimal>(9);
+        var start = prices.Count - 9;
+        for (var i = start; i < prices.Count; i++) signalPrices.Add(prices[i]);
+        var signalLine = CalculateEma(signalPrices, 9);
+        return (macdLine, signalLine);
+    }
+
+    private static (decimal UpperBand, decimal LowerBand) CalculateBollingerBands(IReadOnlyList<decimal> prices)
+    {
+        const int period = 20;
+        if (prices.Count < period) return (0, 0);
+        var sma = CalculateSma(prices, period);
+        var variance = 0d;
+        var count = 0;
+        for (var i = prices.Count - period; i < prices.Count; i++, count++)
+        {
+            var diff = (double)(prices[i] - sma);
+            variance += diff * diff;
+        }
+        variance /= count;
+        var std = (decimal)Math.Sqrt(variance);
+        return (sma + 2 * std, sma - 2 * std);
+    }
+
+    private static decimal CalculateObv(IReadOnlyList<decimal> closes, IReadOnlyList<long> volumes)
+    {
+        if (closes.Count < 2 || volumes.Count < 2) return 0m;
+        var obv = 0m;
+        for (var i = 1; i < closes.Count; i++)
+        {
+            if (closes[i] > closes[i - 1]) obv += volumes[i];
+            else if (closes[i] < closes[i - 1]) obv -= volumes[i];
+        }
+        return obv;
+    }
+
+    private static decimal CalculateVolumeSma(IReadOnlyList<long> volumes)
+    {
+        const int period = 20;
+        if (volumes.Count < period) return volumes.Count > 0 ? (decimal)volumes.Average() : 0m;
+        return (decimal)volumes.Skip(volumes.Count - period).Take(period).Average();
+    }
+
+    private class ConditionNode
+    {
+        public string? Operator { get; set; }
+        public ConditionNode[]? Conditions { get; set; }
+        public string? Indicator { get; set; }
+        public string? Comparison { get; set; }
+        public decimal Value { get; set; }
+        public string? Ref { get; set; }
+    }
 }

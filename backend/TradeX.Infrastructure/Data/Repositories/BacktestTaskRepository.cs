@@ -37,16 +37,16 @@ public class BacktestTaskRepository(TradeXDbContext context) : IBacktestTaskRepo
     public async Task<BacktestResult?> GetResultByTaskIdAsync(Guid taskId, CancellationToken ct = default)
         => await context.BacktestResults.FirstOrDefaultAsync(r => r.TaskId == taskId, ct);
 
-    public async Task AddCandleAnalysesAsync(Guid taskId, IReadOnlyList<BacktestCandleAnalysis> analysis, CancellationToken ct = default)
+    public async Task AddKlineAnalysesAsync(Guid taskId, IReadOnlyList<BacktestKlineAnalysis> analysis, CancellationToken ct = default)
     {
-        var entities = analysis.Select(a => BacktestCandleAnalysisEntity.FromDomain(taskId, a)).ToArray();
-        await context.BacktestCandleAnalyses.AddRangeAsync(entities, ct);
+        var entities = analysis.Select(a => BacktestKlineAnalysisEntity.FromDomain(taskId, a)).ToArray();
+        await context.BacktestKlineAnalyses.AddRangeAsync(entities, ct);
         await context.SaveChangesAsync(ct);
     }
 
-    public async Task<BacktestCandleAnalysis[]> GetCandleAnalysesPageAsync(Guid taskId, int page, int pageSize, string? actionFilter = null, CancellationToken ct = default)
+    public async Task<BacktestKlineAnalysis[]> GetKlineAnalysesPageAsync(Guid taskId, int page, int pageSize, string? actionFilter = null, CancellationToken ct = default)
     {
-        var query = context.BacktestCandleAnalyses.Where(e => e.TaskId == taskId);
+        var query = context.BacktestKlineAnalyses.Where(e => e.TaskId == taskId);
         if (!string.IsNullOrWhiteSpace(actionFilter) && actionFilter != "all")
             query = query.Where(e => e.Action == actionFilter);
         var entities = await query
@@ -57,17 +57,17 @@ public class BacktestTaskRepository(TradeXDbContext context) : IBacktestTaskRepo
         return entities.Select(e => e.ToDomain()).ToArray();
     }
 
-    public async Task<int> GetCandleAnalysesCountAsync(Guid taskId, string? actionFilter = null, CancellationToken ct = default)
+    public async Task<int> GetKlineAnalysesCountAsync(Guid taskId, string? actionFilter = null, CancellationToken ct = default)
     {
-        var query = context.BacktestCandleAnalyses.Where(e => e.TaskId == taskId);
+        var query = context.BacktestKlineAnalyses.Where(e => e.TaskId == taskId);
         if (!string.IsNullOrWhiteSpace(actionFilter) && actionFilter != "all")
             query = query.Where(e => e.Action == actionFilter);
         return await query.CountAsync(ct);
     }
 
-    public async Task<BacktestCandleAnalysis[]> GetCandleAnalysesAllAsync(Guid taskId, CancellationToken ct = default)
+    public async Task<BacktestKlineAnalysis[]> GetKlineAnalysesAllAsync(Guid taskId, CancellationToken ct = default)
     {
-        var entities = await context.BacktestCandleAnalyses
+        var entities = await context.BacktestKlineAnalyses
             .Where(e => e.TaskId == taskId)
             .OrderBy(e => e.Index)
             .ToArrayAsync(ct);

@@ -4,15 +4,16 @@ export interface BacktestTask {
   id: string
   strategyId: string
   strategyName?: string
-  symbolId?: string
+  pair: string
   timeframe?: string
   initialCapital?: number
+  positionSize?: number | null
   status: string
   phase?: string
-  startAtUtc: string
-  endAtUtc: string
+  startAt: string
+  endAt: string
   createdAt: string
-  completedAtUtc: string | null
+  completedAt: string | null
 }
 
 export interface BacktestResult {
@@ -28,8 +29,8 @@ export interface BacktestResult {
 }
 
 export interface BacktestTrade {
-  entryTime: string
-  exitTime: string
+  enteredAt: string
+  exitedAt: string
   entryPrice: number
   exitPrice: number
   quantity: number
@@ -37,7 +38,7 @@ export interface BacktestTrade {
   pnlPercent: number
 }
 
-export interface BacktestCandleAnalysis {
+export interface BacktestKlineAnalysis {
   index: number
   timestamp: string
   open: number
@@ -65,26 +66,26 @@ export interface AnalysisResponse {
   page: number
   pageSize: number
   totalPages: number
-  items: BacktestCandleAnalysis[]
+  items: BacktestKlineAnalysis[]
 }
 
 export const backtestsApi = {
-  start(traderId: string, strategyId: string, deploymentId: string, exchangeId: string, symbolId: string, timeframe: string, startUtc: string, endUtc: string, initialCapital?: number) {
-    let url = `/traders/${traderId}/strategies/${strategyId}/backtests?deploymentId=${deploymentId}&exchangeId=${exchangeId}&symbolId=${encodeURIComponent(symbolId)}&timeframe=${encodeURIComponent(timeframe)}&startUtc=${encodeURIComponent(startUtc)}&endUtc=${encodeURIComponent(endUtc)}`
-    if (initialCapital) url += `&initialCapital=${initialCapital}`
-    return client.post<{ taskId: string; status: string; createdAt: string; strategyName?: string; symbolId?: string; timeframe?: string }>(url)
+  start(strategyId: string, exchangeId: string, pair: string, timeframe: string, startAt: string, endAt: string, initialCapital: number, positionSize?: number | null) {
+    let url = `/backtests?strategyId=${strategyId}&exchangeId=${exchangeId}&pair=${encodeURIComponent(pair)}&timeframe=${encodeURIComponent(timeframe)}&startAt=${encodeURIComponent(startAt)}&endAt=${encodeURIComponent(endAt)}&initialCapital=${initialCapital}`
+    if (positionSize !== null && positionSize !== undefined) url += `&positionSize=${positionSize}`
+    return client.post<{ taskId: string; status: string; createdAt: string; strategyName?: string; pair?: string; timeframe?: string }>(url)
   },
-  getTasks(traderId: string, strategyId: string) {
-    return client.get<BacktestTask[]>(`/traders/${traderId}/strategies/${strategyId}/backtests/tasks`)
+  getTasks(strategyId: string) {
+    return client.get<BacktestTask[]>(`/backtests/tasks?strategyId=${strategyId}`)
   },
-  getTask(traderId: string, strategyId: string, taskId: string) {
-    return client.get<BacktestTask>(`/traders/${traderId}/strategies/${strategyId}/backtests/tasks/${taskId}`)
+  getTask(taskId: string) {
+    return client.get<BacktestTask>(`/backtests/tasks/${taskId}`)
   },
-  getResult(traderId: string, strategyId: string, taskId: string) {
-    return client.get<BacktestResult>(`/traders/${traderId}/strategies/${strategyId}/backtests/tasks/${taskId}/result`)
+  getResult(taskId: string) {
+    return client.get<BacktestResult>(`/backtests/tasks/${taskId}/result`)
   },
-  getAnalysis(traderId: string, strategyId: string, taskId: string, page = 1, pageSize = 100, action?: string) {
-    let url = `/traders/${traderId}/strategies/${strategyId}/backtests/tasks/${taskId}/analysis?page=${page}&pageSize=${pageSize}`
+  getAnalysis(taskId: string, page = 1, pageSize = 100, action?: string) {
+    let url = `/backtests/tasks/${taskId}/analysis?page=${page}&pageSize=${pageSize}`
     if (action && action !== 'all') url += `&action=${encodeURIComponent(action)}`
     return client.get<AnalysisResponse>(url)
   }

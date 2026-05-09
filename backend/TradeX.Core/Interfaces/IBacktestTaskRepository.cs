@@ -11,8 +11,8 @@ public interface IBacktestTaskRepository
     Task AddResultAsync(BacktestResult result, CancellationToken ct = default);
     Task<BacktestResult?> GetResultByTaskIdAsync(Guid taskId, CancellationToken ct = default);
 
-    Task AddCandleAnalysesAsync(Guid taskId, IReadOnlyList<BacktestCandleAnalysis> analysis, CancellationToken ct = default);
-    Task<BacktestCandleAnalysis[]> GetCandleAnalysesPageAsync(Guid taskId, int page, int pageSize, string? actionFilter = null, CancellationToken ct = default);
-    Task<int> GetCandleAnalysesCountAsync(Guid taskId, string? actionFilter = null, CancellationToken ct = default);
-    Task<BacktestCandleAnalysis[]> GetCandleAnalysesAllAsync(Guid taskId, CancellationToken ct = default);
+    Task AddKlineAnalysesAsync(Guid taskId, IReadOnlyList<BacktestKlineAnalysis> analysis, CancellationToken ct = default);
+    Task<BacktestKlineAnalysis[]> GetKlineAnalysesPageAsync(Guid taskId, int page, int pageSize, string? actionFilter = null, CancellationToken ct = default);
+    Task<int> GetKlineAnalysesCountAsync(Guid taskId, string? actionFilter = null, CancellationToken ct = default);
+    Task<BacktestKlineAnalysis[]> GetKlineAnalysesAllAsync(Guid taskId, CancellationToken ct = default);
 }
