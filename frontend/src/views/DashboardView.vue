@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, onMounted, onUnmounted, ref } from 'vue'
+import { Message } from '@arco-design/web-vue'
 import { dashboardApi, type DashboardStats, type DashboardTrade } from '../api/dashboard'
 import { exchangesApi } from '../api/exchanges'
 import { getExchangeInfo } from '../api/exchangeInfo'
@@ -8,7 +9,6 @@ import { formatSmallNumber } from '../utils/format'
 const stats = ref<DashboardStats | null>(null)
 const loading = ref(true)
 const loadError = ref('')
-const riskAlert = ref('')
 const exchangeAssets = ref<Record<string, { currency: string; balance: number }[]>>({})
 const signalr: any = inject('signalr')
 
@@ -92,8 +92,11 @@ async function loadStats() {
   try {
     const { data } = await dashboardApi.getStats()
     stats.value = data
-  } catch {
-    loadError.value = '仪表盘数据加载失败，请稍后重试'
+  } catch (e: any) {
+    const msg = e?.response?.data?.message || e?.message || '仪表盘数据加载失败'
+    loadError.value = msg
+    console.error('[Dashboard] loadStats error:', msg, e)
+    Message.error({ content: msg, duration: 4000 })
   } finally {
     loading.value = false
   }
@@ -137,8 +140,15 @@ function bindRealtime() {
   })
 
   signalr.on('RiskAlert', (data: any) => {
-    riskAlert.value = `[${data.level}] ${data.message}`
-    setTimeout(() => { riskAlert.value = '' }, 5000)
+    const level = (data.level ?? '').toLowerCase()
+    const content = `[${data.level}] ${data.message}`
+    if (level === 'high' || level === 'critical') {
+      Message.error({ content, duration: 5000 })
+    } else if (level === 'warning' || level === 'medium') {
+      Message.warning({ content, duration: 4000 })
+    } else {
+      Message.info({ content, duration: 3000 })
+    }
   })
 }
 
@@ -188,78 +198,57 @@ onUnmounted(() => {
 
 <template>
   <div>
-    <a-alert
-      v-if="riskAlert"
-      type="error"
-      :closable="false"
-      :style="{ position: 'fixed', top: '16px', right: '16px', zIndex: 200, width: '400px' }"
-    >
-      {{ riskAlert }}
-    </a-alert>
-
-    <a-alert
-      v-if="loadError"
-      type="warning"
-      :style="{ marginBottom: '16px' }"
-      :show-icon="false"
-    >
-      <template #action>
-        <a-button size="mini" @click="loadStats">重试</a-button>
-      </template>
-      {{ loadError }}
-    </a-alert>
-
     <!-- Hero -->
     <a-row :gutter="20" :style="{ marginBottom: '16px' }">
-      <a-col :flex="1">
-        <a-card :bordered="true" :style="{ height: '100%' }">
-          <a-typography-text type="primary" :style="{ fontSize: '12px', fontWeight: 600, letterSpacing: '0.16em' }">
-            TradeX COMMAND CENTER
-          </a-typography-text>
-          <a-typography-title :heading="2" :style="{ marginTop: '8px', marginBottom: '12px', lineHeight: 0.95 }">
-            交易运行总览
-          </a-typography-title>
-          <a-typography-text type="secondary">
-            集中观察交易员、交易所连接、策略部署、持仓风险与最近成交。
-          </a-typography-text>
-        </a-card>
-      </a-col>
-      <a-col :flex="'280px'">
-        <a-card :bordered="true" :style="{ height: '100%' }">
-          <a-typography-text type="secondary" :style="{ fontSize: '12px' }">系统风险</a-typography-text>
-          <a-typography-text
-            :type="riskMeta.type"
-            :style="{ display: 'block', fontSize: '26px', fontWeight: 700, marginTop: '8px' }"
-          >
-            {{ riskMeta.label }}
-          </a-typography-text>
-          <a-typography-text type="secondary" :style="{ fontSize: '12px' }">
-            实时推送 {{ signalr?.connected?.value ? '已连接' : '未连接' }}
-          </a-typography-text>
-        </a-card>
-      </a-col>
-    </a-row>
+        <a-col :flex="1">
+          <a-card :bordered="true" :style="{ height: '100%' }">
+            <a-typography-text type="primary" :style="{ fontSize: '12px', fontWeight: 600, letterSpacing: '0.16em' }">
+              TradeX COMMAND CENTER
+            </a-typography-text>
+            <a-typography-title :heading="2" :style="{ marginTop: '8px', marginBottom: '12px', lineHeight: 0.95 }">
+              交易运行总览
+            </a-typography-title>
+            <a-typography-text type="secondary">
+              集中观察交易员、交易所连接、策略部署、持仓风险与最近成交。
+            </a-typography-text>
+          </a-card>
+        </a-col>
+        <a-col :flex="'280px'">
+          <a-card :bordered="true" :style="{ height: '100%' }">
+            <a-typography-text type="secondary" :style="{ fontSize: '12px' }">系统风险</a-typography-text>
+            <a-typography-text
+              :type="riskMeta.type"
+              :style="{ display: 'block', fontSize: '26px', fontWeight: 700, marginTop: '8px' }"
+            >
+              {{ riskMeta.label }}
+            </a-typography-text>
+            <a-typography-text type="secondary" :style="{ fontSize: '12px' }">
+              实时推送 {{ signalr?.connected?.value ? '已连接' : '未连接' }}
+            </a-typography-text>
+          </a-card>
+        </a-col>
+      </a-row>
 
-    <!-- Loading -->
-    <a-row :gutter="16" v-if="loading">
-      <a-col :span="6" v-for="i in 4" :key="i">
-        <a-card :bordered="true">
-          <a-skeleton :animation="true">
-            <a-skeleton-line :rows="3" />
-          </a-skeleton>
-        </a-card>
-      </a-col>
-    </a-row>
-
-    <!-- Content -->
-    <template v-else>
-      <!-- Metrics -->
-      <a-row :gutter="16" :style="{ marginBottom: '16px' }">
-        <a-col :xs="24" :sm="12" :md="6" v-for="m in primaryMetrics" :key="m.title">
+      <!-- Loading -->
+      <a-row :gutter="16" v-if="loading">
+        <a-col :span="6" v-for="i in 4" :key="i">
           <a-card :bordered="true">
-            <a-typography-text type="secondary" :style="{ fontSize: '13px' }">{{ m.title }}</a-typography-text>
-            <div :style="{ fontSize: '28px', fontWeight: 700, marginTop: '4px' }">{{ m.value }}</div>
-            <a-typography-text type="secondary" :style="{ fontSize: '12px', marginTop: '4px', display: 'block' }">
+            <a-skeleton :animation="true">
+              <a-skeleton-line :rows="3" />
+            </a-skeleton>
+          </a-card>
+        </a-col>
+      </a-row>
+
+      <!-- Content -->
+      <template v-else>
+        <!-- Metrics -->
+        <a-row :gutter="16" :style="{ marginBottom: '16px' }">
+          <a-col :xs="24" :sm="12" :md="6" v-for="m in primaryMetrics" :key="m.title">
+            <a-card :bordered="true">
+              <a-typography-text type="secondary" :style="{ fontSize: '13px' }">{{ m.title }}</a-typography-text>
+              <div :style="{ fontSize: '28px', fontWeight: 700, marginTop: '4px' }">{{ m.value }}</div>
+              <a-typography-text type="secondary" :style="{ fontSize: '12px', marginTop: '4px', display: 'block' }">
               {{ m.suffix }}
             </a-typography-text>
           </a-card>
@@ -427,9 +416,9 @@ onUnmounted(() => {
               :row-style="{ cursor: 'pointer' }"
             >
               <template #columns>
-                <a-table-column title="交易对" data-index="symbolId">
+                <a-table-column title="交易对" data-index="pair">
                   <template #cell="{ record }">
-                    <a-typography-text bold>{{ record.symbolId }}</a-typography-text>
+                    <a-typography-text bold>{{ record.pair }}</a-typography-text>
                   </template>
                 </a-table-column>
                 <a-table-column title="方向" data-index="side" :width="80">
@@ -484,6 +473,6 @@ onUnmounted(() => {
           </a-card>
         </a-col>
       </a-row>
-    </template>
-  </div>
+      </template>
+    </div>
 </template>

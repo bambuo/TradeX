@@ -46,14 +46,14 @@ public class TradeExecutor(
                 encryptionService.Decrypt(exchange.SecretKeyEncrypted),
                 exchange.PassphraseEncrypted is not null ? encryptionService.Decrypt(exchange.PassphraseEncrypted) : null);
 
-            var symbol = order.SymbolId;
+            var Pair = order.Pair;
             var quantity = order.Side == OrderSide.Buy ? order.QuoteQuantity : order.Quantity;
 
-            logger.LogInformation("执行{OrderSide}{OrderType}单: {Symbol} {Quantity} @ {Price}, 订单Id={OrderId}",
-                order.Side, orderType, symbol, quantity, price, order.Id);
+            logger.LogInformation("执行{OrderSide}{OrderType}单: {Pair} {Quantity} @ {Price}, 订单Id={OrderId}",
+                order.Side, orderType, Pair, quantity, price, order.Id);
 
             return await client.PlaceOrderAsync(new OrderRequest(
-                symbol, order.Side, orderType, quantity, price, stopPrice), ct);
+                Pair, order.Side, orderType, quantity, price, stopPrice), ct);
         }
         catch (Exception ex)
         {

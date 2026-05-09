@@ -28,7 +28,7 @@ public class StrategyBindingsController(
         var hasPairs = !string.IsNullOrWhiteSpace(pairs)
             && pairs != "[]"
             && pairs.Replace("\"", "").Replace("[", "").Replace("]", "").Trim().Length > 0;
-        if (hasPairs) return "Symbol";
+        if (hasPairs) return "Pair";
         if (exchangeId != Guid.Empty) return "Exchange";
         return "Trader";
     }

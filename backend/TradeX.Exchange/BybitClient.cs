@@ -28,12 +28,12 @@ public class BybitClient : IExchangeClient
         _http.DefaultRequestHeaders.Add("X-BAPI-API-KEY", apiKey);
     }
 
-    public async IAsyncEnumerable<Candle> SubscribeKlinesAsync(string symbol, string interval, [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<Candle> SubscribeKlinesAsync(string Pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
     {
         var lastTime = 0L;
         while (!ct.IsCancellationRequested)
         {
-            var candles = await GetKlinesAsync(symbol, interval, DateTime.UtcNow.AddHours(-1), DateTime.UtcNow, ct);
+            var candles = await GetKlinesAsync(Pair, interval, DateTime.UtcNow.AddHours(-1), DateTime.UtcNow, ct);
             foreach (var c in candles)
             {
                 var ms = new DateTimeOffset(c.Timestamp).ToUnixTimeMilliseconds();
@@ -47,12 +47,12 @@ public class BybitClient : IExchangeClient
         }
     }
 
-    public async Task<Candle[]> GetKlinesAsync(string symbol, string interval, DateTime start, DateTime end, CancellationToken ct = default)
+    public async Task<Candle[]> GetKlinesAsync(string Pair, string interval, DateTime start, DateTime end, CancellationToken ct = default)
     {
         var category = "spot";
         var startMs = new DateTimeOffset(start).ToUnixTimeMilliseconds();
         var endMs = new DateTimeOffset(end).ToUnixTimeMilliseconds();
-        var query = $"category={category}&symbol={symbol}&interval={interval}&start={startMs}&end={endMs}&limit=200";
+        var query = $"category={category}&symbol={Pair}&interval={interval}&start={startMs}&end={endMs}&limit=200";
         var resp = await _http.GetAsync($"/v5/market/kline?{query}", ct);
         if (!resp.IsSuccessStatusCode) return [];
 
@@ -74,9 +74,9 @@ public class BybitClient : IExchangeClient
         }).ToArray();
     }
 
-    public async Task<OrderBook> GetOrderBookAsync(string symbol, int limit, CancellationToken ct = default)
+    public async Task<OrderBook> GetOrderBookAsync(string Pair, int limit, CancellationToken ct = default)
     {
-        var resp = await _http.GetAsync($"/v5/market/orderbook?category=spot&symbol={symbol}&limit={limit}", ct);
+        var resp = await _http.GetAsync($"/v5/market/orderbook?category=spot&symbol={Pair}&limit={limit}", ct);
         if (!resp.IsSuccessStatusCode) return new OrderBook(new decimal[0, 2], new decimal[0, 2], DateTime.UtcNow);
 
         var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
@@ -116,7 +116,7 @@ public class BybitClient : IExchangeClient
         var bodyDict = new Dictionary<string, string>
         {
             ["category"] = "spot",
-            ["symbol"] = request.Symbol,
+            ["symbol"] = request.Pair,
             ["side"] = side,
             ["orderType"] = orderType,
             ["qty"] = request.Quantity.ToString(CultureInfo.InvariantCulture),
@@ -143,7 +143,7 @@ public class BybitClient : IExchangeClient
 
     public async Task<OrderResult> CancelOrderAsync(string exchangeOrderId, CancellationToken ct = default)
     {
-        var body = new { category = "spot", symbol = "BTCUSDT", orderId = exchangeOrderId };
+        var body = new { category = "spot", Pair = "BTCUSDT", orderId = exchangeOrderId };
         var doc = await SignedPostAsync("/v5/order/cancel", JsonSerializer.Serialize(body), ct);
         if (doc is null) return new OrderResult(false, null, 0, 0, 0, "撤单请求失败");
         return doc.RootElement.GetProperty("retCode").GetInt32() == 0
@@ -249,7 +249,7 @@ public class BybitClient : IExchangeClient
         }
     }
 
-    public async Task<SymbolRule[]> GetSymbolRulesAsync(CancellationToken ct = default)
+    public async Task<PairRule[]> GetPairRulesAsync(CancellationToken ct = default)
     {
         var resp = await _http.GetAsync("/v5/market/instruments-info?category=spot", ct);
         if (!resp.IsSuccessStatusCode) return [];
@@ -259,7 +259,7 @@ public class BybitClient : IExchangeClient
 
         var list = doc.RootElement.GetProperty("result").GetProperty("list").EnumerateArray()
             .Where(s => s.GetProperty("status").GetString() == "Trading");
-        return list.Select(s => new SymbolRule(
+        return list.Select(s => new PairRule(
             s.GetProperty("symbol").GetString()!,
             s.GetProperty("priceFilter").GetProperty("tickSize").GetString()!.Length - 2,
             s.GetProperty("lotSizeFilter").GetProperty("qtyStep").GetString()!.Length - 2,

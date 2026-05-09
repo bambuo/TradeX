@@ -7,22 +7,22 @@ namespace TradeX.Api.Services;
 public class SignalREventBus(IHubContext<TradingHub> hubContext) : ITradingEventBus
 {
     public async Task PositionUpdatedAsync(Guid traderId, Guid positionId, Guid exchangeId, Guid strategyId,
-        string symbolId, decimal quantity, decimal entryPrice, decimal unrealizedPnl,
+        string Pair, decimal quantity, decimal entryPrice, decimal unrealizedPnl,
         decimal realizedPnl, string status, DateTime updatedAtUtc, CancellationToken ct = default)
     {
         await hubContext.Clients.Group($"trader_{traderId}")
             .SendAsync(TradingHub.PositionUpdated, new PositionUpdatedEvent(
-                positionId, traderId, exchangeId, strategyId, symbolId, quantity,
+                positionId, traderId, exchangeId, strategyId, Pair, quantity,
                 entryPrice, unrealizedPnl, realizedPnl, status, updatedAtUtc), ct);
     }
 
     public async Task OrderPlacedAsync(Guid traderId, Guid orderId, Guid exchangeId, Guid? strategyId,
-        string symbolId, string side, string type, string status,
+        string Pair, string side, string type, string status,
         decimal quantity, DateTime placedAtUtc, CancellationToken ct = default)
     {
         await hubContext.Clients.Group($"trader_{traderId}")
             .SendAsync(TradingHub.OrderPlaced, new OrderPlacedEvent(
-                orderId, traderId, exchangeId, strategyId, symbolId,
+                orderId, traderId, exchangeId, strategyId, Pair,
                 side, type, status, quantity, placedAtUtc), ct);
     }
 

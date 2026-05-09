@@ -60,7 +60,7 @@ namespace TradeX.Infrastructure.Data.Migrations
                     StrategyId = table.Column<Guid>(type: "TEXT", nullable: false),
                     ExchangeId = table.Column<Guid>(type: "TEXT", nullable: false),
                     StrategyName = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    SymbolId = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
+                    Pair = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
                     Timeframe = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false),
                     InitialCapital = table.Column<decimal>(type: "TEXT", nullable: false),
                     Status = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
@@ -100,12 +100,12 @@ namespace TradeX.Infrastructure.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "ExchangeSymbolRules",
+                name: "ExchangePairRules",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
                     ExchangeId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Symbol = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false),
+                    Pair = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false),
                     PricePrecision = table.Column<int>(type: "INTEGER", nullable: false),
                     QuantityPrecision = table.Column<int>(type: "INTEGER", nullable: false),
                     MinNotional = table.Column<decimal>(type: "TEXT", nullable: false),
@@ -116,7 +116,7 @@ namespace TradeX.Infrastructure.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_ExchangeSymbolRules", x => x.Id);
+                    table.PrimaryKey("PK_ExchangePairRules", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -163,7 +163,7 @@ namespace TradeX.Infrastructure.Data.Migrations
                     ExchangeId = table.Column<Guid>(type: "TEXT", nullable: false),
                     StrategyId = table.Column<Guid>(type: "TEXT", nullable: true),
                     PositionId = table.Column<Guid>(type: "TEXT", nullable: true),
-                    SymbolId = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
+                    Pair = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
                     Side = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false),
                     Type = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false),
                     Status = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
@@ -190,7 +190,7 @@ namespace TradeX.Infrastructure.Data.Migrations
                     TraderId = table.Column<Guid>(type: "TEXT", nullable: false),
                     ExchangeId = table.Column<Guid>(type: "TEXT", nullable: false),
                     StrategyId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    SymbolId = table.Column<string>(type: "TEXT", nullable: false),
+                    Pair = table.Column<string>(type: "TEXT", nullable: false),
                     Quantity = table.Column<decimal>(type: "TEXT", nullable: false),
                     EntryPrice = table.Column<decimal>(type: "TEXT", nullable: false),
                     CurrentPrice = table.Column<decimal>(type: "TEXT", nullable: false),
@@ -266,7 +266,7 @@ namespace TradeX.Infrastructure.Data.Migrations
                     Name = table.Column<string>(type: "TEXT", nullable: false),
                     TraderId = table.Column<Guid>(type: "TEXT", nullable: false),
                     ExchangeId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    SymbolIds = table.Column<string>(type: "TEXT", maxLength: 500, nullable: false),
+                    Pairs = table.Column<string>(type: "TEXT", maxLength: 500, nullable: false),
                     Timeframe = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false),
                     EntryConditionJson = table.Column<string>(type: "TEXT", nullable: false),
                     ExitConditionJson = table.Column<string>(type: "TEXT", nullable: false),
@@ -282,12 +282,12 @@ namespace TradeX.Infrastructure.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Symbols",
+                name: "Pairs",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
                     ExchangeId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    SymbolName = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false),
+                    PairName = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false),
                     BaseAsset = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
                     QuoteAsset = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
                     IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
@@ -295,7 +295,7 @@ namespace TradeX.Infrastructure.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Symbols", x => x.Id);
+                    table.PrimaryKey("PK_Pairs", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -387,8 +387,8 @@ namespace TradeX.Infrastructure.Data.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_ExchangeSymbolRules_ExchangeId",
-                table: "ExchangeSymbolRules",
+                name: "IX_ExchangePairRules_ExchangeId",
+                table: "ExchangePairRules",
                 column: "ExchangeId");
 
             migrationBuilder.CreateIndex(
@@ -413,9 +413,9 @@ namespace TradeX.Infrastructure.Data.Migrations
                 column: "TraderId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Positions_ExchangeId_SymbolId_Status",
+                name: "IX_Positions_ExchangeId_Pair_Status",
                 table: "Positions",
-                columns: new[] { "ExchangeId", "SymbolId", "Status" });
+                columns: new[] { "ExchangeId", "Pair", "Status" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Positions_TraderId_Status",
@@ -456,9 +456,9 @@ namespace TradeX.Infrastructure.Data.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_Symbols_ExchangeId_SymbolName",
-                table: "Symbols",
-                columns: new[] { "ExchangeId", "SymbolName" },
+                name: "IX_Pairs_ExchangeId_PairName",
+                table: "Pairs",
+                columns: new[] { "ExchangeId", "PairName" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -502,7 +502,7 @@ namespace TradeX.Infrastructure.Data.Migrations
                 name: "ExchangeAccounts");
 
             migrationBuilder.DropTable(
-                name: "ExchangeSymbolRules");
+                name: "ExchangePairRules");
 
             migrationBuilder.DropTable(
                 name: "MfaSecrets");
@@ -529,7 +529,7 @@ namespace TradeX.Infrastructure.Data.Migrations
                 name: "StrategyDeployments");
 
             migrationBuilder.DropTable(
-                name: "Symbols");
+                name: "Pairs");
 
             migrationBuilder.DropTable(
                 name: "SystemConfigs");

@@ -27,7 +27,7 @@ public class PositionsController(
 
         return Ok(positions.Select(p => new
         {
-            p.Id, p.TraderId, p.ExchangeId, p.StrategyId, p.SymbolId,
+            p.Id, p.TraderId, p.ExchangeId, p.StrategyId, p.Pair,
             p.Quantity, p.EntryPrice, p.CurrentPrice, p.UnrealizedPnl, p.RealizedPnl,
             p.Status, p.OpenedAtUtc, p.ClosedAtUtc, p.UpdatedAt
         }));
@@ -46,7 +46,7 @@ public class PositionsController(
 
         return Ok(new
         {
-            position.Id, position.TraderId, position.ExchangeId, position.StrategyId, position.SymbolId,
+            position.Id, position.TraderId, position.ExchangeId, position.StrategyId, position.Pair,
             position.Quantity, position.EntryPrice, position.CurrentPrice, position.UnrealizedPnl, position.RealizedPnl,
             position.Status, position.OpenedAtUtc, position.ClosedAtUtc, position.UpdatedAt
         });

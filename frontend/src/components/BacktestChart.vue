@@ -65,7 +65,7 @@ function render() {
         smooth: true,
         lineStyle: { color: 'var(--accent-green)', width: 2 },
         areaStyle: { color: 'rgba(34,197,94,0.1)' },
-        symbol: 'none'
+        Pair: 'none'
       },
       {
         name: '回撤 %',
@@ -75,7 +75,7 @@ function render() {
         smooth: true,
         lineStyle: { color: '#ef4444', width: 2 },
         areaStyle: { color: 'rgba(239,68,68,0.1)' },
-        symbol: 'none'
+        Pair: 'none'
       }
     ]
   })

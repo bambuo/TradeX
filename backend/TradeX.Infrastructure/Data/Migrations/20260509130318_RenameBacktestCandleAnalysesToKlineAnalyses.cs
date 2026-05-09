@@ -74,13 +74,13 @@ namespace TradeX.Infrastructure.Data.Migrations
 
             // StrategyBinding: rename column
             migrationBuilder.RenameColumn(
-                name: "SymbolIds",
+                name: "Pairs",
                 table: "StrategyBindings",
                 newName: "Pairs");
 
             // BacktestTask: rename columns
             migrationBuilder.RenameColumn(
-                name: "SymbolId",
+                name: "Pair",
                 table: "BacktestTasks",
                 newName: "Pair");
 
@@ -205,13 +205,13 @@ namespace TradeX.Infrastructure.Data.Migrations
             migrationBuilder.RenameColumn(
                 name: "Pairs",
                 table: "StrategyBindings",
-                newName: "SymbolIds");
+                newName: "Pairs");
 
             // Revert BacktestTask
             migrationBuilder.RenameColumn(
                 name: "Pair",
                 table: "BacktestTasks",
-                newName: "SymbolId");
+                newName: "Pair");
 
             migrationBuilder.RenameColumn(
                 name: "StartAt",

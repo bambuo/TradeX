@@ -48,7 +48,7 @@
 | AC-05: Viewer 访问 POST API 返回 403 | TC-AUTH-026 ~ TC-AUTH-035 |
 | AC-06: 添加交易所→测试连接→展示规则+资产 | TC-EXCH-001 ~ TC-EXCH-021, TC-EXCH-SYM-001 ~ TC-EXCH-SYM-004 |
 | AC-07: 创建策略模板→部署→回测→启用 | TC-STRAT-001 ~ TC-STRAT-030, TC-STRAT-DEPLOY-001 ~ TC-STRAT-DEPLOY-010 |
-| AC-08: 同 Symbol 活跃策略冲突拒绝 | TC-STRAT-DEPLOY-007 |
+| AC-08: 同 Pair 活跃策略冲突拒绝 | TC-STRAT-DEPLOY-007 |
 | AC-09: 滑点控制正常/拒绝 | TC-TRADE-001 ~ TC-TRADE-015 |
 | AC-10: 风控按配置触发 | TC-RISK-001 ~ TC-RISK-050 |
 | AC-10-B: Kill Switch 生效 | TC-RISK-035 ~ TC-RISK-040 |
@@ -214,23 +214,23 @@ TC-{模块}-{序号}
 - **预期结果**: 返回 201，状态为 Draft，scope 自动推导
 - **关联需求**: FR-03.1, FSD §7.6.1
 
-### TC-STRAT-DEPLOY-002: 创建策略部署 — Symbol 作用域
+### TC-STRAT-DEPLOY-002: 创建策略部署 — Pair 作用域
 - **前置条件**: 策略模板已存在
 - **测试步骤**:
-  1. `POST /api/traders/{traderId}/strategies` 传入 symbolIds
-- **预期结果**: scope = "Symbol"
+  1. `POST /api/traders/{traderId}/strategies` 传入 Pairs
+- **预期结果**: scope = "Pair"
 - **关联需求**: FSD §5.3.1
 
 ### TC-STRAT-DEPLOY-003: 创建策略部署 — Exchange 作用域
 - **前置条件**: 策略模板已存在
 - **测试步骤**:
-  1. `POST /api/traders/{traderId}/strategies` 传入 exchangeId，symbolIds 为空
+  1. `POST /api/traders/{traderId}/strategies` 传入 exchangeId，Pairs 为空
 - **预期结果**: scope = "Exchange"
 
 ### TC-STRAT-DEPLOY-004: 创建策略部署 — Trader 作用域
 - **前置条件**: 策略模板已存在
 - **测试步骤**:
-  1. `POST /api/traders/{traderId}/strategies` exchangeId 和 symbolIds 均为空
+  1. `POST /api/traders/{traderId}/strategies` exchangeId 和 Pairs 均为空
 - **预期结果**: scope = "Trader"
 
 ### TC-STRAT-DEPLOY-005: 启用部署 — Active 状态
@@ -246,10 +246,10 @@ TC-{模块}-{序号}
   1. `POST /.../toggle` body: `{ "enable": true }`
 - **预期结果**: 返回 400，提示草稿不可启用
 
-### TC-STRAT-DEPLOY-007: 部署启用 — Symbol 冲突检测
-- **前置条件**: 已有 Active 部署（Trader-1, Exchange-1, Symbol-BTCUSDT）
+### TC-STRAT-DEPLOY-007: 部署启用 — Pair 冲突检测
+- **前置条件**: 已有 Active 部署（Trader-1, Exchange-1, Pair-BTCUSDT）
 - **测试步骤**:
-  1. 尝试启用另一个同 Trader + 同 Exchange + 同 Symbol 的部署
+  1. 尝试启用另一个同 Trader + 同 Exchange + 同 Pair 的部署
 - **预期结果**: 返回 409 冲突
 - **关联需求**: FR-03.2
 
@@ -262,7 +262,7 @@ TC-{模块}-{序号}
 ### TC-STRAT-DEPLOY-009: 编辑部署 — Active 状态不可编辑
 - **前置条件**: 部署为 Active
 - **测试步骤**:
-  1. `PUT /.../strategies/{id}` 修改 symbolIds
+  1. `PUT /.../strategies/{id}` 修改 Pairs
 - **预期结果**: 返回 400，提示活跃策略不可编辑
 
 ### TC-STRAT-DEPLOY-010: 删除部署 — Active 状态不可删除
@@ -273,13 +273,13 @@ TC-{模块}-{序号}
 
 ---
 
-## M2 — 交易所交易对与资产 (Exchange Symbols & Assets)
+## M2 — 交易所交易对与资产 (Exchange Pairs & Assets)
 
 ### TC-EXCH-SYM-001: 获取交易所交易对列表
 - **前置条件**: Exchange 已配置且可连接
 - **测试步骤**:
-  1. `GET /api/exchanges/{id}/symbols`
-- **预期结果**: 返回含 USDT 交易对列表，含 symbol/price/priceChangePercent/volume 等实时行情
+  1. `GET /api/exchanges/{id}/Pairs`
+- **预期结果**: 返回含 USDT 交易对列表，含 Pair/price/priceChangePercent/volume 等实时行情
 - **关联需求**: FR-01.5, FSD §7.5
 
 ### TC-EXCH-SYM-002: 获取交易所资产余额
@@ -300,7 +300,7 @@ TC-{模块}-{序号}
 ### TC-EXCH-SYM-004: 交易所禁用时 API 拒绝
 - **前置条件**: Exchange 状态为 Disabled
 - **测试步骤**:
-  1. `GET /api/exchanges/{id}/symbols`
+  1. `GET /api/exchanges/{id}/Pairs`
   2. `GET /api/exchanges/{id}/assets`
 - **预期结果**: 返回 400，提示交易所已禁用
 
@@ -776,7 +776,7 @@ TC-{模块}-{序号}
 - **前置条件**: 交易所已启用可连接
 - **测试步骤**:
   1. 发送 `GET /api/exchanges/:id/rules`
-- **预期结果**: 返回 `{ "data": [ { "symbol": "BTCUSDT", "pricePrecision": 2, ... } ], "cachedAtUtc": "..." }`
+- **预期结果**: 返回 `{ "data": [ { "Pair": "BTCUSDT", "pricePrecision": 2, ... } ], "cachedAtUtc": "..." }`
 - **关联需求**: FR-01.5, FSD §7.5
 
 ### TC-EXCH-013: 获取交易规则 — 缓存命中
@@ -849,7 +849,7 @@ TC-{模块}-{序号}
 - **测试步骤**:
   1. 对 Binance/OKX/Gate.io/Bybit/HTX 各实现类逐一验证
   2. 检查是否完整实现 IExchangeClient 接口全部方法
-- **预期结果**: 5 个交易所均实现全部接口方法（SubscribeKlinesAsync, GetKlinesAsync, GetOrderBookAsync, GetBalanceAsync, GetPositionsAsync, PlaceOrderAsync, CancelOrderAsync, GetOrderAsync, GetRecentOrdersAsync, TestConnectionAsync, GetSymbolRulesAsync）
+- **预期结果**: 5 个交易所均实现全部接口方法（SubscribeKlinesAsync, GetKlinesAsync, GetOrderBookAsync, GetBalanceAsync, GetPositionsAsync, PlaceOrderAsync, CancelOrderAsync, GetOrderAsync, GetRecentOrdersAsync, TestConnectionAsync, GetPairRulesAsync）
 - **关联需求**: FR-01.1, FR-01.2, FR-01.3, TAD §3.3.3
 
 ---
@@ -903,7 +903,7 @@ TC-{模块}-{序号}
 - **前置条件**: 无
 - **测试步骤**:
   1. 发送 `POST /api/strategies`，附带完整参数（name, entryCondition, exitCondition, executionRule）
-- **预期结果**: 返回 `201` + Strategy 对象，status = Draft（不含 ExchangeId、SymbolIds、Timeframe）
+- **预期结果**: 返回 `201` + Strategy 对象，status = Draft（不含 ExchangeId、Pairs、Timeframe）
 - **关联需求**: FR-03.1, FR-03.3, FSD §7.6
 
 ### TC-STRAT-002: 创建策略 — 缺少必需字段
@@ -983,24 +983,24 @@ TC-{模块}-{序号}
 - **预期结果**: 策略状态回退为 Draft，回测任务状态为 Cancelled，不触发通过检查
 - **关联需求**: FSD §5.3
 
-### TC-STRAT-011: 活跃策略冲突检测 — 同 Trader + 同 Exchange + 同 Symbol
-- **前置条件**: 已有 Active 策略 A（Trader-1, Exchange-1, Symbol-BTCUSDT）
+### TC-STRAT-011: 活跃策略冲突检测 — 同 Trader + 同 Exchange + 同 Pair
+- **前置条件**: 已有 Active 策略 A（Trader-1, Exchange-1, Pair-BTCUSDT）
 - **测试步骤**:
-  1. 尝试启用策略 B（同样 Trader-1, Exchange-1, Symbol-BTCUSDT, Passed 状态）
+  1. 尝试启用策略 B（同样 Trader-1, Exchange-1, Pair-BTCUSDT, Passed 状态）
 - **预期结果**: 返回 `409 STRATEGY_EXCHANGE_CONFLICT`
 - **关联需求**: FR-03.2, AC-08, FSD §7.6
 
-### TC-STRAT-012: 活跃策略冲突 — 不同 Symbol 可共存
-- **前置条件**: 已有 Active 策略 A（Trader-1, Exchange-1, Symbol-BTCUSDT）
+### TC-STRAT-012: 活跃策略冲突 — 不同 Pair 可共存
+- **前置条件**: 已有 Active 策略 A（Trader-1, Exchange-1, Pair-BTCUSDT）
 - **测试步骤**:
-  1. 启用策略 B（Trader-1, Exchange-1, Symbol-ETHUSDT, Passed 状态）
+  1. 启用策略 B（Trader-1, Exchange-1, Pair-ETHUSDT, Passed 状态）
 - **预期结果**: 策略 B 成功启用为 Active
 - **关联需求**: FR-03.2
 
 ### TC-STRAT-013: 活跃策略冲突 — 不同 Trader 可共存
 - **前置条件**: 已有 Active 策略 A（Trader-1）
 - **测试步骤**:
-  1. 启用策略 B（Trader-2, 同 Exchange, 同 Symbol）
+  1. 启用策略 B（Trader-2, 同 Exchange, 同 Pair）
 - **预期结果**: 成功启用（不同 Trader 不冲突）
 - **关联需求**: FR-03.2
 
@@ -1116,10 +1116,10 @@ TC-{模块}-{序号}
 - **预期结果**: 0/1/-1 通过，2 拒绝
 - **关联需求**: TAD §5.4 约束规则 #6
 
-### TC-STRAT-028: 策略与批量 Symbol 绑定
+### TC-STRAT-028: 策略与批量 Pair 绑定
 - **前置条件**: 创建策略
 - **测试步骤**:
-  1. 传入多个 symbolIds
+  1. 传入多个 Pairs
 - **预期结果**: 策略成功关联多个交易对
 - **关联需求**: FR-03.1
 
@@ -1891,7 +1891,7 @@ TC-{模块}-{序号}
 ### TC-BACKTEST-001: 回测任务创建 — 参数完整
 - **前置条件**: 存在至少一个策略部署、一条数据源、一个交易所配置
 - **测试步骤**:
-  1. `POST /api/traders/{traderId}/strategies/{strategyId}/backtests?deploymentId=..&exchangeId=..&symbolId=..&timeframe=..&startUtc=..&endUtc=..&initialCapital=1000`
+  1. `POST /api/traders/{traderId}/strategies/{strategyId}/backtests?deploymentId=..&exchangeId=..&Pair=..&timeframe=..&startUtc=..&endUtc=..&initialCapital=1000`
 - **预期结果**: 返回 200 + taskId + status(Pending)，策略状态变为 Backtesting
 - **关联需求**: FR-12.1, FSD §7.9.1, FSD §14.1
 

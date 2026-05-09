@@ -29,13 +29,13 @@ public class StrategyBindingRepository(TradeXDbContext context, ILogger<Strategy
             .OrderByDescending(s => s.UpdatedAt)
             .ToListAsync(ct);
 
-    public async Task<List<StrategyBinding>> GetActiveByExchangeAndSymbolAsync(Guid exchangeId, string symbolId, CancellationToken ct = default)
+    public async Task<List<StrategyBinding>> GetActiveByExchangeAndPairAsync(Guid exchangeId, string pair, CancellationToken ct = default)
     {
         var bindings = await context.StrategyBindings
             .Where(s => s.ExchangeId == exchangeId && s.Status == Core.Enums.BindingStatus.Active)
             .ToListAsync(ct);
 
-        return bindings.Where(s => ParsePairs(s.Pairs).Contains(symbolId)).ToList();
+        return bindings.Where(s => ParsePairs(s.Pairs).Contains(pair)).ToList();
     }
 
     public async Task<List<StrategyBinding>> GetByStrategyIdAsync(Guid strategyId, CancellationToken ct = default)
@@ -43,7 +43,7 @@ public class StrategyBindingRepository(TradeXDbContext context, ILogger<Strategy
             .Where(s => s.StrategyId == strategyId)
             .ToListAsync(ct);
 
-    public async Task<bool> ExistsActiveAsync(Guid traderId, Guid exchangeId, string symbolId, Guid? excludeId = null, CancellationToken ct = default)
+    public async Task<bool> ExistsActiveAsync(Guid traderId, Guid exchangeId, string pair, Guid? excludeId = null, CancellationToken ct = default)
     {
         var query = context.StrategyBindings
             .Where(s => s.TraderId == traderId && s.ExchangeId == exchangeId && s.Status == Core.Enums.BindingStatus.Active);
@@ -52,7 +52,7 @@ public class StrategyBindingRepository(TradeXDbContext context, ILogger<Strategy
             query = query.Where(s => s.Id != excludeId.Value);
 
         var bindings = await query.ToListAsync(ct);
-        return bindings.Any(s => ParsePairs(s.Pairs).Contains(symbolId));
+        return bindings.Any(s => ParsePairs(s.Pairs).Contains(pair));
     }
 
     private string[] ParsePairs(string raw)
@@ -61,7 +61,7 @@ public class StrategyBindingRepository(TradeXDbContext context, ILogger<Strategy
         try { return JsonSerializer.Deserialize<string[]>(raw) ?? []; }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "SymbolIds JSON 解析失败，回退到逗号分割");
+            logger.LogWarning(ex, "Pairs JSON 解析失败，回退到逗号分割");
             return raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         }
     }

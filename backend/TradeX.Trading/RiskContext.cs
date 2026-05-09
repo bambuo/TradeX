@@ -4,7 +4,7 @@ public class RiskContext
 {
     public Guid TraderId { get; init; }
     public Guid ExchangeId { get; init; }
-    public string? SymbolId { get; set; }
+    public string? Pair { get; set; }
     public decimal? OrderQuantity { get; set; }
     public decimal? OrderPrice { get; set; }
     public decimal DailyLoss { get; set; }

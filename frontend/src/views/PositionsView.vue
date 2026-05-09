@@ -68,7 +68,7 @@ function formatPnl(pnl: number): string {
       </thead>
       <tbody>
         <tr v-for="p in positions" :key="p.id">
-          <td>{{ p.symbolId }}</td>
+          <td>{{ p.Pair }}</td>
           <td>{{ p.quantity }}</td>
           <td>{{ formatSmallNumber(p.entryPrice) }}</td>
           <td>{{ formatSmallNumber(p.currentPrice) }}</td>

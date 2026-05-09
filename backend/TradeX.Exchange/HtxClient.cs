@@ -24,12 +24,12 @@ public class HtxClient : IExchangeClient
         _http = new HttpClient { BaseAddress = new Uri("https://api.huobi.pro") };
     }
 
-    public async IAsyncEnumerable<Candle> SubscribeKlinesAsync(string symbol, string interval, [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<Candle> SubscribeKlinesAsync(string Pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
     {
         var lastTime = 0L;
         while (!ct.IsCancellationRequested)
         {
-            var candles = await GetKlinesAsync(symbol, interval, DateTime.UtcNow.AddHours(-1), DateTime.UtcNow, ct);
+            var candles = await GetKlinesAsync(Pair, interval, DateTime.UtcNow.AddHours(-1), DateTime.UtcNow, ct);
             foreach (var c in candles)
             {
                 var ms = new DateTimeOffset(c.Timestamp).ToUnixTimeMilliseconds();
@@ -43,10 +43,10 @@ public class HtxClient : IExchangeClient
         }
     }
 
-    public async Task<Candle[]> GetKlinesAsync(string symbol, string interval, DateTime start, DateTime end, CancellationToken ct = default)
+    public async Task<Candle[]> GetKlinesAsync(string Pair, string interval, DateTime start, DateTime end, CancellationToken ct = default)
     {
         var size = 500;
-        var resp = await _http.GetAsync($"/market/history/kline?symbol={symbol}&period={interval}&size={size}", ct);
+        var resp = await _http.GetAsync($"/market/history/kline?symbol={Pair}&period={interval}&size={size}", ct);
         if (!resp.IsSuccessStatusCode) return [];
 
         var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
@@ -63,9 +63,9 @@ public class HtxClient : IExchangeClient
         )).ToArray();
     }
 
-    public async Task<OrderBook> GetOrderBookAsync(string symbol, int limit, CancellationToken ct = default)
+    public async Task<OrderBook> GetOrderBookAsync(string Pair, int limit, CancellationToken ct = default)
     {
-        var resp = await _http.GetAsync($"/market/depth?symbol={symbol}&type=step0&depth={limit}", ct);
+        var resp = await _http.GetAsync($"/market/depth?symbol={Pair}&type=step0&depth={limit}", ct);
         if (!resp.IsSuccessStatusCode) return new OrderBook(new decimal[0, 2], new decimal[0, 2], DateTime.UtcNow);
 
         var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
@@ -112,7 +112,7 @@ public class HtxClient : IExchangeClient
     {
         var body = new
         {
-            symbol = request.Symbol,
+            symbol = request.Pair,
             type = request.Side == OrderSide.Buy ? "buy-market" : "sell-market",
             amount = request.Quantity.ToString(CultureInfo.InvariantCulture)
         };
@@ -244,7 +244,7 @@ public class HtxClient : IExchangeClient
         }
     }
 
-    public async Task<SymbolRule[]> GetSymbolRulesAsync(CancellationToken ct = default)
+    public async Task<PairRule[]> GetPairRulesAsync(CancellationToken ct = default)
     {
         var resp = await _http.GetAsync("/v1/common/symbols", ct);
         if (!resp.IsSuccessStatusCode) return [];
@@ -254,7 +254,7 @@ public class HtxClient : IExchangeClient
 
         var data = doc.RootElement.GetProperty("data").EnumerateArray()
             .Where(s => s.GetProperty("state").GetString() == "online");
-        return data.Select(s => new SymbolRule(
+        return data.Select(s => new PairRule(
             s.GetProperty("symbol").GetString()!,
             s.GetProperty("price-precision").GetInt32(),
             s.GetProperty("amount-precision").GetInt32(),

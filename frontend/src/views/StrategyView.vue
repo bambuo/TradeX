@@ -39,12 +39,12 @@ const columns = [
 const scope = ref<'Trader' | 'Exchange' | 'Pair'>('Pair')
 const formStrategyId = ref(route.query.strategyId as string || '')
 const formExchangeId = ref('')
-const formSymbolIds = ref<string[]>([])
+const formPairs = ref<string[]>([])
 const formTimeframe = ref('15m')
 
-const symbols = ref<{ symbol: string; pricePrecision: number; price: number; priceChangePercent: number; volume: number; highPrice: number; lowPrice: number }[]>([])
-const symbolsLoading = ref(false)
-const symbolSearch = ref('')
+const pairs = ref<{ symbol: string; pricePrecision: number; price: number; priceChangePercent: number; volume: number; highPrice: number; lowPrice: number }[]>([])
+const pairsLoading = ref(false)
+const pairSearch = ref('')
 const sortKey = ref<'symbol' | 'price' | 'priceChangePercent' | 'volume'>('volume')
 const sortDesc = ref(true)
 const priceMin = ref<number | null>(null)
@@ -82,10 +82,10 @@ const statusByCode: Record<number, string> = {
   4: 'Disabled'
 }
 
-const sortedSymbols = computed(() => {
-  let list = symbols.value
-  if (symbolSearch.value) {
-    const q = symbolSearch.value.toLowerCase()
+const sortedPairs = computed(() => {
+  let list = pairs.value
+  if (pairSearch.value) {
+    const q = pairSearch.value.toLowerCase()
     list = list.filter(s => s.symbol.toLowerCase().includes(q))
   }
   if (priceMin.value != null && !isNaN(priceMin.value)) list = list.filter(s => s.price >= priceMin.value!)
@@ -168,7 +168,7 @@ function formatVolume(vol: number): string {
   return vol.toFixed(0)
 }
 
-function renderSymbol(sym: string): { base: string; quote: string } {
+function renderPair(sym: string): { base: string; quote: string } {
   if (sym.endsWith('USDT')) return { base: sym.slice(0, -4), quote: 'USDT' }
   const m = sym.match(/^([A-Za-z]+)(BTC|ETH|BNB|USDC|DAI)$/)
   if (m) return { base: m[1], quote: m[2] }
@@ -183,27 +183,35 @@ const displayDeployments = computed(() => {
     actions: '',
     strategyName: getTemplateName(d.strategyId),
     exchangeName: d.exchangeId && d.exchangeId !== '00000000-0000-0000-0000-000000000000' ? getExchangeLabel(d.exchangeId) : '-',
-    pairList: d.scope === 'Pair' ? parseSymbolIds(d.pairs).join(', ') : '-'
+    pairList: d.scope === 'Pair' ? parsePairs(d.pairs).join(', ') : '-'
   }))
   return list.slice(start, start + pageSize.value)
 })
 
-async function fetchSymbols(exchangeId: string) {
+async function fetchPairs(exchangeId: string) {
   if (!exchangeId || exchangeId === '{}') return
-  symbolsLoading.value = true
-  symbols.value = []
+  pairsLoading.value = true
+  pairs.value = []
   try {
-    const { data } = await exchangesApi.getSymbols(exchangeId)
-    symbols.value = data.data ?? []
+    const { data } = await exchangesApi.getPairs(exchangeId)
+    pairs.value = (data.data ?? []).map((s: any) => ({
+      symbol: s.pair,
+      pricePrecision: s.pricePrecision,
+      price: s.price ?? 0,
+      priceChangePercent: s.priceChangePercent ?? 0,
+      volume: s.volume ?? 0,
+      highPrice: s.highPrice ?? 0,
+      lowPrice: s.lowPrice ?? 0
+    }))
   } catch {
-    symbols.value = []
+    pairs.value = []
   } finally {
-    symbolsLoading.value = false
+    pairsLoading.value = false
   }
 }
 
 watch(formExchangeId, (val) => {
-  if (scope.value === 'Pair' && val) fetchSymbols(val)
+  if (scope.value === 'Pair' && val) fetchPairs(val)
 })
 
 function openCreate() {
@@ -211,9 +219,9 @@ function openCreate() {
   scope.value = 'Pair'
   formStrategyId.value = templates.value[0]?.id ?? ''
   formExchangeId.value = exchanges.value[0]?.id ?? ''
-  formSymbolIds.value = []
+  formPairs.value = []
   formTimeframe.value = '15m'
-  symbolSearch.value = ''
+  pairSearch.value = ''
   showForm.value = true
 }
 
@@ -222,16 +230,16 @@ function openEdit(d: StrategyBinding) {
   scope.value = (d.scope === 'Trader' || d.scope === 'Exchange' || d.scope === 'Pair' ? d.scope : 'Pair') as 'Trader' | 'Exchange' | 'Pair'
   formStrategyId.value = d.strategyId
   formExchangeId.value = d.exchangeId
-  formSymbolIds.value = parseSymbolIds(d.pairs)
+  formPairs.value = parsePairs(d.pairs)
   formTimeframe.value = d.timeframe
-  symbolSearch.value = ''
+  pairSearch.value = ''
   if (scope.value === 'Pair' && d.exchangeId && d.exchangeId !== '00000000-0000-0000-0000-000000000000') {
-    fetchSymbols(d.exchangeId)
+    fetchPairs(d.exchangeId)
   }
   showForm.value = true
 }
 
-function parseSymbolIds(val: string): string[] {
+function parsePairs(val: string): string[] {
   try {
     const parsed = JSON.parse(val)
     if (Array.isArray(parsed)) return parsed
@@ -239,44 +247,44 @@ function parseSymbolIds(val: string): string[] {
   return val.split(',').map(s => s.trim()).filter(Boolean)
 }
 
-function toggleSymbol(symbol: string) {
-  const idx = formSymbolIds.value.indexOf(symbol)
-  if (idx >= 0) formSymbolIds.value.splice(idx, 1)
-  else formSymbolIds.value.push(symbol)
+function togglePair(Pair: string) {
+  const idx = formPairs.value.indexOf(Pair)
+  if (idx >= 0) formPairs.value.splice(idx, 1)
+  else formPairs.value.push(Pair)
 }
 
-function serializeSymbolIds(): string {
+function serializePairs(): string {
   if (scope.value !== 'Pair') return '[]'
-  return JSON.stringify(formSymbolIds.value)
+  return JSON.stringify(formPairs.value)
 }
 
 function swapScope(newScope: 'Trader' | 'Exchange' | 'Pair') {
   scope.value = newScope
   if (newScope === 'Trader') {
     formExchangeId.value = ''
-    formSymbolIds.value = []
+    formPairs.value = []
   } else if (newScope === 'Exchange') {
     formExchangeId.value = exchanges.value[0]?.id ?? ''
-    formSymbolIds.value = []
+    formPairs.value = []
   } else {
     formExchangeId.value = (formExchangeId.value || exchanges.value[0]?.id) ?? ''
-    formSymbolIds.value = []
-    if (formExchangeId.value) fetchSymbols(formExchangeId.value)
+    formPairs.value = []
+    if (formExchangeId.value) fetchPairs(formExchangeId.value)
   }
 }
 
 async function save() {
-  const symbolIdsStr = serializeSymbolIds()
+  const PairsStr = serializePairs()
   if (editId.value) {
     await strategiesApi.update(traderId, editId.value, {
-      pairs: symbolIdsStr,
+      pairs: PairsStr,
       timeframe: formTimeframe.value
     })
   } else {
     await strategiesApi.create(traderId, {
       strategyId: formStrategyId.value,
       exchangeId: ['Exchange', 'Pair'].includes(scope.value) ? formExchangeId.value : '00000000-0000-0000-0000-000000000000',
-      pairs: symbolIdsStr,
+      pairs: PairsStr,
       timeframe: formTimeframe.value
     })
   }
@@ -367,9 +375,9 @@ onMounted(load)
           <div v-if="scope === 'Pair'" class="form-group full">
             <label>
               交易对
-              <span class="selected-count">已选 {{ formSymbolIds.length }} 个</span>
+              <span class="selected-count">已选 {{ formPairs.length }} 个</span>
             </label>
-            <input v-model="symbolSearch" placeholder="搜索交易对..." class="symbol-search" />
+            <input v-model="pairSearch" placeholder="搜索交易对..." class="pair-search" />
             <div class="filter-bar">
               <div class="filter-item">
                 <span class="filter-item-label">价格</span>
@@ -394,12 +402,12 @@ onMounted(load)
                 <input v-model.number="volMin" type="number" placeholder="≥" class="filter-input" />
               </div>
             </div>
-            <div v-if="symbolsLoading" class="symbols-hint">加载中...</div>
-            <div v-else-if="symbols.length === 0" class="symbols-hint">
+            <div v-if="pairsLoading" class="pairs-hint">加载中...</div>
+            <div v-else-if="pairs.length === 0" class="pairs-hint">
               {{ formExchangeId ? '暂无 USDT 交易对数据' : '请先选择交易所' }}
             </div>
-            <div v-else class="symbol-table-wrap">
-              <table class="symbol-table">
+            <div v-else class="pair-table-wrap">
+              <table class="pair-table">
                 <thead>
                   <tr>
                     <th class="col-cb"></th>
@@ -411,22 +419,22 @@ onMounted(load)
                 </thead>
                 <tbody>
                   <tr
-                    v-for="s in sortedSymbols"
+                    v-for="s in sortedPairs"
                     :key="s.symbol"
-                    class="symbol-row"
-                    :class="{ checked: formSymbolIds.includes(s.symbol) }"
-                    @click="toggleSymbol(s.symbol)"
+                    class="pair-row"
+                    :class="{ checked: formPairs.includes(s.symbol) }"
+                    @click="togglePair(s.symbol)"
                   >
                     <td class="col-cb" @click.stop>
                       <input
                         type="checkbox"
-                        :checked="formSymbolIds.includes(s.symbol)"
-                        @change="toggleSymbol(s.symbol)"
+                        :checked="formPairs.includes(s.symbol)"
+                        @change="togglePair(s.symbol)"
                       />
                     </td>
                     <td class="col-sym">
-                      <span class="sym-base">{{ renderSymbol(s.symbol).base }}</span>
-                      <span class="sym-quote">{{ renderSymbol(s.symbol).quote }}</span>
+                      <span class="sym-base">{{ renderPair(s.symbol).base }}</span>
+                      <span class="sym-quote">{{ renderPair(s.symbol).quote }}</span>
                     </td>
                     <td class="col-price">{{ formatPrice(s.price) }}</td>
                     <td class="col-chg" :class="s.priceChangePercent >= 0 ? 'up' : 'down'">
@@ -436,7 +444,7 @@ onMounted(load)
                   </tr>
                 </tbody>
               </table>
-              <div v-if="sortedSymbols.length === 0" class="symbols-hint">无匹配交易对</div>
+              <div v-if="sortedPairs.length === 0" class="pairs-hint">无匹配交易对</div>
             </div>
           </div>
 
@@ -558,11 +566,10 @@ onMounted(load)
 .form-group label { color: var(--text-muted); font-size: 0.85rem; }
 .form-group select, .form-group input { width: 100%; padding: 0.625rem; border: 1px solid var(--glass-border); border-radius: 4px; background: rgba(255,255,255,0.35); color: var(--text-primary); box-sizing: border-box; }
 .selected-count { color: var(--accent-blue); font-size: 0.75rem; margin-left: 0.5rem; }
-.symbol-search { margin-bottom: 0.5rem; }
+.pair-search { margin-bottom: 0.5rem; }
 .filter-bar {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  gap: 0.5rem;
+  display: flex;
+  gap: 1rem;
   margin-bottom: 0.5rem;
   align-items: center;
 }
@@ -587,30 +594,26 @@ onMounted(load)
   font-size: 0.75rem;
 }
 .filter-sep { color: #475569; font-size: 0.75rem; }
-.symbol-table-wrap {
+.pair-table-wrap {
   border: 1px solid var(--glass-border); border-radius: 4px; background: rgba(255, 255, 255, 0.35);
   max-height: 200px; overflow-y: auto;
 }
-.symbol-table th {
-  background: rgba(0, 0, 0, 0.02); color: var(--text-muted); font-weight: 600;
+.pair-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+.pair-table thead { position: sticky; top: 0; z-index: 1; }
+.pair-table th {
+  background: #fff; color: var(--text-muted); font-weight: 600;
   padding: 0.375rem 0.5rem; text-align: left; white-space: nowrap;
   border-bottom: 1px solid var(--glass-border);
 }
-.symbol-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
-.symbol-table thead { position: sticky; top: 0; z-index: 1; }
-.symbol-table th {
-  background: rgba(255,255,255,0.55); color: var(--text-muted); font-weight: 600;
-  padding: 0.375rem 0.5rem; text-align: left; white-space: nowrap;
-  border-bottom: 1px solid var(--glass-border);
-}
-.symbol-table th.sortable { cursor: pointer; user-select: none; }
-.symbol-table th.sortable:hover { color: var(--text-muted); }
-.symbol-table td { padding: 0.375rem 0.5rem; border-bottom: 1px solid var(--glass-border); white-space: nowrap; }
-.symbol-row { cursor: pointer; transition: background 0.1s; }
-.symbol-row:hover { background: rgba(79, 126, 201, 0.06); }
-.symbol-row.checked { background: rgba(79, 126, 201, 0.1); }
-.symbol-row.checked:hover { background: rgba(79, 126, 201, 0.14); }
-.col-cb { width: 28px; padding-right: 0 !important; }
+.pair-table th.sortable { cursor: pointer; user-select: none; }
+.pair-table th.sortable:hover { color: var(--text-muted); }
+.pair-table td { padding: 0.375rem 0.5rem; border-bottom: 1px solid var(--glass-border); white-space: nowrap; }
+.pair-row { cursor: pointer; transition: background 0.1s; }
+.pair-row:hover { background: rgba(79, 126, 201, 0.06); }
+.pair-row.checked { background: rgba(79, 126, 201, 0.1); }
+.pair-row.checked:hover { background: rgba(79, 126, 201, 0.14); }
+.col-cb { width: 28px; text-align: center; padding-right: 0 !important; }
+.col-cb input { display: inline-block; vertical-align: middle; }
 .col-sym { color: var(--text-primary); font-weight: 500; }
 .sym-base { color: var(--text-primary); }
 .sym-quote { color: var(--text-muted); font-size: 0.7rem; }
@@ -619,5 +622,5 @@ onMounted(load)
 .col-chg.up { color: var(--accent-green); }
 .col-chg.down { color: var(--accent-red); }
 .col-vol { color: var(--text-muted); text-align: right !important; }
-.symbols-hint { color: var(--text-muted); font-size: 0.8rem; padding: 0.5rem; text-align: center; }
+.pairs-hint { color: var(--text-muted); font-size: 0.8rem; padding: 0.5rem; text-align: center; }
 </style>

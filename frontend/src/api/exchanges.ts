@@ -15,7 +15,7 @@ export interface Exchange {
 }
 
 export interface ExchangeOrder {
-  symbol: string
+  pair: string
   side: string
   type: string
   status: string
@@ -61,8 +61,8 @@ export const exchangesApi = {
   toggleStatus(id: string, enable: boolean) {
     return client.post<{ id: string; isEnabled: boolean }>(`/exchanges/${id}/toggle`, { enable })
   },
-  getSymbols(id: string) {
-    return client.get<{ data: { symbol: string; pricePrecision: number; quantityPrecision: number; minNotional: number; price: number; priceChangePercent: number; volume: number; highPrice: number; lowPrice: number }[] }>(`/exchanges/${id}/symbols`)
+  getPairs(id: string) {
+    return client.get<{ data: { pair: string; pricePrecision: number; quantityPrecision: number; minNotional: number; price: number; priceChangePercent: number; volume: number; highPrice: number; lowPrice: number }[] }>(`/exchanges/${id}/pairs`)
   },
   getAssets(id: string) {
     return client.get<{ data: { currency: string; balance: number }[] }>(`/exchanges/${id}/assets`)

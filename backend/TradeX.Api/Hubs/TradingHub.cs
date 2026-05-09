@@ -25,12 +25,12 @@ public class TradingHub : Hub
 
 public record PositionUpdatedEvent(
     Guid PositionId, Guid TraderId, Guid ExchangeId, Guid StrategyId,
-    string SymbolId, decimal Quantity, decimal EntryPrice, decimal UnrealizedPnl,
+    string Pair, decimal Quantity, decimal EntryPrice, decimal UnrealizedPnl,
     decimal RealizedPnl, string Status, DateTime UpdatedAt);
 
 public record OrderPlacedEvent(
     Guid OrderId, Guid TraderId, Guid ExchangeId, Guid? StrategyId,
-    string SymbolId, string Side, string Type, string Status,
+    string Pair, string Side, string Type, string Status,
     decimal Quantity, DateTime PlacedAtUtc);
 
 public record BindingStatusChangedEvent(

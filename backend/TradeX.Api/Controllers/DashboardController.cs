@@ -56,7 +56,7 @@ public class DashboardController(TradeXDbContext dbContext) : ControllerBase
             .Select(o => new
             {
                 orderId = o.Id,
-                symbolId = o.SymbolId,
+                pair = o.Pair,
                 side = o.Side.ToString(),
                 quantity = o.Quantity,
                 price = o.Price ?? 0,
@@ -70,6 +70,7 @@ public class DashboardController(TradeXDbContext dbContext) : ControllerBase
             strategyCount,
             totalBalance,
             totalPnl,
+            todayOrderCount,
             totalPnlPercent = totalBalance > 0 ? Math.Round(totalPnl / totalBalance * 100, 2) : 0,
             openPositionCount,
             activeStrategyCount,

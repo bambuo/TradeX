@@ -24,12 +24,12 @@ public class GateIoClient : IExchangeClient
         _http = new HttpClient { BaseAddress = new Uri("https://api.gateio.ws") };
     }
 
-    public async IAsyncEnumerable<Candle> SubscribeKlinesAsync(string symbol, string interval, [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<Candle> SubscribeKlinesAsync(string Pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
     {
         var lastTime = 0L;
         while (!ct.IsCancellationRequested)
         {
-            var candles = await GetKlinesAsync(symbol, interval, DateTime.UtcNow.AddHours(-1), DateTime.UtcNow, ct);
+            var candles = await GetKlinesAsync(Pair, interval, DateTime.UtcNow.AddHours(-1), DateTime.UtcNow, ct);
             foreach (var c in candles)
             {
                 var ms = new DateTimeOffset(c.Timestamp).ToUnixTimeMilliseconds();
@@ -43,11 +43,11 @@ public class GateIoClient : IExchangeClient
         }
     }
 
-    public async Task<Candle[]> GetKlinesAsync(string symbol, string interval, DateTime start, DateTime end, CancellationToken ct = default)
+    public async Task<Candle[]> GetKlinesAsync(string Pair, string interval, DateTime start, DateTime end, CancellationToken ct = default)
     {
         var from = new DateTimeOffset(start).ToUnixTimeSeconds();
         var to = new DateTimeOffset(end).ToUnixTimeSeconds();
-        var resp = await _http.GetAsync($"/api/v4/spot/candlesticks?currency_pair={symbol}&interval={interval}&from={from}&to={to}&limit=500", ct);
+        var resp = await _http.GetAsync($"/api/v4/spot/candlesticks?currency_pair={Pair}&interval={interval}&from={from}&to={to}&limit=500", ct);
         if (!resp.IsSuccessStatusCode) return [];
 
         var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
@@ -66,9 +66,9 @@ public class GateIoClient : IExchangeClient
         }).ToArray();
     }
 
-    public async Task<OrderBook> GetOrderBookAsync(string symbol, int limit, CancellationToken ct = default)
+    public async Task<OrderBook> GetOrderBookAsync(string Pair, int limit, CancellationToken ct = default)
     {
-        var resp = await _http.GetAsync($"/api/v4/spot/order_book?currency_pair={symbol}&limit={limit}", ct);
+        var resp = await _http.GetAsync($"/api/v4/spot/order_book?currency_pair={Pair}&limit={limit}", ct);
         if (!resp.IsSuccessStatusCode) return new OrderBook(new decimal[0, 2], new decimal[0, 2], DateTime.UtcNow);
 
         var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
@@ -117,7 +117,7 @@ public class GateIoClient : IExchangeClient
         var side = request.Side == OrderSide.Buy ? "buy" : "sell";
         var bodyDict = new Dictionary<string, string>
         {
-            ["currency_pair"] = request.Symbol,
+            ["currency_pair"] = request.Pair,
             ["side"] = side,
             ["amount"] = request.Quantity.ToString(CultureInfo.InvariantCulture),
             ["type"] = request.Type == OrderType.Limit ? "limit" : "market",
@@ -229,7 +229,7 @@ public class GateIoClient : IExchangeClient
         }
     }
 
-    public async Task<SymbolRule[]> GetSymbolRulesAsync(CancellationToken ct = default)
+    public async Task<PairRule[]> GetPairRulesAsync(CancellationToken ct = default)
     {
         var resp = await _http.GetAsync("/api/v4/spot/currency_pairs", ct);
         if (!resp.IsSuccessStatusCode) return [];
@@ -239,7 +239,7 @@ public class GateIoClient : IExchangeClient
 
         return doc.RootElement.EnumerateArray()
             .Where(s => s.GetProperty("trade_status").GetString() == "tradable")
-            .Select(s => new SymbolRule(
+            .Select(s => new PairRule(
                 s.GetProperty("id").GetString()!,
                 s.GetProperty("precision").GetInt32(),
                 s.GetProperty("amount_precision").GetInt32(),

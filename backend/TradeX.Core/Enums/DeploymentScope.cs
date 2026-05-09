@@ -4,5 +4,5 @@ public enum DeploymentScope
 {
     Trader,
     Exchange,
-    Symbol
+    Pair
 }

@@ -21,8 +21,8 @@ public class TradeXDbContext(DbContextOptions<TradeXDbContext> options) : DbCont
     public DbSet<BacktestTask> BacktestTasks => Set<BacktestTask>();
     public DbSet<BacktestResult> BacktestResults => Set<BacktestResult>();
     public DbSet<BacktestKlineAnalysisEntity> BacktestKlineAnalyses => Set<BacktestKlineAnalysisEntity>();
-    public DbSet<Symbol> Symbols => Set<Symbol>();
-    public DbSet<ExchangeSymbolRuleSnapshot> ExchangeSymbolRules => Set<ExchangeSymbolRuleSnapshot>();
+    public DbSet<Pair> Pairs => Set<Pair>();
+    public DbSet<ExchangePairRuleSnapshot> ExchangePairRules => Set<ExchangePairRuleSnapshot>();
     public DbSet<NotificationChannel> NotificationChannels => Set<NotificationChannel>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -126,7 +126,7 @@ public class TradeXDbContext(DbContextOptions<TradeXDbContext> options) : DbCont
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => new { x.TraderId, x.Status });
-            e.HasIndex(x => new { x.ExchangeId, x.SymbolId, x.Status });
+            e.HasIndex(x => new { x.ExchangeId, x.Pair, x.Status });
         });
 
         modelBuilder.Entity<BacktestTask>(e =>
@@ -158,20 +158,20 @@ public class TradeXDbContext(DbContextOptions<TradeXDbContext> options) : DbCont
             e.Property(x => x.IndicatorsJson).HasMaxLength(4000);
         });
 
-        modelBuilder.Entity<Symbol>(e =>
+        modelBuilder.Entity<Pair>(e =>
         {
             e.HasKey(x => x.Id);
-            e.HasIndex(x => new { x.ExchangeId, x.SymbolName }).IsUnique();
-            e.Property(x => x.SymbolName).HasMaxLength(30).IsRequired();
+            e.HasIndex(x => new { x.ExchangeId, x.Name }).IsUnique();
+            e.Property(x => x.Name).HasMaxLength(30).IsRequired();
             e.Property(x => x.BaseAsset).HasMaxLength(20).IsRequired();
             e.Property(x => x.QuoteAsset).HasMaxLength(20).IsRequired();
         });
 
-        modelBuilder.Entity<ExchangeSymbolRuleSnapshot>(e =>
+        modelBuilder.Entity<ExchangePairRuleSnapshot>(e =>
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.ExchangeId);
-            e.Property(x => x.Symbol).HasMaxLength(30).IsRequired();
+            e.Property(x => x.Pair).HasMaxLength(30).IsRequired();
         });
 
         modelBuilder.Entity<NotificationChannel>(e =>
@@ -189,7 +189,7 @@ public class TradeXDbContext(DbContextOptions<TradeXDbContext> options) : DbCont
             e.HasIndex(x => x.TraderId);
             e.HasIndex(x => x.ExchangeOrderId).IsUnique();
             e.HasIndex(x => x.Status);
-            e.Property(x => x.SymbolId).HasMaxLength(50).IsRequired();
+            e.Property(x => x.Pair).HasMaxLength(50).IsRequired();
             e.Property(x => x.Side).HasConversion<string>().HasMaxLength(10);
             e.Property(x => x.Type).HasConversion<string>().HasMaxLength(10);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);

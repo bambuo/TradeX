@@ -8,7 +8,7 @@ public class Position
     public Guid TraderId { get; init; }
     public Guid ExchangeId { get; init; }
     public Guid StrategyId { get; init; }
-    public string SymbolId { get; set; } = string.Empty;
+    public string Pair { get; set; } = string.Empty;
     public decimal Quantity { get; set; }
     public decimal EntryPrice { get; set; }
     public decimal CurrentPrice { get; set; }

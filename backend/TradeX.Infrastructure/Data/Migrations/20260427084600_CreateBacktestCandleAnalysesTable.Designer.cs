@@ -154,7 +154,7 @@ namespace TradeX.Infrastructure.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("SymbolId")
+                    b.Property<string>("Pair")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("TEXT");
@@ -235,7 +235,7 @@ namespace TradeX.Infrastructure.Data.Migrations
                     b.ToTable("Exchanges", (string)null);
                 });
 
-            modelBuilder.Entity("TradeX.Core.Models.ExchangeSymbolRuleSnapshot", b =>
+            modelBuilder.Entity("TradeX.Core.Models.ExchangePairRuleSnapshot", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -262,7 +262,7 @@ namespace TradeX.Infrastructure.Data.Migrations
                     b.Property<decimal>("StepSize")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Symbol")
+                    b.Property<string>("Pair")
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("TEXT");
@@ -274,7 +274,7 @@ namespace TradeX.Infrastructure.Data.Migrations
 
                     b.HasIndex("ExchangeId");
 
-                    b.ToTable("ExchangeSymbolRules");
+                    b.ToTable("ExchangePairRules");
                 });
 
             modelBuilder.Entity("TradeX.Core.Models.MfaSecret", b =>
@@ -397,7 +397,7 @@ namespace TradeX.Infrastructure.Data.Migrations
                     b.Property<Guid?>("StrategyId")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("SymbolId")
+                    b.Property<string>("Pair")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("TEXT");
@@ -458,7 +458,7 @@ namespace TradeX.Infrastructure.Data.Migrations
                     b.Property<Guid>("StrategyId")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("SymbolId")
+                    b.Property<string>("Pair")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
@@ -475,7 +475,7 @@ namespace TradeX.Infrastructure.Data.Migrations
 
                     b.HasIndex("TraderId", "Status");
 
-                    b.HasIndex("ExchangeId", "SymbolId", "Status");
+                    b.HasIndex("ExchangeId", "Pair", "Status");
 
                     b.ToTable("Positions");
                 });
@@ -613,7 +613,7 @@ namespace TradeX.Infrastructure.Data.Migrations
                     b.Property<Guid>("StrategyId")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("SymbolIds")
+                    b.Property<string>("Pairs")
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("TEXT");
@@ -636,7 +636,7 @@ namespace TradeX.Infrastructure.Data.Migrations
                     b.ToTable("StrategyDeployments");
                 });
 
-            modelBuilder.Entity("TradeX.Core.Models.Symbol", b =>
+            modelBuilder.Entity("TradeX.Core.Models.Pair", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -661,17 +661,17 @@ namespace TradeX.Infrastructure.Data.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("SymbolName")
+                    b.Property<string>("PairName")
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ExchangeId", "SymbolName")
+                    b.HasIndex("ExchangeId", "PairName")
                         .IsUnique();
 
-                    b.ToTable("Symbols");
+                    b.ToTable("Pairs");
                 });
 
             modelBuilder.Entity("TradeX.Core.Models.SystemConfig", b =>

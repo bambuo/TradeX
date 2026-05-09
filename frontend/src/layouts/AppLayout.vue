@@ -11,6 +11,50 @@ const auth = useAuthStore()
 const signalr = useSignalR()
 const loggingOut = ref(false)
 
+const fabX = ref(0)
+const fabY = ref(0)
+const fabDragging = ref(false)
+const fabMoved = ref(false)
+const fabEl = ref<HTMLElement | null>(null)
+
+function onDragStart(e: MouseEvent | TouchEvent) {
+  fabDragging.value = true
+  fabMoved.value = false
+  const el = fabEl.value
+  if (!el) return
+  const rect = el.getBoundingClientRect()
+  const cx = 'touches' in e ? e.touches[0].clientX : e.clientX
+  const cy = 'touches' in e ? e.touches[0].clientY : e.clientY
+  fabX.value = cx - rect.left
+  fabY.value = cy - rect.top
+  el.style.position = 'fixed'
+  el.style.bottom = 'auto'
+  el.style.right = 'auto'
+  el.style.left = rect.left + 'px'
+  el.style.top = rect.top + 'px'
+}
+
+function onDragMove(e: MouseEvent | TouchEvent) {
+  if (!fabDragging.value) return
+  e.preventDefault()
+  fabMoved.value = true
+  const el = fabEl.value
+  if (!el) return
+  const cx = 'touches' in e ? e.touches[0].clientX : e.clientX
+  const cy = 'touches' in e ? e.touches[0].clientY : e.clientY
+  el.style.left = (cx - fabX.value) + 'px'
+  el.style.top = (cy - fabY.value) + 'px'
+}
+
+function onDragEnd() {
+  fabDragging.value = false
+}
+
+function handleFabClick() {
+  if (fabMoved.value) return
+  handleLogout()
+}
+
 provide('signalr', signalr)
 
 onMounted(async () => {
@@ -21,10 +65,18 @@ onMounted(async () => {
       // connection will be retried by automatic reconnect
     }
   }
+  document.addEventListener('mousemove', onDragMove)
+  document.addEventListener('mouseup', onDragEnd)
+  document.addEventListener('touchmove', onDragMove, { passive: false })
+  document.addEventListener('touchend', onDragEnd)
 })
 
 onUnmounted(() => {
   signalr.disconnect()
+  document.removeEventListener('mousemove', onDragMove)
+  document.removeEventListener('mouseup', onDragEnd)
+  document.removeEventListener('touchmove', onDragMove)
+  document.removeEventListener('touchend', onDragEnd)
 })
 
 async function handleLogout() {
@@ -134,9 +186,13 @@ const pageTitle = computed(() => {
       </a-card>
 
       <a-layout-content class="main">
-        <div class="fab-logout" title="退出登录">
-          <a-button shape="circle" type="outline" status="danger" :loading="loggingOut" @click="handleLogout">
-            <template #icon><icon-power-off /></template>
+        <div class="fab-logout" ref="fabEl" title="退出登录"
+          @mousedown="onDragStart"
+          @touchstart.prevent="onDragStart"
+          :class="{ dragging: fabDragging }"
+        >
+          <a-button shape="circle" type="outline" status="danger" @click="handleFabClick">
+            <template #icon><icon-poweroff /></template>
           </a-button>
         </div>
         <a-card class="content-card">
@@ -192,6 +248,22 @@ const pageTitle = computed(() => {
   bottom: 1.5rem;
   right: 1.5rem;
   z-index: 1000;
+  cursor: grab;
+}
+.fab-logout:active { cursor: grabbing; }
+.fab-logout.dragging { user-select: none; }
+.fab-logout.dragging :deep(.arco-btn) { pointer-events: none; }
+.fab-logout :deep(.arco-btn) {
+  width: 40px;
+  height: 40px;
+  font-size: 18px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+}
+.fab-logout :deep(.arco-btn:hover) {
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
 }
 .right-layout {
   flex: 1;

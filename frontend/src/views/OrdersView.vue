@@ -15,7 +15,7 @@ const showForm = ref(false)
 const submitting = ref(false)
 
 const formExchangeId = ref('')
-const formSymbolId = ref('')
+const formPair = ref('')
 const formSide = ref('Buy')
 const formType = ref('Market')
 const formQuantity = ref(0)
@@ -53,7 +53,7 @@ async function load() {
 
 function openCreate() {
   formExchangeId.value = exchanges.value[0]?.id ?? ''
-  formSymbolId.value = ''
+  formPair.value = ''
   formSide.value = 'Buy'
   formType.value = 'Market'
   formQuantity.value = 0
@@ -66,7 +66,7 @@ async function submitOrder() {
   try {
     await ordersApi.createManual(traderId, {
       exchangeId: formExchangeId.value,
-      symbolId: formSymbolId.value.toUpperCase(),
+      Pair: formPair.value.toUpperCase(),
       side: formSide.value,
       type: formType.value,
       quantity: formQuantity.value,
@@ -107,7 +107,7 @@ onMounted(load)
         >
           <a-option v-for="a in exchanges" :key="a.id" :value="a.id" :label="`${a.label} (${a.exchangeType})`" />
         </a-select>
-        <a-input v-model="formSymbolId" placeholder="交易对，如 BTCUSDT" />
+        <a-input v-model="formPair" placeholder="交易对，如 BTCUSDT" />
         <div class="form-row">
           <a-select :model-value="formSide" @change="(v) => formSide = String(v) as 'Buy' | 'Sell'">
             <a-option value="Buy" label="买入" />
@@ -145,7 +145,7 @@ onMounted(load)
       </thead>
       <tbody>
         <tr v-for="o in orders" :key="o.id">
-          <td>{{ o.symbolId }}</td>
+          <td>{{ o.Pair }}</td>
           <td><span :class="o.side === 'Buy' ? 'side-buy' : 'side-sell'">{{ o.side === 'Buy' ? '买入' : '卖出' }}</span></td>
           <td>{{ o.type === 'Market' ? '市价' : o.type === 'Limit' ? '限价' : '止损限价' }}</td>
           <td><a-tag :color="statusColors[o.status]">{{ statusLabels[o.status] ?? o.status }}</a-tag></td>

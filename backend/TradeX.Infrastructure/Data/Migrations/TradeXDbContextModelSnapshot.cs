@@ -256,7 +256,7 @@ namespace TradeX.Infrastructure.Data.Migrations
                     b.ToTable("Exchanges", (string)null);
                 });
 
-            modelBuilder.Entity("TradeX.Core.Models.ExchangeSymbolRuleSnapshot", b =>
+            modelBuilder.Entity("TradeX.Core.Models.ExchangePairRuleSnapshot", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -274,6 +274,11 @@ namespace TradeX.Infrastructure.Data.Migrations
                     b.Property<decimal>("MinQuantity")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Pair")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("PricePrecision")
                         .HasColumnType("INTEGER");
 
@@ -283,11 +288,6 @@ namespace TradeX.Infrastructure.Data.Migrations
                     b.Property<decimal>("StepSize")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Symbol")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("TEXT");
-
                     b.Property<decimal>("TickSize")
                         .HasColumnType("TEXT");
 
@@ -295,7 +295,7 @@ namespace TradeX.Infrastructure.Data.Migrations
 
                     b.HasIndex("ExchangeId");
 
-                    b.ToTable("ExchangeSymbolRules");
+                    b.ToTable("ExchangePairRules");
                 });
 
             modelBuilder.Entity("TradeX.Core.Models.MfaSecret", b =>
@@ -390,6 +390,11 @@ namespace TradeX.Infrastructure.Data.Migrations
                     b.Property<bool>("IsManual")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Pair")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("PlacedAtUtc")
                         .HasColumnType("TEXT");
 
@@ -418,11 +423,6 @@ namespace TradeX.Infrastructure.Data.Migrations
                     b.Property<Guid?>("StrategyId")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("SymbolId")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("TEXT");
-
                     b.Property<Guid>("TraderId")
                         .HasColumnType("TEXT");
 
@@ -446,6 +446,44 @@ namespace TradeX.Infrastructure.Data.Migrations
                     b.ToTable("Orders");
                 });
 
+            modelBuilder.Entity("TradeX.Core.Models.Pair", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BaseAsset")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ExchangeId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("QuoteAsset")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExchangeId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("Pairs");
+                });
+
             modelBuilder.Entity("TradeX.Core.Models.Position", b =>
                 {
                     b.Property<Guid>("Id")
@@ -467,6 +505,10 @@ namespace TradeX.Infrastructure.Data.Migrations
                     b.Property<DateTime>("OpenedAtUtc")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Pair")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<decimal>("Quantity")
                         .HasColumnType("TEXT");
 
@@ -477,10 +519,6 @@ namespace TradeX.Infrastructure.Data.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<Guid>("StrategyId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("SymbolId")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("TraderId")
@@ -496,7 +534,7 @@ namespace TradeX.Infrastructure.Data.Migrations
 
                     b.HasIndex("TraderId", "Status");
 
-                    b.HasIndex("ExchangeId", "SymbolId", "Status");
+                    b.HasIndex("ExchangeId", "Pair", "Status");
 
                     b.ToTable("Positions");
                 });
@@ -655,44 +693,6 @@ namespace TradeX.Infrastructure.Data.Migrations
                     b.HasIndex("Status");
 
                     b.ToTable("StrategyBindings");
-                });
-
-            modelBuilder.Entity("TradeX.Core.Models.Symbol", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("BaseAsset")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("ExchangeId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("QuoteAsset")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("SymbolName")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ExchangeId", "SymbolName")
-                        .IsUnique();
-
-                    b.ToTable("Symbols");
                 });
 
             modelBuilder.Entity("TradeX.Core.Models.SystemConfig", b =>

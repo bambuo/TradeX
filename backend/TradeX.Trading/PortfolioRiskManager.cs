@@ -23,10 +23,10 @@ public class PortfolioRiskManager(
         return BuildResult(result);
     }
 
-    public async Task<RiskResult> CheckSymbolRiskAsync(Guid traderId, Guid exchangeId, string symbolId, CancellationToken ct = default)
+    public async Task<RiskResult> CheckPairRiskAsync(Guid traderId, Guid exchangeId, string pair, CancellationToken ct = default)
     {
         var chain = BuildChain();
-        var context = await BuildContextAsync(traderId, exchangeId, symbolId, ct);
+        var context = await BuildContextAsync(traderId, exchangeId, pair, ct);
         var result = await chain.CheckAsync(context, ct);
         return BuildResult(result);
     }
@@ -47,7 +47,7 @@ public class PortfolioRiskManager(
         return dailyLossHandler;
     }
 
-    private async Task<RiskContext> BuildContextAsync(Guid traderId, Guid exchangeId, string? symbolId, CancellationToken ct)
+    private async Task<RiskContext> BuildContextAsync(Guid traderId, Guid exchangeId, string? Pair, CancellationToken ct)
     {
         var openPositions = await positionRepo.GetOpenByTraderIdAsync(traderId, ct);
         var todayStart = DateTime.UtcNow.Date;
@@ -69,7 +69,7 @@ public class PortfolioRiskManager(
         {
             TraderId = traderId,
             ExchangeId = exchangeId,
-            SymbolId = symbolId,
+            Pair = Pair,
             PortfolioValue = totalPortfolioValue,
             DailyLoss = dailyLoss,
             DailyProfit = dailyProfit,
@@ -90,7 +90,7 @@ public class PortfolioRiskManager(
 public interface IPortfolioRiskManager
 {
     Task<RiskResult> CheckAsync(Guid traderId, Guid exchangeId, CancellationToken ct = default);
-    Task<RiskResult> CheckSymbolRiskAsync(Guid traderId, Guid exchangeId, string symbolId, CancellationToken ct = default);
+    Task<RiskResult> CheckPairRiskAsync(Guid traderId, Guid exchangeId, string pair, CancellationToken ct = default);
 }
 
 public record RiskResult(bool IsAllowed, IReadOnlyList<string> DeniedReasons);

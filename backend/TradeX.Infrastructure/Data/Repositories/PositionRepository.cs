@@ -21,9 +21,9 @@ public class PositionRepository(TradeXDbContext context) : IPositionRepository
             .OrderByDescending(p => p.OpenedAtUtc)
             .ToListAsync(ct);
 
-    public async Task<List<Position>> GetOpenBySymbolAsync(Guid exchangeId, string symbolId, CancellationToken ct = default)
+    public async Task<List<Position>> GetOpenByPairAsync(Guid exchangeId, string pair, CancellationToken ct = default)
         => await context.Positions
-            .Where(p => p.ExchangeId == exchangeId && p.SymbolId == symbolId && p.Status == Core.Enums.PositionStatus.Open)
+            .Where(p => p.ExchangeId == exchangeId && p.Pair == pair && p.Status == Core.Enums.PositionStatus.Open)
             .ToListAsync(ct);
 
     public async Task<List<Position>> GetByStrategyIdAsync(Guid strategyId, CancellationToken ct = default)

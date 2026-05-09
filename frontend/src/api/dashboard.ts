@@ -18,7 +18,7 @@ export interface DashboardStats {
 
 export interface DashboardTrade {
   orderId: string
-  symbolId: string
+  pair: string
   side: string
   quantity: number
   price: number

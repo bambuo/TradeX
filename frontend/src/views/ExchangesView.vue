@@ -238,7 +238,7 @@ onMounted(loadAll)
         </thead>
         <tbody>
           <tr v-for="o in orders" :key="o.exchangeOrderId">
-            <td>{{ o.symbol }}</td>
+            <td>{{ o.pair }}</td>
             <td>
               <span :class="o.side === 'Buy' ? 'side-buy' : 'side-sell'">
                 {{ o.side === 'Buy' ? '买入' : '卖出' }}

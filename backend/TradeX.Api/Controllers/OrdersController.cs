@@ -27,7 +27,7 @@ public class OrdersController(
         return Ok(orders.Select(o => new
         {
             o.Id, o.TraderId, o.ExchangeOrderId, o.ExchangeId, o.StrategyId, o.PositionId,
-            o.SymbolId, o.Side, o.Type, o.Status, o.Price, o.Quantity, o.FilledQuantity,
+            o.Pair, o.Side, o.Type, o.Status, o.Price, o.Quantity, o.FilledQuantity,
             o.QuoteQuantity, o.Fee, o.FeeAsset, o.IsManual, o.PlacedAtUtc, o.UpdatedAt
         }));
     }
@@ -46,7 +46,7 @@ public class OrdersController(
         return Ok(new
         {
             order.Id, order.TraderId, order.ExchangeOrderId, order.ExchangeId, order.StrategyId, order.PositionId,
-            order.SymbolId, order.Side, order.Type, order.Status, order.Price, order.Quantity, order.FilledQuantity,
+            order.Pair, order.Side, order.Type, order.Status, order.Price, order.Quantity, order.FilledQuantity,
             order.QuoteQuantity, order.Fee, order.FeeAsset, order.IsManual, order.PlacedAtUtc, order.UpdatedAt
         });
     }
@@ -69,7 +69,7 @@ public class OrdersController(
             TraderId = traderId,
             ExchangeId = request.ExchangeId,
             StrategyId = request.StrategyId,
-            SymbolId = request.SymbolId,
+            Pair = request.Pair,
             Side = side,
             Type = type,
             Price = request.Price,
@@ -82,10 +82,10 @@ public class OrdersController(
         return CreatedAtAction(nameof(GetById), new { traderId, id = order.Id }, new
         {
             order.Id, order.TraderId, order.ExchangeId, order.StrategyId,
-            order.SymbolId, order.Side, order.Type, order.Status,
+            order.Pair, order.Side, order.Type, order.Status,
             order.Price, order.Quantity, order.IsManual, order.PlacedAtUtc
         });
     }
 
-    public record CreateManualOrderRequest(Guid ExchangeId, string SymbolId, string Side, string Type, decimal Quantity, decimal? Price = null, Guid? StrategyId = null);
+    public record CreateManualOrderRequest(Guid ExchangeId, string Pair, string Side, string Type, decimal Quantity, decimal? Price = null, Guid? StrategyId = null);
 }

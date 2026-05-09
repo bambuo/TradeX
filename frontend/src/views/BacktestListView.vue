@@ -2,8 +2,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { tradersApi, type Trader } from '../api/traders'
-import { strategiesApi, type StrategyBinding } from '../api/strategies'
+import { strategiesApi, type Strategy } from '../api/strategies'
+import { exchangesApi, type Exchange } from '../api/exchanges'
 import { backtestsApi, type BacktestTask } from '../api/backtests'
+import { formatSmallNumber } from '../utils/format'
 
 const router = useRouter()
 
@@ -13,6 +15,15 @@ interface TaskItem {
   bindingId: string
   bindingName: string
   task: BacktestTask
+}
+
+interface PairInfo {
+  symbol: string
+  price: number
+  priceChangePercent: number
+  volume: number
+  highPrice: number
+  lowPrice: number
 }
 
 const tasks = ref<TaskItem[]>([])
@@ -32,10 +43,21 @@ const statusColors: Record<string, string> = {
 
 const showForm = ref(false)
 const traders = ref<Trader[]>([])
-const bindings = ref<StrategyBinding[]>([])
+const strategies = ref<Strategy[]>([])
+const exchanges = ref<Exchange[]>([])
+const pairs = ref<PairInfo[]>([])
+const pairsLoading = ref(false)
+const pairSearch = ref('')
+const sortKey = ref<'symbol' | 'price' | 'priceChangePercent' | 'volume'>('volume')
+const sortDesc = ref(true)
+const priceMin = ref<number | null>(null)
+const priceMax = ref<number | null>(null)
+const changeDirection = ref<'all' | 'up' | 'down'>('all')
+const volMin = ref<number | null>(null)
 const formTraderId = ref('')
-const formBindingId = ref('')
-const formPair = ref('')
+const formStrategyId = ref('')
+const formExchangeId = ref('')
+const formPicks = ref<string[]>([])
 const formTimeframe = ref('1h')
 const formStartAt = ref('')
 const formEndAt = ref('')
@@ -45,24 +67,74 @@ const formError = ref('')
 
 const timeframes = ['1m', '5m', '15m', '30m', '1h', '4h', '1d']
 
-const selectedBinding = computed(() =>
-  bindings.value.find(b => b.id === formBindingId.value)
-)
+const quickDateOptions = [
+  { key: '1d', label: '1 天', days: 1 },
+  { key: '3d', label: '3 天', days: 3 },
+  { key: '1w', label: '一周', days: 7 },
+  { key: '1m', label: '一个月', days: 30 }
+]
+const activeQuickDate = ref('1w')
 
-const availablePairs = computed(() => {
-  const b = selectedBinding.value
-  if (!b) return []
-  try {
-    const parsed = JSON.parse(b.pairs)
-    if (Array.isArray(parsed)) return parsed
-  } catch {}
-  return b.pairs.split(',').map(s => s.trim()).filter(Boolean)
+const sortedPairs = computed(() => {
+  let list = pairs.value
+  if (pairSearch.value) {
+    const q = pairSearch.value.toLowerCase()
+    list = list.filter(s => s.symbol.toLowerCase().includes(q))
+  }
+  if (priceMin.value != null && !isNaN(priceMin.value)) list = list.filter(s => s.price >= priceMin.value!)
+  if (priceMax.value != null && !isNaN(priceMax.value)) list = list.filter(s => s.price <= priceMax.value!)
+  if (changeDirection.value === 'up') list = list.filter(s => s.priceChangePercent > 0)
+  else if (changeDirection.value === 'down') list = list.filter(s => s.priceChangePercent < 0)
+  if (volMin.value != null && !isNaN(volMin.value)) list = list.filter(s => s.volume >= volMin.value!)
+  const sorted = [...list]
+  sorted.sort((a, b) => {
+    const dir = sortDesc.value ? -1 : 1
+    if (sortKey.value === 'symbol') return dir * a.symbol.localeCompare(b.symbol)
+    return dir * ((a[sortKey.value] ?? 0) - (b[sortKey.value] ?? 0))
+  })
+  return sorted
 })
+
+function toggleSort(key: typeof sortKey.value) {
+  if (sortKey.value === key) sortDesc.value = !sortDesc.value
+  else { sortKey.value = key; sortDesc.value = true }
+}
+
+function sortArrow(key: typeof sortKey.value): string {
+  if (sortKey.value !== key) return ''
+  return sortDesc.value ? ' ▼' : ' ▲'
+}
+
+function formatPrice(price: number): string {
+  if (price === 0) return '-'
+  return formatSmallNumber(price)
+}
+
+function formatVolume(vol: number): string {
+  if (vol === 0) return '-'
+  if (vol >= 1_000_000) return (vol / 1_000_000).toFixed(1) + 'M'
+  if (vol >= 1_000) return (vol / 1_000).toFixed(1) + 'K'
+  return vol.toFixed(0)
+}
+
+function renderPair(sym: string): { base: string; quote: string } {
+  if (sym.endsWith('USDT')) return { base: sym.slice(0, -4), quote: 'USDT' }
+  const m = sym.match(/^([A-Za-z]+)(BTC|ETH|BNB|USDC|DAI)$/)
+  if (m) return { base: m[1], quote: m[2] }
+  return { base: sym, quote: '' }
+}
 
 onMounted(async () => {
   try {
     const { data: tradersData } = await tradersApi.getAll()
     traders.value = tradersData
+
+    const [strategiesRes, exchangesRes] = await Promise.all([
+      strategiesApi.getAllPure(),
+      exchangesApi.getAll()
+    ])
+    strategies.value = strategiesRes.data.data ?? []
+    exchanges.value = exchangesRes.data.data ?? []
 
     const allTasks: TaskItem[] = []
     for (const trader of tradersData) {
@@ -106,57 +178,71 @@ function formatDate(dt: string): string {
   })
 }
 
+async function fetchExchangePairs(exchangeId: string) {
+  if (!exchangeId) return
+  pairsLoading.value = true
+  pairs.value = []
+  pairSearch.value = ''
+  sortKey.value = 'volume'
+  sortDesc.value = true
+  priceMin.value = null
+  priceMax.value = null
+  changeDirection.value = 'all'
+  volMin.value = null
+  try {
+    const { data } = await exchangesApi.getPairs(exchangeId)
+    pairs.value = (data.data ?? []).map((s: any) => ({
+      symbol: s.pair,
+      price: s.price ?? 0,
+      priceChangePercent: s.priceChangePercent ?? 0,
+      volume: s.volume ?? 0,
+      highPrice: s.highPrice ?? 0,
+      lowPrice: s.lowPrice ?? 0
+    }))
+    formPicks.value = []
+  } catch {
+    pairs.value = []
+  } finally {
+    pairsLoading.value = false
+  }
+}
+
 function openCreate() {
   formTraderId.value = traders.value[0]?.id || ''
-  formBindingId.value = ''
-  formPair.value = ''
+  formStrategyId.value = strategies.value[0]?.id || ''
+  formExchangeId.value = exchanges.value[0]?.id || ''
+  formPicks.value = []
   formTimeframe.value = '1h'
   formCapital.value = 1000
   formError.value = ''
-  const now = new Date()
-  formEndAt.value = now.toISOString().slice(0, 16)
-  const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-  formStartAt.value = start.toISOString().slice(0, 16)
-  loadBindings()
+  applyQuickDate('1w', 7)
+  if (formExchangeId.value) fetchExchangePairs(formExchangeId.value)
   showForm.value = true
 }
 
-async function loadBindings() {
-  if (!formTraderId.value) {
-    bindings.value = []
-    return
-  }
-  try {
-    const { data } = await strategiesApi.getAll(formTraderId.value)
-    bindings.value = data
-  } catch {
-    bindings.value = []
-  }
+function applyQuickDate(key: string, days: number) {
+  activeQuickDate.value = key
+  const now = new Date()
+  formEndAt.value = now.toISOString().slice(0, 16)
+  const start = new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
+  formStartAt.value = start.toISOString().slice(0, 16)
 }
 
-function onTraderChange(id: string) {
-  formTraderId.value = id
-  formBindingId.value = ''
-  formPair.value = ''
-  loadBindings()
+function onExchangeChange(id: string) {
+  formExchangeId.value = id
+  formPicks.value = []
+  fetchExchangePairs(id)
 }
 
-function onBindingChange(id: string) {
-  formBindingId.value = id
-  formPair.value = ''
-  const b = selectedBinding.value
-  if (b) {
-    formTimeframe.value = b.timeframe
-    const pairs = availablePairs.value
-    if (pairs.length > 0) formPair.value = pairs[0]
-  }
+function togglePair(Pair: string) {
+  formPicks.value.includes(Pair) ? formPicks.value = formPicks.value.filter(s => s !== Pair) : formPicks.value.push(Pair)
 }
 
 async function save() {
   formError.value = ''
-  const b = selectedBinding.value
-  if (!b) { formError.value = '请选择绑定策略'; return }
-  if (!formPair.value) { formError.value = '请选择交易对'; return }
+  if (!formStrategyId.value) { formError.value = '请选择策略'; return }
+  if (!formExchangeId.value) { formError.value = '请选择交易所'; return }
+  if (formPicks.value.length === 0) { formError.value = '请选择交易对'; return }
   if (!formStartAt.value || !formEndAt.value) { formError.value = '请选择回测时间范围'; return }
   if (!formCapital.value || formCapital.value <= 0) { formError.value = '请输入有效本金'; return }
 
@@ -164,17 +250,18 @@ async function save() {
   try {
     const startDate = new Date(formStartAt.value)
     const endDate = new Date(formEndAt.value)
-    await backtestsApi.start(
-      b.strategyId,
-      b.exchangeId,
-      formPair.value,
-      formTimeframe.value,
-      startDate.toISOString(),
-      endDate.toISOString(),
-      formCapital.value
-    )
+    for (const pair of formPicks.value) {
+      await backtestsApi.start(
+        formStrategyId.value,
+        formExchangeId.value,
+        pair,
+        formTimeframe.value,
+        startDate.toISOString(),
+        endDate.toISOString(),
+        formCapital.value
+      )
+    }
     showForm.value = false
-    // Reload tasks after creation
     const allTasks: TaskItem[] = []
     for (const trader of traders.value) {
       try {
@@ -219,71 +306,142 @@ async function save() {
       </div>
     </a-card>
 
-    <a-modal v-model:visible="showForm" title="新建回测" width="md" :mask-closable="false" @cancel="showForm = false">
-      <div class="form-grid">
-        <div class="form-group full">
-          <label>交易员</label>
-          <a-select
-            :model-value="formTraderId"
-            style="width: 100%"
-            @change="(v: any) => onTraderChange(String(v))"
-          >
-            <a-option v-for="t in traders" :key="t.id" :value="t.id" :label="t.name" />
-          </a-select>
+    <a-modal v-model:visible="showForm" title="新建回测" width="960px" :mask-closable="false">
+      <div class="modal-body">
+        <div class="settings-grid">
+          <div class="form-group">
+            <label>策略</label>
+            <a-select
+              :model-value="formStrategyId"
+              style="width: 100%"
+              @change="(v: any) => formStrategyId = String(v)"
+            >
+              <a-option v-for="s in strategies" :key="s.id" :value="s.id" :label="s.name" />
+            </a-select>
+          </div>
+
+          <div class="form-group">
+            <label>交易所</label>
+            <a-select
+              :model-value="formExchangeId"
+              style="width: 100%"
+              @change="(v: any) => onExchangeChange(String(v))"
+            >
+              <a-option v-for="e in exchanges" :key="e.id" :value="e.id" :label="`${e.label} (${e.exchangeType})`" />
+            </a-select>
+          </div>
+
+          <div class="form-group">
+            <label>时间周期</label>
+            <a-select
+              :model-value="formTimeframe"
+              style="width: 100%"
+              @change="(v: any) => formTimeframe = String(v)"
+            >
+              <a-option v-for="tf in timeframes" :key="tf" :value="tf" :label="tf" />
+            </a-select>
+          </div>
+
+          <div class="form-group">
+            <label>本金 (USDT)</label>
+            <a-input-number
+              :model-value="formCapital"
+              :min="100"
+              :step="100"
+              style="width: 100%"
+              @change="(v: any) => formCapital = Number(v)"
+            />
+          </div>
         </div>
 
         <div class="form-group full">
-          <label>绑定策略</label>
-          <a-select
-            :model-value="formBindingId"
-            style="width: 100%"
-            @change="(v: any) => onBindingChange(String(v))"
-          >
-            <a-option v-for="b in bindings" :key="b.id" :value="b.id" :label="b.name || b.strategyId" />
-          </a-select>
+          <label>回测时间范围</label>
+          <div class="quick-dates">
+            <button
+              v-for="opt in quickDateOptions"
+              :key="opt.key"
+              class="quick-date-btn"
+              :class="{ active: activeQuickDate === opt.key }"
+              @click="applyQuickDate(opt.key, opt.days)"
+            >{{ opt.label }}</button>
+          </div>
         </div>
 
         <div class="form-group full">
-          <label>交易对</label>
-          <a-select
-            :model-value="formPair"
-            style="width: 100%"
-            @change="(v: any) => formPair = String(v)"
-          >
-            <a-option v-for="p in availablePairs" :key="p" :value="p" :label="p" />
-          </a-select>
-        </div>
-
-        <div class="form-group">
-          <label>时间周期</label>
-          <a-select
-            :model-value="formTimeframe"
-            style="width: 100%"
-            @change="(v: any) => formTimeframe = String(v)"
-          >
-            <a-option v-for="tf in timeframes" :key="tf" :value="tf" :label="tf" />
-          </a-select>
-        </div>
-
-        <div class="form-group">
-          <label>本金 (USDT)</label>
-          <a-input-number
-            :model-value="formCapital"
-            :min="100"
-            :step="100"
-            style="width: 100%"
-            @change="(v: any) => formCapital = Number(v)"
-          />
-        </div>
-
-        <div class="form-group full">
-          <label>开始时间</label>
-          <input v-model="formStartAt" type="datetime-local" class="form-input" />
-        </div>
-
-        <div class="form-group full">
-          <label>结束时间</label>
-          <input v-model="formEndAt" type="datetime-local" class="form-input" />
+          <label>
+            交易对
+            <span class="selected-count">已选 {{ formPicks.length ? formPicks.length + ' 个' : '无' }}</span>
+          </label>
+          <input v-model="pairSearch" placeholder="搜索交易对..." class="pair-search" />
+          <div class="filter-bar">
+            <div class="filter-item">
+              <span class="filter-item-label">价格</span>
+              <input v-model.number="priceMin" type="number" placeholder="≥" class="filter-input" />
+              <span class="filter-sep">~</span>
+              <input v-model.number="priceMax" type="number" placeholder="≤" class="filter-input" />
+            </div>
+            <div class="filter-item">
+              <span class="filter-item-label">方向</span>
+              <a-select
+                :model-value="changeDirection"
+                style="width: 100px"
+                @change="(v: any) => changeDirection = String(v) as 'all' | 'up' | 'down'"
+              >
+                <a-option value="all" label="全部" />
+                <a-option value="up" label="上涨" />
+                <a-option value="down" label="下跌" />
+              </a-select>
+            </div>
+            <div class="filter-item">
+              <span class="filter-item-label">成交量</span>
+              <input v-model.number="volMin" type="number" placeholder="≥" class="filter-input" />
+            </div>
+          </div>
+          <div class="pair-table-wrap">
+            <table class="pair-table">
+              <thead>
+                <tr>
+                  <th class="col-cb"></th>
+                  <th class="col-sym sortable" @click="toggleSort('symbol')">交易对{{ sortArrow('symbol') }}</th>
+                  <th class="col-price sortable" @click="toggleSort('price')">价格{{ sortArrow('price') }}</th>
+                  <th class="col-chg sortable" @click="toggleSort('priceChangePercent')">24h 涨跌{{ sortArrow('priceChangePercent') }}</th>
+                  <th class="col-vol sortable" @click="toggleSort('volume')">24h 量{{ sortArrow('volume') }}</th>
+                </tr>
+              </thead>
+              <tbody v-if="pairsLoading">
+                <tr><td colspan="5" class="table-status">加载中...</td></tr>
+              </tbody>
+              <tbody v-else-if="sortedPairs.length === 0">
+                <tr><td colspan="5" class="table-status">{{ formExchangeId ? '暂无交易对数据' : '请先选择交易所' }}</td></tr>
+              </tbody>
+              <tbody v-else>
+                <tr
+                  v-for="s in sortedPairs"
+                  :key="s.symbol"
+                  class="pair-row"
+                  :class="{ checked: formPicks.includes(s.symbol) }"
+                  @click="togglePair(s.symbol)"
+                >
+                  <td class="col-cb" @click.stop>
+                    <input
+                      type="checkbox"
+                      :checked="formPicks.includes(s.symbol)"
+                      @change="togglePair(s.symbol)"
+                    />
+                  </td>
+                  <td class="col-sym">
+                    <span class="sym-base">{{ renderPair(s.symbol).base }}</span>
+                    <span class="sym-quote">{{ renderPair(s.symbol).quote }}</span>
+                  </td>
+                  <td class="col-price">{{ formatPrice(s.price) }}</td>
+                  <td class="col-chg" :class="s.priceChangePercent >= 0 ? 'up' : 'down'">
+                    {{ s.priceChangePercent >= 0 ? '+' : '' }}{{ s.priceChangePercent.toFixed(2) }}%
+                  </td>
+                  <td class="col-vol">{{ formatVolume(s.volume) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -306,8 +464,9 @@ async function save() {
     <a-table
       v-else
       :columns="[
+        { title: '#', width: 40, render: ({ rowIndex }: any) => rowIndex + 1 },
         { title: '交易员', dataIndex: 'traderName', width: 120 },
-        { title: '绑定策略', dataIndex: 'bindingName', width: 140, ellipsis: true },
+        { title: '策略', dataIndex: 'strategyName', width: 150, ellipsis: true },
         { title: '交易对', dataIndex: 'pair', width: 110 },
         { title: '周期', dataIndex: 'timeframe', width: 60 },
         { title: '本金', dataIndex: 'capital', width: 80 },
@@ -319,6 +478,7 @@ async function save() {
       :data="tasks.map(t => ({
         ...t,
         key: t.task.id,
+        strategyName: t.task.strategyName || t.bindingName,
         pair: t.task.pair,
         timeframe: t.task.timeframe,
         capital: t.task.initialCapital?.toFixed(0) || '-',
@@ -326,7 +486,7 @@ async function save() {
         endAt: formatDate(t.task.endAt)
       }))"
       :pagination="{
-        pageSize: 20,
+        pageSize: 15,
         showTotal: true,
         simple: true
       }"
@@ -371,9 +531,11 @@ async function save() {
   text-align: center; color: var(--text-muted); padding: 3rem 1rem;
   display: flex; flex-direction: column; gap: 0.35rem;
 }
-.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
-.form-group.full { grid-column: 1 / -1; }
+.form-error { color: var(--accent-red); font-size: 0.85rem; margin-bottom: 0.5rem; }
+.modal-body { display: flex; flex-direction: column; gap: 1rem; }
+.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
 .form-group { display: flex; flex-direction: column; gap: 0.25rem; }
+.form-group.full { display: flex; flex-direction: column; gap: 0.25rem; }
 .form-group label { color: var(--text-muted); font-size: 0.85rem; }
 .form-input {
   width: 100%; padding: 0.625rem;
@@ -381,5 +543,75 @@ async function save() {
   background: rgba(255,255,255,0.35); color: var(--text-primary);
   box-sizing: border-box;
 }
-.form-error { color: var(--accent-red); font-size: 0.85rem; margin-bottom: 0.5rem; }
+.quick-dates { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+.quick-date-btn {
+  flex: 1; padding: 0.4rem 0.5rem; border: 1px solid var(--glass-border);
+  border-radius: 4px; background: rgba(255,255,255,0.35); color: var(--text-muted);
+  cursor: pointer; font-size: 0.8rem; text-align: center; transition: all 0.12s;
+}
+.quick-date-btn:hover { border-color: rgba(0,0,0,0.14); }
+.quick-date-btn.active { border-color: var(--accent-blue); background: rgba(79,126,201,0.08); color: var(--accent-blue); font-weight: 600; }
+.date-range { display: flex; align-items: center; gap: 0.5rem; }
+.date-field { flex: 1; display: flex; flex-direction: column; gap: 0.2rem; }
+.date-label { font-size: 0.75rem; color: var(--text-muted); }
+.date-sep { color: var(--text-muted); font-size: 0.9rem; padding-top: 1.2rem; }
+.pairs-hint { color: var(--text-muted); font-size: 0.8rem; padding: 0.5rem 0; text-align: center; }
+.selected-count { color: var(--accent-blue); font-size: 0.75rem; margin-left: 0.5rem; }
+.pair-search { margin-bottom: 0.5rem; width: 100%; padding: 0.375rem 0.5rem; border: 1px solid var(--glass-border); border-radius: 4px; background: rgba(255,255,255,0.35); color: var(--text-primary); box-sizing: border-box; }
+.filter-bar {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+  align-items: center;
+}
+.filter-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.filter-item-label {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.filter-input {
+  width: 70px;
+  padding: 0.3rem 0.4rem;
+  background: rgba(255, 255, 255, 0.45);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border);
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+.filter-sep { color: #475569; font-size: 0.75rem; }
+.pair-table-wrap {
+  border: 1px solid var(--glass-border); border-radius: 4px; background: rgba(255, 255, 255, 0.35);
+  max-height: 240px; overflow-y: auto;
+}
+.pair-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+.pair-table thead { position: sticky; top: 0; z-index: 1; }
+.pair-table th {
+  background: #fff; color: var(--text-muted); font-weight: 600;
+  padding: 0.375rem 0.5rem; text-align: left; white-space: nowrap;
+  border-bottom: 1px solid var(--glass-border);
+}
+.pair-table th.sortable { cursor: pointer; user-select: none; }
+.pair-table th.sortable:hover { color: var(--text-muted); }
+.pair-table td { padding: 0.375rem 0.5rem; border-bottom: 1px solid var(--glass-border); white-space: nowrap; }
+.pair-row { cursor: pointer; transition: background 0.1s; }
+.pair-row:hover { background: rgba(79, 126, 201, 0.06); }
+.pair-row.checked { background: rgba(79, 126, 201, 0.1); }
+.pair-row.checked:hover { background: rgba(79, 126, 201, 0.14); }
+.table-status { text-align: center; padding: 1.5rem 0; color: var(--text-muted); font-size: 0.8rem; }
+.col-cb { width: 28px; text-align: center; }
+.col-cb input { display: inline-block; vertical-align: middle; }
+.col-sym { color: var(--text-primary); font-weight: 500; }
+.sym-base { color: var(--text-primary); }
+.sym-quote { color: var(--text-muted); font-size: 0.7rem; }
+.col-price { color: var(--text-muted); text-align: right !important; }
+.col-chg { text-align: right !important; font-weight: 600; }
+.col-chg.up { color: var(--accent-green); }
+.col-chg.down { color: var(--accent-red); }
+.col-vol { color: var(--text-muted); text-align: right !important; }
 </style>

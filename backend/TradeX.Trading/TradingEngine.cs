@@ -85,16 +85,16 @@ public class TradingEngine(
         TimeSpan volatilityGridDedupWindow,
         CancellationToken ct)
     {
-        var symbolIds = strategy.Pairs.Split(',', StringSplitOptions.RemoveEmptyEntries);
-        if (symbolIds.Length == 0)
+        var pairs = strategy.Pairs.Split(',', StringSplitOptions.RemoveEmptyEntries);
+        if (pairs.Length == 0)
             return;
 
-        var symbolId = symbolIds[0];
+        var pair = pairs[0];
 
-        var prices = GetPriceHistory(symbolId);
+        var prices = GetPriceHistory(pair);
         if (prices.Count < 2)
         {
-            logger.LogDebug("策略 {StrategyName}: 交易对 {Symbol} 暂无行情数据, 跳过评估", strategy.Name, symbolId);
+            logger.LogDebug("策略 {StrategyName}: 交易对 {Pair} 暂无行情数据, 跳过评估", strategy.Name, pair);
             return;
         }
 
@@ -130,11 +130,11 @@ public class TradingEngine(
         var entryConditionJson = strategyTemplate?.EntryCondition ?? "{}";
         var exitConditionJson = strategyTemplate?.ExitCondition ?? "{}";
         var executionRuleJson = strategyTemplate?.ExecutionRule ?? "{}";
-        var openSymbolPositions = openPositions
-            .Where(p => p.Status == PositionStatus.Open && p.SymbolId.Equals(symbolId, StringComparison.OrdinalIgnoreCase))
+        var openPairPositions = openPositions
+            .Where(p => p.Status == PositionStatus.Open && p.Pair.Equals(pair, StringComparison.OrdinalIgnoreCase))
             .OrderBy(p => p.OpenedAtUtc)
             .ToList();
-        var hasOpenPosition = openSymbolPositions.Count > 0;
+        var hasOpenPosition = openPairPositions.Count > 0;
 
         var volatilityRule = VolatilityGridExecutionRuleParser.TryParse(executionRuleJson, logger);
         var hasEntryCondition = !string.IsNullOrWhiteSpace(entryConditionJson) && entryConditionJson != "{}";
@@ -148,34 +148,34 @@ public class TradingEngine(
                 : ShouldEnterVolatilityGrid(
                     volatilityRule,
                     hasOpenPosition,
-                    openSymbolPositions,
+                    openPairPositions,
                     currentPrice,
                     HasRecentPriceMoveBelowMid(prices, volatilityRule.EntryVolatilityPercent, currentPrice));
             if (shouldEnter)
             {
-                if (volatilityRule is not null && !CanExecuteVolatilityGridOrder(strategy.TraderId, strategy.ExchangeId, symbolId, OrderSide.Buy, volatilityGridDedupWindow))
+                if (volatilityRule is not null && !CanExecuteVolatilityGridOrder(strategy.TraderId, strategy.ExchangeId, pair, OrderSide.Buy, volatilityGridDedupWindow))
                 {
-                    logger.LogDebug("策略 {StrategyName}: 命中去重窗口，跳过重复买入, Symbol={Symbol}", strategy.Name, symbolId);
+                    logger.LogDebug("策略 {StrategyName}: 命中去重窗口，跳过重复买入, Pair={Pair}", strategy.Name, pair);
                     return;
                 }
 
                 var canPyramid = volatilityRule is null
                     || !hasOpenPosition
-                    || openSymbolPositions.Count < volatilityRule.MaxPyramidingLevels + 1;
+                    || openPairPositions.Count < volatilityRule.MaxPyramidingLevels + 1;
                 if (!canPyramid)
                 {
-                    logger.LogDebug("策略 {StrategyName}: 已达到最大加仓次数, Symbol={Symbol}, Max={Max}",
-                        strategy.Name, symbolId, volatilityRule!.MaxPyramidingLevels);
+                    logger.LogDebug("策略 {StrategyName}: 已达到最大加仓次数, Pair={Pair}, Max={Max}",
+                        strategy.Name, pair, volatilityRule!.MaxPyramidingLevels);
                     return;
                 }
 
                 if (volatilityRule is not null)
                 {
-                    var totalPositionValue = openSymbolPositions.Sum(p => p.CurrentPrice * p.Quantity) + volatilityRule.BasePositionSize;
+                    var totalPositionValue = openPairPositions.Sum(p => p.CurrentPrice * p.Quantity) + volatilityRule.BasePositionSize;
                     if (totalPositionValue > volatilityRule.MaxPositionSize)
                     {
-                        logger.LogDebug("策略 {StrategyName}: 仓位价值 {Value} 超过上限 {Max}, Symbol={Symbol}",
-                            strategy.Name, totalPositionValue, volatilityRule.MaxPositionSize, symbolId);
+                        logger.LogDebug("策略 {StrategyName}: 仓位价值 {Value} 超过上限 {Max}, Pair={Pair}",
+                            strategy.Name, totalPositionValue, volatilityRule.MaxPositionSize, pair);
                         return;
                     }
                 }
@@ -189,12 +189,12 @@ public class TradingEngine(
                     return;
                 }
 
-                var symbolRisk = await cycle.RiskManager.CheckSymbolRiskAsync(strategy.TraderId, strategy.ExchangeId, symbolId, ct);
-                if (!symbolRisk.IsAllowed)
+                var pairRisk = await cycle.RiskManager.CheckPairRiskAsync(strategy.TraderId, strategy.ExchangeId, pair, ct);
+                if (!pairRisk.IsAllowed)
                 {
-                    var msg = string.Join("; ", symbolRisk.DeniedReasons);
+                    var msg = string.Join("; ", pairRisk.DeniedReasons);
                     logger.LogWarning("策略 {StrategyName}: 币种风控拒绝, 原因: {Reasons}", strategy.Name, msg);
-                    await eventBus.RiskAlertAsync(strategy.TraderId, "Warning", "SymbolRisk", strategy.Id, msg, ct);
+                    await eventBus.RiskAlertAsync(strategy.TraderId, "Warning", "PairRisk", strategy.Id, msg, ct);
                     return;
                 }
 
@@ -203,7 +203,7 @@ public class TradingEngine(
                     TraderId = strategy.TraderId,
                     ExchangeId = strategy.ExchangeId,
                     StrategyId = strategy.Id,
-                    SymbolId = symbolId,
+                    Pair = pair,
                     Side = OrderSide.Buy,
                     Type = OrderType.Market,
                     Quantity = volatilityRule?.BasePositionSize ?? 100,
@@ -214,21 +214,21 @@ public class TradingEngine(
                 if (result.Success)
                 {
                     if (volatilityRule is not null)
-                        MarkVolatilityGridOrderExecuted(strategy.TraderId, strategy.ExchangeId, symbolId, OrderSide.Buy);
+                        MarkVolatilityGridOrderExecuted(strategy.TraderId, strategy.ExchangeId, pair, OrderSide.Buy);
 
                     marketData.LastTradeTime[$"{strategy.TraderId}_{strategy.Id}"] = DateTime.UtcNow;
 
-                    logger.LogInformation("策略 {StrategyName}: 买入成交 {Symbol} {Quantity}",
-                        strategy.Name, symbolId, result.FilledQuantity);
+                    logger.LogInformation("策略 {StrategyName}: 买入成交 {Pair} {Quantity}",
+                        strategy.Name, pair, result.FilledQuantity);
 
                     await eventBus.OrderPlacedAsync(strategy.TraderId, order.Id, order.ExchangeId, order.StrategyId,
-                        order.SymbolId, order.Side.ToString(), order.Type.ToString(),
+                        order.Pair, order.Side.ToString(), order.Type.ToString(),
                         order.Status.ToString(), order.Quantity, order.PlacedAtUtc, ct);
                 }
                 else
                 {
-                    logger.LogWarning("策略 {StrategyName}: 买入失败 {Symbol}, 原因: {Error}",
-                        strategy.Name, symbolId, result.Error);
+                    logger.LogWarning("策略 {StrategyName}: 买入失败 {Pair}, 原因: {Error}",
+                        strategy.Name, pair, result.Error);
                 }
             }
         }
@@ -237,18 +237,18 @@ public class TradingEngine(
         {
             var shouldExit = volatilityRule is null
                 ? cycle.ConditionEvaluator.Evaluate(exitConditionJson, indicatorValues, previousValues)
-                : ShouldExitVolatilityGrid(volatilityRule, openSymbolPositions, currentPrice);
+                : ShouldExitVolatilityGrid(volatilityRule, openPairPositions, currentPrice);
             if (shouldExit)
             {
-                if (volatilityRule is not null && !CanExecuteVolatilityGridOrder(strategy.TraderId, strategy.ExchangeId, symbolId, OrderSide.Sell, volatilityGridDedupWindow))
+                if (volatilityRule is not null && !CanExecuteVolatilityGridOrder(strategy.TraderId, strategy.ExchangeId, pair, OrderSide.Sell, volatilityGridDedupWindow))
                 {
-                    logger.LogDebug("策略 {StrategyName}: 命中去重窗口，跳过重复卖出, Symbol={Symbol}", strategy.Name, symbolId);
+                    logger.LogDebug("策略 {StrategyName}: 命中去重窗口，跳过重复卖出, Pair={Pair}", strategy.Name, pair);
                     return;
                 }
 
                 var positionsToClose = volatilityRule is null
-                    ? openSymbolPositions
-                    : openSymbolPositions.Take(1).ToList();
+                    ? openPairPositions
+                    : openPairPositions.Take(1).ToList();
 
                 foreach (var position in positionsToClose)
                 {
@@ -258,7 +258,7 @@ public class TradingEngine(
                         ExchangeId = strategy.ExchangeId,
                         StrategyId = strategy.Id,
                         PositionId = position.Id,
-                        SymbolId = symbolId,
+                        Pair = pair,
                         Side = OrderSide.Sell,
                         Type = OrderType.Market,
                         Quantity = position.Quantity,
@@ -269,23 +269,23 @@ public class TradingEngine(
                     if (result.Success)
                     {
                         if (volatilityRule is not null)
-                            MarkVolatilityGridOrderExecuted(strategy.TraderId, strategy.ExchangeId, symbolId, OrderSide.Sell);
+                            MarkVolatilityGridOrderExecuted(strategy.TraderId, strategy.ExchangeId, pair, OrderSide.Sell);
 
                         position.Status = PositionStatus.Closed;
                         position.ClosedAtUtc = DateTime.UtcNow;
                         position.UpdatedAt = DateTime.UtcNow;
                         await cycle.PositionRepo.UpdateAsync(position, ct);
 
-                        logger.LogInformation("策略 {StrategyName}: 卖出平仓 {Symbol} {Quantity}, PnL={PnL}",
-                            strategy.Name, symbolId, position.Quantity, position.RealizedPnl);
+                        logger.LogInformation("策略 {StrategyName}: 卖出平仓 {Pair} {Quantity}, PnL={PnL}",
+                            strategy.Name, pair, position.Quantity, position.RealizedPnl);
 
                         await eventBus.PositionUpdatedAsync(strategy.TraderId, position.Id, position.ExchangeId,
-                            position.StrategyId, position.SymbolId, position.Quantity, position.EntryPrice,
+                            position.StrategyId, position.Pair, position.Quantity, position.EntryPrice,
                             position.UnrealizedPnl, position.RealizedPnl, position.Status.ToString(),
                             position.UpdatedAt, ct);
 
                         await eventBus.OrderPlacedAsync(strategy.TraderId, sellOrder.Id, sellOrder.ExchangeId,
-                            sellOrder.StrategyId, sellOrder.SymbolId, sellOrder.Side.ToString(),
+                            sellOrder.StrategyId, sellOrder.Pair, sellOrder.Side.ToString(),
                             sellOrder.Type.ToString(), sellOrder.Status.ToString(),
                             sellOrder.Quantity, sellOrder.PlacedAtUtc, ct);
                     }
@@ -297,14 +297,14 @@ public class TradingEngine(
     private static bool ShouldEnterVolatilityGrid(
         VolatilityGridExecutionRule rule,
         bool hasOpenPosition,
-        IReadOnlyList<Position> openSymbolPositions,
+        IReadOnlyList<Position> openPairPositions,
         decimal currentPrice,
         bool firstEntrySignal)
     {
         if (!hasOpenPosition)
             return firstEntrySignal;
 
-        var avgEntry = CalculateAverageEntry(openSymbolPositions);
+        var avgEntry = CalculateAverageEntry(openPairPositions);
         if (avgEntry <= 0)
             return false;
 
@@ -313,26 +313,26 @@ public class TradingEngine(
 
     private static bool ShouldExitVolatilityGrid(
         VolatilityGridExecutionRule rule,
-        IReadOnlyList<Position> openSymbolPositions,
+        IReadOnlyList<Position> openPairPositions,
         decimal currentPrice)
     {
-        if (openSymbolPositions.Count == 0)
+        if (openPairPositions.Count == 0)
             return false;
 
-        var avgEntry = CalculateAverageEntry(openSymbolPositions);
+        var avgEntry = CalculateAverageEntry(openPairPositions);
         if (avgEntry <= 0)
             return false;
 
         return currentPrice >= avgEntry * (1 + rule.RebalancePercent / 100m);
     }
 
-    private static decimal CalculateAverageEntry(IReadOnlyList<Position> openSymbolPositions)
+    private static decimal CalculateAverageEntry(IReadOnlyList<Position> openPairPositions)
     {
-        var totalQuantity = openSymbolPositions.Sum(p => p.Quantity);
+        var totalQuantity = openPairPositions.Sum(p => p.Quantity);
         if (totalQuantity <= 0)
             return 0m;
 
-        var totalCost = openSymbolPositions.Sum(p => p.EntryPrice * p.Quantity);
+        var totalCost = openPairPositions.Sum(p => p.EntryPrice * p.Quantity);
         return totalCost / totalQuantity;
     }
 
@@ -345,23 +345,23 @@ public class TradingEngine(
         return TimeSpan.FromSeconds(Math.Clamp(seconds, 0, 3600));
     }
 
-    private bool CanExecuteVolatilityGridOrder(Guid traderId, Guid exchangeId, string symbolId, OrderSide side, TimeSpan dedupWindow)
+    private bool CanExecuteVolatilityGridOrder(Guid traderId, Guid exchangeId, string pair, OrderSide side, TimeSpan dedupWindow)
     {
-        var dedupKey = BuildVolatilityGridDedupKey(traderId, exchangeId, symbolId, side);
+        var dedupKey = BuildVolatilityGridDedupKey(traderId, exchangeId, pair, side);
         if (!marketData.LastTradeTime.TryGetValue(dedupKey, out var lastTime))
             return true;
 
         return DateTime.UtcNow - lastTime >= dedupWindow;
     }
 
-    private void MarkVolatilityGridOrderExecuted(Guid traderId, Guid exchangeId, string symbolId, OrderSide side)
+    private void MarkVolatilityGridOrderExecuted(Guid traderId, Guid exchangeId, string pair, OrderSide side)
     {
-        var dedupKey = BuildVolatilityGridDedupKey(traderId, exchangeId, symbolId, side);
+        var dedupKey = BuildVolatilityGridDedupKey(traderId, exchangeId, pair, side);
         marketData.LastTradeTime[dedupKey] = DateTime.UtcNow;
     }
 
-    private static string BuildVolatilityGridDedupKey(Guid traderId, Guid exchangeId, string symbolId, OrderSide side)
-        => $"vg:{traderId}:{exchangeId}:{symbolId.ToUpperInvariant()}:{side}";
+    private static string BuildVolatilityGridDedupKey(Guid traderId, Guid exchangeId, string pair, OrderSide side)
+        => $"vg:{traderId}:{exchangeId}:{pair.ToUpperInvariant()}:{side}";
 
     private static bool HasRecentPriceMoveBelowMid(IReadOnlyList<decimal> prices, decimal thresholdPercent, decimal currentPrice)
     {
@@ -404,7 +404,7 @@ public class TradingEngine(
 
             foreach (var position in allOpenPositions)
             {
-                var prices = GetPriceHistory(position.SymbolId);
+                var prices = GetPriceHistory(position.Pair);
                 if (prices.Count == 0) continue;
 
                 var lastPrice = prices[^1];
@@ -419,7 +419,7 @@ public class TradingEngine(
                 if (Math.Abs(position.UnrealizedPnl - oldUnrealizedPnl) > 0.01m)
                 {
                     await eventBus.PositionUpdatedAsync(position.TraderId, position.Id, position.ExchangeId,
-                        position.StrategyId, position.SymbolId, position.Quantity, position.EntryPrice,
+                        position.StrategyId, position.Pair, position.Quantity, position.EntryPrice,
                         position.UnrealizedPnl, position.RealizedPnl, position.Status.ToString(),
                         position.UpdatedAt, ct);
                 }
@@ -458,8 +458,8 @@ public class TradingEngine(
         }
     }
 
-    private List<decimal> GetPriceHistory(string symbolId)
+    private List<decimal> GetPriceHistory(string pair)
     {
-        return marketData.PriceHistory.GetValueOrDefault(symbolId, []);
+        return marketData.PriceHistory.GetValueOrDefault(pair, []);
     }
 }

@@ -10,7 +10,7 @@ public class Order
     public Guid ExchangeId { get; init; }
     public Guid? StrategyId { get; set; }
     public Guid? PositionId { get; set; }
-    public string SymbolId { get; set; } = string.Empty;
+    public string Pair { get; set; } = string.Empty;
     public OrderSide Side { get; set; }
     public OrderType Type { get; set; }
     public OrderStatus Status { get; set; } = OrderStatus.Pending;

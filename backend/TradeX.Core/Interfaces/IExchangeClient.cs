@@ -6,9 +6,9 @@ public interface IExchangeClient
 {
     ExchangeType Type { get; }
 
-    IAsyncEnumerable<Candle> SubscribeKlinesAsync(string symbol, string interval, CancellationToken ct = default);
-    Task<Candle[]> GetKlinesAsync(string symbol, string interval, DateTime start, DateTime end, CancellationToken ct = default);
-    Task<OrderBook> GetOrderBookAsync(string symbol, int limit, CancellationToken ct = default);
+    IAsyncEnumerable<Candle> SubscribeKlinesAsync(string Pair, string interval, CancellationToken ct = default);
+    Task<Candle[]> GetKlinesAsync(string Pair, string interval, DateTime start, DateTime end, CancellationToken ct = default);
+    Task<OrderBook> GetOrderBookAsync(string Pair, int limit, CancellationToken ct = default);
 
     Task<Dictionary<string, decimal>> GetAssetBalancesAsync(CancellationToken ct = default);
     Task<ExchangePosition[]> GetPositionsAsync(CancellationToken ct = default);
@@ -24,7 +24,7 @@ public interface IExchangeClient
 
     Task<ExchangeOrderDto[]> GetOrderHistoryAsync(CancellationToken ct = default);
 
-    Task<SymbolRule[]> GetSymbolRulesAsync(CancellationToken ct = default);
+    Task<PairRule[]> GetPairRulesAsync(CancellationToken ct = default);
     Task<TickerPrice[]> GetTickerPricesAsync(CancellationToken ct = default);
 }
 
@@ -36,7 +36,7 @@ public record OrderBook(
     DateTime Timestamp);
 
 public record OrderRequest(
-    string Symbol,
+    string Pair,
     OrderSide Side,
     OrderType Type,
     decimal Quantity,
@@ -52,14 +52,14 @@ public record OrderResult(
     string? Error);
 
 public record ExchangePosition(
-    string Symbol,
+    string Pair,
     decimal Quantity,
     decimal EntryPrice,
     decimal CurrentPrice,
     decimal UnrealizedPnl);
 
-public record SymbolRule(
-    string Symbol,
+public record PairRule(
+    string Pair,
     int PricePrecision,
     int QuantityPrecision,
     decimal MinNotional,
@@ -68,7 +68,7 @@ public record SymbolRule(
     decimal StepSize);
 
 public record ExchangeOrderDto(
-    string Symbol,
+    string Pair,
     string Side,
     string Type,
     string Status,
@@ -84,7 +84,7 @@ public record ConnectionTestResult(
     string? Message);
 
 public record TickerPrice(
-    string Symbol,
+    string Pair,
     decimal Price,
     decimal PriceChangePercent,
     decimal Volume,

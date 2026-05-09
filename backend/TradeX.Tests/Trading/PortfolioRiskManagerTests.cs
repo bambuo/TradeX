@@ -152,16 +152,16 @@ public class PortfolioRiskManagerTests
     }
 
     [Fact]
-    public async Task CheckSymbolRiskAsync_SetsSymbolId()
+    public async Task CheckPairRiskAsync_SetsPair()
     {
         var traderId = Guid.NewGuid();
-        var symbolId = "BTCUSDT";
+        var pair = "BTCUSDT";
         _positionRepo.GetOpenByTraderIdAsync(traderId, Arg.Any<CancellationToken>())
             .Returns([]);
         _positionRepo.GetClosedByTraderIdSinceAsync(traderId, Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
             .Returns([]);
 
-        var result = await _manager.CheckSymbolRiskAsync(traderId, Guid.NewGuid(), symbolId);
+        var result = await _manager.CheckPairRiskAsync(traderId, Guid.NewGuid(), pair);
 
         Assert.True(result.IsAllowed);
     }

@@ -217,8 +217,8 @@ public class ExchangesController(
         }
     }
 
-    [HttpGet("{id:guid}/symbols")]
-    public async Task<IActionResult> GetSymbols(Guid id, CancellationToken ct)
+    [HttpGet("{id:guid}/pairs")]
+    public async Task<IActionResult> GetPairs(Guid id, CancellationToken ct)
     {
         var exchange = await exchangeRepo.GetByIdAsync(id, ct);
         if (exchange is null)
@@ -235,23 +235,23 @@ public class ExchangesController(
 
             var client = clientFactory.CreateClient(exchange.Type, apiKey, secretKey, passphrase);
 
-            var rulesTask = client.GetSymbolRulesAsync(ct);
+            var rulesTask = client.GetPairRulesAsync(ct);
             var tickerTask = client.GetTickerPricesAsync(ct);
 
             await Task.WhenAll(rulesTask, tickerTask);
 
             var rules = await rulesTask;
             var tickers = await tickerTask;
-            var tickerMap = tickers.ToDictionary(t => t.Symbol, t => t);
+            var tickerMap = tickers.ToDictionary(t => t.Pair, t => t);
 
-            var symbols = rules
-                .Where(r => r.Symbol.EndsWith("USDT", StringComparison.OrdinalIgnoreCase))
+            var Pairs = rules
+                .Where(r => r.Pair.EndsWith("USDT", StringComparison.OrdinalIgnoreCase))
                 .Select(r =>
                 {
-                    var t = tickerMap.GetValueOrDefault(r.Symbol);
+                    var t = tickerMap.GetValueOrDefault(r.Pair);
                     return new
                     {
-                        symbol = r.Symbol,
+                        pair = r.Pair,
                         pricePrecision = r.PricePrecision,
                         quantityPrecision = r.QuantityPrecision,
                         minNotional = r.MinNotional,
@@ -262,10 +262,10 @@ public class ExchangesController(
                         lowPrice = t?.LowPrice ?? 0
                     };
                 })
-                .OrderBy(r => r.symbol)
+                .OrderBy(r => r.pair)
                 .ToList();
 
-            return Ok(new { data = symbols });
+            return Ok(new { data = Pairs });
         }
         catch (Exception ex)
         {

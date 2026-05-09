@@ -169,7 +169,7 @@
                                 @foreach (var o in orders)
                                 {
                                     <tr>
-                                        <td>@o.Symbol</td>
+                                        <td>@o.Pair</td>
                                         <td><span class="@(o.Side == "Buy" ? "side-buy" : "side-sell")">@(o.Side == "Buy" ? "买入" : "卖出")</span></td>
                                         <td>@FormatOrderType(o.Type)</td>
                                         <td>@FormatOrderStatus(o.Status)</td>

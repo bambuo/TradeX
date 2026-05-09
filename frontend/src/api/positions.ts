@@ -5,7 +5,7 @@ export interface Position {
   traderId: string
   exchangeId: string
   strategyId: string
-  symbolId: string
+  Pair: string
   quantity: number
   entryPrice: number
   currentPrice: number

@@ -130,12 +130,12 @@ public sealed class StrategyPageService(
             ?? throw new InvalidOperationException("策略部署不存在");
     }
 
-    private static string ResolveScope(string symbolIds, Guid exchangeId)
+    private static string ResolveScope(string pairs, Guid exchangeId)
     {
-        var hasSymbols = !string.IsNullOrWhiteSpace(symbolIds)
-            && symbolIds != "[]"
-            && symbolIds.Replace("\"", "").Replace("[", "").Replace("]", "").Trim().Length > 0;
-        if (hasSymbols) return "Symbol";
+        var hasPairs = !string.IsNullOrWhiteSpace(pairs)
+            && pairs != "[]"
+            && pairs.Replace("\"", "").Replace("[", "").Replace("]", "").Trim().Length > 0;
+        if (hasPairs) return "Pair";
         if (exchangeId != Guid.Empty) return "Exchange";
         return "Trader";
     }

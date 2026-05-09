@@ -26,12 +26,12 @@ public class OkxClient : IExchangeClient
         _http = new HttpClient { BaseAddress = new Uri("https://www.okx.com") };
     }
 
-    public async IAsyncEnumerable<Candle> SubscribeKlinesAsync(string symbol, string interval, [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<Candle> SubscribeKlinesAsync(string Pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
     {
         var lastTime = 0L;
         while (!ct.IsCancellationRequested)
         {
-            var candles = await GetKlinesAsync(symbol, interval, DateTime.UtcNow.AddHours(-1), DateTime.UtcNow, ct);
+            var candles = await GetKlinesAsync(Pair, interval, DateTime.UtcNow.AddHours(-1), DateTime.UtcNow, ct);
             foreach (var c in candles)
             {
                 var ms = new DateTimeOffset(c.Timestamp).ToUnixTimeMilliseconds();
@@ -45,11 +45,11 @@ public class OkxClient : IExchangeClient
         }
     }
 
-    public async Task<Candle[]> GetKlinesAsync(string symbol, string interval, DateTime start, DateTime end, CancellationToken ct = default)
+    public async Task<Candle[]> GetKlinesAsync(string Pair, string interval, DateTime start, DateTime end, CancellationToken ct = default)
     {
         var after = new DateTimeOffset(start).ToUnixTimeMilliseconds();
         var before = new DateTimeOffset(end).ToUnixTimeMilliseconds();
-        var resp = await _http.GetAsync($"/api/v5/market/history-candles?instId={symbol}&bar={interval}&after={after}&before={before}&limit=300", ct);
+        var resp = await _http.GetAsync($"/api/v5/market/history-candles?instId={Pair}&bar={interval}&after={after}&before={before}&limit=300", ct);
         if (!resp.IsSuccessStatusCode) return [];
 
         var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
@@ -69,9 +69,9 @@ public class OkxClient : IExchangeClient
         }).ToArray();
     }
 
-    public async Task<OrderBook> GetOrderBookAsync(string symbol, int limit, CancellationToken ct = default)
+    public async Task<OrderBook> GetOrderBookAsync(string Pair, int limit, CancellationToken ct = default)
     {
-        var resp = await _http.GetAsync($"/api/v5/market/books?instId={symbol}&sz={limit}", ct);
+        var resp = await _http.GetAsync($"/api/v5/market/books?instId={Pair}&sz={limit}", ct);
         if (!resp.IsSuccessStatusCode) return new OrderBook(new decimal[0, 2], new decimal[0, 2], DateTime.UtcNow);
 
         var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
@@ -107,7 +107,7 @@ public class OkxClient : IExchangeClient
         var ordType = request.Type == OrderType.Limit ? "limit" : "market";
         var body = new
         {
-            instId = request.Symbol,
+            instId = request.Pair,
             tdMode = "cash",
             side,
             ordType,
@@ -224,7 +224,7 @@ public class OkxClient : IExchangeClient
         }
     }
 
-    public async Task<SymbolRule[]> GetSymbolRulesAsync(CancellationToken ct = default)
+    public async Task<PairRule[]> GetPairRulesAsync(CancellationToken ct = default)
     {
         var resp = await _http.GetAsync("/api/v5/public/instruments?instType=SPOT", ct);
         if (!resp.IsSuccessStatusCode) return [];
@@ -234,7 +234,7 @@ public class OkxClient : IExchangeClient
 
         var data = doc.RootElement.GetProperty("data").EnumerateArray()
             .Where(s => s.GetProperty("state").GetString() == "live");
-        return data.Select(s => new SymbolRule(
+        return data.Select(s => new PairRule(
             s.GetProperty("instId").GetString()!,
             s.GetProperty("tickSz").GetString()!.Length - 1,
             s.GetProperty("lotSz").GetString()!.Length - 1,

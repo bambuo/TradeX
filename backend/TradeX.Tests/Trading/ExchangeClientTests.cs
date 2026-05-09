@@ -150,7 +150,7 @@ public class TradeExecutorTests
         var order = new Order
         {
             ExchangeId = exchange.Id,
-            SymbolId = "BTCUSDT",
+            Pair = "BTCUSDT",
             Side = OrderSide.Buy,
             Quantity = 1,
             QuoteQuantity = 100
@@ -160,7 +160,7 @@ public class TradeExecutorTests
 
         Assert.True(result.Success);
         await exchangeClient.Received(1).PlaceOrderAsync(
-            Arg.Is<OrderRequest>(r => r.Symbol == "BTCUSDT" && r.Type == OrderType.Market),
+            Arg.Is<OrderRequest>(r => r.Pair == "BTCUSDT" && r.Type == OrderType.Market),
             Arg.Any<CancellationToken>());
     }
 }

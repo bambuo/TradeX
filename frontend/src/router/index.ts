@@ -60,7 +60,7 @@ const router = createRouter({
           path: 'backtests/tasks/:taskId',
           name: 'Backtest',
           component: () => import('../views/BacktestView.vue'),
-          meta: { label: '回测详情' }
+          meta: { label: '详情' }
         },
         {
           path: 'traders/:traderId/orders',

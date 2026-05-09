@@ -28,12 +28,12 @@ public class BinanceClient : IExchangeClient
         };
     }
 
-    public async IAsyncEnumerable<Candle> SubscribeKlinesAsync(string symbol, string interval, [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<Candle> SubscribeKlinesAsync(string pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
     {
         var lastTime = 0L;
         while (!ct.IsCancellationRequested)
         {
-            var candles = await FetchKlinesAsync(symbol, interval, lastTime > 0 ? DateTimeOffset.FromUnixTimeMilliseconds(lastTime).UtcDateTime : DateTime.UtcNow.AddHours(-1), DateTime.UtcNow, ct);
+            var candles = await FetchKlinesAsync(pair, interval, lastTime > 0 ? DateTimeOffset.FromUnixTimeMilliseconds(lastTime).UtcDateTime : DateTime.UtcNow.AddHours(-1), DateTime.UtcNow, ct);
             foreach (var c in candles)
                 if (new DateTimeOffset(c.Timestamp).ToUnixTimeMilliseconds() > lastTime)
                 {
@@ -44,12 +44,12 @@ public class BinanceClient : IExchangeClient
         }
     }
 
-    public async Task<Candle[]> GetKlinesAsync(string symbol, string interval, DateTime start, DateTime end, CancellationToken ct = default)
-        => (await FetchKlinesAsync(symbol, interval, start, end, ct)).ToArray();
+    public async Task<Candle[]> GetKlinesAsync(string pair, string interval, DateTime start, DateTime end, CancellationToken ct = default)
+        => (await FetchKlinesAsync(pair, interval, start, end, ct)).ToArray();
 
-    public async Task<OrderBook> GetOrderBookAsync(string symbol, int limit, CancellationToken ct = default)
+    public async Task<OrderBook> GetOrderBookAsync(string pair, int limit, CancellationToken ct = default)
     {
-        var resp = await _http.GetAsync($"/api/v3/depth?symbol={symbol}&limit={limit}", ct);
+        var resp = await _http.GetAsync($"/api/v3/depth?symbol={pair}&limit={limit}", ct);
         resp.EnsureSuccessStatusCode();
         var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
         if (doc is null) return new OrderBook(new decimal[0, 2], new decimal[0, 2], DateTime.UtcNow);
@@ -116,7 +116,7 @@ public class BinanceClient : IExchangeClient
             OrderType.StopLimit => "STOP_LOSS_LIMIT",
             _ => "MARKET"
         };
-        var query = $"symbol={request.Symbol}&side={side}&type={type}&quantity={request.Quantity}&timestamp={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+        var query = $"symbol={request.Pair}&side={side}&type={type}&quantity={request.Quantity}&timestamp={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
         if (request.Price.HasValue) query += $"&price={request.Price}";
         if (request.StopPrice.HasValue) query += $"&stopPrice={request.StopPrice}";
         if (type == "LIMIT" || type == "STOP_LOSS_LIMIT") query += "&timeInForce=GTC";
@@ -198,21 +198,21 @@ public class BinanceClient : IExchangeClient
 
     public async Task<ExchangeOrderDto[]> GetOrderHistoryAsync(CancellationToken ct = default)
     {
-        var symbols = new HashSet<string>();
+        var pairs = new HashSet<string>();
 
         var assets = await GetAssetBalancesAsync(ct);
         foreach (var asset in assets.Keys)
             if (asset != "USDT" && !string.IsNullOrWhiteSpace(asset))
-                symbols.Add($"{asset}USDT");
+                pairs.Add($"{asset}USDT");
 
-        symbols.Add("BTCUSDT");
-        symbols.Add("ETHUSDT");
+        pairs.Add("BTCUSDT");
+        pairs.Add("ETHUSDT");
 
         var results = new List<ExchangeOrderDto>();
 
-        foreach (var symbol in symbols)
+        foreach (var pair in pairs)
         {
-            var query = $"symbol={symbol}&timestamp={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}&limit=20";
+            var query = $"symbol={pair}&timestamp={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}&limit=20";
             var req = new HttpRequestMessage(HttpMethod.Get, $"/api/v3/allOrders?{query}&signature={Sign(query)}");
             req.Headers.Add("X-MBX-APIKEY", _apiKey);
             var resp = await _http.SendAsync(req, ct);
@@ -274,7 +274,7 @@ public class BinanceClient : IExchangeClient
         }, "Connection successful. Spot trade permission verified.");
     }
 
-    public async Task<SymbolRule[]> GetSymbolRulesAsync(CancellationToken ct = default)
+    public async Task<PairRule[]> GetPairRulesAsync(CancellationToken ct = default)
     {
         var resp = await _http.GetAsync("/api/v3/exchangeInfo", ct);
         resp.EnsureSuccessStatusCode();
@@ -283,7 +283,7 @@ public class BinanceClient : IExchangeClient
 
         return doc.RootElement.GetProperty("symbols").EnumerateArray()
             .Where(s => s.GetProperty("status").GetString() == "TRADING" && s.GetProperty("isSpotTradingAllowed").GetBoolean())
-            .Select(s => new SymbolRule(
+            .Select(s => new PairRule(
                 s.GetProperty("symbol").GetString()!,
                 s.GetProperty("quotePrecision").GetInt32(),
                 s.GetProperty("baseAssetPrecision").GetInt32(),
@@ -329,11 +329,11 @@ public class BinanceClient : IExchangeClient
         return result;
     }
 
-    private async Task<List<Candle>> FetchKlinesAsync(string symbol, string interval, DateTime start, DateTime end, CancellationToken ct)
+    private async Task<List<Candle>> FetchKlinesAsync(string pair, string interval, DateTime start, DateTime end, CancellationToken ct)
     {
         var startMs = new DateTimeOffset(start).ToUnixTimeMilliseconds();
         var endMs = new DateTimeOffset(end).ToUnixTimeMilliseconds();
-        var resp = await _http.GetAsync($"/api/v3/klines?symbol={symbol}&interval={interval}&startTime={startMs}&endTime={endMs}&limit=1000", ct);
+        var resp = await _http.GetAsync($"/api/v3/klines?symbol={pair}&interval={interval}&startTime={startMs}&endTime={endMs}&limit=1000", ct);
         if (!resp.IsSuccessStatusCode) return [];
 
         var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
@@ -349,9 +349,9 @@ public class BinanceClient : IExchangeClient
         )).ToList();
     }
 
-    private static decimal ParseFilter(JsonElement symbol, string filterType, string field)
+    private static decimal ParseFilter(JsonElement pairEl, string filterType, string field)
     {
-        foreach (var f in symbol.GetProperty("filters").EnumerateArray())
+        foreach (var f in pairEl.GetProperty("filters").EnumerateArray())
             if (f.GetProperty("filterType").GetString() == filterType && f.TryGetProperty(field, out var val))
                 return decimal.Parse(val.GetString()!, CultureInfo.InvariantCulture);
         return 0;

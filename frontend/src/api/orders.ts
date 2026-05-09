@@ -7,7 +7,7 @@ export interface Order {
   exchangeId: string
   strategyId: string | null
   positionId: string | null
-  symbolId: string
+  Pair: string
   side: string
   type: string
   status: string
@@ -24,7 +24,7 @@ export interface Order {
 
 export interface CreateManualOrderRequest {
   exchangeId: string
-  symbolId: string
+  Pair: string
   side: string
   type: string
   quantity: number

@@ -99,7 +99,7 @@
                     <div class="mb-3">
                         <label class="form-label">作用域</label>
                         <div class="btn-group w-100" role="group">
-                            @foreach (var scope in new[] { "Trader", "Exchange", "Symbol" })
+                            @foreach (var scope in new[] { "Trader", "Exchange", "Pair" })
                             {
                                 <button type="button" class="btn @(formScope == scope ? "btn-primary" : "btn-outline-primary")"
                                     @onclick="() => formScope = scope">
@@ -132,11 +132,11 @@
                         </div>
                     }
 
-                    @if (formScope == "Symbol")
+                    @if (formScope == "Pair")
                     {
                         <div class="mb-3">
                             <label class="form-label">交易对</label>
-                            <input class="form-control form-control-lg" @bind="formSymbolsInput" placeholder="输入交易对，逗号分隔（如 BTCUSDT,ETHUSDT）" />
+                            <input class="form-control form-control-lg" @bind="formPairsInput" placeholder="输入交易对，逗号分隔（如 BTCUSDT,ETHUSDT）" />
                         </div>
                     }
 
@@ -182,10 +182,10 @@
     private bool showDialog;
     private bool isEdit;
     private Guid? editId;
-    private string formScope = "Symbol";
+    private string formScope = "Pair";
     private Guid formStrategyId;
     private Guid? formExchangeId;
-    private string formSymbolsInput = string.Empty;
+    private string formPairsInput = string.Empty;
     private string formTimeframe = "15m";
     private string? formError;
 
@@ -229,10 +229,10 @@
     {
         isEdit = false;
         editId = null;
-        formScope = "Symbol";
+        formScope = "Pair";
         formStrategyId = strategies.Count > 0 ? strategies[0].Id : Guid.Empty;
         formExchangeId = exchangeOptions.Count > 0 ? exchangeOptions[0].Id : null;
-        formSymbolsInput = string.Empty;
+        formPairsInput = string.Empty;
         formTimeframe = "15m";
         formError = null;
         showDialog = true;
@@ -245,7 +245,7 @@
         formScope = item.Scope;
         formStrategyId = item.StrategyId;
         formExchangeId = item.ExchangeId != Guid.Empty ? item.ExchangeId : null;
-        formSymbolsInput = FormatPairs(item.Pairs);
+        formPairsInput = FormatPairs(item.Pairs);
         formTimeframe = item.Timeframe;
         formError = null;
         showDialog = true;
@@ -264,8 +264,8 @@
         {
             var state = await AuthenticationStateTask;
             var exchangeId = formScope == "Trader" ? null : formExchangeId;
-            var symbolIds = formScope == "Symbol"
-                ? SerializePairs(formSymbolsInput)
+            var pairs = formScope == "Pair"
+                ? SerializePairs(formPairsInput)
                 : "[]";
 
             if (isEdit && editId.HasValue)
@@ -274,7 +274,7 @@
                 {
                     StrategyId = formStrategyId,
                     ExchangeId = exchangeId,
-                    Pairs = symbolIds,
+                    Pairs = pairs,
                     Timeframe = formTimeframe
                 });
             }
@@ -284,7 +284,7 @@
                 {
                     StrategyId = formStrategyId,
                     ExchangeId = exchangeId,
-                    Pairs = symbolIds,
+                    Pairs = pairs,
                     Timeframe = formTimeframe
                 });
             }
@@ -335,7 +335,7 @@
     {
         "Trader" => "交易员级",
         "Exchange" => "交易所级",
-        "Symbol" => "交易对级",
+        "Pair" => "交易对级",
         _ => scope
     };
 
@@ -365,18 +365,18 @@
         _ => "启用"
     };
 
-    private static string FormatPairs(string symbolIds)
+    private static string FormatPairs(string pairs)
     {
-        if (string.IsNullOrWhiteSpace(symbolIds) || symbolIds == "[]")
+        if (string.IsNullOrWhiteSpace(pairs) || pairs == "[]")
             return "-";
         try
         {
-            var parsed = System.Text.Json.JsonSerializer.Deserialize<string[]>(symbolIds);
+            var parsed = System.Text.Json.JsonSerializer.Deserialize<string[]>(pairs);
             return parsed is { Length: > 0 } ? string.Join(", ", parsed) : "-";
         }
         catch
         {
-            return symbolIds;
+            return pairs;
         }
     }
 

@@ -3,11 +3,11 @@ namespace TradeX.Trading;
 public interface ITradingEventBus
 {
     Task PositionUpdatedAsync(Guid traderId, Guid positionId, Guid exchangeId, Guid strategyId,
-        string symbolId, decimal quantity, decimal entryPrice, decimal unrealizedPnl,
+        string Pair, decimal quantity, decimal entryPrice, decimal unrealizedPnl,
         decimal realizedPnl, string status, DateTime updatedAtUtc, CancellationToken ct = default);
 
     Task OrderPlacedAsync(Guid traderId, Guid orderId, Guid exchangeId, Guid? strategyId,
-        string symbolId, string side, string type, string status,
+        string Pair, string side, string type, string status,
         decimal quantity, DateTime placedAtUtc, CancellationToken ct = default);
 
     Task BindingStatusChangedAsync(Guid traderId, Guid strategyId, string oldStatus,
