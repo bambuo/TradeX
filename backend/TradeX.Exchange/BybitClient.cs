@@ -7,6 +7,7 @@ using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Exchange.Handlers;
 using TradeX.Exchange.Refit;
+using TradeX.Exchange.Resilience;
 
 namespace TradeX.Exchange;
 
@@ -20,7 +21,7 @@ public class BybitClient(string apiKey, string secretKey, bool isTestnet) : IExc
     {
         var baseUri = new Uri(testnet ? "https://api-testnet.bybit.com" : "https://api.bybit.com");
 
-        var handler = new BybitAuthHandler(key, secret)
+        var auth = new BybitAuthHandler(key, secret)
         {
             InnerHandler = new SocketsHttpHandler
             {
@@ -29,6 +30,7 @@ public class BybitClient(string apiKey, string secretKey, bool isTestnet) : IExc
                 MaxConnectionsPerServer = 10
             }
         };
+        var handler = new ResilienceHandler(ExchangeType.Bybit) { InnerHandler = auth };
 
         var http = new HttpClient(handler) { BaseAddress = baseUri };
         return RestService.For<IBybitRestApi>(http, new RefitSettings

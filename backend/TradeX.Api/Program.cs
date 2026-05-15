@@ -2,6 +2,9 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Serilog;
 using TradeX.Api.Hubs;
 using TradeX.Api.Middleware;
@@ -58,7 +61,8 @@ try
     builder.Services.AddSingleton<ITradingEventBus, SignalREventBus>();
 
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
-    builder.Services.AddInfrastructure(connectionString);
+    var mySqlVersion = builder.Configuration["Database:MySqlServerVersion"] ?? "8.4.0";
+    builder.Services.AddInfrastructure(connectionString, mySqlVersion);
 
     var encryptionKey = builder.Configuration.GetSection("Encryption")["Key"]!;
     builder.Services.AddEncryption(encryptionKey);
@@ -70,9 +74,32 @@ try
 
     builder.Services.AddSignalR();
 
-    builder.Services.AddControllers()
+    builder.Services.AddScoped<TradeX.Api.Filters.MfaActionFilter>();
+    builder.Services.AddControllers(o => o.Filters.AddService<TradeX.Api.Filters.MfaActionFilter>())
         .AddJsonOptions(o => o.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase);
     builder.Services.AddSwaggerGen();
+
+    // OpenTelemetry: 业务指标 + 自动埋点 (ASP.NET Core / HttpClient / EF Core / Runtime)
+    // Metrics → Prometheus 抓取 (/metrics)；Traces → OTLP (OTEL_EXPORTER_OTLP_ENDPOINT 未设时静默)
+    builder.Services.AddSingleton<TradeX.Trading.Observability.TradeXMetrics>();
+    builder.Services.AddOpenTelemetry()
+        .ConfigureResource(r => r.AddService("tradex-api", serviceVersion: "1.0.0"))
+        .WithMetrics(metrics => metrics
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddRuntimeInstrumentation()
+            .AddMeter(TradeX.Trading.Observability.TradeXMetrics.MeterName)
+            .AddMeter("Polly")
+            .AddPrometheusExporter())
+        .WithTracing(tracing =>
+        {
+            tracing
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation()
+                .AddEntityFrameworkCoreInstrumentation();
+            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT")))
+                tracing.AddOtlpExporter();
+        });
 
     var app = builder.Build();
 
@@ -119,6 +146,9 @@ try
         app.UseSwagger();
         app.UseSwaggerUI();
     }
+
+    // Prometheus 抓取端点 (默认 /metrics)
+    app.MapPrometheusScrapingEndpoint();
 
     app.MapControllers();
     app.MapHub<TradingHub>("/hubs/trading");

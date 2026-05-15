@@ -1,25 +1,87 @@
 services:
+  mysql:
+    image: mysql:8.4
+    container_name: tradex-mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
+      - MYSQL_DATABASE=tradex
+      - MYSQL_USER=tradex
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --innodb-flush-log-at-trx-commit=1
+      - --max-connections=200
+    volumes:
+      - tradex-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: tradex-redis
+    command: ["redis-server", "--appendonly", "no", "--save", ""]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
   backend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: tradex
+      target: api
+    container_name: tradex-api
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
       - "80:80"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80
-      - ConnectionStrings__Sqlite=Data Source=/data/tradex.db
+      - ConnectionStrings__DefaultConnection=Server=mysql;Port=3306;Database=tradex;User Id=tradex;Password=${MYSQL_PASSWORD};SslMode=Preferred;CharSet=utf8mb4;DefaultCommandTimeout=30;
+      - Database__MySqlServerVersion=8.4.0
+      - Redis__ConnectionString=redis:6379
       - Jwt__Secret=${JWT_SECRET:?JWT_SECRET is required}
-    volumes:
-      - tradex-data:/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 15s
+      start_period: 30s
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker
+    container_name: tradex-worker
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - DOTNET_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Server=mysql;Port=3306;Database=tradex;User Id=tradex;Password=${MYSQL_PASSWORD};SslMode=Preferred;CharSet=utf8mb4;DefaultCommandTimeout=30;
+      - Database__MySqlServerVersion=8.4.0
+      - Redis__ConnectionString=redis:6379
+      - Otel__PrometheusListener=http://+:9464/
+    # Worker 不对外暴露端口；Prometheus 在内部网络 scrape worker:9464/metrics
+    expose:
+      - "9464"
     restart: unless-stopped
 
 volumes:
-  tradex-data:
+  tradex-mysql-data:

@@ -34,6 +34,7 @@ public class TradingEngineTests
         scopeFactory.CreateScope().Returns(scope);
 
         _engine = new TradingEngine(scopeFactory, _cache, _eventBus,
+            new TradeX.Trading.Observability.TradeXMetrics(),
             Substitute.For<ILogger<TradingEngine>>());
     }
 

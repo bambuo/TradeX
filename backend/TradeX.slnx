@@ -8,4 +8,5 @@
   <Project Path="TradeX.Notifications/TradeX.Notifications.csproj" />
   <Project Path="TradeX.Tests/TradeX.Tests.csproj" />
   <Project Path="TradeX.Trading/TradeX.Trading.csproj" />
+  <Project Path="TradeX.Worker/TradeX.Worker.csproj" />
 </Solution>

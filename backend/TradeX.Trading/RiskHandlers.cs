@@ -77,6 +77,22 @@ public class CircuitBreakerHandler(ILogger<CircuitBreakerHandler> logger) : Risk
     }
 }
 
+public class MaxOrderNotionalHandler(ILogger<MaxOrderNotionalHandler> logger) : RiskCheckHandler
+{
+    public override async Task<RiskContext> CheckAsync(RiskContext context, CancellationToken ct = default)
+    {
+        if (context.MaxOrderNotional > 0
+            && context.OrderNotional is { } notional
+            && notional > context.MaxOrderNotional)
+        {
+            context.Deny($"单笔名义价值 {notional:F2} 超过限制 {context.MaxOrderNotional:F2}");
+            logger.LogWarning("风控触发: 单笔名义价值超限, TraderId={TraderId}, Notional={Notional}, Limit={Limit}",
+                context.TraderId, notional, context.MaxOrderNotional);
+        }
+        return await base.CheckAsync(context, ct);
+    }
+}
+
 public class SlippageHandler(ILogger<SlippageHandler> logger) : RiskCheckHandler
 {
     public override async Task<RiskContext> CheckAsync(RiskContext context, CancellationToken ct = default)

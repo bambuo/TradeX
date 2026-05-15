@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using TradeX.Api.Filters;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 using TradeX.Core.Enums;
@@ -44,6 +45,7 @@ public class TradersController(
     }
 
     [HttpPost]
+    [RequireMfa]
     public async Task<IActionResult> Create([FromBody] CreateTraderRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
@@ -68,6 +70,7 @@ public class TradersController(
     }
 
     [HttpPut("{id:guid}")]
+    [RequireMfa]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateTraderRequest request, CancellationToken ct)
     {
         var trader = await traderRepo.GetByIdAsync(id, ct);
@@ -110,6 +113,7 @@ public class TradersController(
     }
 
     [HttpDelete("{id:guid}")]
+    [RequireMfa]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
         var trader = await traderRepo.GetByIdAsync(id, ct);

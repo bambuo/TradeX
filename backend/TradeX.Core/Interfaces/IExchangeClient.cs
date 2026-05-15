@@ -41,7 +41,11 @@ public record OrderRequest(
     OrderType Type,
     decimal Quantity,
     decimal? Price = null,
-    decimal? StopPrice = null);
+    decimal? StopPrice = null,
+    /// <summary>幂等键。各交易所支持的字段名不同（Binance: newClientOrderId, OKX: clOrdId,
+    /// Bybit: orderLinkId, Gate: text, HTX: client-order-id），客户端实现可选择透传至 API。
+    /// 即使未透传，调用方仍可凭此键在 DB 层做去重和对账。</summary>
+    string? ClientOrderId = null);
 
 public record OrderResult(
     bool Success,

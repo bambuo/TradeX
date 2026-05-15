@@ -6,6 +6,7 @@ public interface IOrderRepository
 {
     Task<Order?> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<Order?> GetByExchangeOrderIdAsync(string exchangeOrderId, CancellationToken ct = default);
+    Task<Order?> GetByClientOrderIdAsync(Guid clientOrderId, CancellationToken ct = default);
     Task<List<Order>> GetByTraderIdAsync(Guid traderId, CancellationToken ct = default);
     Task<List<Order>> GetPendingByExchangeAsync(Guid exchangeId, CancellationToken ct = default);
     Task<List<Order>> GetByStrategyIdAsync(Guid strategyId, CancellationToken ct = default);

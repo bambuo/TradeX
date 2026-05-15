@@ -127,6 +127,14 @@ public class TradeXDbContext(DbContextOptions<TradeXDbContext> options) : DbCont
             e.HasKey(x => x.Id);
             e.HasIndex(x => new { x.TraderId, x.Status });
             e.HasIndex(x => new { x.ExchangeId, x.Pair, x.Status });
+            e.Property(x => x.Pair).HasMaxLength(50).IsRequired();
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Quantity).HasColumnType("decimal(28,12)");
+            e.Property(x => x.EntryPrice).HasColumnType("decimal(28,12)");
+            e.Property(x => x.CurrentPrice).HasColumnType("decimal(28,12)");
+            e.Property(x => x.UnrealizedPnl).HasColumnType("decimal(28,12)");
+            e.Property(x => x.RealizedPnl).HasColumnType("decimal(28,12)");
+            e.Property(x => x.Version).IsConcurrencyToken();
         });
 
         modelBuilder.Entity<BacktestTask>(e =>
@@ -187,12 +195,21 @@ public class TradeXDbContext(DbContextOptions<TradeXDbContext> options) : DbCont
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.TraderId);
+            e.HasIndex(x => x.ClientOrderId).IsUnique();
             e.HasIndex(x => x.ExchangeOrderId).IsUnique();
             e.HasIndex(x => x.Status);
             e.Property(x => x.Pair).HasMaxLength(50).IsRequired();
+            e.Property(x => x.ExchangeOrderId).HasMaxLength(100);
+            e.Property(x => x.FeeAsset).HasMaxLength(20);
             e.Property(x => x.Side).HasConversion<string>().HasMaxLength(10);
             e.Property(x => x.Type).HasConversion<string>().HasMaxLength(10);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Price).HasColumnType("decimal(28,12)");
+            e.Property(x => x.Quantity).HasColumnType("decimal(28,12)");
+            e.Property(x => x.FilledQuantity).HasColumnType("decimal(28,12)");
+            e.Property(x => x.QuoteQuantity).HasColumnType("decimal(28,12)");
+            e.Property(x => x.Fee).HasColumnType("decimal(28,12)");
+            e.Property(x => x.Version).IsConcurrencyToken();
         });
     }
 }

@@ -7,6 +7,7 @@ using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Exchange.Handlers;
 using TradeX.Exchange.Refit;
+using TradeX.Exchange.Resilience;
 
 namespace TradeX.Exchange;
 
@@ -20,7 +21,7 @@ public class BinanceClient(string apiKey, string secretKey, bool isTestnet) : IE
     {
         var baseUri = new Uri(testnet ? "https://testnet.binance.vision" : "https://api.binance.com");
 
-        var handler = new BinanceAuthHandler(key, secret)
+        var auth = new BinanceAuthHandler(key, secret)
         {
             InnerHandler = new SocketsHttpHandler
             {
@@ -29,6 +30,7 @@ public class BinanceClient(string apiKey, string secretKey, bool isTestnet) : IE
                 MaxConnectionsPerServer = 10
             }
         };
+        var handler = new ResilienceHandler(ExchangeType.Binance) { InnerHandler = auth };
 
         var http = new HttpClient(handler) { BaseAddress = baseUri };
         return RestService.For<IBinanceRestApi>(http, new RefitSettings
