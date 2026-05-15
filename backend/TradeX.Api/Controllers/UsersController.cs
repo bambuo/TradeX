@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TradeX.Api.Filters;
 using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 
@@ -34,6 +35,7 @@ public class UsersController(IUserRepository userRepo) : ControllerBase
     }
 
     [HttpPut("{id:guid}/role")]
+    [RequireMfa]
     public async Task<IActionResult> UpdateRole(Guid id, [FromBody] UpdateRoleRequest request, CancellationToken ct)
     {
         var user = await userRepo.GetByIdAsync(id, ct);

@@ -7,6 +7,7 @@ using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Exchange.Handlers;
 using TradeX.Exchange.Refit;
+using TradeX.Exchange.Resilience;
 
 namespace TradeX.Exchange;
 
@@ -19,7 +20,7 @@ public class HtxClient(string apiKey, string secretKey) : IExchangeClient
 
     private static IHtxRestApi CreateRefitClient(string key, string secret)
     {
-        var handler = new HtxAuthHandler(key, secret)
+        var auth = new HtxAuthHandler(key, secret)
         {
             InnerHandler = new SocketsHttpHandler
             {
@@ -28,6 +29,7 @@ public class HtxClient(string apiKey, string secretKey) : IExchangeClient
                 MaxConnectionsPerServer = 10
             }
         };
+        var handler = new ResilienceHandler(ExchangeType.HTX) { InnerHandler = auth };
 
         var http = new HttpClient(handler) { BaseAddress = new Uri("https://api.huobi.pro") };
         return RestService.For<IHtxRestApi>(http, new RefitSettings

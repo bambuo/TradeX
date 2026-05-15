@@ -11,6 +11,7 @@ public class PortfolioRiskManager(
     CircuitBreakerHandler circuitBreakerHandler,
     CooldownCheck cooldownCheck,
     PositionLimitHandler positionLimitHandler,
+    MaxOrderNotionalHandler maxOrderNotionalHandler,
     SlippageHandler slippageHandler,
     ExchangeHealthHandler exchangeHealthHandler,
     IOptions<RiskSettings> riskSettings) : IPortfolioRiskManager
@@ -18,15 +19,15 @@ public class PortfolioRiskManager(
     public async Task<RiskResult> CheckAsync(Guid traderId, Guid exchangeId, CancellationToken ct = default)
     {
         var chain = BuildChain();
-        var context = await BuildContextAsync(traderId, exchangeId, null, ct);
+        var context = await BuildContextAsync(traderId, exchangeId, null, null, ct);
         var result = await chain.CheckAsync(context, ct);
         return BuildResult(result);
     }
 
-    public async Task<RiskResult> CheckPairRiskAsync(Guid traderId, Guid exchangeId, string pair, CancellationToken ct = default)
+    public async Task<RiskResult> CheckPairRiskAsync(Guid traderId, Guid exchangeId, string pair, decimal? orderNotional = null, CancellationToken ct = default)
     {
         var chain = BuildChain();
-        var context = await BuildContextAsync(traderId, exchangeId, pair, ct);
+        var context = await BuildContextAsync(traderId, exchangeId, pair, orderNotional, ct);
         var result = await chain.CheckAsync(context, ct);
         return BuildResult(result);
     }
@@ -41,13 +42,14 @@ public class PortfolioRiskManager(
             .SetNext(circuitBreakerHandler)
             .SetNext(cooldownCheck)
             .SetNext(positionLimitHandler)
+            .SetNext(maxOrderNotionalHandler)
             .SetNext(slippageHandler)
             .SetNext(exchangeHealthHandler);
 
         return dailyLossHandler;
     }
 
-    private async Task<RiskContext> BuildContextAsync(Guid traderId, Guid exchangeId, string? Pair, CancellationToken ct)
+    private async Task<RiskContext> BuildContextAsync(Guid traderId, Guid exchangeId, string? Pair, decimal? orderNotional, CancellationToken ct)
     {
         var openPositions = await positionRepo.GetOpenByTraderIdAsync(traderId, ct);
         var todayStart = DateTime.UtcNow.Date;
@@ -82,7 +84,9 @@ public class PortfolioRiskManager(
             SlippageTolerance = settings.SlippageTolerance,
             MaxSlippageAmount = settings.MaxSlippageAmount,
             CircuitBreakerActive = settings.CircuitBreakerActive,
-            CooldownSeconds = settings.CooldownSeconds
+            CooldownSeconds = settings.CooldownSeconds,
+            OrderNotional = orderNotional,
+            MaxOrderNotional = settings.MaxOrderNotional
         };
     }
 }
@@ -90,7 +94,7 @@ public class PortfolioRiskManager(
 public interface IPortfolioRiskManager
 {
     Task<RiskResult> CheckAsync(Guid traderId, Guid exchangeId, CancellationToken ct = default);
-    Task<RiskResult> CheckPairRiskAsync(Guid traderId, Guid exchangeId, string pair, CancellationToken ct = default);
+    Task<RiskResult> CheckPairRiskAsync(Guid traderId, Guid exchangeId, string pair, decimal? orderNotional = null, CancellationToken ct = default);
 }
 
 public record RiskResult(bool IsAllowed, IReadOnlyList<string> DeniedReasons);

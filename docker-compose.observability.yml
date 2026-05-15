@@ -1,0 +1,48 @@
+# 观测栈：Prometheus 抓取 /metrics + Grafana 可视化
+# 启动: docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
+# - Prometheus UI: http://localhost:9090
+# - Grafana UI:    http://localhost:3000 (admin / admin)
+# - 抓取目标:      tradex:80/metrics
+#
+# 启用 traces（可选）: 取消 jaeger 服务注释并在 backend 设置 OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+
+services:
+  backend:
+    environment:
+      # 显式打开 Prometheus 抓取端点 (默认已开)，traces OTLP 端点未配置时静默
+      - OTEL_EXPORTER_OTLP_ENDPOINT=
+      - OTEL_SERVICE_NAME=tradex-api
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: tradex-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=30d
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: tradex-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./observability/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  grafana-data:

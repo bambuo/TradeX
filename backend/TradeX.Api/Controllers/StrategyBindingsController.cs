@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TradeX.Api.Filters;
 using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
@@ -70,6 +71,7 @@ public class StrategyBindingsController(
      }
 
     [HttpPost]
+    [RequireMfa]
     public async Task<IActionResult> Create(Guid traderId, [FromBody] CreateBindingRequest request, CancellationToken ct)
     {
         var trader = await traderRepo.GetByIdAsync(traderId, ct);
@@ -104,6 +106,7 @@ public class StrategyBindingsController(
     }
 
     [HttpPut("{id:guid}")]
+    [RequireMfa]
     public async Task<IActionResult> Update(Guid traderId, Guid id, [FromBody] UpdateBindingRequest request, CancellationToken ct)
     {
         var trader = await traderRepo.GetByIdAsync(traderId, ct);
@@ -134,6 +137,7 @@ public class StrategyBindingsController(
     }
 
     [HttpDelete("{id:guid}")]
+    [RequireMfa]
     public async Task<IActionResult> Delete(Guid traderId, Guid id, CancellationToken ct)
     {
         var trader = await traderRepo.GetByIdAsync(traderId, ct);
@@ -152,6 +156,7 @@ public class StrategyBindingsController(
     }
 
     [HttpPost("{id:guid}/toggle")]
+    [RequireMfa]
     public async Task<IActionResult> Toggle(Guid traderId, Guid id, [FromBody] ToggleBindingRequest request, CancellationToken ct)
     {
         var trader = await traderRepo.GetByIdAsync(traderId, ct);

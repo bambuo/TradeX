@@ -29,6 +29,7 @@ public static class DependencyInjection
         services.AddScoped<CircuitBreakerHandler>();
         services.AddScoped<CooldownCheck>();
         services.AddScoped<PositionLimitHandler>();
+        services.AddScoped<MaxOrderNotionalHandler>();
         services.AddScoped<SlippageHandler>();
         services.AddScoped<ExchangeHealthHandler>();
 

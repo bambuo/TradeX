@@ -12,6 +12,9 @@ public class OrderRepository(TradeXDbContext context) : IOrderRepository
     public async Task<Order?> GetByExchangeOrderIdAsync(string exchangeOrderId, CancellationToken ct = default)
         => await context.Orders.FirstOrDefaultAsync(o => o.ExchangeOrderId == exchangeOrderId, ct);
 
+    public async Task<Order?> GetByClientOrderIdAsync(Guid clientOrderId, CancellationToken ct = default)
+        => await context.Orders.FirstOrDefaultAsync(o => o.ClientOrderId == clientOrderId, ct);
+
     public async Task<List<Order>> GetByTraderIdAsync(Guid traderId, CancellationToken ct = default)
         => await context.Orders.Where(o => o.TraderId == traderId).OrderByDescending(o => o.PlacedAtUtc).ToListAsync(ct);
 

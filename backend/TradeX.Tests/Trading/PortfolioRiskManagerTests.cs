@@ -25,7 +25,8 @@ public class PortfolioRiskManagerTests
             MaxOpenPositions = 10,
             SlippageTolerance = 0.001m,
             MaxSlippageAmount = 10,
-            CooldownSeconds = 300
+            CooldownSeconds = 300,
+            MaxOrderNotional = 1000
         });
 
         var exchangeRepo = Substitute.For<IExchangeRepository>();
@@ -55,6 +56,7 @@ public class PortfolioRiskManagerTests
             new CircuitBreakerHandler(Substitute.For<ILogger<CircuitBreakerHandler>>()),
             new CooldownCheck(Substitute.For<ILogger<CooldownCheck>>()),
             new PositionLimitHandler(Substitute.For<ILogger<PositionLimitHandler>>()),
+            new MaxOrderNotionalHandler(Substitute.For<ILogger<MaxOrderNotionalHandler>>()),
             new SlippageHandler(Substitute.For<ILogger<SlippageHandler>>()),
             new ExchangeHealthHandler(clientFactory, exchangeRepo, encryption, Substitute.For<ILogger<ExchangeHealthHandler>>()),
             _settings);
@@ -162,6 +164,35 @@ public class PortfolioRiskManagerTests
             .Returns([]);
 
         var result = await _manager.CheckPairRiskAsync(traderId, Guid.NewGuid(), pair);
+
+        Assert.True(result.IsAllowed);
+    }
+
+    [Fact]
+    public async Task CheckPairRiskAsync_NotionalOverLimit_Denies()
+    {
+        var traderId = Guid.NewGuid();
+        _positionRepo.GetOpenByTraderIdAsync(traderId, Arg.Any<CancellationToken>())
+            .Returns([]);
+        _positionRepo.GetClosedByTraderIdSinceAsync(traderId, Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+            .Returns([]);
+
+        var result = await _manager.CheckPairRiskAsync(traderId, Guid.NewGuid(), "BTCUSDT", orderNotional: 5000m);
+
+        Assert.False(result.IsAllowed);
+        Assert.Contains(result.DeniedReasons, r => r.Contains("单笔名义价值"));
+    }
+
+    [Fact]
+    public async Task CheckPairRiskAsync_NotionalWithinLimit_Allows()
+    {
+        var traderId = Guid.NewGuid();
+        _positionRepo.GetOpenByTraderIdAsync(traderId, Arg.Any<CancellationToken>())
+            .Returns([]);
+        _positionRepo.GetClosedByTraderIdSinceAsync(traderId, Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+            .Returns([]);
+
+        var result = await _manager.CheckPairRiskAsync(traderId, Guid.NewGuid(), "BTCUSDT", orderNotional: 500m);
 
         Assert.True(result.IsAllowed);
     }

@@ -11,10 +11,22 @@ namespace TradeX.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services, string connectionString)
+    public static IServiceCollection AddInfrastructure(
+        this IServiceCollection services,
+        string connectionString,
+        string mySqlVersion = "8.4.0")
     {
-        services.AddDbContext<TradeXDbContext>(options =>
-            options.UseSqlite(connectionString));
+        var serverVersion = new MySqlServerVersion(new Version(mySqlVersion));
+        services.AddSingleton<VersionInterceptor>();
+        services.AddDbContext<TradeXDbContext>((sp, options) =>
+            options
+                .UseMySql(connectionString, serverVersion, mysql => mysql
+                    .EnableRetryOnFailure(
+                        maxRetryCount: 5,
+                        maxRetryDelay: TimeSpan.FromSeconds(10),
+                        errorNumbersToAdd: null))
+                .AddInterceptors(sp.GetRequiredService<VersionInterceptor>())
+                .EnableSensitiveDataLogging(false));
 
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ITraderRepository, TraderRepository>();

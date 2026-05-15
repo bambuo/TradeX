@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TradeX.Api.Filters;
 using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
@@ -44,6 +45,7 @@ public class ExchangesController(
     }
 
     [HttpPost]
+    [RequireMfa]
     public async Task<IActionResult> Create([FromBody] CreateExchangeRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.ApiKey) || string.IsNullOrWhiteSpace(request.SecretKey))
@@ -81,6 +83,7 @@ public class ExchangesController(
     }
 
     [HttpPut("{id:guid}")]
+    [RequireMfa]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateExchangeRequest request, CancellationToken ct)
     {
         var exchange = await exchangeRepo.GetByIdAsync(id, ct);
@@ -166,6 +169,7 @@ public class ExchangesController(
     }
 
     [HttpPost("{id:guid}/toggle")]
+    [RequireMfa]
     public async Task<IActionResult> ToggleStatus(Guid id, [FromBody] ToggleExchangeRequest request, CancellationToken ct)
     {
         var exchange = await exchangeRepo.GetByIdAsync(id, ct);
@@ -179,6 +183,7 @@ public class ExchangesController(
     }
 
     [HttpDelete("{id:guid}")]
+    [RequireMfa]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
         var exchange = await exchangeRepo.GetByIdAsync(id, ct);

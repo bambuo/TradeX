@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
+using TradeX.Trading.Observability;
 
 namespace TradeX.Trading;
 
@@ -18,6 +19,7 @@ public class TradingEngine(
     IServiceScopeFactory scopeFactory,
     MarketDataCache marketData,
     ITradingEventBus eventBus,
+    TradeXMetrics metrics,
     ILogger<TradingEngine> logger) : BackgroundService
 {
     private static readonly TimeSpan EvaluationCycle = TimeSpan.FromSeconds(15);
@@ -185,15 +187,18 @@ public class TradingEngine(
                 {
                     var msg = string.Join("; ", riskCheck.DeniedReasons);
                     logger.LogWarning("策略 {StrategyName}: 风控拒绝入场, 原因: {Reasons}", strategy.Name, msg);
+                    metrics.RiskDenials.Add(1, new KeyValuePair<string, object?>("scope", "portfolio"));
                     await eventBus.RiskAlertAsync(strategy.TraderId, "Warning", "RiskCheck", strategy.Id, msg, ct);
                     return;
                 }
 
-                var pairRisk = await cycle.RiskManager.CheckPairRiskAsync(strategy.TraderId, strategy.ExchangeId, pair, ct);
+                var plannedNotional = volatilityRule?.BasePositionSize ?? 100m;
+                var pairRisk = await cycle.RiskManager.CheckPairRiskAsync(strategy.TraderId, strategy.ExchangeId, pair, plannedNotional, ct);
                 if (!pairRisk.IsAllowed)
                 {
                     var msg = string.Join("; ", pairRisk.DeniedReasons);
                     logger.LogWarning("策略 {StrategyName}: 币种风控拒绝, 原因: {Reasons}", strategy.Name, msg);
+                    metrics.RiskDenials.Add(1, new KeyValuePair<string, object?>("scope", "pair"));
                     await eventBus.RiskAlertAsync(strategy.TraderId, "Warning", "PairRisk", strategy.Id, msg, ct);
                     return;
                 }
@@ -221,6 +226,10 @@ public class TradingEngine(
                     logger.LogInformation("策略 {StrategyName}: 买入成交 {Pair} {Quantity}",
                         strategy.Name, pair, result.FilledQuantity);
 
+                    metrics.OrdersPlaced.Add(1,
+                        new KeyValuePair<string, object?>("side", "buy"),
+                        new KeyValuePair<string, object?>("status", order.Status.ToString()));
+
                     await eventBus.OrderPlacedAsync(strategy.TraderId, order.Id, order.ExchangeId, order.StrategyId,
                         order.Pair, order.Side.ToString(), order.Type.ToString(),
                         order.Status.ToString(), order.Quantity, order.PlacedAtUtc, ct);
@@ -229,6 +238,9 @@ public class TradingEngine(
                 {
                     logger.LogWarning("策略 {StrategyName}: 买入失败 {Pair}, 原因: {Error}",
                         strategy.Name, pair, result.Error);
+                    metrics.OrdersRejected.Add(1,
+                        new KeyValuePair<string, object?>("side", "buy"),
+                        new KeyValuePair<string, object?>("reason", result.Error ?? "unknown"));
                 }
             }
         }
@@ -288,6 +300,16 @@ public class TradingEngine(
                             sellOrder.StrategyId, sellOrder.Pair, sellOrder.Side.ToString(),
                             sellOrder.Type.ToString(), sellOrder.Status.ToString(),
                             sellOrder.Quantity, sellOrder.PlacedAtUtc, ct);
+
+                        metrics.OrdersPlaced.Add(1,
+                            new KeyValuePair<string, object?>("side", "sell"),
+                            new KeyValuePair<string, object?>("status", sellOrder.Status.ToString()));
+                    }
+                    else
+                    {
+                        metrics.OrdersRejected.Add(1,
+                            new KeyValuePair<string, object?>("side", "sell"),
+                            new KeyValuePair<string, object?>("reason", result.Error ?? "unknown"));
                     }
                 }
             }

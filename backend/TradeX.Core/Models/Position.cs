@@ -1,8 +1,9 @@
 using TradeX.Core.Enums;
+using TradeX.Core.Interfaces;
 
 namespace TradeX.Core.Models;
 
-public class Position
+public class Position : IVersioned
 {
     public Guid Id { get; init; } = Guid.NewGuid();
     public Guid TraderId { get; init; }
@@ -18,4 +19,6 @@ public class Position
     public DateTime OpenedAtUtc { get; init; } = DateTime.UtcNow;
     public DateTime? ClosedAtUtc { get; set; }
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    /// <summary>乐观并发控制版本号，由 VersionInterceptor 在保存前自动刷新。</summary>
+    public Guid Version { get; set; } = Guid.NewGuid();
 }

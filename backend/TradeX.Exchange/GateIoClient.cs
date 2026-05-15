@@ -7,6 +7,7 @@ using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Exchange.Handlers;
 using TradeX.Exchange.Refit;
+using TradeX.Exchange.Resilience;
 
 namespace TradeX.Exchange;
 
@@ -18,7 +19,7 @@ public class GateIoClient(string apiKey, string secretKey) : IExchangeClient
 
     private static IGateIoRestApi CreateRefitClient(string key, string secret)
     {
-        var handler = new GateIoAuthHandler(key, secret)
+        var auth = new GateIoAuthHandler(key, secret)
         {
             InnerHandler = new SocketsHttpHandler
             {
@@ -27,6 +28,7 @@ public class GateIoClient(string apiKey, string secretKey) : IExchangeClient
                 MaxConnectionsPerServer = 10
             }
         };
+        var handler = new ResilienceHandler(ExchangeType.Gate) { InnerHandler = auth };
 
         var http = new HttpClient(handler) { BaseAddress = new Uri("https://api.gateio.ws") };
         return RestService.For<IGateIoRestApi>(http, new RefitSettings

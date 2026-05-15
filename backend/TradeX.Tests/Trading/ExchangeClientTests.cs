@@ -77,6 +77,7 @@ public class TradeExecutorTests
         var executor = new TradeExecutor(
             Substitute.For<IExchangeClientFactory>(),
             exchangeRepo,
+            Substitute.For<IOrderRepository>(),
             Substitute.For<IEncryptionService>(),
             Substitute.For<ILogger<TradeExecutor>>());
 
@@ -92,6 +93,7 @@ public class TradeExecutorTests
         var executor = new TradeExecutor(
             Substitute.For<IExchangeClientFactory>(),
             Substitute.For<IExchangeRepository>(),
+            Substitute.For<IOrderRepository>(),
             Substitute.For<IEncryptionService>(),
             Substitute.For<ILogger<TradeExecutor>>());
 
@@ -107,6 +109,7 @@ public class TradeExecutorTests
         var executor = new TradeExecutor(
             Substitute.For<IExchangeClientFactory>(),
             Substitute.For<IExchangeRepository>(),
+            Substitute.For<IOrderRepository>(),
             Substitute.For<IEncryptionService>(),
             Substitute.For<ILogger<TradeExecutor>>());
 
@@ -144,7 +147,7 @@ public class TradeExecutorTests
             .Returns(exchangeClient);
 
         var executor = new TradeExecutor(
-            clientFactory, exchangeRepo, encryption,
+            clientFactory, exchangeRepo, Substitute.For<IOrderRepository>(), encryption,
             Substitute.For<ILogger<TradeExecutor>>());
 
         var order = new Order
@@ -162,5 +165,175 @@ public class TradeExecutorTests
         await exchangeClient.Received(1).PlaceOrderAsync(
             Arg.Is<OrderRequest>(r => r.Pair == "BTCUSDT" && r.Type == OrderType.Market),
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteMarketOrderAsync_PrePersistsBeforeExchangeCall()
+    {
+        var exchange = new TradeX.Core.Models.Exchange
+        {
+            Id = Guid.NewGuid(),
+            Type = ExchangeType.Binance,
+            ApiKeyEncrypted = "k",
+            SecretKeyEncrypted = "s"
+        };
+        var exchangeRepo = Substitute.For<IExchangeRepository>();
+        exchangeRepo.GetByIdAsync(exchange.Id, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<TradeX.Core.Models.Exchange?>(exchange));
+
+        var encryption = Substitute.For<IEncryptionService>();
+        encryption.Decrypt(Arg.Any<string>()).Returns("decrypted");
+
+        var orderRepo = Substitute.For<IOrderRepository>();
+        var exchangeClient = Substitute.For<IExchangeClient>();
+        exchangeClient.PlaceOrderAsync(Arg.Any<OrderRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new OrderResult(true, "EX-1", 1m, 50000m, 0.05m, null));
+
+        var clientFactory = Substitute.For<IExchangeClientFactory>();
+        clientFactory.CreateClient(Arg.Any<ExchangeType>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>())
+            .Returns(exchangeClient);
+
+        var executor = new TradeExecutor(clientFactory, exchangeRepo, orderRepo, encryption,
+            Substitute.For<ILogger<TradeExecutor>>());
+
+        var order = new Order
+        {
+            ExchangeId = exchange.Id, Pair = "BTCUSDT",
+            Side = OrderSide.Buy, Quantity = 1, QuoteQuantity = 100
+        };
+
+        OrderStatus? statusAtAdd = null;
+        orderRepo.AddAsync(Arg.Do<Order>(o => statusAtAdd = o.Status), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+
+        await executor.ExecuteMarketOrderAsync(order);
+
+        // pre-persist 时订单还是 Pending
+        Assert.Equal(OrderStatus.Pending, statusAtAdd);
+        // post-update 阶段把订单更新为 Filled，带 ExchangeOrderId
+        await orderRepo.Received(1).AddAsync(Arg.Any<Order>(), Arg.Any<CancellationToken>());
+        await orderRepo.Received(1).UpdateAsync(
+            Arg.Is<Order>(o => o.Status == OrderStatus.Filled && o.ExchangeOrderId == "EX-1"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteMarketOrderAsync_PassesClientOrderIdToExchange()
+    {
+        var exchange = new TradeX.Core.Models.Exchange
+        {
+            Id = Guid.NewGuid(), Type = ExchangeType.Binance,
+            ApiKeyEncrypted = "k", SecretKeyEncrypted = "s"
+        };
+        var exchangeRepo = Substitute.For<IExchangeRepository>();
+        exchangeRepo.GetByIdAsync(exchange.Id, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<TradeX.Core.Models.Exchange?>(exchange));
+
+        var encryption = Substitute.For<IEncryptionService>();
+        encryption.Decrypt(Arg.Any<string>()).Returns("decrypted");
+
+        var exchangeClient = Substitute.For<IExchangeClient>();
+        exchangeClient.PlaceOrderAsync(Arg.Any<OrderRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new OrderResult(true, "EX-2", 1m, 50000m, 0, null));
+
+        var clientFactory = Substitute.For<IExchangeClientFactory>();
+        clientFactory.CreateClient(Arg.Any<ExchangeType>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>())
+            .Returns(exchangeClient);
+
+        var executor = new TradeExecutor(clientFactory, exchangeRepo, Substitute.For<IOrderRepository>(),
+            encryption, Substitute.For<ILogger<TradeExecutor>>());
+
+        var clientOrderId = Guid.NewGuid();
+        var order = new Order
+        {
+            ExchangeId = exchange.Id, ClientOrderId = clientOrderId, Pair = "BTCUSDT",
+            Side = OrderSide.Buy, Quantity = 1, QuoteQuantity = 100
+        };
+
+        await executor.ExecuteMarketOrderAsync(order);
+
+        await exchangeClient.Received(1).PlaceOrderAsync(
+            Arg.Is<OrderRequest>(r => r.ClientOrderId == clientOrderId.ToString("N")),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteMarketOrderAsync_ExchangeFailure_MarksOrderFailed()
+    {
+        var exchange = new TradeX.Core.Models.Exchange
+        {
+            Id = Guid.NewGuid(), Type = ExchangeType.Binance,
+            ApiKeyEncrypted = "k", SecretKeyEncrypted = "s"
+        };
+        var exchangeRepo = Substitute.For<IExchangeRepository>();
+        exchangeRepo.GetByIdAsync(exchange.Id, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<TradeX.Core.Models.Exchange?>(exchange));
+
+        var encryption = Substitute.For<IEncryptionService>();
+        encryption.Decrypt(Arg.Any<string>()).Returns("decrypted");
+
+        var exchangeClient = Substitute.For<IExchangeClient>();
+        exchangeClient.PlaceOrderAsync(Arg.Any<OrderRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new OrderResult(false, null, 0, 0, 0, "insufficient balance"));
+
+        var clientFactory = Substitute.For<IExchangeClientFactory>();
+        clientFactory.CreateClient(Arg.Any<ExchangeType>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>())
+            .Returns(exchangeClient);
+
+        var orderRepo = Substitute.For<IOrderRepository>();
+        var executor = new TradeExecutor(clientFactory, exchangeRepo, orderRepo, encryption,
+            Substitute.For<ILogger<TradeExecutor>>());
+
+        var order = new Order
+        {
+            ExchangeId = exchange.Id, Pair = "BTCUSDT",
+            Side = OrderSide.Buy, Quantity = 1, QuoteQuantity = 100
+        };
+
+        var result = await executor.ExecuteMarketOrderAsync(order);
+
+        Assert.False(result.Success);
+        await orderRepo.Received(1).UpdateAsync(Arg.Is<Order>(o => o.Status == OrderStatus.Failed), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteMarketOrderAsync_ExchangeThrows_KeepsOrderPending()
+    {
+        var exchange = new TradeX.Core.Models.Exchange
+        {
+            Id = Guid.NewGuid(), Type = ExchangeType.Binance,
+            ApiKeyEncrypted = "k", SecretKeyEncrypted = "s"
+        };
+        var exchangeRepo = Substitute.For<IExchangeRepository>();
+        exchangeRepo.GetByIdAsync(exchange.Id, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<TradeX.Core.Models.Exchange?>(exchange));
+
+        var encryption = Substitute.For<IEncryptionService>();
+        encryption.Decrypt(Arg.Any<string>()).Returns("decrypted");
+
+        var exchangeClient = Substitute.For<IExchangeClient>();
+        exchangeClient.PlaceOrderAsync(Arg.Any<OrderRequest>(), Arg.Any<CancellationToken>())
+            .Returns<OrderResult>(_ => throw new HttpRequestException("network error"));
+
+        var clientFactory = Substitute.For<IExchangeClientFactory>();
+        clientFactory.CreateClient(Arg.Any<ExchangeType>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>())
+            .Returns(exchangeClient);
+
+        var orderRepo = Substitute.For<IOrderRepository>();
+        var executor = new TradeExecutor(clientFactory, exchangeRepo, orderRepo, encryption,
+            Substitute.For<ILogger<TradeExecutor>>());
+
+        var order = new Order
+        {
+            ExchangeId = exchange.Id, Pair = "BTCUSDT",
+            Side = OrderSide.Buy, Quantity = 1, QuoteQuantity = 100
+        };
+
+        var result = await executor.ExecuteMarketOrderAsync(order);
+
+        Assert.False(result.Success);
+        // Pending 保留：交易所是否实际收到未知，留给对账器处理
+        await orderRepo.Received(1).AddAsync(Arg.Is<Order>(o => o.Status == OrderStatus.Pending), Arg.Any<CancellationToken>());
+        await orderRepo.DidNotReceive().UpdateAsync(Arg.Any<Order>(), Arg.Any<CancellationToken>());
     }
 }

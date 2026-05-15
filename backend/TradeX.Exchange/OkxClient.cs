@@ -7,6 +7,7 @@ using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Exchange.Handlers;
 using TradeX.Exchange.Refit;
+using TradeX.Exchange.Resilience;
 
 namespace TradeX.Exchange;
 
@@ -18,7 +19,7 @@ public class OkxClient(string apiKey, string secretKey, string? passphrase = nul
 
     private static IOkxRestApi CreateRefitClient(string key, string secret, string pass)
     {
-        var handler = new OkxAuthHandler(key, secret, pass)
+        var auth = new OkxAuthHandler(key, secret, pass)
         {
             InnerHandler = new SocketsHttpHandler
             {
@@ -27,6 +28,7 @@ public class OkxClient(string apiKey, string secretKey, string? passphrase = nul
                 MaxConnectionsPerServer = 10
             }
         };
+        var handler = new ResilienceHandler(ExchangeType.OKX) { InnerHandler = auth };
 
         var http = new HttpClient(handler) { BaseAddress = new Uri("https://www.okx.com") };
         return RestService.For<IOkxRestApi>(http, new RefitSettings
