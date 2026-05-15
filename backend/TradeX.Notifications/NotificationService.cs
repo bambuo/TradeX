@@ -1,8 +1,8 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
+using TradeX.Notifications.Refit;
 
 namespace TradeX.Notifications;
 
@@ -10,9 +10,9 @@ public class NotificationService(
     ITelegramSender telegramSender,
     IDiscordSender discordSender,
     IEmailSender emailSender,
+    ITelegramBotApi telegramApi,
     INotificationChannelRepository channelRepo,
     IEncryptionService encryption,
-    IHttpClientFactory httpClientFactory,
     ILogger<NotificationService> logger) : INotificationService
 {
     public async Task SendAsync(NotificationEvent @event, CancellationToken ct = default)
@@ -86,17 +86,13 @@ public class NotificationService(
         if (string.IsNullOrEmpty(chatId))
             throw new InvalidOperationException("Telegram Chat ID 未配置");
 
-        var httpClient = httpClientFactory.CreateClient("TelegramTest");
-        var payload = new { chat_id = chatId, text = message, parse_mode = "Markdown" };
-        var response = await httpClient.PostAsJsonAsync(
-            $"https://api.telegram.org/bot{botToken}/sendMessage", payload, ct);
+        var payload = new TelegramSendMessageRequest(chatId, message);
+        var response = await telegramApi.SendMessageAsync(botToken, payload, ct);
 
-        if (!response.IsSuccessStatusCode)
+        if (!response.Ok)
         {
-            var errorBody = await response.Content.ReadAsStringAsync(ct);
-            logger.LogError("Telegram 测试消息发送失败, StatusCode={StatusCode}, Body={Body}",
-                response.StatusCode, errorBody);
-            response.EnsureSuccessStatusCode();
+            logger.LogError("Telegram 测试消息发送失败, BotToken={BotToken}, ChatId={ChatId}",
+                botToken[..Math.Min(botToken.Length, 8)], chatId);
         }
     }
 

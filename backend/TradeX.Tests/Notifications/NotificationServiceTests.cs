@@ -3,6 +3,7 @@ using NSubstitute;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 using TradeX.Notifications;
+using TradeX.Notifications.Refit;
 
 namespace TradeX.Tests.Notifications;
 
@@ -12,17 +13,17 @@ public class NotificationServiceTests
         ITelegramSender? telegram = null,
         IDiscordSender? discord = null,
         IEmailSender? email = null,
+        ITelegramBotApi? telegramApi = null,
         INotificationChannelRepository? channelRepo = null,
-        IEncryptionService? encryption = null,
-        IHttpClientFactory? httpClientFactory = null)
+        IEncryptionService? encryption = null)
     {
         return new NotificationService(
             telegram ?? Substitute.For<ITelegramSender>(),
             discord ?? Substitute.For<IDiscordSender>(),
             email ?? Substitute.For<IEmailSender>(),
+            telegramApi ?? Substitute.For<ITelegramBotApi>(),
             channelRepo ?? Substitute.For<INotificationChannelRepository>(),
             encryption ?? Substitute.For<IEncryptionService>(),
-            httpClientFactory ?? Substitute.For<IHttpClientFactory>(),
             Substitute.For<ILogger<NotificationService>>());
     }
 
@@ -111,17 +112,17 @@ public class NotificationServiceTests
         encryption.Decrypt("encrypted-config").Returns(
             """{"botToken":"test-bot-token","chatId":"test-chat-id"}""");
 
-        var httpClientFactory = Substitute.For<IHttpClientFactory>();
-        var httpClient = new HttpClient(new FakeHttpMessageHandler())
-        {
-            BaseAddress = new Uri("https://api.telegram.org")
-        };
-        httpClientFactory.CreateClient("TelegramTest").Returns(httpClient);
+        var telegramApi = Substitute.For<ITelegramBotApi>();
+        telegramApi.SendMessageAsync(
+                Arg.Any<string>(),
+                Arg.Any<TelegramSendMessageRequest>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new TelegramResponse(true, null));
 
         var service = CreateService(
             channelRepo: channelRepo,
             encryption: encryption,
-            httpClientFactory: httpClientFactory);
+            telegramApi: telegramApi);
 
         await service.SendTestAsync(channel.Id);
 
@@ -237,14 +238,5 @@ public class NotificationServiceTests
             service.SendTestAsync(channel.Id));
 
         Assert.Contains("禁用", ex.Message);
-    }
-}
-
-public class FakeHttpMessageHandler : HttpMessageHandler
-{
-    protected override Task<HttpResponseMessage> SendAsync(
-        HttpRequestMessage request, CancellationToken cancellationToken)
-    {
-        return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK));
     }
 }

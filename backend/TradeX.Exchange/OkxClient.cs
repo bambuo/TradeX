@@ -1,29 +1,42 @@
 using System.Globalization;
-using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using Refit;
 using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
+using TradeX.Exchange.Handlers;
+using TradeX.Exchange.Refit;
 
 namespace TradeX.Exchange;
 
-public class OkxClient : IExchangeClient
+public class OkxClient(string apiKey, string secretKey, string? passphrase = null) : IExchangeClient
 {
-    private readonly HttpClient _http;
-    private readonly string _apiKey;
-    private readonly string _passphrase;
-    private readonly HMACSHA256 _hmac;
+    private readonly IOkxRestApi _api = CreateRefitClient(apiKey, secretKey, passphrase ?? "");
 
     public ExchangeType Type => ExchangeType.OKX;
 
-    public OkxClient(string apiKey, string secretKey, string? passphrase = null)
+    private static IOkxRestApi CreateRefitClient(string key, string secret, string pass)
     {
-        _apiKey = apiKey;
-        _passphrase = passphrase ?? "";
-        _hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secretKey));
-        _http = new HttpClient { BaseAddress = new Uri("https://www.okx.com") };
+        var handler = new OkxAuthHandler(key, secret, pass)
+        {
+            InnerHandler = new SocketsHttpHandler
+            {
+                PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+                PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
+                MaxConnectionsPerServer = 10
+            }
+        };
+
+        var http = new HttpClient(handler) { BaseAddress = new Uri("https://www.okx.com") };
+        return RestService.For<IOkxRestApi>(http, new RefitSettings
+        {
+            ContentSerializer = new SystemTextJsonContentSerializer(new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                NumberHandling = JsonNumberHandling.AllowReadingFromString
+            })
+        });
     }
 
     public async IAsyncEnumerable<Candle> SubscribeKlinesAsync(string Pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
@@ -49,54 +62,65 @@ public class OkxClient : IExchangeClient
     {
         var after = new DateTimeOffset(start).ToUnixTimeMilliseconds();
         var before = new DateTimeOffset(end).ToUnixTimeMilliseconds();
-        var resp = await _http.GetAsync($"/api/v5/market/history-candles?instId={Pair}&bar={interval}&after={after}&before={before}&limit=300", ct);
-        if (!resp.IsSuccessStatusCode) return [];
 
-        var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
-        if (doc is null || doc.RootElement.GetProperty("code").GetString() != "0") return [];
-
-        var data = doc.RootElement.GetProperty("data").EnumerateArray();
-        return data.Select(k =>
+        try
         {
-            var arr = k.EnumerateArray().ToList();
-            return new Candle(
-                DateTimeOffset.FromUnixTimeMilliseconds(long.Parse(arr[0].GetString()!)).UtcDateTime,
-                decimal.Parse(arr[1].GetString()!, CultureInfo.InvariantCulture),
-                decimal.Parse(arr[2].GetString()!, CultureInfo.InvariantCulture),
-                decimal.Parse(arr[3].GetString()!, CultureInfo.InvariantCulture),
-                decimal.Parse(arr[4].GetString()!, CultureInfo.InvariantCulture),
-                decimal.Parse(arr[5].GetString()!, CultureInfo.InvariantCulture));
-        }).ToArray();
+            var resp = await _api.GetKlinesAsync(Pair, interval, after, before, 300, ct);
+            if (resp.Code != "0") return [];
+
+            return resp.Data.Select(k => new Candle(
+                DateTimeOffset.FromUnixTimeMilliseconds(long.Parse(k.Ts)).UtcDateTime,
+                decimal.Parse(k.O, CultureInfo.InvariantCulture),
+                decimal.Parse(k.H, CultureInfo.InvariantCulture),
+                decimal.Parse(k.L, CultureInfo.InvariantCulture),
+                decimal.Parse(k.C, CultureInfo.InvariantCulture),
+                decimal.Parse(k.Vol, CultureInfo.InvariantCulture))).ToArray();
+        }
+        catch (ApiException)
+        {
+            return [];
+        }
     }
 
     public async Task<OrderBook> GetOrderBookAsync(string Pair, int limit, CancellationToken ct = default)
     {
-        var resp = await _http.GetAsync($"/api/v5/market/books?instId={Pair}&sz={limit}", ct);
-        if (!resp.IsSuccessStatusCode) return new OrderBook(new decimal[0, 2], new decimal[0, 2], DateTime.UtcNow);
+        try
+        {
+            var resp = await _api.GetOrderBookAsync(Pair, limit, ct);
+            if (resp.Code != "0" || resp.Data.Count == 0)
+                return new OrderBook(new decimal[0, 2], new decimal[0, 2], DateTime.UtcNow);
 
-        var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
-        if (doc is null || doc.RootElement.GetProperty("code").GetString() != "0")
+            var book = resp.Data[0];
+            var bids = ParseDepthEntries(book.Bids);
+            var asks = ParseDepthEntries(book.Asks);
+            return new OrderBook(bids, asks, DateTime.UtcNow);
+        }
+        catch (ApiException)
+        {
             return new OrderBook(new decimal[0, 2], new decimal[0, 2], DateTime.UtcNow);
-
-        var book = doc.RootElement.GetProperty("data")[0];
-        var bids = ParseDepthEntries(book.GetProperty("bids"));
-        var asks = ParseDepthEntries(book.GetProperty("asks"));
-        return new OrderBook(bids, asks, DateTime.UtcNow);
+        }
     }
 
     public async Task<Dictionary<string, decimal>> GetAssetBalancesAsync(CancellationToken ct = default)
     {
-        var doc = await SignedGetAsync("/api/v5/account/balance", null, ct);
-        if (doc is null) return [];
-
-        Dictionary<string, decimal> result = [];
-        foreach (var detail in doc.RootElement.GetProperty("data")[0].GetProperty("details").EnumerateArray())
+        try
         {
-            var ccy = detail.GetProperty("ccy").GetString()!;
-            var cashBal = decimal.Parse(detail.GetProperty("cashBal").GetString()!, CultureInfo.InvariantCulture);
-            if (cashBal > 0) result[ccy] = cashBal;
+            var resp = await _api.GetAccountBalanceAsync(ct);
+            if (resp.Code != "0" || resp.Data.Count == 0) return [];
+
+            Dictionary<string, decimal> result = [];
+            foreach (var detail in resp.Data[0].Details)
+            {
+                var cashBal = decimal.Parse(detail.CashBal, CultureInfo.InvariantCulture);
+                if (cashBal > 0)
+                    result[detail.Ccy] = cashBal;
+            }
+            return result;
         }
-        return result;
+        catch (ApiException)
+        {
+            return [];
+        }
     }
 
     public async Task<ExchangePosition[]> GetPositionsAsync(CancellationToken ct = default) => [];
@@ -105,118 +129,123 @@ public class OkxClient : IExchangeClient
     {
         var side = request.Side == OrderSide.Buy ? "buy" : "sell";
         var ordType = request.Type == OrderType.Limit ? "limit" : "market";
-        var body = new
-        {
-            instId = request.Pair,
-            tdMode = "cash",
-            side,
-            ordType,
-            sz = request.Quantity.ToString(CultureInfo.InvariantCulture),
-            px = request.Price?.ToString(CultureInfo.InvariantCulture)
-        };
+        var body = new OkxPlaceOrderRequest(
+            request.Pair, "cash", side, ordType,
+            request.Quantity.ToString(CultureInfo.InvariantCulture),
+            request.Price?.ToString(CultureInfo.InvariantCulture));
 
-        var doc = await SignedPostAsync("/api/v5/trade/order", JsonSerializer.Serialize(body), ct);
-        if (doc is null) return new OrderResult(false, null, 0, 0, 0, "请求失败");
-
-        var code = doc.RootElement.GetProperty("code").GetString();
-        if (code != "0")
+        try
         {
-            var msg = doc.RootElement.GetProperty("msg").GetString();
-            return new OrderResult(false, null, 0, 0, 0, $"交易所拒绝: {msg}");
+            var resp = await _api.PlaceOrderAsync(body, ct);
+            if (resp.Code != "0")
+            {
+                var msg = resp.Data.Count > 0 ? resp.Data[0].SMsg : resp.Msg;
+                return new OrderResult(false, null, 0, 0, 0, $"交易所拒绝: {msg}");
+            }
+
+            var orderId = resp.Data[0].OrdId;
+            return new OrderResult(true, orderId, 0, 0, 0, null);
         }
-
-        var data = doc.RootElement.GetProperty("data")[0];
-        var orderId = data.GetProperty("ordId").GetString();
-        return new OrderResult(true, orderId, 0, 0, 0, null);
+        catch (ApiException ex)
+        {
+            return new OrderResult(false, null, 0, 0, 0, $"交易所拒绝: {ex.Message}");
+        }
     }
 
     public async Task<OrderResult> CancelOrderAsync(string exchangeOrderId, CancellationToken ct = default)
     {
-        var body = new { instId = "BTCUSDT", ordId = exchangeOrderId };
-        var doc = await SignedPostAsync("/api/v5/trade/cancel-order", JsonSerializer.Serialize(body), ct);
-        if (doc is null) return new OrderResult(false, null, 0, 0, 0, "撤单请求失败");
-        return doc.RootElement.GetProperty("code").GetString() == "0"
-            ? new OrderResult(true, exchangeOrderId, 0, 0, 0, null)
-            : new OrderResult(false, null, 0, 0, 0, "撤单失败");
+        var body = new OkxCancelOrderRequest("BTCUSDT", exchangeOrderId);
+        try
+        {
+            var resp = await _api.CancelOrderAsync(body, ct);
+            return resp.Code == "0"
+                ? new OrderResult(true, exchangeOrderId, 0, 0, 0, null)
+                : new OrderResult(false, null, 0, 0, 0, "撤单失败");
+        }
+        catch (ApiException)
+        {
+            return new OrderResult(false, null, 0, 0, 0, "撤单请求失败");
+        }
     }
 
     public async Task<OrderResult> GetOrderAsync(string exchangeOrderId, CancellationToken ct = default)
     {
-        var query = $"instId=BTCUSDT&ordId={exchangeOrderId}";
-        var doc = await SignedGetAsync("/api/v5/trade/order", query, ct);
-        if (doc is null) return new OrderResult(false, null, 0, 0, 0, "查询失败");
+        try
+        {
+            var resp = await _api.GetOrderAsync("BTCUSDT", exchangeOrderId, ct);
+            if (resp.Code != "0" || resp.Data.Count == 0)
+                return new OrderResult(false, null, 0, 0, 0, "订单不存在");
 
-        if (doc.RootElement.GetProperty("code").GetString() != "0")
-            return new OrderResult(false, null, 0, 0, 0, "订单不存在");
-
-        var data = doc.RootElement.GetProperty("data")[0];
-        var filled = decimal.Parse(data.GetProperty("accFillSz").GetString()!, CultureInfo.InvariantCulture);
-        return new OrderResult(true, exchangeOrderId, filled, 0, 0, null);
+            var data = resp.Data[0];
+            var filled = decimal.Parse(data.AccFillSz, CultureInfo.InvariantCulture);
+            return new OrderResult(true, exchangeOrderId, filled, 0, 0, null);
+        }
+        catch (ApiException)
+        {
+            return new OrderResult(false, null, 0, 0, 0, "查询失败");
+        }
     }
 
     public async Task<OrderResult[]> GetRecentOrdersAsync(DateTime since, CancellationToken ct = default)
     {
         var after = new DateTimeOffset(since).ToUnixTimeMilliseconds();
-        var query = $"instId=BTCUSDT&after={after}&limit=50";
-        var doc = await SignedGetAsync("/api/v5/trade/orders-history", query, ct);
-        if (doc is null) return [];
+        try
+        {
+            var resp = await _api.GetOrderHistoryAsync("SPOT", after: after.ToString(), limit: 50, ct: ct);
+            if (resp.Code != "0") return [];
 
-        if (doc.RootElement.GetProperty("code").GetString() != "0") return [];
-
-        return doc.RootElement.GetProperty("data").EnumerateArray().Select(o => new OrderResult(
-            o.GetProperty("state").GetString() == "filled",
-            o.GetProperty("ordId").GetString(),
-            decimal.Parse(o.GetProperty("accFillSz").GetString()!, CultureInfo.InvariantCulture),
-            0,
-            decimal.Parse(o.GetProperty("fee").GetString()!, CultureInfo.InvariantCulture), null
-        )).ToArray();
+            return resp.Data.Select(o => new OrderResult(
+                o.State == "filled",
+                o.OrdId,
+                decimal.Parse(o.AccFillSz, CultureInfo.InvariantCulture),
+                0,
+                decimal.Parse(o.Fee, CultureInfo.InvariantCulture),
+                null)).ToArray();
+        }
+        catch (ApiException)
+        {
+            return [];
+        }
     }
 
     public async Task<ExchangeOrderDto[]> GetOpenOrdersAsync(CancellationToken ct = default)
     {
-        var doc = await SignedGetAsync("/api/v5/trade/orders-pending", "instType=SPOT", ct);
-        if (doc is null || doc.RootElement.GetProperty("code").GetString() != "0") return [];
+        try
+        {
+            var resp = await _api.GetPendingOrdersAsync(instType: "SPOT", ct: ct);
+            if (resp.Code != "0") return [];
 
-        return doc.RootElement.GetProperty("data").EnumerateArray().Select(ParseOkxOrder).ToArray();
+            return resp.Data.Select(ParseOkxOrder).ToArray();
+        }
+        catch (ApiException)
+        {
+            return [];
+        }
     }
 
     public async Task<ExchangeOrderDto[]> GetOrderHistoryAsync(CancellationToken ct = default)
     {
-        var doc = await SignedGetAsync("/api/v5/trade/orders-history", "instType=SPOT&limit=50", ct);
-        if (doc is null || doc.RootElement.GetProperty("code").GetString() != "0") return [];
+        try
+        {
+            var resp = await _api.GetOrderHistoryAsync("SPOT", limit: 50, ct: ct);
+            if (resp.Code != "0") return [];
 
-        return doc.RootElement.GetProperty("data").EnumerateArray().Select(ParseOkxOrder).ToArray();
-    }
-
-    private static ExchangeOrderDto ParseOkxOrder(JsonElement o)
-    {
-        var side = o.GetProperty("side").GetString();
-        var ordType = o.GetProperty("ordType").GetString();
-        var state = o.GetProperty("state").GetString();
-        return new ExchangeOrderDto(
-            o.GetProperty("instId").GetString()!,
-            side == "buy" ? "Buy" : "Sell",
-            ordType == "limit" ? "Limit" : ordType == "market" ? "Market" : ordType ?? "Unknown",
-            state == "live" ? "New" : state == "partially_filled" ? "PartiallyFilled" : state == "filled" ? "Filled" : state == "cancelled" ? "Cancelled" : state ?? "Unknown",
-            decimal.Parse(o.GetProperty("px").GetString()!, CultureInfo.InvariantCulture),
-            decimal.Parse(o.GetProperty("sz").GetString()!, CultureInfo.InvariantCulture),
-            decimal.Parse(o.GetProperty("accFillSz").GetString()!, CultureInfo.InvariantCulture),
-            o.GetProperty("ordId").GetString()!,
-            DateTimeOffset.FromUnixTimeMilliseconds(long.Parse(o.GetProperty("cTime").GetString()!)).UtcDateTime
-        );
+            return resp.Data.Select(ParseOkxOrder).ToArray();
+        }
+        catch (ApiException)
+        {
+            return [];
+        }
     }
 
     public async Task<ConnectionTestResult> TestConnectionAsync(CancellationToken ct = default)
     {
         try
         {
-            var doc = await SignedGetAsync("/api/v5/account/balance", null, ct);
-            if (doc is null) return new ConnectionTestResult(false, null, "连接失败");
-
-            var code = doc.RootElement.GetProperty("code").GetString();
-            return code == "0"
+            var resp = await _api.GetAccountBalanceAsync(ct);
+            return resp.Code == "0"
                 ? new ConnectionTestResult(true, new() { ["spotTrade"] = true }, "Connection successful")
-                : new ConnectionTestResult(false, null, $"API 错误: {doc.RootElement.GetProperty("msg").GetString()}");
+                : new ConnectionTestResult(false, null, $"API 错误: {resp.Msg}");
         }
         catch (Exception ex)
         {
@@ -226,87 +255,70 @@ public class OkxClient : IExchangeClient
 
     public async Task<PairRule[]> GetPairRulesAsync(CancellationToken ct = default)
     {
-        var resp = await _http.GetAsync("/api/v5/public/instruments?instType=SPOT", ct);
-        if (!resp.IsSuccessStatusCode) return [];
+        try
+        {
+            var resp = await _api.GetInstrumentsAsync("SPOT", ct);
+            if (resp.Code != "0") return [];
 
-        var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
-        if (doc is null || doc.RootElement.GetProperty("code").GetString() != "0") return [];
-
-        var data = doc.RootElement.GetProperty("data").EnumerateArray()
-            .Where(s => s.GetProperty("state").GetString() == "live");
-        return data.Select(s => new PairRule(
-            s.GetProperty("instId").GetString()!,
-            s.GetProperty("tickSz").GetString()!.Length - 1,
-            s.GetProperty("lotSz").GetString()!.Length - 1,
-            decimal.Parse(s.GetProperty("minSz").GetString()!, CultureInfo.InvariantCulture),
-            decimal.Parse(s.GetProperty("minSz").GetString()!, CultureInfo.InvariantCulture),
-            decimal.Parse(s.GetProperty("tickSz").GetString()!, CultureInfo.InvariantCulture),
-            decimal.Parse(s.GetProperty("lotSz").GetString()!, CultureInfo.InvariantCulture)
-        )).ToArray();
+            return resp.Data
+                .Where(s => s.State == "live")
+                .Select(s => new PairRule(
+                    s.InstId,
+                    s.TickSz.Length - 1,
+                    s.LotSz.Length - 1,
+                    decimal.Parse(s.MinSz, CultureInfo.InvariantCulture),
+                    decimal.Parse(s.MinSz, CultureInfo.InvariantCulture),
+                    decimal.Parse(s.TickSz, CultureInfo.InvariantCulture),
+                    decimal.Parse(s.LotSz, CultureInfo.InvariantCulture)))
+                .ToArray();
+        }
+        catch (ApiException)
+        {
+            return [];
+        }
     }
 
     public async Task<TickerPrice[]> GetTickerPricesAsync(CancellationToken ct = default)
     {
-        var resp = await _http.GetAsync("/api/v5/market/tickers?instType=SPOT", ct);
-        if (!resp.IsSuccessStatusCode) return [];
-        var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
-        if (doc is null || doc.RootElement.GetProperty("code").GetString() != "0") return [];
-
-        return doc.RootElement.GetProperty("data").EnumerateArray().Select(t => new TickerPrice(
-            t.GetProperty("instId").GetString()!,
-            TryParseDecimal(t.GetProperty("last").GetString()),
-            TryParseDecimal(t.GetProperty("changePercent").GetString()),
-            TryParseDecimal(t.GetProperty("volCcy24h").GetString()),
-            TryParseDecimal(t.GetProperty("high24h").GetString()),
-            TryParseDecimal(t.GetProperty("low24h").GetString())
-        )).ToArray();
-    }
-
-    private async Task<JsonDocument?> SignedGetAsync(string path, string? query, CancellationToken ct)
-    {
-        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var requestPath = query is not null ? $"{path}?{query}" : path;
-        var signPayload = $"{timestamp}GET{requestPath}";
-        var sign = Sign(signPayload);
-
-        var url = query is not null ? $"{path}?{query}" : path;
-        var req = new HttpRequestMessage(HttpMethod.Get, url);
-        AddAuthHeaders(req, timestamp.ToString(), sign);
-
-        var resp = await _http.SendAsync(req, ct);
-        if (!resp.IsSuccessStatusCode) return null;
-        return await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
-    }
-
-    private async Task<JsonDocument?> SignedPostAsync(string path, string body, CancellationToken ct)
-    {
-        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var signPayload = $"{timestamp}POST{path}{body}";
-        var sign = Sign(signPayload);
-
-        var req = new HttpRequestMessage(HttpMethod.Post, path)
+        try
         {
-            Content = new StringContent(body, Encoding.UTF8, "application/json")
-        };
-        AddAuthHeaders(req, timestamp.ToString(), sign);
+            var resp = await _api.GetTickersAsync("SPOT", ct);
+            if (resp.Code != "0") return [];
 
-        var resp = await _http.SendAsync(req, ct);
-        if (!resp.IsSuccessStatusCode) return null;
-        return await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
+            return resp.Data.Select(t => new TickerPrice(
+                t.InstId,
+                TryParseDecimal(t.Last),
+                TryParseDecimal(t.ChangePercent),
+                TryParseDecimal(t.VolCcy24h),
+                TryParseDecimal(t.High24h),
+                TryParseDecimal(t.Low24h))).ToArray();
+        }
+        catch (ApiException)
+        {
+            return [];
+        }
     }
 
-    private void AddAuthHeaders(HttpRequestMessage req, string timestamp, string sign)
+    private static ExchangeOrderDto ParseOkxOrder(OkxOrderDetails o)
     {
-        req.Headers.Add("OK-ACCESS-KEY", _apiKey);
-        req.Headers.Add("OK-ACCESS-SIGN", sign);
-        req.Headers.Add("OK-ACCESS-TIMESTAMP", timestamp);
-        req.Headers.Add("OK-ACCESS-PASSPHRASE", _passphrase);
-    }
-
-    private string Sign(string payload)
-    {
-        var hash = _hmac.ComputeHash(Encoding.UTF8.GetBytes(payload));
-        return Convert.ToBase64String(hash);
+        return new ExchangeOrderDto(
+            o.InstId,
+            o.Side == "buy" ? "Buy" : "Sell",
+            o.OrdType switch { "limit" => "Limit", "market" => "Market", _ => o.OrdType },
+            o.State switch
+            {
+                "live" => "New",
+                "partially_filled" => "PartiallyFilled",
+                "filled" => "Filled",
+                "cancelled" => "Cancelled",
+                _ => o.State
+            },
+            decimal.Parse(o.Px, CultureInfo.InvariantCulture),
+            decimal.Parse(o.Sz, CultureInfo.InvariantCulture),
+            decimal.Parse(o.AccFillSz, CultureInfo.InvariantCulture),
+            o.OrdId,
+            DateTimeOffset.FromUnixTimeMilliseconds(long.Parse(o.CTime)).UtcDateTime
+        );
     }
 
     private static decimal TryParseDecimal(string? s)
@@ -316,14 +328,13 @@ public class OkxClient : IExchangeClient
         return v;
     }
 
-    private static decimal[,] ParseDepthEntries(JsonElement entries)
+    private static decimal[,] ParseDepthEntries(decimal[][] entries)
     {
-        var list = entries.EnumerateArray().ToList();
-        var result = new decimal[list.Count, 2];
-        for (var i = 0; i < list.Count; i++)
+        var result = new decimal[entries.Length, 2];
+        for (var i = 0; i < entries.Length; i++)
         {
-            result[i, 0] = decimal.Parse(list[i][0].GetString()!, CultureInfo.InvariantCulture);
-            result[i, 1] = decimal.Parse(list[i][1].GetString()!, CultureInfo.InvariantCulture);
+            result[i, 0] = entries[i][0];
+            result[i, 1] = entries[i][1];
         }
         return result;
     }

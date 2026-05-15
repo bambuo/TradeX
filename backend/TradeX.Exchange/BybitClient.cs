@@ -1,31 +1,44 @@
 using System.Globalization;
-using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using Refit;
 using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
+using TradeX.Exchange.Handlers;
+using TradeX.Exchange.Refit;
 
 namespace TradeX.Exchange;
 
-public class BybitClient : IExchangeClient
+public class BybitClient(string apiKey, string secretKey, bool isTestnet) : IExchangeClient
 {
-    private readonly HttpClient _http;
-    private readonly string _apiKey;
-    private readonly HMACSHA256 _hmac;
+    private readonly IBybitRestApi _api = CreateRefitClient(apiKey, secretKey, isTestnet);
 
     public ExchangeType Type => ExchangeType.Bybit;
 
-    public BybitClient(string apiKey, string secretKey, bool isTestnet)
+    private static IBybitRestApi CreateRefitClient(string key, string secret, bool testnet)
     {
-        _apiKey = apiKey;
-        _hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secretKey));
-        _http = new HttpClient
+        var baseUri = new Uri(testnet ? "https://api-testnet.bybit.com" : "https://api.bybit.com");
+
+        var handler = new BybitAuthHandler(key, secret)
         {
-            BaseAddress = new Uri(isTestnet ? "https://api-testnet.bybit.com" : "https://api.bybit.com")
+            InnerHandler = new SocketsHttpHandler
+            {
+                PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+                PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
+                MaxConnectionsPerServer = 10
+            }
         };
-        _http.DefaultRequestHeaders.Add("X-BAPI-API-KEY", apiKey);
+
+        var http = new HttpClient(handler) { BaseAddress = baseUri };
+        return RestService.For<IBybitRestApi>(http, new RefitSettings
+        {
+            ContentSerializer = new SystemTextJsonContentSerializer(new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                NumberHandling = JsonNumberHandling.AllowReadingFromString
+            })
+        });
     }
 
     public async IAsyncEnumerable<Candle> SubscribeKlinesAsync(string Pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
@@ -49,62 +62,69 @@ public class BybitClient : IExchangeClient
 
     public async Task<Candle[]> GetKlinesAsync(string Pair, string interval, DateTime start, DateTime end, CancellationToken ct = default)
     {
-        var category = "spot";
         var startMs = new DateTimeOffset(start).ToUnixTimeMilliseconds();
         var endMs = new DateTimeOffset(end).ToUnixTimeMilliseconds();
-        var query = $"category={category}&symbol={Pair}&interval={interval}&start={startMs}&end={endMs}&limit=200";
-        var resp = await _http.GetAsync($"/v5/market/kline?{query}", ct);
-        if (!resp.IsSuccessStatusCode) return [];
 
-        var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
-        if (doc is null) return [];
-        if (doc.RootElement.GetProperty("retCode").GetInt32() != 0) return [];
-
-        var list = doc.RootElement.GetProperty("result").GetProperty("list").EnumerateArray();
-        return list.Select(k =>
+        try
         {
-            var arr = k.EnumerateArray().ToList();
-            return new Candle(
-                DateTimeOffset.FromUnixTimeMilliseconds(long.Parse(arr[0].GetString()!)).UtcDateTime,
-                decimal.Parse(arr[1].GetString()!, CultureInfo.InvariantCulture),
-                decimal.Parse(arr[2].GetString()!, CultureInfo.InvariantCulture),
-                decimal.Parse(arr[3].GetString()!, CultureInfo.InvariantCulture),
-                decimal.Parse(arr[4].GetString()!, CultureInfo.InvariantCulture),
-                decimal.Parse(arr[5].GetString()!, CultureInfo.InvariantCulture));
-        }).ToArray();
+            var resp = await _api.GetKlinesAsync("spot", Pair, interval, startMs, endMs, 200, ct);
+            if (resp.RetCode != 0) return [];
+
+            return resp.Result.List.Select(k =>
+            {
+                return new Candle(
+                    DateTimeOffset.FromUnixTimeMilliseconds(long.Parse(k[0])).UtcDateTime,
+                    decimal.Parse(k[1], CultureInfo.InvariantCulture),
+                    decimal.Parse(k[2], CultureInfo.InvariantCulture),
+                    decimal.Parse(k[3], CultureInfo.InvariantCulture),
+                    decimal.Parse(k[4], CultureInfo.InvariantCulture),
+                    decimal.Parse(k[5], CultureInfo.InvariantCulture));
+            }).ToArray();
+        }
+        catch (ApiException)
+        {
+            return [];
+        }
     }
 
     public async Task<OrderBook> GetOrderBookAsync(string Pair, int limit, CancellationToken ct = default)
     {
-        var resp = await _http.GetAsync($"/v5/market/orderbook?category=spot&symbol={Pair}&limit={limit}", ct);
-        if (!resp.IsSuccessStatusCode) return new OrderBook(new decimal[0, 2], new decimal[0, 2], DateTime.UtcNow);
+        try
+        {
+            var resp = await _api.GetOrderBookAsync("spot", Pair, limit, ct);
+            if (resp.RetCode != 0)
+                return new OrderBook(new decimal[0, 2], new decimal[0, 2], DateTime.UtcNow);
 
-        var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
-        if (doc is null || doc.RootElement.GetProperty("retCode").GetInt32() != 0)
+            var bids = ParseDepthEntries(resp.Result.B);
+            var asks = ParseDepthEntries(resp.Result.A);
+            return new OrderBook(bids, asks, DateTime.UtcNow);
+        }
+        catch (ApiException)
+        {
             return new OrderBook(new decimal[0, 2], new decimal[0, 2], DateTime.UtcNow);
-
-        var result = doc.RootElement.GetProperty("result");
-        var bids = ParseDepthEntries(result.GetProperty("b"));
-        var asks = ParseDepthEntries(result.GetProperty("a"));
-        return new OrderBook(bids, asks, DateTime.UtcNow);
+        }
     }
 
     public async Task<Dictionary<string, decimal>> GetAssetBalancesAsync(CancellationToken ct = default)
     {
-        var doc = await SignedGetAsync("/v5/account/wallet-balance", "accountType=UNIFIED", ct);
-        if (doc is null) return [];
-
-        var list = doc.RootElement.GetProperty("result").GetProperty("list").EnumerateArray().FirstOrDefault();
-        if (list.ValueKind == JsonValueKind.Undefined) return [];
-
-        Dictionary<string, decimal> result = [];
-        foreach (var coin in list.GetProperty("coin").EnumerateArray())
+        try
         {
-            var currency = coin.GetProperty("coin").GetString()!;
-            var walletBalance = decimal.Parse(coin.GetProperty("walletBalance").GetString()!, CultureInfo.InvariantCulture);
-            if (walletBalance > 0) result[currency] = walletBalance;
+            var resp = await _api.GetWalletBalanceAsync("UNIFIED", ct: ct);
+            if (resp.RetCode != 0 || resp.Result.List.Count == 0) return [];
+
+            Dictionary<string, decimal> result = [];
+            foreach (var coin in resp.Result.List[0].Coin)
+            {
+                var walletBalance = decimal.Parse(coin.WalletBalance, CultureInfo.InvariantCulture);
+                if (walletBalance > 0)
+                    result[coin.Coin] = walletBalance;
+            }
+            return result;
         }
-        return result;
+        catch (ApiException)
+        {
+            return [];
+        }
     }
 
     public async Task<ExchangePosition[]> GetPositionsAsync(CancellationToken ct = default) => [];
@@ -113,135 +133,126 @@ public class BybitClient : IExchangeClient
     {
         var side = request.Side == OrderSide.Buy ? "Buy" : "Sell";
         var orderType = request.Type == OrderType.Limit ? "Limit" : "Market";
-        var bodyDict = new Dictionary<string, string>
-        {
-            ["category"] = "spot",
-            ["symbol"] = request.Pair,
-            ["side"] = side,
-            ["orderType"] = orderType,
-            ["qty"] = request.Quantity.ToString(CultureInfo.InvariantCulture),
-            ["timeInForce"] = "GTC"
-        };
-        if (request.Price.HasValue)
-            bodyDict["price"] = request.Price.Value.ToString(CultureInfo.InvariantCulture)!;
+        var body = new BybitPlaceOrderRequest(
+            "spot", request.Pair, side, orderType,
+            request.Quantity.ToString(CultureInfo.InvariantCulture),
+            request.Price?.ToString(CultureInfo.InvariantCulture),
+            "GTC");
 
-        var bodyJson = JsonSerializer.Serialize(bodyDict);
-        var doc = await SignedPostAsync("/v5/order/create", bodyJson, ct);
-        if (doc is null) return new OrderResult(false, null, 0, 0, 0, "请求失败");
-
-        var retCode = doc.RootElement.GetProperty("retCode").GetInt32();
-        if (retCode != 0)
+        try
         {
-            var msg = doc.RootElement.GetProperty("retMsg").GetString();
-            return new OrderResult(false, null, 0, 0, 0, $"交易所拒绝: {msg}");
+            var resp = await _api.PlaceOrderAsync(body, ct);
+            if (resp.RetCode != 0)
+                return new OrderResult(false, null, 0, 0, 0, $"交易所拒绝: {resp.RetMsg}");
+
+            return new OrderResult(true, resp.Result.OrderId, 0, 0, 0, null);
         }
-
-        var result = doc.RootElement.GetProperty("result");
-        var orderId = result.GetProperty("orderId").GetString();
-        return new OrderResult(true, orderId, 0, 0, 0, null);
+        catch (ApiException ex)
+        {
+            return new OrderResult(false, null, 0, 0, 0, $"交易所拒绝: {ex.Message}");
+        }
     }
 
     public async Task<OrderResult> CancelOrderAsync(string exchangeOrderId, CancellationToken ct = default)
     {
-        var body = new { category = "spot", Pair = "BTCUSDT", orderId = exchangeOrderId };
-        var doc = await SignedPostAsync("/v5/order/cancel", JsonSerializer.Serialize(body), ct);
-        if (doc is null) return new OrderResult(false, null, 0, 0, 0, "撤单请求失败");
-        return doc.RootElement.GetProperty("retCode").GetInt32() == 0
-            ? new OrderResult(true, exchangeOrderId, 0, 0, 0, null)
-            : new OrderResult(false, null, 0, 0, 0, "撤单失败");
+        var body = new BybitCancelOrderRequest("spot", "BTCUSDT", exchangeOrderId);
+        try
+        {
+            var resp = await _api.CancelOrderAsync(body, ct);
+            return resp.RetCode == 0
+                ? new OrderResult(true, exchangeOrderId, 0, 0, 0, null)
+                : new OrderResult(false, null, 0, 0, 0, "撤单失败");
+        }
+        catch (ApiException)
+        {
+            return new OrderResult(false, null, 0, 0, 0, "撤单请求失败");
+        }
     }
 
     public async Task<OrderResult> GetOrderAsync(string exchangeOrderId, CancellationToken ct = default)
     {
-        var query = $"category=spot&symbol=BTCUSDT&orderId={exchangeOrderId}";
-        var doc = await SignedGetAsync("/v5/order/realtime", query, ct);
-        if (doc is null) return new OrderResult(false, null, 0, 0, 0, "查询失败");
+        try
+        {
+            var resp = await _api.GetOpenOrdersAsync("spot", "BTCUSDT", ct: ct);
+            if (resp.RetCode != 0)
+                return new OrderResult(false, null, 0, 0, 0, "查询失败");
 
-        if (doc.RootElement.GetProperty("retCode").GetInt32() != 0)
-            return new OrderResult(false, null, 0, 0, 0, "订单不存在");
+            var order = resp.Result.List.FirstOrDefault(o => o.OrderId == exchangeOrderId);
+            if (order is null)
+                return new OrderResult(false, null, 0, 0, 0, "订单不存在");
 
-        var list = doc.RootElement.GetProperty("result").GetProperty("list").EnumerateArray().FirstOrDefault();
-        if (list.ValueKind == JsonValueKind.Undefined) return new OrderResult(false, null, 0, 0, 0, "订单不存在");
-
-        var filled = decimal.Parse(list.GetProperty("cumExecQty").GetString()!, CultureInfo.InvariantCulture);
-        return new OrderResult(true, exchangeOrderId, filled, 0, 0, null);
+            var filled = decimal.Parse(order.CumExecQty, CultureInfo.InvariantCulture);
+            return new OrderResult(true, exchangeOrderId, filled, 0, 0, null);
+        }
+        catch (ApiException)
+        {
+            return new OrderResult(false, null, 0, 0, 0, "查询失败");
+        }
     }
 
     public async Task<OrderResult[]> GetRecentOrdersAsync(DateTime since, CancellationToken ct = default)
     {
         var startMs = new DateTimeOffset(since).ToUnixTimeMilliseconds();
-        var query = $"category=spot&symbol=BTCUSDT&startTime={startMs}&limit=50";
-        var doc = await SignedGetAsync("/v5/order/history", query, ct);
-        if (doc is null) return [];
 
-        var retCode = doc.RootElement.GetProperty("retCode").GetInt32();
-        if (retCode != 0) return [];
+        try
+        {
+            var resp = await _api.GetOrderHistoryAsync("spot", "BTCUSDT", 50, ct: ct);
+            if (resp.RetCode != 0) return [];
 
-        var list = doc.RootElement.GetProperty("result").GetProperty("list").EnumerateArray();
-        return list.Select(o => new OrderResult(
-            o.GetProperty("orderStatus").GetString() == "Filled",
-            o.GetProperty("orderId").GetString(),
-            decimal.Parse(o.GetProperty("cumExecQty").GetString()!, CultureInfo.InvariantCulture),
-            0,
-            decimal.Parse(o.GetProperty("cumExecFee").GetString()!, CultureInfo.InvariantCulture), null
-        )).ToArray();
+            return resp.Result.List
+                .Where(o => long.TryParse(o.CreatedTime, out var t) && t >= startMs)
+                .Select(o => new OrderResult(
+                    o.OrderStatus == "Filled",
+                    o.OrderId,
+                    decimal.Parse(o.CumExecQty, CultureInfo.InvariantCulture),
+                    0,
+                    decimal.Parse(o.CumExecFee, CultureInfo.InvariantCulture),
+                    null)).ToArray();
+        }
+        catch (ApiException)
+        {
+            return [];
+        }
     }
 
     public async Task<ExchangeOrderDto[]> GetOpenOrdersAsync(CancellationToken ct = default)
     {
-        var doc = await SignedGetAsync("/v5/order/realtime", "category=spot", ct);
-        if (doc is null || doc.RootElement.GetProperty("retCode").GetInt32() != 0) return [];
-        var list = doc.RootElement.GetProperty("result").GetProperty("list").EnumerateArray();
+        try
+        {
+            var resp = await _api.GetOpenOrdersAsync("spot", ct: ct);
+            if (resp.RetCode != 0) return [];
 
-        return list.Select(ParseBybitOrder).ToArray();
+            return resp.Result.List.Select(ParseBybitOrder).ToArray();
+        }
+        catch (ApiException)
+        {
+            return [];
+        }
     }
 
     public async Task<ExchangeOrderDto[]> GetOrderHistoryAsync(CancellationToken ct = default)
     {
-        var doc = await SignedGetAsync("/v5/order/history", "category=spot&limit=50", ct);
-        if (doc is null || doc.RootElement.GetProperty("retCode").GetInt32() != 0) return [];
-        var list = doc.RootElement.GetProperty("result").GetProperty("list").EnumerateArray();
+        try
+        {
+            var resp = await _api.GetOrderHistoryAsync("spot", limit: 50, ct: ct);
+            if (resp.RetCode != 0) return [];
 
-        return list.Select(ParseBybitOrder).ToArray();
-    }
-
-    private static ExchangeOrderDto ParseBybitOrder(JsonElement o)
-    {
-        var side = o.GetProperty("side").GetString();
-        var orderType = o.GetProperty("orderType").GetString();
-        var orderStatus = o.GetProperty("orderStatus").GetString();
-        return new ExchangeOrderDto(
-            o.GetProperty("symbol").GetString()!,
-            side == "Buy" ? "Buy" : "Sell",
-            orderType == "Limit" ? "Limit" : orderType == "Market" ? "Market" : orderType ?? "",
-            orderStatus switch
-            {
-                "Created" => "New",
-                "New" => "New",
-                "PartiallyFilled" => "PartiallyFilled",
-                "Filled" => "Filled",
-                "Cancelled" => "Cancelled",
-                _ => orderStatus ?? ""
-            },
-            TryParseDecimal(o.GetProperty("price").GetString()),
-            TryParseDecimal(o.GetProperty("qty").GetString()),
-            TryParseDecimal(o.GetProperty("cumExecQty").GetString()),
-            o.GetProperty("orderId").GetString()!,
-            DateTimeOffset.FromUnixTimeMilliseconds(long.Parse(o.GetProperty("createdTime").GetString()!)).UtcDateTime
-        );
+            return resp.Result.List.Select(ParseBybitOrder).ToArray();
+        }
+        catch (ApiException)
+        {
+            return [];
+        }
     }
 
     public async Task<ConnectionTestResult> TestConnectionAsync(CancellationToken ct = default)
     {
         try
         {
-            var doc = await SignedGetAsync("/v5/account/wallet-balance", "accountType=UNIFIED&coin=USDT", ct);
-            if (doc is null) return new ConnectionTestResult(false, null, "连接失败");
-
-            var retCode = doc.RootElement.GetProperty("retCode").GetInt32();
-            return retCode == 0
+            var resp = await _api.GetWalletBalanceAsync("UNIFIED", "USDT", ct);
+            return resp.RetCode == 0
                 ? new ConnectionTestResult(true, new() { ["spotTrade"] = true }, "Connection successful")
-                : new ConnectionTestResult(false, null, $"API 错误: {doc.RootElement.GetProperty("retMsg").GetString()}");
+                : new ConnectionTestResult(false, null, $"API 错误: {resp.RetMsg}");
         }
         catch (Exception ex)
         {
@@ -251,83 +262,71 @@ public class BybitClient : IExchangeClient
 
     public async Task<PairRule[]> GetPairRulesAsync(CancellationToken ct = default)
     {
-        var resp = await _http.GetAsync("/v5/market/instruments-info?category=spot", ct);
-        if (!resp.IsSuccessStatusCode) return [];
+        try
+        {
+            var resp = await _api.GetInstrumentsInfoAsync("spot", ct: ct);
+            if (resp.RetCode != 0) return [];
 
-        var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
-        if (doc is null || doc.RootElement.GetProperty("retCode").GetInt32() != 0) return [];
-
-        var list = doc.RootElement.GetProperty("result").GetProperty("list").EnumerateArray()
-            .Where(s => s.GetProperty("status").GetString() == "Trading");
-        return list.Select(s => new PairRule(
-            s.GetProperty("symbol").GetString()!,
-            s.GetProperty("priceFilter").GetProperty("tickSize").GetString()!.Length - 2,
-            s.GetProperty("lotSizeFilter").GetProperty("qtyStep").GetString()!.Length - 2,
-            decimal.Parse(s.GetProperty("lotSizeFilter").GetProperty("minOrderAmt").GetString()!, CultureInfo.InvariantCulture),
-            decimal.Parse(s.GetProperty("lotSizeFilter").GetProperty("minOrderQty").GetString()!, CultureInfo.InvariantCulture),
-            decimal.Parse(s.GetProperty("priceFilter").GetProperty("tickSize").GetString()!, CultureInfo.InvariantCulture),
-            decimal.Parse(s.GetProperty("lotSizeFilter").GetProperty("qtyStep").GetString()!, CultureInfo.InvariantCulture)
-        )).ToArray();
+            return resp.Result.List
+                .Where(s => s.Status == "Trading")
+                .Select(s => new PairRule(
+                    s.Symbol,
+                    s.PriceFilter.TickSize.Length - 2,
+                    s.LotSizeFilter.QtyStep.Length - 2,
+                    decimal.Parse(s.LotSizeFilter.MinOrderAmt, CultureInfo.InvariantCulture),
+                    decimal.Parse(s.LotSizeFilter.MinOrderQty, CultureInfo.InvariantCulture),
+                    decimal.Parse(s.PriceFilter.TickSize, CultureInfo.InvariantCulture),
+                    decimal.Parse(s.LotSizeFilter.QtyStep, CultureInfo.InvariantCulture)))
+                .ToArray();
+        }
+        catch (ApiException)
+        {
+            return [];
+        }
     }
 
     public async Task<TickerPrice[]> GetTickerPricesAsync(CancellationToken ct = default)
     {
-        var resp = await _http.GetAsync("/v5/market/tickers?category=spot", ct);
-        if (!resp.IsSuccessStatusCode) return [];
-        var doc = await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
-        if (doc is null || doc.RootElement.GetProperty("retCode").GetInt32() != 0) return [];
-
-        return doc.RootElement.GetProperty("result").GetProperty("list").EnumerateArray().Select(t => new TickerPrice(
-            t.GetProperty("symbol").GetString()!,
-            TryParseDecimal(t.GetProperty("lastPrice").GetString()),
-            TryParseDecimal(t.GetProperty("price24hPcnt").GetString()),
-            TryParseDecimal(t.GetProperty("volume24h").GetString()),
-            TryParseDecimal(t.GetProperty("highPrice24h").GetString()),
-            TryParseDecimal(t.GetProperty("lowPrice24h").GetString())
-        )).ToArray();
-    }
-
-    private async Task<JsonDocument?> SignedGetAsync(string path, string query, CancellationToken ct)
-    {
-        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var recvWindow = 5000;
-        var signPayload = $"{timestamp}{_apiKey}{recvWindow}{query}";
-        var sign = Sign(signPayload);
-
-        var req = new HttpRequestMessage(HttpMethod.Get, $"{path}?{query}");
-        req.Headers.Add("X-BAPI-TIMESTAMP", timestamp.ToString());
-        req.Headers.Add("X-BAPI-SIGN", sign);
-        req.Headers.Add("X-BAPI-RECV-WINDOW", recvWindow.ToString());
-
-        var resp = await _http.SendAsync(req, ct);
-        if (!resp.IsSuccessStatusCode) return null;
-        return await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
-    }
-
-    private async Task<JsonDocument?> SignedPostAsync(string path, string body, CancellationToken ct)
-    {
-        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var recvWindow = 5000;
-        var signPayload = $"{timestamp}{_apiKey}{recvWindow}{body}";
-        var sign = Sign(signPayload);
-
-        var req = new HttpRequestMessage(HttpMethod.Post, path)
+        try
         {
-            Content = new StringContent(body, Encoding.UTF8, "application/json")
-        };
-        req.Headers.Add("X-BAPI-TIMESTAMP", timestamp.ToString());
-        req.Headers.Add("X-BAPI-SIGN", sign);
-        req.Headers.Add("X-BAPI-RECV-WINDOW", recvWindow.ToString());
+            var resp = await _api.GetTickersAsync("spot", ct);
+            if (resp.RetCode != 0) return [];
 
-        var resp = await _http.SendAsync(req, ct);
-        if (!resp.IsSuccessStatusCode) return null;
-        return await resp.Content.ReadFromJsonAsync<JsonDocument>(ct);
+            return resp.Result.List.Select(t => new TickerPrice(
+                t.Symbol,
+                TryParseDecimal(t.LastPrice),
+                TryParseDecimal(t.Price24hPcnt) * 100,
+                TryParseDecimal(t.Volume24h),
+                TryParseDecimal(t.HighPrice24h),
+                TryParseDecimal(t.LowPrice24h))).ToArray();
+        }
+        catch (ApiException)
+        {
+            return [];
+        }
     }
 
-    private string Sign(string payload)
+    private static ExchangeOrderDto ParseBybitOrder(BybitOrderDetails o)
     {
-        var hash = _hmac.ComputeHash(Encoding.UTF8.GetBytes(payload));
-        return Convert.ToHexStringLower(hash);
+        return new ExchangeOrderDto(
+            o.Symbol,
+            o.Side == "Buy" ? "Buy" : "Sell",
+            o.OrderType switch { "Limit" => "Limit", "Market" => "Market", _ => o.OrderType },
+            o.OrderStatus switch
+            {
+                "Created" => "New",
+                "New" => "New",
+                "PartiallyFilled" => "PartiallyFilled",
+                "Filled" => "Filled",
+                "Cancelled" => "Cancelled",
+                _ => o.OrderStatus
+            },
+            TryParseDecimal(o.Price),
+            TryParseDecimal(o.Qty),
+            TryParseDecimal(o.CumExecQty),
+            o.OrderId,
+            DateTimeOffset.FromUnixTimeMilliseconds(long.Parse(o.CreatedTime)).UtcDateTime
+        );
     }
 
     private static decimal TryParseDecimal(string? s)
@@ -337,14 +336,13 @@ public class BybitClient : IExchangeClient
         return v;
     }
 
-    private static decimal[,] ParseDepthEntries(JsonElement entries)
+    private static decimal[,] ParseDepthEntries(string[][] entries)
     {
-        var list = entries.EnumerateArray().ToList();
-        var result = new decimal[list.Count, 2];
-        for (var i = 0; i < list.Count; i++)
+        var result = new decimal[entries.Length, 2];
+        for (var i = 0; i < entries.Length; i++)
         {
-            result[i, 0] = decimal.Parse(list[i][0].GetString()!, CultureInfo.InvariantCulture);
-            result[i, 1] = decimal.Parse(list[i][1].GetString()!, CultureInfo.InvariantCulture);
+            result[i, 0] = decimal.Parse(entries[i][0], CultureInfo.InvariantCulture);
+            result[i, 1] = decimal.Parse(entries[i][1], CultureInfo.InvariantCulture);
         }
         return result;
     }
