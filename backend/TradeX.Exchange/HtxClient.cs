@@ -145,7 +145,9 @@ public class HtxClient(string apiKey, string secretKey) : IExchangeClient
             request.Pair.ToLowerInvariant(),
             type,
             request.Quantity.ToString(CultureInfo.InvariantCulture),
-            request.Price?.ToString(CultureInfo.InvariantCulture));
+            request.Price?.ToString(CultureInfo.InvariantCulture),
+            // HTX client-order-id ≤64 chars；GUID N (32) 充分够用
+            ClientOrderId: request.ClientOrderId);
 
         try
         {
@@ -176,8 +178,23 @@ public class HtxClient(string apiKey, string secretKey) : IExchangeClient
         }
     }
 
-    public Task<OrderResult> GetOrderByClientOrderIdAsync(string pair, string clientOrderId, CancellationToken ct = default)
-        => Task.FromResult(new OrderResult(false, null, 0, 0, 0, "not_supported"));
+    public async Task<OrderResult> GetOrderByClientOrderIdAsync(string pair, string clientOrderId, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _api.GetClientOrderAsync(clientOrderId, ct);
+            if (resp.Status != "ok" || resp.Data is null)
+                return new OrderResult(false, null, 0, 0, 0, $"交易所无此 ClientOrderId: {resp.Status}");
+            var d = resp.Data;
+            var filled = decimal.TryParse(d.FilledAmount, NumberStyles.Any, CultureInfo.InvariantCulture, out var f) ? f : 0;
+            var fee = decimal.TryParse(d.FieldFees, NumberStyles.Any, CultureInfo.InvariantCulture, out var fee0) ? fee0 : 0;
+            return new OrderResult(true, d.Id.ToString(), filled, 0, fee, null);
+        }
+        catch (ApiException ex)
+        {
+            return new OrderResult(false, null, 0, 0, 0, $"按 ClientOrderId 查询失败: {ex.StatusCode} {ex.Message}");
+        }
+    }
 
     public async Task<OrderResult> GetOrderAsync(string exchangeOrderId, CancellationToken ct = default)
     {
