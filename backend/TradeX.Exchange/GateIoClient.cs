@@ -127,12 +127,17 @@ public class GateIoClient(string apiKey, string secretKey) : IExchangeClient
     public async Task<OrderResult> PlaceOrderAsync(OrderRequest request, CancellationToken ct = default)
     {
         var side = request.Side == OrderSide.Buy ? "buy" : "sell";
+        // Gate text 限制：必须以 "t-" 开头、总长度 ≤28；GUID N 是 32 hex 字符，截取前 26 个 + "t-" 前缀正好 28
+        var text = string.IsNullOrEmpty(request.ClientOrderId)
+            ? null
+            : "t-" + (request.ClientOrderId.Length > 26 ? request.ClientOrderId[..26] : request.ClientOrderId);
         var body = new GateIoPlaceOrderRequest(
             request.Pair, side,
             request.Quantity.ToString(CultureInfo.InvariantCulture),
             request.Type == OrderType.Limit ? "limit" : "market",
             request.Price?.ToString(CultureInfo.InvariantCulture),
-            "gtc");
+            "gtc",
+            Text: text);
 
         try
         {
@@ -161,14 +166,28 @@ public class GateIoClient(string apiKey, string secretKey) : IExchangeClient
         }
     }
 
-    public Task<OrderResult> GetOrderByClientOrderIdAsync(string pair, string clientOrderId, CancellationToken ct = default)
-        => Task.FromResult(new OrderResult(false, null, 0, 0, 0, "not_supported"));
+    public async Task<OrderResult> GetOrderByClientOrderIdAsync(string pair, string clientOrderId, CancellationToken ct = default)
+    {
+        try
+        {
+            // Gate API: order_id 路径占位符接受 "t-{text}"；需要 currency_pair query 参数
+            var text = "t-" + (clientOrderId.Length > 26 ? clientOrderId[..26] : clientOrderId);
+            var resp = await _api.GetOrderAsync(text, currency_pair: pair, ct: ct);
+            var filled = decimal.TryParse(resp.FilledAmount, NumberStyles.Any, CultureInfo.InvariantCulture, out var f) ? f : 0;
+            var fee = decimal.TryParse(resp.Fee, NumberStyles.Any, CultureInfo.InvariantCulture, out var fee0) ? fee0 : 0;
+            return new OrderResult(true, resp.Id, filled, 0, fee, null);
+        }
+        catch (ApiException ex)
+        {
+            return new OrderResult(false, null, 0, 0, 0, $"按 ClientOrderId 查询失败: {ex.StatusCode} {ex.Message}");
+        }
+    }
 
     public async Task<OrderResult> GetOrderAsync(string exchangeOrderId, CancellationToken ct = default)
     {
         try
         {
-            var resp = await _api.GetOrderAsync(exchangeOrderId, ct);
+            var resp = await _api.GetOrderAsync(exchangeOrderId, ct: ct);
             var filled = decimal.Parse(resp.FilledTotal, CultureInfo.InvariantCulture);
             return new OrderResult(true, exchangeOrderId, filled, 0, 0, null);
         }

@@ -39,6 +39,11 @@ public interface IHtxRestApi
     [Get("/v1/order/orders/{orderId}")]
     Task<HtxSingleResponse<HtxOrderDetail>> GetOrderAsync(string orderId, CancellationToken ct = default);
 
+    [Get("/v1/order/orders/getClientOrder")]
+    Task<HtxSingleResponse<HtxOrderDetail>> GetClientOrderAsync(
+        [Query] string clientOrderId,
+        CancellationToken ct = default);
+
     [Get("/v1/order/orders")]
     Task<HtxResponse<List<HtxOrderDetail>>> GetOrdersAsync(
         [Query] string? symbol = null,
@@ -117,7 +122,9 @@ public record HtxPlaceOrderRequest(
     string Symbol,
     string Type,
     string Amount,
-    string? Price = null);
+    string? Price = null,
+    /// <summary>HTX client-order-id；JSON 字段名 kebab-case，≤64 字符。</summary>
+    [property: System.Text.Json.Serialization.JsonPropertyName("client-order-id")] string? ClientOrderId = null);
 
 public record HtxOrderResponse(
     string Status,

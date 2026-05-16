@@ -35,7 +35,10 @@ public interface IGateIoRestApi
     Task<GateIoOrderResponse> CancelOrderAsync(string orderId, CancellationToken ct = default);
 
     [Get("/api/v4/spot/orders/{orderId}")]
-    Task<GateIoOrderResponse> GetOrderAsync(string orderId, CancellationToken ct = default);
+    Task<GateIoOrderResponse> GetOrderAsync(
+        string orderId,
+        [Query] string? currency_pair = null,
+        CancellationToken ct = default);
 
     [Get("/api/v4/spot/orders")]
     Task<List<GateIoOrderResponse>> GetOrdersAsync(
@@ -82,7 +85,9 @@ public record GateIoPlaceOrderRequest(
     string Amount,
     string Type,
     string? Price = null,
-    string? TimeInForce = null);
+    string? TimeInForce = null,
+    /// <summary>客户端订单 ID。必须以 "t-" 开头，总长度 ≤28 字符（即 t- + 最多 26 字符）。</summary>
+    string? Text = null);
 
 public record GateIoOrderResponse(
     string Id,
