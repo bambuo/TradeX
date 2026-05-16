@@ -50,6 +50,7 @@ public interface IBybitRestApi
     Task<BybitResponse<BybitOrdersResult>> GetOpenOrdersAsync(
         [Query] string? category = null,
         [Query] string? symbol = null,
+        [Query] string? orderLinkId = null,
         [Query] int? limit = null,
         CancellationToken ct = default);
 
@@ -57,6 +58,7 @@ public interface IBybitRestApi
     Task<BybitResponse<BybitOrdersResult>> GetOrderHistoryAsync(
         [Query] string? category = null,
         [Query] string? symbol = null,
+        [Query] string? orderLinkId = null,
         [Query] int? limit = null,
         CancellationToken ct = default);
 }
@@ -125,7 +127,9 @@ public record BybitPlaceOrderRequest(
     string OrderType,
     string Qty,
     string? Price = null,
-    string? TimeInForce = null);
+    string? TimeInForce = null,
+    /// <summary>客户端订单 ID（用于幂等 + 对账反查）；长度 ≤36，字符集 [a-zA-Z0-9-_]。</summary>
+    string? OrderLinkId = null);
 
 public record BybitCancelOrderRequest(
     string Category,
@@ -150,4 +154,5 @@ public record BybitOrderDetails(
     string Qty,
     string CumExecQty,
     string CumExecFee,
-    string CreatedTime);
+    string CreatedTime,
+    string? OrderLinkId = null);

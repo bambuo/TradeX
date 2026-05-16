@@ -69,10 +69,28 @@ try
 
     builder.Services.AddExchange();
     builder.Services.AddIndicators();
-    builder.Services.AddTrading();
+    builder.Services.AddTradingShared();
     builder.Services.AddNotifications();
 
-    builder.Services.AddSignalR();
+    // Redis: 已配置时注册多路复用器 + SignalR backplane + Worker → SignalR 事件桥接
+    // 未配置时只使用本地 SignalR（适合单机开发，Worker 端事件丢失）
+    var redisConn = builder.Configuration["Redis:ConnectionString"];
+    var redisEnabled = !string.IsNullOrWhiteSpace(redisConn);
+    if (redisEnabled)
+    {
+        builder.Services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(
+            _ => StackExchange.Redis.ConnectionMultiplexer.Connect(redisConn!));
+        builder.Services.AddSignalR()
+            .AddStackExchangeRedis(redisConn!, options =>
+                options.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("tradex.signalr"));
+        builder.Services.AddHostedService<TradeX.Api.Services.RedisToSignalRBridge>();
+    }
+    else
+    {
+        builder.Services.AddSignalR();
+    }
+    builder.Services.AddTradingCommandPublisher(redisAvailable: redisEnabled);
+    builder.Services.AddBacktestTaskNotifier(redisAvailable: redisEnabled);
 
     builder.Services.AddScoped<TradeX.Api.Filters.MfaActionFilter>();
     builder.Services.AddControllers(o => o.Filters.AddService<TradeX.Api.Filters.MfaActionFilter>())

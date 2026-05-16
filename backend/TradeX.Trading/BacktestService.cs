@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
+using TradeX.Trading.Backtest;
 
 namespace TradeX.Trading;
 
@@ -8,6 +9,7 @@ public class BacktestService(
     IStrategyRepository strategyRepo,
     IBacktestTaskRepository taskRepo,
     IBacktestTaskQueue queue,
+    IBacktestTaskNotifier notifier,
     ILogger<BacktestService> logger) : IBacktestService
 {
     public async Task<BacktestTask> StartBacktestAsync(Guid strategyId, Guid exchangeId, string pair, string timeframe, DateTime startAt, DateTime endAt, decimal initialCapital, decimal? positionSize = null, CancellationToken ct = default)
@@ -37,6 +39,8 @@ public class BacktestService(
 
         await taskRepo.AddAsync(task, ct);
         await queue.EnqueueAsync(task.Id, ct);
+        // 跨进程通知（API → Worker）；Redis 未配置时为 no-op，Worker 端兜底扫描会捡起
+        await notifier.NotifyTaskQueuedAsync(task.Id, ct);
 
         logger.LogInformation("回测任务已入队: TaskId={TaskId}, Strategy={Strategy}", task.Id, strategy.Name);
 

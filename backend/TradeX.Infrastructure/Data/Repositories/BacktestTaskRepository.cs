@@ -16,6 +16,12 @@ public class BacktestTaskRepository(TradeXDbContext context) : IBacktestTaskRepo
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync(ct);
 
+    public async Task<List<BacktestTask>> GetByStatusAsync(BacktestTaskStatus status, CancellationToken ct = default)
+        => await context.BacktestTasks
+            .Where(t => t.Status == status)
+            .OrderBy(t => t.CreatedAt)
+            .ToListAsync(ct);
+
     public async Task AddAsync(BacktestTask task, CancellationToken ct = default)
     {
         await context.BacktestTasks.AddAsync(task, ct);

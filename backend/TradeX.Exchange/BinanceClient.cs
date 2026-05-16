@@ -120,6 +120,8 @@ public class BinanceClient(string apiKey, string secretKey, bool isTestnet) : IE
                 quantity: request.Quantity.ToString(CultureInfo.InvariantCulture),
                 price: request.Price?.ToString(CultureInfo.InvariantCulture),
                 stopPrice: request.StopPrice?.ToString(CultureInfo.InvariantCulture),
+                // Binance newClientOrderId 限制：必须匹配 ^[\.A-Z\:/a-z0-9_-]{1,36}$；GUID N 格式 (32 hex) 完全符合
+                newClientOrderId: request.ClientOrderId,
                 ct: ct);
 
             return new OrderResult(true, resp.OrderId.ToString(), resp.ExecutedQty, 0, 0, null);
@@ -147,12 +149,27 @@ public class BinanceClient(string apiKey, string secretKey, bool isTestnet) : IE
     {
         try
         {
+            // TODO: Binance API 强制要求 symbol，此处占位 BTCUSDT 是历史遗留；调用方应改用更具体的接口或传入 pair
             var resp = await _api.GetOrderAsync("BTCUSDT", orderId: exchangeOrderId, ct: ct);
             return new OrderResult(true, exchangeOrderId, resp.ExecutedQty, 0, 0, null);
         }
         catch (ApiException)
         {
             return new OrderResult(false, null, 0, 0, 0, "查询订单失败");
+        }
+    }
+
+    public async Task<OrderResult> GetOrderByClientOrderIdAsync(string pair, string clientOrderId, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _api.GetOrderAsync(pair, origClientOrderId: clientOrderId, ct: ct);
+            return new OrderResult(true, resp.OrderId.ToString(), resp.ExecutedQty, 0, 0, null);
+        }
+        catch (ApiException ex)
+        {
+            // -2013 = Order does not exist（说明交易所确实没收到这笔订单）
+            return new OrderResult(false, null, 0, 0, 0, $"按 ClientOrderId 查询失败: {ex.StatusCode} {ex.Message}");
         }
     }
 

@@ -2,9 +2,13 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
+using TradeX.Exchange;
+using TradeX.Indicators;
 using TradeX.Infrastructure;
+using TradeX.Notifications;
+using TradeX.Trading;
+using TradeX.Trading.Events;
 using TradeX.Trading.Observability;
-using TradeX.Worker;
 
 // Serilog bootstrap logger（DI 启动前用）
 Log.Logger = new LoggerConfiguration()
@@ -24,7 +28,7 @@ try
         .WriteTo.Console()
         .WriteTo.File("logs/worker-.log", rollingInterval: RollingInterval.Day));
 
-    // DB（与 API 共享同一 schema/迁移；同时连接，靠乐观并发 token 防竞争）
+    // ------ Infrastructure ------
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
     var mySqlVersion = builder.Configuration["Database:MySqlServerVersion"] ?? "8.4.0";
     builder.Services.AddInfrastructure(connectionString, mySqlVersion);
@@ -32,7 +36,37 @@ try
     var encryptionKey = builder.Configuration.GetSection("Encryption")["Key"]!;
     builder.Services.AddEncryption(encryptionKey);
 
-    // OTel：业务指标 + 自动埋点。Prometheus 用独立 HttpListener 暴露 /metrics:9464
+    // ------ Trading 业务（共享 + Worker 独占的 HostedService） ------
+    builder.Services.AddExchange();
+    builder.Services.AddIndicators();
+    builder.Services.AddNotifications();
+    builder.Services.AddTradingShared();
+    builder.Services.AddTradingWorker();
+
+    // 事件总线：Redis 配置存在 → RedisEventBus（发布到 tradex:events，API bridge 转发 SignalR）；
+    //           否则 → LoggingEventBus 降级（前端实时事件丢失但不阻塞业务）
+    var redisConn = builder.Configuration["Redis:ConnectionString"];
+    if (!string.IsNullOrWhiteSpace(redisConn))
+    {
+        builder.Services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(
+            _ => StackExchange.Redis.ConnectionMultiplexer.Connect(redisConn));
+        builder.Services.AddSingleton<ITradingEventBus, RedisEventBus>();
+        builder.Services.AddTradingWorkerCommandBus();
+        builder.Services.AddBacktestTaskNotifier(redisAvailable: true);
+        builder.Services.AddBacktestTaskListener();
+        Log.Information("Worker 事件总线 + 命令总线 + 回测任务桥: Redis → {Events} / {Commands} / {Backtest}",
+            TradingEventChannels.Events,
+            TradeX.Trading.Commands.WorkerCommandChannels.Commands,
+            TradeX.Trading.Backtest.BacktestChannels.Tasks);
+    }
+    else
+    {
+        builder.Services.AddSingleton<ITradingEventBus, LoggingEventBus>();
+        builder.Services.AddBacktestTaskNotifier(redisAvailable: false);
+        Log.Warning("Worker 事件总线/命令通道/回测桥: 未配置 Redis:ConnectionString，全部降级（仅本地进程内有效）");
+    }
+
+    // ------ Observability ------
     builder.Services.AddSingleton<TradeXMetrics>();
     builder.Services.AddOpenTelemetry()
         .ConfigureResource(r => r.AddService("tradex-worker", serviceVersion: "1.0.0"))
@@ -53,12 +87,9 @@ try
                 t.AddOtlpExporter();
         });
 
-    // 阶段 1：仅注册 Heartbeat 占位，验证启动流程
-    // 阶段 2 替换为 AddTradingWorker()（TradingEngine + BacktestScheduler + OrderReconciler 等）
-    builder.Services.AddHostedService<HeartbeatService>();
-
     var host = builder.Build();
-    Log.Information("TradeX.Worker 启动: Environment={Env}", builder.Environment.EnvironmentName);
+    Log.Information("TradeX.Worker 启动: Environment={Env} — 已装载 TradingEngine / BacktestScheduler / ResourceMonitor",
+        builder.Environment.EnvironmentName);
     await host.RunAsync();
 }
 catch (Exception ex)
