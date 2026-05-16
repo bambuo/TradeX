@@ -6,6 +6,7 @@ using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 using TradeX.Indicators;
 using TradeX.Trading;
+using TradeX.Trading.Backtest;
 
 namespace TradeX.Tests.Trading;
 
@@ -22,6 +23,7 @@ public class BacktestServiceTests
         var encryption = Substitute.For<IEncryptionService>();
         var queue = Substitute.For<IBacktestTaskQueue>();
         queue.EnqueueAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(ValueTask.CompletedTask);
+        var notifier = Substitute.For<IBacktestTaskNotifier>();
 
         services.AddSingleton(taskRepo);
         services.AddSingleton(strategyRepo);
@@ -29,6 +31,7 @@ public class BacktestServiceTests
         services.AddSingleton(clientFactory);
         services.AddSingleton(encryption);
         services.AddSingleton(queue);
+        services.AddSingleton(notifier);
         services.AddSingleton<IIndicatorService>(_ => new IndicatorService());
         services.AddSingleton<IConditionTreeEvaluator, ConditionTreeEvaluator>();
         services.AddScoped<IConditionEvaluator, ConditionEvaluator>();

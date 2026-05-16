@@ -183,19 +183,23 @@ public class BacktestScheduler(
             var taskRepo = scope.ServiceProvider.GetRequiredService<IBacktestTaskRepository>();
             var queue = scope.ServiceProvider.GetRequiredService<IBacktestTaskQueue>();
 
-            var allTasks = await taskRepo.GetByStrategyIdAsync(Guid.Empty, ct);
-            var stuckTasks = allTasks.Where(t => t.Status == BacktestTaskStatus.Running).ToList();
-
+            // 1) 把上次崩溃留下的 Running 任务回滚为 Pending（这是真正"卡死"的情形）
+            var stuckTasks = await taskRepo.GetByStatusAsync(BacktestTaskStatus.Running, ct);
             foreach (var task in stuckTasks)
             {
                 logger.LogWarning("恢复卡死的回测任务: TaskId={TaskId}, Strategy={Strategy}", task.Id, task.StrategyName);
                 task.Status = BacktestTaskStatus.Pending;
                 await taskRepo.UpdateAsync(task, ct);
-                await queue.EnqueueAsync(task.Id, ct);
             }
 
-            if (stuckTasks.Count > 0)
-                logger.LogInformation("已恢复 {Count} 个卡死的回测任务", stuckTasks.Count);
+            // 2) 把所有 Pending 任务全部入队（包括 Worker 离线期间累积的 + 刚回滚的）
+            var pending = await taskRepo.GetByStatusAsync(BacktestTaskStatus.Pending, ct);
+            foreach (var task in pending)
+                await queue.EnqueueAsync(task.Id, ct);
+
+            if (stuckTasks.Count > 0 || pending.Count > 0)
+                logger.LogInformation("启动恢复完成: 卡死回滚 {Stuck} 个, Pending 入队 {Pending} 个",
+                    stuckTasks.Count, pending.Count);
         }
         catch (Exception ex)
         {

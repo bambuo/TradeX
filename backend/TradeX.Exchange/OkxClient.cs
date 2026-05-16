@@ -134,7 +134,9 @@ public class OkxClient(string apiKey, string secretKey, string? passphrase = nul
         var body = new OkxPlaceOrderRequest(
             request.Pair, "cash", side, ordType,
             request.Quantity.ToString(CultureInfo.InvariantCulture),
-            request.Price?.ToString(CultureInfo.InvariantCulture));
+            request.Price?.ToString(CultureInfo.InvariantCulture),
+            // OKX clOrdId 限制：字母数字下划线 ≤32 字符；GUID N 格式 (32 hex) 符合
+            ClOrdId: request.ClientOrderId);
 
         try
         {
@@ -170,11 +172,31 @@ public class OkxClient(string apiKey, string secretKey, string? passphrase = nul
         }
     }
 
+    public async Task<OrderResult> GetOrderByClientOrderIdAsync(string pair, string clientOrderId, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _api.GetOrderAsync(pair, clOrdId: clientOrderId, ct: ct);
+            if (resp.Code != "0" || resp.Data.Count == 0)
+                return new OrderResult(false, null, 0, 0, 0, $"交易所无此 ClOrdId: {resp.Msg}");
+
+            var data = resp.Data[0];
+            var filled = decimal.Parse(data.AccFillSz, CultureInfo.InvariantCulture);
+            var fee = decimal.TryParse(data.Fee, NumberStyles.Any, CultureInfo.InvariantCulture, out var f) ? Math.Abs(f) : 0;
+            return new OrderResult(true, data.OrdId, filled, 0, fee, null);
+        }
+        catch (ApiException ex)
+        {
+            return new OrderResult(false, null, 0, 0, 0, $"按 ClientOrderId 查询失败: {ex.StatusCode} {ex.Message}");
+        }
+    }
+
     public async Task<OrderResult> GetOrderAsync(string exchangeOrderId, CancellationToken ct = default)
     {
         try
         {
-            var resp = await _api.GetOrderAsync("BTCUSDT", exchangeOrderId, ct);
+            // TODO: instId 硬编码 "BTCUSDT" 是历史遗留；调用方应传入 pair
+            var resp = await _api.GetOrderAsync("BTCUSDT", ordId: exchangeOrderId, ct: ct);
             if (resp.Code != "0" || resp.Data.Count == 0)
                 return new OrderResult(false, null, 0, 0, 0, "订单不存在");
 

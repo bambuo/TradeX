@@ -1,5 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using TradeX.Core.Interfaces;
+using TradeX.Trading.Backtest;
+using TradeX.Trading.Commands;
 
 namespace TradeX.Trading;
 
@@ -55,6 +57,45 @@ public static class DependencyInjection
         services.AddHostedService<ResourceMonitor>(sp => sp.GetRequiredService<ResourceMonitor>());
         services.AddHostedService<BacktestScheduler>();
         services.AddHostedService<TradingEngine>();
+        services.AddHostedService<OrderReconcilerService>();
+        return services;
+    }
+
+    /// <summary>
+    /// 注册 Worker 端的命令处理器集合 + Redis 订阅者。调用方需确保 <c>IConnectionMultiplexer</c> 已注册。
+    /// 调用顺序：先注册自定义 handler（实现 <see cref="IWorkerCommandHandler"/>），再调用本方法。
+    /// </summary>
+    public static IServiceCollection AddTradingWorkerCommandBus(this IServiceCollection services)
+    {
+        services.AddSingleton<IWorkerCommandHandler, ReconcileNowHandler>();
+        services.AddHostedService<WorkerCommandSubscriber>();
+        return services;
+    }
+
+    /// <summary>注册命令发布者；Redis 配置存在用 RedisWorkerCommandPublisher，否则降级 NullWorkerCommandPublisher。</summary>
+    public static IServiceCollection AddTradingCommandPublisher(this IServiceCollection services, bool redisAvailable)
+    {
+        if (redisAvailable)
+            services.AddSingleton<IWorkerCommandPublisher, RedisWorkerCommandPublisher>();
+        else
+            services.AddSingleton<IWorkerCommandPublisher, NullWorkerCommandPublisher>();
+        return services;
+    }
+
+    /// <summary>注册回测任务跨进程通知发布者；Redis 配置存在用 RedisBacktestTaskNotifier，否则降级 Null。</summary>
+    public static IServiceCollection AddBacktestTaskNotifier(this IServiceCollection services, bool redisAvailable)
+    {
+        if (redisAvailable)
+            services.AddSingleton<IBacktestTaskNotifier, RedisBacktestTaskNotifier>();
+        else
+            services.AddSingleton<IBacktestTaskNotifier, NullBacktestTaskNotifier>();
+        return services;
+    }
+
+    /// <summary>Worker 端：注册 BacktestTaskListener 订阅跨进程通知。要求 Redis 已配置。</summary>
+    public static IServiceCollection AddBacktestTaskListener(this IServiceCollection services)
+    {
+        services.AddHostedService<BacktestTaskListener>();
         return services;
     }
 }

@@ -41,7 +41,8 @@ public interface IOkxRestApi
     [Get("/api/v5/trade/order")]
     Task<OkxResponse<List<OkxOrderDetails>>> GetOrderAsync(
         [Query] string instId,
-        [Query] string ordId,
+        [Query] string? ordId = null,
+        [Query] string? clOrdId = null,
         CancellationToken ct = default);
 
     [Get("/api/v5/trade/orders-history")]
@@ -111,7 +112,9 @@ public record OkxPlaceOrderRequest(
     string Side,
     string OrdType,
     string Sz,
-    string? Px = null);
+    string? Px = null,
+    /// <summary>客户端订单 ID；字母数字下划线，≤32 字符。GUID N 格式符合。</summary>
+    string? ClOrdId = null);
 
 public record OkxCancelOrderRequest(
     string InstId,
@@ -132,4 +135,5 @@ public record OkxOrderDetails(
     string Sz,
     string AccFillSz,
     string Fee,
-    string CTime);
+    string CTime,
+    string? ClOrdId = null);

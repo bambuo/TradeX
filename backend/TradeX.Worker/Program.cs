@@ -7,6 +7,7 @@ using TradeX.Indicators;
 using TradeX.Infrastructure;
 using TradeX.Notifications;
 using TradeX.Trading;
+using TradeX.Trading.Events;
 using TradeX.Trading.Observability;
 
 // Serilog bootstrap logger（DI 启动前用）
@@ -42,8 +43,28 @@ try
     builder.Services.AddTradingShared();
     builder.Services.AddTradingWorker();
 
-    // 临时事件总线：仅打日志，前端实时事件暂缺；阶段 3 会替换为 RedisEventBus
-    builder.Services.AddSingleton<ITradingEventBus, LoggingEventBus>();
+    // 事件总线：Redis 配置存在 → RedisEventBus（发布到 tradex:events，API bridge 转发 SignalR）；
+    //           否则 → LoggingEventBus 降级（前端实时事件丢失但不阻塞业务）
+    var redisConn = builder.Configuration["Redis:ConnectionString"];
+    if (!string.IsNullOrWhiteSpace(redisConn))
+    {
+        builder.Services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(
+            _ => StackExchange.Redis.ConnectionMultiplexer.Connect(redisConn));
+        builder.Services.AddSingleton<ITradingEventBus, RedisEventBus>();
+        builder.Services.AddTradingWorkerCommandBus();
+        builder.Services.AddBacktestTaskNotifier(redisAvailable: true);
+        builder.Services.AddBacktestTaskListener();
+        Log.Information("Worker 事件总线 + 命令总线 + 回测任务桥: Redis → {Events} / {Commands} / {Backtest}",
+            TradingEventChannels.Events,
+            TradeX.Trading.Commands.WorkerCommandChannels.Commands,
+            TradeX.Trading.Backtest.BacktestChannels.Tasks);
+    }
+    else
+    {
+        builder.Services.AddSingleton<ITradingEventBus, LoggingEventBus>();
+        builder.Services.AddBacktestTaskNotifier(redisAvailable: false);
+        Log.Warning("Worker 事件总线/命令通道/回测桥: 未配置 Redis:ConnectionString，全部降级（仅本地进程内有效）");
+    }
 
     // ------ Observability ------
     builder.Services.AddSingleton<TradeXMetrics>();

@@ -139,7 +139,9 @@ public class BybitClient(string apiKey, string secretKey, bool isTestnet) : IExc
             "spot", request.Pair, side, orderType,
             request.Quantity.ToString(CultureInfo.InvariantCulture),
             request.Price?.ToString(CultureInfo.InvariantCulture),
-            "GTC");
+            "GTC",
+            // Bybit orderLinkId 限制：≤36 字符，字符集 [a-zA-Z0-9-_]；GUID N 格式 (32 hex) 完全符合
+            OrderLinkId: request.ClientOrderId);
 
         try
         {
@@ -171,6 +173,31 @@ public class BybitClient(string apiKey, string secretKey, bool isTestnet) : IExc
         }
     }
 
+    public async Task<OrderResult> GetOrderByClientOrderIdAsync(string pair, string clientOrderId, CancellationToken ct = default)
+    {
+        try
+        {
+            // 优先查 realtime（开放 + 已成交未归档），未命中则查 history
+            var open = await _api.GetOpenOrdersAsync("spot", pair, orderLinkId: clientOrderId, ct: ct);
+            var details = open.RetCode == 0 ? open.Result.List.FirstOrDefault() : null;
+            if (details is null)
+            {
+                var hist = await _api.GetOrderHistoryAsync("spot", pair, orderLinkId: clientOrderId, ct: ct);
+                details = hist.RetCode == 0 ? hist.Result.List.FirstOrDefault() : null;
+            }
+            if (details is null)
+                return new OrderResult(false, null, 0, 0, 0, "交易所无此 OrderLinkId");
+
+            var filled = decimal.Parse(details.CumExecQty, CultureInfo.InvariantCulture);
+            var fee = decimal.Parse(details.CumExecFee, CultureInfo.InvariantCulture);
+            return new OrderResult(true, details.OrderId, filled, 0, fee, null);
+        }
+        catch (ApiException ex)
+        {
+            return new OrderResult(false, null, 0, 0, 0, $"按 ClientOrderId 查询失败: {ex.StatusCode} {ex.Message}");
+        }
+    }
+
     public async Task<OrderResult> GetOrderAsync(string exchangeOrderId, CancellationToken ct = default)
     {
         try
@@ -198,7 +225,7 @@ public class BybitClient(string apiKey, string secretKey, bool isTestnet) : IExc
 
         try
         {
-            var resp = await _api.GetOrderHistoryAsync("spot", "BTCUSDT", 50, ct: ct);
+            var resp = await _api.GetOrderHistoryAsync("spot", "BTCUSDT", limit: 50, ct: ct);
             if (resp.RetCode != 0) return [];
 
             return resp.Result.List

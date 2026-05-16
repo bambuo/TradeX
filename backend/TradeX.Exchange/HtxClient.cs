@@ -176,6 +176,9 @@ public class HtxClient(string apiKey, string secretKey) : IExchangeClient
         }
     }
 
+    public Task<OrderResult> GetOrderByClientOrderIdAsync(string pair, string clientOrderId, CancellationToken ct = default)
+        => Task.FromResult(new OrderResult(false, null, 0, 0, 0, "not_supported"));
+
     public async Task<OrderResult> GetOrderAsync(string exchangeOrderId, CancellationToken ct = default)
     {
         try

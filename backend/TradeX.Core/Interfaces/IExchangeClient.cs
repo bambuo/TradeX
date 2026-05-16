@@ -16,6 +16,15 @@ public interface IExchangeClient
     Task<OrderResult> PlaceOrderAsync(OrderRequest request, CancellationToken ct = default);
     Task<OrderResult> CancelOrderAsync(string exchangeOrderId, CancellationToken ct = default);
     Task<OrderResult> GetOrderAsync(string exchangeOrderId, CancellationToken ct = default);
+
+    /// <summary>
+    /// 凭 ClientOrderId 反查交易所订单状态。供 <c>OrderReconciler</c> 在订单缺少 ExchangeOrderId
+    /// (pre-persist 后崩溃) 时确认交易所是否真的没收到该订单。
+    /// 各交易所参数名不同 (Binance: origClientOrderId, OKX: clOrdId, Bybit: orderLinkId,
+    /// Gate: text, HTX: client-order-id)。未实现该接口的客户端应返回 Success=false +
+    /// Error="not_supported"，对账器据此降级到超时判定。
+    /// </summary>
+    Task<OrderResult> GetOrderByClientOrderIdAsync(string pair, string clientOrderId, CancellationToken ct = default);
     Task<OrderResult[]> GetRecentOrdersAsync(DateTime since, CancellationToken ct = default);
 
     Task<ConnectionTestResult> TestConnectionAsync(CancellationToken ct = default);
