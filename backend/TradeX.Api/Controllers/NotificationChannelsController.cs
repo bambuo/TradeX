@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TradeX.Core.ErrorCodes;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 
@@ -55,7 +56,7 @@ public class NotificationChannelsController(
     {
         var channel = await channelRepo.GetByIdAsync(id, ct);
         if (channel is null)
-            return NotFound(new { code = "NOTIFICATION_NOT_FOUND", message = "通知渠道不存在" });
+            return this.NotFound(BusinessErrorCode.NotificationNotFound, "通知渠道不存在");
 
         channel.Status = channel.Status switch
         {
@@ -71,7 +72,7 @@ public class NotificationChannelsController(
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
         var channel = await channelRepo.GetByIdAsync(id, ct);
-        if (channel is null) return NotFound(new { code = "NOTIFICATION_NOT_FOUND", message = "通知渠道不存在" });
+        if (channel is null) return this.NotFound(BusinessErrorCode.NotificationNotFound, "通知渠道不存在");
 
         await channelRepo.DeleteAsync(channel, ct);
         return NoContent();
@@ -88,7 +89,7 @@ public class NotificationChannelsController(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "通知测试失败, ChannelId={ChannelId}", id);
-            return BadRequest(new { code = "NOTIFICATION_TEST_FAILED", message = ex.Message });
+            return this.BadRequest(BusinessErrorCode.NotificationTestFailed, ex.Message);
         }
     }
 

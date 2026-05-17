@@ -5,6 +5,7 @@ namespace TradeX.Core.Interfaces;
 public interface IBacktestTaskRepository
 {
     Task<BacktestTask?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    Task<List<BacktestTask>> GetAllAsync(CancellationToken ct = default);
     Task<List<BacktestTask>> GetByStrategyIdAsync(Guid strategyId, CancellationToken ct = default);
     Task<List<BacktestTask>> GetByStatusAsync(BacktestTaskStatus status, CancellationToken ct = default);
     Task AddAsync(BacktestTask task, CancellationToken ct = default);

@@ -6,6 +6,7 @@ using TradeX.Api.Filters;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 using TradeX.Core.Enums;
+using TradeX.Core.ErrorCodes;
 using TradeX.Infrastructure.Data;
 
 namespace TradeX.Api.Controllers;
@@ -122,7 +123,7 @@ public class TradersController(
 
         var activeBindings = await bindingRepo.GetByTraderIdAsync(trader.Id, ct);
         if (activeBindings.Any(d => d.Status == BindingStatus.Active))
-            return Conflict(new { code = "TRADER_HAS_ACTIVE_STRATEGIES", message = "交易员存在活跃策略，无法删除，请先禁用所有策略" });
+            return this.Conflict(BusinessErrorCode.TraderHasActiveStrategies, "交易员存在活跃策略，无法删除，请先禁用所有策略");
 
         await traderRepo.DeleteAsync(trader, ct);
         return NoContent();
