@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
+using TradeX.Trading.Streams;
 
 namespace TradeX.Trading.Backtest;
 
@@ -26,9 +27,7 @@ public sealed class RedisBacktestTaskNotifier(
     {
         try
         {
-            await redis.GetSubscriber().PublishAsync(
-                RedisChannel.Literal(BacktestChannels.Tasks),
-                taskId.ToString("N"));
+            await RedisStreamHelpers.AddAsync(redis.GetDatabase(), BacktestChannels.Tasks, taskId.ToString("N"));
         }
         catch (Exception ex)
         {
