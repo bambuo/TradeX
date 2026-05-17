@@ -163,8 +163,9 @@ public class HtxClient(string apiKey, string secretKey) : IExchangeClient
         }
     }
 
-    public async Task<OrderResult> CancelOrderAsync(string exchangeOrderId, CancellationToken ct = default)
+    public async Task<OrderResult> CancelOrderAsync(string pair, string exchangeOrderId, CancellationToken ct = default)
     {
+        // HTX 撤单只需 orderId（pair 用于业务上一致性，未来日志/告警保留）
         try
         {
             var resp = await _api.CancelOrderAsync(exchangeOrderId, ct);
@@ -172,9 +173,9 @@ public class HtxClient(string apiKey, string secretKey) : IExchangeClient
                 ? new OrderResult(true, exchangeOrderId, 0, 0, 0, null)
                 : new OrderResult(false, null, 0, 0, 0, "撤单失败");
         }
-        catch (ApiException)
+        catch (ApiException ex)
         {
-            return new OrderResult(false, null, 0, 0, 0, "撤单失败");
+            return new OrderResult(false, null, 0, 0, 0, $"撤单失败: {ex.Message}");
         }
     }
 
@@ -196,7 +197,7 @@ public class HtxClient(string apiKey, string secretKey) : IExchangeClient
         }
     }
 
-    public async Task<OrderResult> GetOrderAsync(string exchangeOrderId, CancellationToken ct = default)
+    public async Task<OrderResult> GetOrderAsync(string pair, string exchangeOrderId, CancellationToken ct = default)
     {
         try
         {

@@ -156,19 +156,19 @@ public class OkxClient(string apiKey, string secretKey, string? passphrase = nul
         }
     }
 
-    public async Task<OrderResult> CancelOrderAsync(string exchangeOrderId, CancellationToken ct = default)
+    public async Task<OrderResult> CancelOrderAsync(string pair, string exchangeOrderId, CancellationToken ct = default)
     {
-        var body = new OkxCancelOrderRequest("BTCUSDT", exchangeOrderId);
+        var body = new OkxCancelOrderRequest(pair, exchangeOrderId);
         try
         {
             var resp = await _api.CancelOrderAsync(body, ct);
             return resp.Code == "0"
                 ? new OrderResult(true, exchangeOrderId, 0, 0, 0, null)
-                : new OrderResult(false, null, 0, 0, 0, "撤单失败");
+                : new OrderResult(false, null, 0, 0, 0, $"撤单失败: {resp.Msg}");
         }
-        catch (ApiException)
+        catch (ApiException ex)
         {
-            return new OrderResult(false, null, 0, 0, 0, "撤单请求失败");
+            return new OrderResult(false, null, 0, 0, 0, $"撤单请求失败: {ex.Message}");
         }
     }
 
@@ -191,22 +191,22 @@ public class OkxClient(string apiKey, string secretKey, string? passphrase = nul
         }
     }
 
-    public async Task<OrderResult> GetOrderAsync(string exchangeOrderId, CancellationToken ct = default)
+    public async Task<OrderResult> GetOrderAsync(string pair, string exchangeOrderId, CancellationToken ct = default)
     {
         try
         {
-            // TODO: instId 硬编码 "BTCUSDT" 是历史遗留；调用方应传入 pair
-            var resp = await _api.GetOrderAsync("BTCUSDT", ordId: exchangeOrderId, ct: ct);
+            var resp = await _api.GetOrderAsync(pair, ordId: exchangeOrderId, ct: ct);
             if (resp.Code != "0" || resp.Data.Count == 0)
                 return new OrderResult(false, null, 0, 0, 0, "订单不存在");
 
             var data = resp.Data[0];
             var filled = decimal.Parse(data.AccFillSz, CultureInfo.InvariantCulture);
-            return new OrderResult(true, exchangeOrderId, filled, 0, 0, null);
+            var fee = decimal.TryParse(data.Fee, NumberStyles.Any, CultureInfo.InvariantCulture, out var f) ? Math.Abs(f) : 0;
+            return new OrderResult(true, exchangeOrderId, filled, 0, fee, null);
         }
-        catch (ApiException)
+        catch (ApiException ex)
         {
-            return new OrderResult(false, null, 0, 0, 0, "查询失败");
+            return new OrderResult(false, null, 0, 0, 0, $"查询失败: {ex.Message}");
         }
     }
 

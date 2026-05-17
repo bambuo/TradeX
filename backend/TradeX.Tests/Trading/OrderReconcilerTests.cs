@@ -125,7 +125,7 @@ public class OrderReconcilerTests
         };
         orderRepo.GetPendingByExchangeAsync(exchangeId, Arg.Any<CancellationToken>())
             .Returns([order]);
-        exchangeClient.GetOrderAsync("EX-42", Arg.Any<CancellationToken>())
+        exchangeClient.GetOrderAsync(Arg.Any<string>(), "EX-42", Arg.Any<CancellationToken>())
             .Returns(new OrderResult(true, "EX-42", FilledQuantity: 1m, AvgPrice: 50000m, Fee: 0.05m, Error: null));
 
         await rec.ReconcileAsync();
@@ -154,7 +154,7 @@ public class OrderReconcilerTests
         };
         orderRepo.GetPendingByExchangeAsync(exchangeId, Arg.Any<CancellationToken>())
             .Returns([order]);
-        exchangeClient.GetOrderAsync("EX-43", Arg.Any<CancellationToken>())
+        exchangeClient.GetOrderAsync(Arg.Any<string>(), "EX-43", Arg.Any<CancellationToken>())
             .Returns(new OrderResult(true, "EX-43", FilledQuantity: 0.8m, AvgPrice: 100m, Fee: 0.001m, Error: null));
 
         await rec.ReconcileAsync();
@@ -182,7 +182,7 @@ public class OrderReconcilerTests
         };
         orderRepo.GetPendingByExchangeAsync(exchangeId, Arg.Any<CancellationToken>())
             .Returns([order]);
-        exchangeClient.GetOrderAsync("EX-orphan", Arg.Any<CancellationToken>())
+        exchangeClient.GetOrderAsync(Arg.Any<string>(), "EX-orphan", Arg.Any<CancellationToken>())
             .Returns(new OrderResult(false, null, 0, 0, 0, "order not found"));
 
         await rec.ReconcileAsync();

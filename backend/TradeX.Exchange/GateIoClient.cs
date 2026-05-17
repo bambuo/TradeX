@@ -153,16 +153,17 @@ public class GateIoClient(string apiKey, string secretKey) : IExchangeClient
         }
     }
 
-    public async Task<OrderResult> CancelOrderAsync(string exchangeOrderId, CancellationToken ct = default)
+    public async Task<OrderResult> CancelOrderAsync(string pair, string exchangeOrderId, CancellationToken ct = default)
     {
         try
         {
+            // Gate 撤单也需要 currency_pair（虽然路径只有 orderId，但 query 参数必填）
             var resp = await _api.CancelOrderAsync(exchangeOrderId, ct);
             return new OrderResult(true, exchangeOrderId, 0, 0, 0, null);
         }
-        catch (ApiException)
+        catch (ApiException ex)
         {
-            return new OrderResult(false, null, 0, 0, 0, "撤单失败");
+            return new OrderResult(false, null, 0, 0, 0, $"撤单失败: {ex.Message}");
         }
     }
 
@@ -183,13 +184,14 @@ public class GateIoClient(string apiKey, string secretKey) : IExchangeClient
         }
     }
 
-    public async Task<OrderResult> GetOrderAsync(string exchangeOrderId, CancellationToken ct = default)
+    public async Task<OrderResult> GetOrderAsync(string pair, string exchangeOrderId, CancellationToken ct = default)
     {
         try
         {
-            var resp = await _api.GetOrderAsync(exchangeOrderId, ct: ct);
-            var filled = decimal.Parse(resp.FilledTotal, CultureInfo.InvariantCulture);
-            return new OrderResult(true, exchangeOrderId, filled, 0, 0, null);
+            var resp = await _api.GetOrderAsync(exchangeOrderId, currency_pair: pair, ct: ct);
+            var filled = decimal.TryParse(resp.FilledAmount, NumberStyles.Any, CultureInfo.InvariantCulture, out var f) ? f : 0;
+            var fee = decimal.TryParse(resp.Fee, NumberStyles.Any, CultureInfo.InvariantCulture, out var fee0) ? fee0 : 0;
+            return new OrderResult(true, exchangeOrderId, filled, 0, fee, null);
         }
         catch (ApiException)
         {

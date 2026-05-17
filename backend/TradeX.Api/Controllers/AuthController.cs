@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using QRCoder;
 using TradeX.Api.Services;
 using TradeX.Core.Enums;
@@ -28,6 +29,7 @@ public class AuthController(
     public record SendRecoveryCodesRequest(Guid UserId);
 
     [HttpPost("login")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken ct)
     {
         var user = await userRepo.GetByUsernameAsync(request.Username, ct);

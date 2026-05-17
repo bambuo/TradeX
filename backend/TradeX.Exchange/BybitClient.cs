@@ -157,19 +157,19 @@ public class BybitClient(string apiKey, string secretKey, bool isTestnet) : IExc
         }
     }
 
-    public async Task<OrderResult> CancelOrderAsync(string exchangeOrderId, CancellationToken ct = default)
+    public async Task<OrderResult> CancelOrderAsync(string pair, string exchangeOrderId, CancellationToken ct = default)
     {
-        var body = new BybitCancelOrderRequest("spot", "BTCUSDT", exchangeOrderId);
+        var body = new BybitCancelOrderRequest("spot", pair, exchangeOrderId);
         try
         {
             var resp = await _api.CancelOrderAsync(body, ct);
             return resp.RetCode == 0
                 ? new OrderResult(true, exchangeOrderId, 0, 0, 0, null)
-                : new OrderResult(false, null, 0, 0, 0, "撤单失败");
+                : new OrderResult(false, null, 0, 0, 0, $"撤单失败: {resp.RetMsg}");
         }
-        catch (ApiException)
+        catch (ApiException ex)
         {
-            return new OrderResult(false, null, 0, 0, 0, "撤单请求失败");
+            return new OrderResult(false, null, 0, 0, 0, $"撤单请求失败: {ex.Message}");
         }
     }
 
@@ -198,24 +198,28 @@ public class BybitClient(string apiKey, string secretKey, bool isTestnet) : IExc
         }
     }
 
-    public async Task<OrderResult> GetOrderAsync(string exchangeOrderId, CancellationToken ct = default)
+    public async Task<OrderResult> GetOrderAsync(string pair, string exchangeOrderId, CancellationToken ct = default)
     {
         try
         {
-            var resp = await _api.GetOpenOrdersAsync("spot", "BTCUSDT", ct: ct);
-            if (resp.RetCode != 0)
-                return new OrderResult(false, null, 0, 0, 0, "查询失败");
-
-            var order = resp.Result.List.FirstOrDefault(o => o.OrderId == exchangeOrderId);
+            // Bybit 没有直接按 orderId 查的端点，先查 realtime，未命中再查 history
+            var open = await _api.GetOpenOrdersAsync("spot", pair, ct: ct);
+            var order = open.RetCode == 0 ? open.Result.List.FirstOrDefault(o => o.OrderId == exchangeOrderId) : null;
+            if (order is null)
+            {
+                var hist = await _api.GetOrderHistoryAsync("spot", pair, limit: 50, ct: ct);
+                order = hist.RetCode == 0 ? hist.Result.List.FirstOrDefault(o => o.OrderId == exchangeOrderId) : null;
+            }
             if (order is null)
                 return new OrderResult(false, null, 0, 0, 0, "订单不存在");
 
             var filled = decimal.Parse(order.CumExecQty, CultureInfo.InvariantCulture);
-            return new OrderResult(true, exchangeOrderId, filled, 0, 0, null);
+            var fee = decimal.Parse(order.CumExecFee, CultureInfo.InvariantCulture);
+            return new OrderResult(true, exchangeOrderId, filled, 0, fee, null);
         }
-        catch (ApiException)
+        catch (ApiException ex)
         {
-            return new OrderResult(false, null, 0, 0, 0, "查询失败");
+            return new OrderResult(false, null, 0, 0, 0, $"查询失败: {ex.Message}");
         }
     }
 

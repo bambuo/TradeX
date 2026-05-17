@@ -113,7 +113,7 @@ public class OrderReconciler(
 
                 try
                 {
-                    var result = await client.GetOrderAsync(order.ExchangeOrderId, ct);
+                    var result = await client.GetOrderAsync(order.Pair, order.ExchangeOrderId, ct);
                     if (result.Success)
                     {
                         var updated = ApplyResultToOrder(order, result);

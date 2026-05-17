@@ -26,6 +26,9 @@ public static class DependencyInjection
                         maxRetryDelay: TimeSpan.FromSeconds(10),
                         errorNumbersToAdd: null))
                 .AddInterceptors(sp.GetRequiredService<VersionInterceptor>())
+                // 全局默认 NoTracking — 读路径热点不再 ChangeTracker 开销；
+                // 需要修改的地方用 .AsTracking() 显式开启，或 ctx.Update/Attach
+                .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking)
                 .EnableSensitiveDataLogging(false));
 
         services.AddScoped<IUserRepository, UserRepository>();
@@ -40,6 +43,7 @@ public static class DependencyInjection
         services.AddScoped<IBacktestTaskRepository, BacktestTaskRepository>();
         services.AddScoped<ISystemConfigRepository, SystemConfigRepository>();
         services.AddScoped<INotificationChannelRepository, NotificationChannelRepository>();
+        services.AddScoped<IOutboxRepository, OutboxRepository>();
 
         services.AddSingleton<IEncryptionService, EncryptionService>();
         services.AddSingleton<CasbinEnforcer>();
