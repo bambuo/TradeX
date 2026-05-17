@@ -2,17 +2,32 @@ using TradeX.Core.Enums;
 
 namespace TradeX.Core.Interfaces;
 
-public interface IExchangeClient
-{
-    ExchangeType Type { get; }
+// ─────────────────────────────────────────────────────────────────────────────
+// 拆分后的能力接口：消费方按需注入更窄的接口，便于 mock 和未来扩展。
+// 现有代码仍可注入聚合接口 IExchangeClient，向后零破坏。
+// ─────────────────────────────────────────────────────────────────────────────
 
+/// <summary>行情数据：K 线、深度、ticker。无认证读端点。</summary>
+public interface IMarketDataClient
+{
     IAsyncEnumerable<Candle> SubscribeKlinesAsync(string Pair, string interval, CancellationToken ct = default);
     Task<Candle[]> GetKlinesAsync(string Pair, string interval, DateTime start, DateTime end, CancellationToken ct = default);
     Task<OrderBook> GetOrderBookAsync(string Pair, int limit, CancellationToken ct = default);
+    Task<TickerPrice[]> GetTickerPricesAsync(CancellationToken ct = default);
+}
 
+/// <summary>账户/持仓查询。读端点但需认证。</summary>
+public interface IAccountClient
+{
     Task<Dictionary<string, decimal>> GetAssetBalancesAsync(CancellationToken ct = default);
     Task<ExchangePosition[]> GetPositionsAsync(CancellationToken ct = default);
+    Task<ExchangeOrderDto[]> GetOpenOrdersAsync(CancellationToken ct = default);
+    Task<ExchangeOrderDto[]> GetOrderHistoryAsync(CancellationToken ct = default);
+}
 
+/// <summary>下单 / 撤单 / 订单查询。写端点。</summary>
+public interface ITradingClient
+{
     Task<OrderResult> PlaceOrderAsync(OrderRequest request, CancellationToken ct = default);
     Task<OrderResult> CancelOrderAsync(string pair, string exchangeOrderId, CancellationToken ct = default);
     /// <summary>查询订单状态。各交易所均要求 pair 标识，不再硬编码 BTCUSDT。</summary>
@@ -27,16 +42,27 @@ public interface IExchangeClient
     /// </summary>
     Task<OrderResult> GetOrderByClientOrderIdAsync(string pair, string clientOrderId, CancellationToken ct = default);
     Task<OrderResult[]> GetRecentOrdersAsync(DateTime since, CancellationToken ct = default);
-
-    Task<ConnectionTestResult> TestConnectionAsync(CancellationToken ct = default);
-
-    Task<ExchangeOrderDto[]> GetOpenOrdersAsync(CancellationToken ct = default);
-
-    Task<ExchangeOrderDto[]> GetOrderHistoryAsync(CancellationToken ct = default);
-
-    Task<PairRule[]> GetPairRulesAsync(CancellationToken ct = default);
-    Task<TickerPrice[]> GetTickerPricesAsync(CancellationToken ct = default);
 }
+
+/// <summary>管理类操作：连接测试、规则元数据。仅启动/配置场景使用。</summary>
+public interface IExchangeAdminClient
+{
+    Task<ConnectionTestResult> TestConnectionAsync(CancellationToken ct = default);
+    Task<PairRule[]> GetPairRulesAsync(CancellationToken ct = default);
+}
+
+/// <summary>
+/// 聚合接口 — 兼容旧代码（注入 IExchangeClient 仍可拿到全部能力）。
+/// 新代码建议注入更窄的子接口，让 Mock 测试更聚焦、依赖更明确。
+/// </summary>
+public interface IExchangeClient : IMarketDataClient, IAccountClient, ITradingClient, IExchangeAdminClient
+{
+    ExchangeType Type { get; }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 共享 DTO（保留原命名空间位置以避免下游引用变更）
+// ─────────────────────────────────────────────────────────────────────────────
 
 public record Candle(DateTime Timestamp, decimal Open, decimal High, decimal Low, decimal Close, decimal Volume);
 
