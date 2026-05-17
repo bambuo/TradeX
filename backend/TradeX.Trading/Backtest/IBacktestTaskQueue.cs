@@ -1,4 +1,4 @@
-namespace TradeX.Trading;
+namespace TradeX.Trading.Backtest;
 
 public interface IBacktestTaskQueue
 {

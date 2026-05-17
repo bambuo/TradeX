@@ -2,7 +2,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace TradeX.Trading;
+namespace TradeX.Trading.Backtest;
 
 public class ResourceMonitor(
     IResourceProvider resourceProvider,

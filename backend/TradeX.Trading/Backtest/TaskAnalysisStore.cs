@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using System.Threading.Channels;
 using TradeX.Core.Models;
 
-namespace TradeX.Trading;
+namespace TradeX.Trading.Backtest;
 
 public class TaskAnalysisStore
 {

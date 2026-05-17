@@ -1,7 +1,7 @@
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 
-namespace TradeX.Trading;
+namespace TradeX.Trading.Execution;
 
 public interface ITradeExecutor
 {

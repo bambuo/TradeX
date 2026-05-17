@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TradeX.Infrastructure.Data;
 using TradeX.Trading;
+using TradeX.Trading.Backtest;
 
 namespace TradeX.Api.Controllers;
 

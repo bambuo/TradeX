@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 
-namespace TradeX.Trading;
+namespace TradeX.Trading.Risk;
 
 public class DailyLossHandler(ILogger<DailyLossHandler> logger) : RiskCheckHandler
 {

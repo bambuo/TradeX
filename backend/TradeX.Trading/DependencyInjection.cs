@@ -2,7 +2,10 @@ using Microsoft.Extensions.DependencyInjection;
 using TradeX.Core.Interfaces;
 using TradeX.Trading.Backtest;
 using TradeX.Trading.Commands;
+using TradeX.Trading.Engine;
+using TradeX.Trading.Execution;
 using TradeX.Trading.Outbox;
+using TradeX.Trading.Risk;
 
 namespace TradeX.Trading;
 

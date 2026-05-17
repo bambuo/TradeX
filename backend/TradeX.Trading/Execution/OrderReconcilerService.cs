@@ -2,8 +2,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using TradeX.Trading.Risk;
 
-namespace TradeX.Trading;
+namespace TradeX.Trading.Execution;
 
 /// <summary>
 /// Worker 进程的 BackgroundService — 按 <see cref="RiskSettings.OrderReconcileIntervalSeconds"/>

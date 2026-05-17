@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace TradeX.Trading;
+namespace TradeX.Trading.Backtest;
 
 public class SystemResourceProvider : IResourceProvider
 {

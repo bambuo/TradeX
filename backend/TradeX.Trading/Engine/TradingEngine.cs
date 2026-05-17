@@ -5,9 +5,11 @@ using Microsoft.Extensions.Logging;
 using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
+using TradeX.Trading.Execution;
+using TradeX.Trading.Messaging;
 using TradeX.Trading.Observability;
 
-namespace TradeX.Trading;
+namespace TradeX.Trading.Engine;
 
 public class MarketDataCache
 {

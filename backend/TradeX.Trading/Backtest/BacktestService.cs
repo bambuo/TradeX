@@ -3,7 +3,7 @@ using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 using TradeX.Trading.Backtest;
 
-namespace TradeX.Trading;
+namespace TradeX.Trading.Backtest;
 
 public class BacktestService(
     IStrategyRepository strategyRepo,

@@ -1,8 +1,10 @@
 using Microsoft.Extensions.DependencyInjection;
 using TradeX.Core.Interfaces;
 using TradeX.Indicators;
+using TradeX.Trading.Execution;
+using TradeX.Trading.Risk;
 
-namespace TradeX.Trading;
+namespace TradeX.Trading.Engine;
 
 internal sealed class TradingCycleScope(IServiceScopeFactory scopeFactory) : IDisposable
 {

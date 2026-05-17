@@ -16,6 +16,7 @@ using TradeX.Infrastructure;
 using TradeX.Infrastructure.Data;
 using TradeX.Notifications;
 using TradeX.Trading;
+using TradeX.Trading.Messaging;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
