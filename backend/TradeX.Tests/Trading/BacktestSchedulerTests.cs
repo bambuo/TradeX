@@ -1,6 +1,8 @@
+using System.Reflection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using TradeX.Core.Interfaces;
 using TradeX.Trading;
 
 namespace TradeX.Tests.Trading;
@@ -82,6 +84,57 @@ public class BacktestSchedulerTests
 
         for (var i = 0; i < 3; i++)
             Assert.True(monitor.TryAcquire());
+    }
+
+    [Fact]
+    public async Task FetchAllKlinesAsync_SortsDeduplicatesAndClipsToRange()
+    {
+        var client = Substitute.For<IExchangeClient>();
+        var start = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var end = start.AddMinutes(5);
+        Candle[] chunk =
+        [
+            new(start.AddMinutes(2), 2, 3, 1, 2, 20),
+            new(start, 1, 2, 1, 1, 10),
+            new(start.AddMinutes(1), 1, 2, 1, 1, 10),
+            new(start.AddMinutes(2), 2, 3, 1, 2, 20),
+            new(start.AddMinutes(6), 6, 7, 5, 6, 60)
+        ];
+        client.GetKlinesAsync("BTCUSDT", "1m", Arg.Any<DateTime>(), end, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(chunk));
+
+        var result = await InvokeFetchAllKlinesAsync(client, "BTCUSDT", "1m", start, end);
+
+        Assert.Equal([start, start.AddMinutes(1), start.AddMinutes(2)], result.Select(c => c.Timestamp).ToArray());
+    }
+
+    [Fact]
+    public async Task FetchAllKlinesAsync_EmptyData_Throws()
+    {
+        var client = Substitute.For<IExchangeClient>();
+        var start = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var end = start.AddHours(1);
+        client.GetKlinesAsync("BTCUSDT", "1m", Arg.Any<DateTime>(), end, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Candle[]>([]));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            InvokeFetchAllKlinesAsync(client, "BTCUSDT", "1m", start, end));
+    }
+
+    private static async Task<List<Candle>> InvokeFetchAllKlinesAsync(
+        IExchangeClient client,
+        string pair,
+        string timeframe,
+        DateTime start,
+        DateTime end)
+    {
+        var method = typeof(BacktestScheduler).GetMethod("FetchAllKlinesAsync", BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new MissingMethodException(nameof(BacktestScheduler), "FetchAllKlinesAsync");
+        object?[] args = [client, pair, timeframe, start, end, CancellationToken.None];
+        var task = method.Invoke(null, args) as Task<List<Candle>>
+            ?? throw new InvalidOperationException("FetchAllKlinesAsync 返回类型不匹配");
+
+        return await task;
     }
 }
 

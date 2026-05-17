@@ -1,9 +1,11 @@
+using System.Reflection;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 using TradeX.Exchange;
+using TradeX.Exchange.Adapters;
 using TradeX.Trading;
 
 namespace TradeX.Tests.Trading;
@@ -13,38 +15,38 @@ public class ExchangeClientFactoryTests
     private readonly ExchangeClientFactory _factory = new();
 
     [Fact]
-    public void CreateClient_Binance_ReturnsBinanceClient()
+    public void CreateClient_Binance_ReturnsBinanceClientAdapter()
     {
         var client = _factory.CreateClient(ExchangeType.Binance, "key", "secret");
-        Assert.IsType<BinanceClient>(client);
+        Assert.IsType<BinanceClientAdapter>(client);
     }
 
     [Fact]
-    public void CreateClient_Bybit_ReturnsBybitClient()
+    public void CreateClient_Bybit_ReturnsBybitClientAdapter()
     {
         var client = _factory.CreateClient(ExchangeType.Bybit, "key", "secret");
-        Assert.IsType<BybitClient>(client);
+        Assert.IsType<BybitClientAdapter>(client);
     }
 
     [Fact]
-    public void CreateClient_OKX_ReturnsOkxClient()
+    public void CreateClient_OKX_ReturnsOkxClientAdapter()
     {
         var client = _factory.CreateClient(ExchangeType.OKX, "key", "secret", "pass");
-        Assert.IsType<OkxClient>(client);
+        Assert.IsType<OkxClientAdapter>(client);
     }
 
     [Fact]
-    public void CreateClient_Gate_ReturnsGateIoClient()
+    public void CreateClient_Gate_ReturnsGateIoClientAdapter()
     {
         var client = _factory.CreateClient(ExchangeType.Gate, "key", "secret");
-        Assert.IsType<GateIoClient>(client);
+        Assert.IsType<GateIoClientAdapter>(client);
     }
 
     [Fact]
-    public void CreateClient_HTX_ReturnsHtxClient()
+    public void CreateClient_HTX_ReturnsHtxClientAdapter()
     {
         var client = _factory.CreateClient(ExchangeType.HTX, "key", "secret");
-        Assert.IsType<HtxClient>(client);
+        Assert.IsType<HtxClientAdapter>(client);
     }
 
     [Fact]
@@ -57,11 +59,11 @@ public class ExchangeClientFactoryTests
     [Fact]
     public void AllClients_HaveCorrectType()
     {
-        Assert.Equal(ExchangeType.Binance, new BinanceClient("k", "s", false).Type);
-        Assert.Equal(ExchangeType.Bybit, new BybitClient("k", "s", false).Type);
-        Assert.Equal(ExchangeType.OKX, new OkxClient("k", "s").Type);
-        Assert.Equal(ExchangeType.Gate, new GateIoClient("k", "s").Type);
-        Assert.Equal(ExchangeType.HTX, new HtxClient("k", "s").Type);
+        Assert.Equal(ExchangeType.Binance, new BinanceClientAdapter("k", "s", false).Type);
+        Assert.Equal(ExchangeType.Bybit, new BybitClientAdapter("k", "s", false).Type);
+        Assert.Equal(ExchangeType.OKX, new OkxClientAdapter("k", "s", null).Type);
+        Assert.Equal(ExchangeType.Gate, new GateIoClientAdapter("k", "s").Type);
+        Assert.Equal(ExchangeType.HTX, new HtxClientAdapter("k", "s").Type);
     }
 }
 

@@ -138,11 +138,11 @@ public class BacktestServiceTests
     {
         using var sp = BuildProvider();
         var strategyId = Guid.NewGuid();
-        var tasks = new List<BacktestTask>
-        {
+        List<BacktestTask> tasks =
+        [
             new() { Id = Guid.NewGuid(), StrategyId = strategyId },
             new() { Id = Guid.NewGuid(), StrategyId = strategyId }
-        };
+        ];
 
         var repo = sp.GetRequiredService<IBacktestTaskRepository>();
         repo.GetByStrategyIdAsync(strategyId, Arg.Any<CancellationToken>()).Returns(tasks);
@@ -151,5 +151,48 @@ public class BacktestServiceTests
         var result = await service.GetTasksByStrategyAsync(strategyId);
 
         Assert.Equal(2, result.Count);
+    }
+
+    [Fact]
+    public async Task GetTasksAsync_WithoutStrategyId_ReturnsAllTasks()
+    {
+        using var sp = BuildProvider();
+        List<BacktestTask> tasks =
+        [
+            new() { Id = Guid.NewGuid(), StrategyId = Guid.NewGuid() },
+            new() { Id = Guid.NewGuid(), StrategyId = Guid.NewGuid() }
+        ];
+
+        var repo = sp.GetRequiredService<IBacktestTaskRepository>();
+        repo.GetAllAsync(Arg.Any<CancellationToken>()).Returns(tasks);
+
+        var service = sp.GetRequiredService<IBacktestService>();
+        var result = await service.GetTasksAsync();
+
+        Assert.Equal(2, result.Count);
+        _ = repo.Received(1).GetAllAsync(Arg.Any<CancellationToken>());
+        _ = repo.DidNotReceive().GetByStrategyIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetTasksAsync_WithStrategyId_ReturnsFilteredTasks()
+    {
+        using var sp = BuildProvider();
+        var strategyId = Guid.NewGuid();
+        List<BacktestTask> tasks =
+        [
+            new() { Id = Guid.NewGuid(), StrategyId = strategyId }
+        ];
+
+        var repo = sp.GetRequiredService<IBacktestTaskRepository>();
+        repo.GetByStrategyIdAsync(strategyId, Arg.Any<CancellationToken>()).Returns(tasks);
+
+        var service = sp.GetRequiredService<IBacktestService>();
+        var result = await service.GetTasksAsync(strategyId);
+
+        Assert.Single(result);
+        Assert.Equal(strategyId, result[0].StrategyId);
+        _ = repo.Received(1).GetByStrategyIdAsync(strategyId, Arg.Any<CancellationToken>());
+        _ = repo.DidNotReceive().GetAllAsync(Arg.Any<CancellationToken>());
     }
 }
