@@ -70,7 +70,7 @@ function load() {
     task.value = taskRes.data
     result.value = resultRes.data
   }).catch(e => {
-    error.value = e.response?.data?.error || '加载回测数据失败'
+    error.value = e.response?.data?.message || '加载回测数据失败'
   }).finally(() => {
     loading.value = false
   })
@@ -150,7 +150,7 @@ onMounted(load)
         </div>
       </div>
 
-      <a-tabs :active-key="activeTab" @tab-click="(key: any) => toggleTab(key as 'overview' | 'analysis')">
+      <a-tabs :active-key="activeTab" @tab-click="(key: unknown) => toggleTab(key as 'overview' | 'analysis')">
         <a-tab-pane key="overview" title="概览">
           <div class="metrics-grid">
             <div class="metric-card">
@@ -229,7 +229,7 @@ onMounted(load)
         <a-tab-pane key="analysis" title="逐笔分析">
           <div class="analysis-toolbar">
             <div class="toolbar-left">
-              <a-radio-group :model-value="analysisViewMode" type="button" @change="(v: any) => analysisViewMode = v">
+              <a-radio-group :model-value="analysisViewMode" type="button" @change="(v: unknown) => analysisViewMode = v as 'chart' | 'table'">
                 <a-radio value="chart">图表</a-radio>
                 <a-radio value="table">表格</a-radio>
               </a-radio-group>
@@ -244,7 +244,7 @@ onMounted(load)
                 暂停
               </a-button>
               <span class="speed-label">速度</span>
-              <a-select :model-value="replaySpeed" style="width: 70px" @change="(v: any) => replaySpeed = Number(v)">
+              <a-select :model-value="replaySpeed" style="width: 70px" @change="(v: unknown) => replaySpeed = Number(v as number)">
                 <a-option :value="1" label="1x" />
                 <a-option :value="2" label="2x" />
                 <a-option :value="5" label="5x" />
@@ -260,7 +260,7 @@ onMounted(load)
 
           <div v-else-if="analysisViewMode === 'table'" class="analysis-table">
             <div class="table-toolbar">
-              <a-select :model-value="tableActionFilter" style="width: 120px" @change="(v: any) => onTableActionFilterChange(v as string)">
+              <a-select :model-value="tableActionFilter" style="width: 120px" @change="(v: unknown) => onTableActionFilterChange(String(v))">
                 <a-option value="all" label="全部" />
                 <a-option value="enter" label="仅入场" />
                 <a-option value="exit" label="仅出场" />

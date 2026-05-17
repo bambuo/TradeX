@@ -125,24 +125,29 @@ function openEdit(account: Exchange) {
 }
 
 async function save() {
-  if (editId.value) {
-    const payload: Record<string, unknown> = { name: formLabel.value }
-    if (formApiKey.value) payload.apiKey = formApiKey.value
-    if (formSecretKey.value) payload.secretKey = formSecretKey.value
-    if (formPassphrase.value) payload.passphrase = formPassphrase.value
-    await exchangesApi.update(editId.value, payload)
-  } else {
-    await exchangesApi.create({
-      name: formLabel.value,
-      exchangeType: formExchangeType.value,
-      apiKey: formApiKey.value,
-      secretKey: formSecretKey.value,
-      passphrase: formPassphrase.value || undefined,
-      isTestnet: formIsTestnet.value
-    })
+  try {
+    if (editId.value) {
+      const payload: Record<string, unknown> = { name: formLabel.value }
+      if (formApiKey.value) payload.apiKey = formApiKey.value
+      if (formSecretKey.value) payload.secretKey = formSecretKey.value
+      if (formPassphrase.value) payload.passphrase = formPassphrase.value
+      await exchangesApi.update(editId.value, payload)
+    } else {
+      await exchangesApi.create({
+        name: formLabel.value,
+        exchangeType: formExchangeType.value,
+        apiKey: formApiKey.value,
+        secretKey: formSecretKey.value,
+        passphrase: formPassphrase.value || undefined,
+        isTestnet: formIsTestnet.value
+      })
+    }
+    showForm.value = false
+    await loadAll()
+  } catch (e: any) {
+    if (e._mfaCancelled) return
+    throw e
   }
-  showForm.value = false
-  await loadAll()
 }
 
 async function toggleStatus(id: string, enable: boolean) {

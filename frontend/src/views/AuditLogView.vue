@@ -209,7 +209,7 @@ onMounted(load)
       }"
       page-position="top"
       :row-class="() => 'log-row'"
-      @row-click="(record: any) => openDetail(record as AuditLogEntry)"
+      @row-click="(record: unknown) => openDetail(record as AuditLogEntry)"
       @page-change="(p: number) => { page = p; load() }"
       @page-size-change="(s: number) => { pageSize = s; page = 1; load() }"
       stripe

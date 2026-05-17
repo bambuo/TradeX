@@ -29,6 +29,10 @@ function onSelect(value: string | number | boolean | Record<string, any> | (stri
     style="width: 100%"
     @change="onSelect"
   >
+    <template #label="{ data }">
+      <span class="exchange-icon"><img :src="getExchangeInfo(String(data?.value ?? modelValue)).icon" alt="" /></span>
+      <span class="exchange-label">{{ data?.label ?? getExchangeInfo(modelValue).label }}</span>
+    </template>
     <a-option
       v-for="opt in options"
       :key="opt.value"

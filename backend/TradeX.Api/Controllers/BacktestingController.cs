@@ -17,21 +17,24 @@ public class BacktestingController(
     IBacktestTaskRepository taskRepo,
     ILogger<BacktestingController> logger) : ControllerBase
 {
+    public record StartBacktestRequest(
+        Guid StrategyId,
+        Guid ExchangeId,
+        string Pair,
+        string Timeframe,
+        DateTime StartAt,
+        DateTime EndAt,
+        decimal InitialCapital,
+        decimal? PositionSize = null);
+
     [HttpPost]
     public async Task<IActionResult> StartBacktest(
-        [FromQuery] Guid strategyId,
-        [FromQuery] Guid exchangeId,
-        [FromQuery] string pair,
-        [FromQuery] string timeframe,
-        [FromQuery] DateTime startAt,
-        [FromQuery] DateTime endAt,
-        [FromQuery] decimal initialCapital,
-        [FromQuery] decimal? positionSize = null,
+        [FromBody] StartBacktestRequest request,
         CancellationToken ct = default)
     {
         try
         {
-            var task = await backtestService.StartBacktestAsync(strategyId, exchangeId, pair, timeframe, startAt, endAt, initialCapital, positionSize, ct);
+            var task = await backtestService.StartBacktestAsync(request.StrategyId, request.ExchangeId, request.Pair, request.Timeframe, request.StartAt, request.EndAt, request.InitialCapital, request.PositionSize, ct);
             return Ok(new
             {
                 taskId = task.Id,
@@ -51,13 +54,11 @@ public class BacktestingController(
     [HttpGet("tasks")]
     public async Task<IActionResult> GetTasks([FromQuery] Guid? strategyId, CancellationToken ct)
     {
-        if (strategyId is null || strategyId.Value == Guid.Empty)
-            return Ok(Array.Empty<object>());
-
-        var tasks = await backtestService.GetTasksByStrategyAsync(strategyId.Value, ct);
+        var tasks = await backtestService.GetTasksAsync(strategyId, ct);
         return Ok(tasks.Select(t => new
         {
-            t.Id, t.StrategyId, t.StrategyName, t.Pair, t.Timeframe, t.InitialCapital,
+            t.Id, t.StrategyId, t.ExchangeId, t.StrategyName, t.Pair, t.Timeframe, t.InitialCapital,
+            t.PositionSize,
             status = t.Status.ToString(),
             phase = t.Phase?.ToString(),
             t.StartAt, t.EndAt,

@@ -75,6 +75,40 @@ const quickDateOptions = [
 ]
 const activeQuickDate = ref('1w')
 
+function getErrorMessage(e: unknown, fallback: string): string {
+  const response = (e as { response?: { data?: { message?: string; error?: string } } }).response
+  return response?.data?.message || response?.data?.error || fallback
+}
+
+function toTaskItem(task: BacktestTask): TaskItem {
+  const strategy = strategies.value.find(s => s.id === task.strategyId)
+
+  return {
+    traderId: '',
+    traderName: '全局',
+    bindingId: '',
+    bindingName: task.strategyName || strategy?.name || task.strategyId,
+    task
+  }
+}
+
+async function loadTasks(showLoading = true) {
+  if (showLoading) loading.value = true
+  error.value = ''
+  try {
+    const { data } = await backtestsApi.getTasks()
+    tasks.value = data
+      .map(toTaskItem)
+      .sort((a, b) => b.task.createdAt.localeCompare(a.task.createdAt))
+  } catch (e) {
+    tasks.value = []
+    error.value = getErrorMessage(e, '加载回测任务失败')
+    throw e
+  } finally {
+    if (showLoading) loading.value = false
+  }
+}
+
 const sortedPairs = computed(() => {
   let list = pairs.value
   if (pairSearch.value) {
@@ -126,41 +160,17 @@ function renderPair(sym: string): { base: string; quote: string } {
 
 onMounted(async () => {
   try {
-    const { data: tradersData } = await tradersApi.getAll()
-    traders.value = tradersData
-
-    const [strategiesRes, exchangesRes] = await Promise.all([
+    const [tradersRes, strategiesRes, exchangesRes] = await Promise.all([
+      tradersApi.getAll(),
       strategiesApi.getAllPure(),
       exchangesApi.getAll()
     ])
+    traders.value = tradersRes.data
     strategies.value = strategiesRes.data.data ?? []
     exchanges.value = exchangesRes.data.data ?? []
-
-    const allTasks: TaskItem[] = []
-    for (const trader of tradersData) {
-      try {
-        const { data: b } = await strategiesApi.getAll(trader.id)
-        for (const binding of b) {
-          try {
-            const { data: backtestTasks } = await backtestsApi.getTasks(binding.strategyId)
-            for (const task of backtestTasks) {
-              allTasks.push({
-                traderId: trader.id,
-                traderName: trader.name,
-                bindingId: binding.id,
-                bindingName: binding.name || binding.strategyId,
-                task
-              })
-            }
-          } catch {}
-        }
-      } catch {}
-    }
-
-    allTasks.sort((a, b) => b.task.createdAt.localeCompare(a.task.createdAt))
-    tasks.value = allTasks
-  } catch {
-    error.value = '加载回测任务失败'
+    await loadTasks(false)
+  } catch (e) {
+    if (!error.value) error.value = getErrorMessage(e, '加载回测任务失败')
   } finally {
     loading.value = false
   }
@@ -191,7 +201,7 @@ async function fetchExchangePairs(exchangeId: string) {
   volMin.value = null
   try {
     const { data } = await exchangesApi.getPairs(exchangeId)
-    pairs.value = (data.data ?? []).map((s: any) => ({
+    pairs.value = (data.data ?? []).map((s: { pair: string; price?: number; priceChangePercent?: number; volume?: number; highPrice?: number; lowPrice?: number }) => ({
       symbol: s.pair,
       price: s.price ?? 0,
       priceChangePercent: s.priceChangePercent ?? 0,
@@ -200,8 +210,9 @@ async function fetchExchangePairs(exchangeId: string) {
       lowPrice: s.lowPrice ?? 0
     }))
     formPicks.value = []
-  } catch {
+  } catch (e) {
     pairs.value = []
+    formError.value = getErrorMessage(e, '加载交易对失败')
   } finally {
     pairsLoading.value = false
   }
@@ -262,30 +273,11 @@ async function save() {
       )
     }
     showForm.value = false
-    const allTasks: TaskItem[] = []
-    for (const trader of traders.value) {
-      try {
-        const { data: bs } = await strategiesApi.getAll(trader.id)
-        for (const binding of bs) {
-          try {
-            const { data: backtestTasks } = await backtestsApi.getTasks(binding.strategyId)
-            for (const task of backtestTasks) {
-              allTasks.push({
-                traderId: trader.id,
-                traderName: trader.name,
-                bindingId: binding.id,
-                bindingName: binding.name || binding.strategyId,
-                task
-              })
-            }
-          } catch {}
-        }
-      } catch {}
-    }
-    allTasks.sort((a, b) => b.task.createdAt.localeCompare(a.task.createdAt))
-    tasks.value = allTasks
-  } catch (e: any) {
-    formError.value = e.response?.data?.message || e.response?.data?.error || '创建回测失败'
+    await loadTasks(false)
+  } catch (e) {
+    const message = getErrorMessage(e, '创建回测失败')
+    if (showForm.value) formError.value = message
+    else error.value = message
   } finally {
     formSaving.value = false
   }
@@ -314,7 +306,7 @@ async function save() {
             <a-select
               :model-value="formStrategyId"
               style="width: 100%"
-              @change="(v: any) => formStrategyId = String(v)"
+              @change="(v: unknown) => formStrategyId = String(v)"
             >
               <a-option v-for="s in strategies" :key="s.id" :value="s.id" :label="s.name" />
             </a-select>
@@ -325,7 +317,7 @@ async function save() {
             <a-select
               :model-value="formExchangeId"
               style="width: 100%"
-              @change="(v: any) => onExchangeChange(String(v))"
+              @change="(v: unknown) => onExchangeChange(String(v))"
             >
               <a-option v-for="e in exchanges" :key="e.id" :value="e.id" :label="`${e.label} (${e.exchangeType})`" />
             </a-select>
@@ -336,7 +328,7 @@ async function save() {
             <a-select
               :model-value="formTimeframe"
               style="width: 100%"
-              @change="(v: any) => formTimeframe = String(v)"
+              @change="(v: unknown) => formTimeframe = String(v)"
             >
               <a-option v-for="tf in timeframes" :key="tf" :value="tf" :label="tf" />
             </a-select>
@@ -349,7 +341,7 @@ async function save() {
               :min="100"
               :step="100"
               style="width: 100%"
-              @change="(v: any) => formCapital = Number(v)"
+              @change="(v: unknown) => formCapital = Number(v as number)"
             />
           </div>
         </div>
@@ -385,7 +377,7 @@ async function save() {
               <a-select
                 :model-value="changeDirection"
                 style="width: 100px"
-                @change="(v: any) => changeDirection = String(v) as 'all' | 'up' | 'down'"
+                @change="(v: unknown) => changeDirection = String(v) as 'all' | 'up' | 'down'"
               >
                 <a-option value="all" label="全部" />
                 <a-option value="up" label="上涨" />
@@ -464,7 +456,7 @@ async function save() {
     <a-table
       v-else
       :columns="[
-        { title: '#', width: 40, render: ({ rowIndex }: any) => rowIndex + 1 },
+        { title: '#', width: 40, render: ({ rowIndex }: { rowIndex: number }) => rowIndex + 1 },
         { title: '交易员', dataIndex: 'traderName', width: 120 },
         { title: '策略', dataIndex: 'strategyName', width: 150, ellipsis: true },
         { title: '交易对', dataIndex: 'pair', width: 110 },

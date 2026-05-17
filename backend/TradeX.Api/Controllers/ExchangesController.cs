@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TradeX.Api.Filters;
 using TradeX.Core.Enums;
+using TradeX.Core.ErrorCodes;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 
@@ -49,13 +50,13 @@ public class ExchangesController(
     public async Task<IActionResult> Create([FromBody] CreateExchangeRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.ApiKey) || string.IsNullOrWhiteSpace(request.SecretKey))
-            return BadRequest(new { code = "VALIDATION_ERROR", message = "名称、API Key 和 Secret Key 不能为空" });
+            return this.BadRequest(BusinessErrorCode.ValidationError, "名称、API Key 和 Secret Key 不能为空");
 
         if (!Enum.TryParse<ExchangeType>(request.ExchangeType, true, out var exchangeType))
-            return BadRequest(new { code = "VALIDATION_ERROR", message = $"不支持的交易所类型: {request.ExchangeType}" });
+            return this.BadRequest(BusinessErrorCode.ValidationError, $"不支持的交易所类型: {request.ExchangeType}");
 
         if (!await exchangeRepo.IsNameUniqueAsync(request.Name, ct))
-            return Conflict(new { code = "VALIDATION_ERROR", message = "交易所名称已存在" });
+            return this.Conflict(BusinessErrorCode.ValidationError, "交易所名称已存在");
 
         var exchange = new TradeX.Core.Models.Exchange
         {
@@ -88,12 +89,12 @@ public class ExchangesController(
     {
         var exchange = await exchangeRepo.GetByIdAsync(id, ct);
         if (exchange is null)
-            return NotFound(new { code = "EXCHANGE_NOT_FOUND", message = "交易所不存在" });
+            return this.NotFound(BusinessErrorCode.ExchangeNotFound, "交易所不存在");
 
         if (!string.IsNullOrWhiteSpace(request.Name))
         {
             if (exchange.Name != request.Name && !await exchangeRepo.IsNameUniqueAsync(request.Name, ct))
-                return Conflict(new { code = "VALIDATION_ERROR", message = "交易所名称已存在" });
+                return this.Conflict(BusinessErrorCode.ValidationError, "交易所名称已存在");
             exchange.Name = request.Name;
         }
         if (!string.IsNullOrWhiteSpace(request.ApiKey))
@@ -112,10 +113,10 @@ public class ExchangesController(
     {
         var exchange = await exchangeRepo.GetByIdAsync(id, ct);
         if (exchange is null)
-            return NotFound(new { code = "EXCHANGE_NOT_FOUND", message = "交易所不存在" });
+            return this.NotFound(BusinessErrorCode.ExchangeNotFound, "交易所不存在");
 
         if (exchange.Status == ExchangeStatus.Disabled)
-            return BadRequest(new { code = "VALIDATION_ERROR", message = "交易所已禁用" });
+            return this.BadRequest(BusinessErrorCode.ValidationError, "交易所已禁用");
 
         try
         {
@@ -143,10 +144,10 @@ public class ExchangesController(
     {
         var exchange = await exchangeRepo.GetByIdAsync(id, ct);
         if (exchange is null)
-            return NotFound(new { code = "EXCHANGE_NOT_FOUND", message = "交易所不存在" });
+            return this.NotFound(BusinessErrorCode.ExchangeNotFound, "交易所不存在");
 
         if (exchange.Status == ExchangeStatus.Disabled)
-            return BadRequest(new { code = "VALIDATION_ERROR", message = "交易所已禁用" });
+            return this.BadRequest(BusinessErrorCode.ValidationError, "交易所已禁用");
 
         try
         {
@@ -164,7 +165,7 @@ public class ExchangesController(
         }
         catch (Exception ex)
         {
-            return StatusCode(502, new { code = "EXCHANGE_ERROR", message = $"获取订单失败: {ex.Message}" });
+            return StatusCode(502, new ErrorResponse(BusinessErrorCode.ExchangeTestFailed, $"获取订单失败: {ex.Message}", HttpContext.TraceIdentifier));
         }
     }
 
@@ -174,7 +175,7 @@ public class ExchangesController(
     {
         var exchange = await exchangeRepo.GetByIdAsync(id, ct);
         if (exchange is null)
-            return NotFound(new { code = "EXCHANGE_NOT_FOUND", message = "交易所不存在" });
+            return this.NotFound(BusinessErrorCode.ExchangeNotFound, "交易所不存在");
 
         exchange.Status = request.Enable ? ExchangeStatus.Enabled : ExchangeStatus.Disabled;
         await exchangeRepo.UpdateAsync(exchange, ct);
@@ -188,7 +189,7 @@ public class ExchangesController(
     {
         var exchange = await exchangeRepo.GetByIdAsync(id, ct);
         if (exchange is null)
-            return NotFound(new { code = "EXCHANGE_NOT_FOUND", message = "交易所不存在" });
+            return this.NotFound(BusinessErrorCode.ExchangeNotFound, "交易所不存在");
 
         await exchangeRepo.DeleteAsync(exchange, ct);
         return NoContent();
@@ -199,10 +200,10 @@ public class ExchangesController(
     {
         var exchange = await exchangeRepo.GetByIdAsync(id, ct);
         if (exchange is null)
-            return NotFound(new { code = "EXCHANGE_NOT_FOUND", message = "交易所不存在" });
+            return this.NotFound(BusinessErrorCode.ExchangeNotFound, "交易所不存在");
 
         if (exchange.Status == ExchangeStatus.Disabled)
-            return BadRequest(new { code = "VALIDATION_ERROR", message = "交易所已禁用" });
+            return this.BadRequest(BusinessErrorCode.ValidationError, "交易所已禁用");
 
         try
         {
@@ -218,7 +219,7 @@ public class ExchangesController(
         }
         catch (Exception ex)
         {
-            return StatusCode(502, new { code = "EXCHANGE_ERROR", message = $"获取资产失败: {ex.Message}" });
+            return StatusCode(502, new ErrorResponse(BusinessErrorCode.ExchangeTestFailed, $"获取资产失败: {ex.Message}", HttpContext.TraceIdentifier));
         }
     }
 
@@ -227,10 +228,10 @@ public class ExchangesController(
     {
         var exchange = await exchangeRepo.GetByIdAsync(id, ct);
         if (exchange is null)
-            return NotFound(new { code = "EXCHANGE_NOT_FOUND", message = "交易所不存在" });
+            return this.NotFound(BusinessErrorCode.ExchangeNotFound, "交易所不存在");
 
         if (exchange.Status == ExchangeStatus.Disabled)
-            return BadRequest(new { code = "VALIDATION_ERROR", message = "交易所已禁用" });
+            return this.BadRequest(BusinessErrorCode.ValidationError, "交易所已禁用");
 
         try
         {
@@ -275,7 +276,7 @@ public class ExchangesController(
         }
         catch (Exception ex)
         {
-            return StatusCode(502, new { code = "EXCHANGE_ERROR", message = $"获取交易对数据失败: {ex.Message}" });
+            return StatusCode(502, new ErrorResponse(BusinessErrorCode.ExchangeTestFailed, $"获取交易对数据失败: {ex.Message}", HttpContext.TraceIdentifier));
         }
     }
 

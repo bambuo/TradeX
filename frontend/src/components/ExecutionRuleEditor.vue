@@ -16,6 +16,7 @@ export interface ExecutionRule {
   entryVolatilityPercent?: number
   rebalancePercent?: number
   noStopLoss?: boolean
+  [key: string]: string | number | boolean | undefined
 }
 
 const props = defineProps<{
@@ -34,7 +35,7 @@ const rule = computed({
   set: (val: ExecutionRule) => emit('update:modelValue', JSON.stringify(val, null, 2))
 })
 
-function setField(field: string, value: any) {
+function setField(field: string, value: string | number | boolean) {
   rule.value = { ...rule.value, [field]: value }
 }
 
@@ -109,7 +110,7 @@ function onRawInput(e: Event) {
       <a-select
         :model-value="rule.type"
         style="width: 100%"
-        @change="(v: any) => setField('type', String(v))"
+        @change="(v: unknown) => setField('type', String(v))"
       >
         <a-option v-for="[value, label] in Object.entries(ruleTypes)" :key="value" :value="value" :label="label" />
       </a-select>
@@ -120,18 +121,18 @@ function onRawInput(e: Event) {
         <label class="field-label">{{ field.label }}</label>
         <a-input-number
           v-if="field.type === 'number'"
-          :model-value="(rule as any)[field.key] ?? ''"
+          :model-value="Number(rule[field.key]) || undefined"
           :step="field.step ? parseFloat(field.step) : 1"
           :min="field.min"
           style="width: 100%"
-          @change="(v) => setField(field.key, Number(v) || 0)"
+          @change="(v: unknown) => setField(field.key, Number(v as string | number) || 0)"
         />
         <a-checkbox
           v-else-if="field.type === 'boolean'"
-          :checked="!!(rule as any)[field.key]"
-          @change="(checked) => setField(field.key, checked)"
+          :checked="!!rule[field.key]"
+          @change="(checked: unknown) => setField(field.key, Boolean(checked))"
         >
-          {{ (rule as any)[field.key] ? '是' : '否' }}
+          {{ rule[field.key] ? '是' : '否' }}
         </a-checkbox>
       </div>
     </div>

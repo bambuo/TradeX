@@ -53,6 +53,11 @@ public class BacktestService(
     public async Task<BacktestResult?> GetResultAsync(Guid taskId, CancellationToken ct = default)
         => await taskRepo.GetResultByTaskIdAsync(taskId, ct);
 
+    public async Task<List<BacktestTask>> GetTasksAsync(Guid? strategyId = null, CancellationToken ct = default)
+        => strategyId is { } id && id != Guid.Empty
+            ? await taskRepo.GetByStrategyIdAsync(id, ct)
+            : await taskRepo.GetAllAsync(ct);
+
     public async Task<List<BacktestTask>> GetTasksByStrategyAsync(Guid strategyId, CancellationToken ct = default)
         => await taskRepo.GetByStrategyIdAsync(strategyId, ct);
 }

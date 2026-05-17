@@ -228,23 +228,23 @@ public class BacktestScheduler(
         }
     }
 
-    private static readonly Dictionary<string, long> IntervalMs = new()
-    {
-        ["1m"] = 60_000,
-        ["5m"] = 300_000,
-        ["15m"] = 900_000,
-        ["30m"] = 1_800_000,
-        ["1h"] = 3_600_000,
-        ["4h"] = 14_400_000,
-        ["1d"] = 86_400_000,
-    };
-
     private static long GetIntervalMs(string timeframe) =>
-        IntervalMs.TryGetValue(timeframe, out var ms) ? ms : 60_000;
+        timeframe switch
+        {
+            "1m" => 60_000,
+            "5m" => 300_000,
+            "15m" => 900_000,
+            "30m" => 1_800_000,
+            "1h" => 3_600_000,
+            "4h" => 14_400_000,
+            "1d" => 86_400_000,
+            _ => throw new ArgumentException($"不支持的回测周期: {timeframe}", nameof(timeframe))
+        };
 
     private static async Task<List<Candle>> FetchAllKlinesAsync(IExchangeClient client, string pair, string timeframe, DateTime startAt, DateTime endAt, CancellationToken ct)
     {
         List<Candle> allKlines = [];
+        HashSet<DateTime> seen = [];
         var currentStart = startAt;
         var intervalMs = GetIntervalMs(timeframe);
 
@@ -254,7 +254,8 @@ public class BacktestScheduler(
             if (chunk.Length == 0) break;
 
             var newKlines = chunk
-                .Where(c => c.Timestamp >= currentStart && !allKlines.Any(ex => ex.Timestamp == c.Timestamp))
+                .Where(c => c.Timestamp >= currentStart && c.Timestamp <= endAt && seen.Add(c.Timestamp))
+                .OrderBy(c => c.Timestamp)
                 .ToList();
 
             if (newKlines.Count == 0) break;
@@ -267,6 +268,12 @@ public class BacktestScheduler(
             currentStart = lastTime.AddMilliseconds(intervalMs);
         }
 
-        return allKlines;
+        if (allKlines.Count == 0)
+            throw new InvalidOperationException($"未获取到回测 K 线: Pair={pair}, Timeframe={timeframe}, Start={startAt:O}, End={endAt:O}");
+
+        return allKlines
+            .Where(c => c.Timestamp >= startAt && c.Timestamp <= endAt)
+            .OrderBy(c => c.Timestamp)
+            .ToList();
     }
 }

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TradeX.Core.ErrorCodes;
 using TradeX.Core.Interfaces;
 
 namespace TradeX.Api.Controllers;
@@ -24,7 +25,7 @@ public class SettingsController(ISystemConfigRepository configRepo) : Controller
         foreach (var setting in request.Settings)
         {
             if (ReadOnlyKeys.Contains(setting.Key))
-                return BadRequest(new { code = "VALIDATION_ERROR", message = $"key {setting.Key} is read-only" });
+                return this.BadRequest(BusinessErrorCode.ValidationError, $"key {setting.Key} is read-only");
 
             await configRepo.UpsertAsync(setting.Key, setting.Value, ct);
         }

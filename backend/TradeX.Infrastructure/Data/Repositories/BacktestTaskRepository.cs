@@ -10,6 +10,11 @@ public class BacktestTaskRepository(TradeXDbContext context) : IBacktestTaskRepo
     public async Task<BacktestTask?> GetByIdAsync(Guid id, CancellationToken ct = default)
         => await context.BacktestTasks.FirstOrDefaultAsync(t => t.Id == id, ct);
 
+    public async Task<List<BacktestTask>> GetAllAsync(CancellationToken ct = default)
+        => await context.BacktestTasks
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync(ct);
+
     public async Task<List<BacktestTask>> GetByStrategyIdAsync(Guid strategyId, CancellationToken ct = default)
         => await context.BacktestTasks
             .Where(t => t.StrategyId == strategyId)

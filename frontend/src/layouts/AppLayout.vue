@@ -4,12 +4,15 @@ import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useSignalR } from '../composables/useSignalR'
 import ErrorBoundary from '../components/ErrorBoundary.vue'
+import MfaInputModal from '../components/MfaInputModal.vue'
+import { registerMfaModal } from '../api/client'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const signalr = useSignalR()
 const loggingOut = ref(false)
+const mfaModal = ref<InstanceType<typeof MfaInputModal>>()
 
 const fabX = ref(0)
 const fabY = ref(0)
@@ -58,6 +61,7 @@ function handleFabClick() {
 provide('signalr', signalr)
 
 onMounted(async () => {
+  registerMfaModal(mfaModal.value!)
   if (auth.isAuthenticated) {
     try {
       await signalr.connect()
@@ -198,11 +202,12 @@ const pageTitle = computed(() => {
         <a-card class="content-card">
           <template #title>{{ pageTitle }}</template>
           <ErrorBoundary>
-            <router-view />
-          </ErrorBoundary>
-        </a-card>
-      </a-layout-content>
-    </a-layout>
+        <router-view />
+      </ErrorBoundary>
+    </a-card>
+  </a-layout-content>
+</a-layout>
+<MfaInputModal ref="mfaModal" />
   </a-layout>
 </template>
 
@@ -252,7 +257,6 @@ const pageTitle = computed(() => {
 }
 .fab-logout:active { cursor: grabbing; }
 .fab-logout.dragging { user-select: none; }
-.fab-logout.dragging :deep(.arco-btn) { pointer-events: none; }
 .fab-logout :deep(.arco-btn) {
   width: 40px;
   height: 40px;

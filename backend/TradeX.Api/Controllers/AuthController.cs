@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using QRCoder;
 using TradeX.Api.Services;
 using TradeX.Core.Enums;
+using TradeX.Core.ErrorCodes;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 using static BCrypt.Net.BCrypt;
@@ -34,13 +35,13 @@ public class AuthController(
     {
         var user = await userRepo.GetByUsernameAsync(request.Username, ct);
         if (user is null)
-            return Unauthorized(new { code = "AUTH_INVALID_CREDENTIALS", message = "用户名或密码错误" });
+            return this.Unauthorized(BusinessErrorCode.AuthInvalidCredentials, "用户名或密码错误");
 
         if (user.Status == UserStatus.Disabled)
-            return StatusCode(403, new { code = "AUTH_USER_DISABLED", message = "用户已被禁用" });
+            return this.Forbidden(BusinessErrorCode.AuthUserDisabled, "用户已被禁用");
 
         if (!Verify(request.Password, user.PasswordHash))
-            return Unauthorized(new { code = "AUTH_INVALID_CREDENTIALS", message = "用户名或密码错误" });
+            return this.Unauthorized(BusinessErrorCode.AuthInvalidCredentials, "用户名或密码错误");
 
         if (!user.IsMfaEnabled && user.Status == UserStatus.PendingMfa)
         {
@@ -70,25 +71,25 @@ public class AuthController(
     {
         var principal = jwtService.ValidateMfaToken(request.MfaToken);
         if (principal is null)
-            return Unauthorized(new { code = "AUTH_MFA_INVALID_CODE", message = "MFA Token 无效或已过期" });
+            return this.Unauthorized(BusinessErrorCode.AuthMfaInvalidCode, "MFA Token 无效或已过期");
 
         var userId = Guid.Parse(principal.FindFirst(ClaimTypes.NameIdentifier)!.Value);
         var user = await userRepo.GetByIdAsync(userId, ct);
         if (user is null)
-            return Unauthorized(new { code = "AUTH_MFA_INVALID_CODE", message = "用户不存在" });
+            return this.Unauthorized(BusinessErrorCode.AuthMfaInvalidCode, "用户不存在");
 
         if (user.Status == UserStatus.Disabled)
-            return StatusCode(403, new { code = "AUTH_USER_DISABLED", message = "用户已被禁用" });
+            return this.Forbidden(BusinessErrorCode.AuthUserDisabled, "用户已被禁用");
 
         if (!string.IsNullOrWhiteSpace(request.TotpCode))
         {
             if (string.IsNullOrWhiteSpace(user.MfaSecretEncrypted))
-                return BadRequest(new { code = "AUTH_MFA_INVALID_CODE", message = "MFA 未配置" });
+                return this.BadRequest(BusinessErrorCode.AuthMfaInvalidCode, "MFA 未配置");
 
             var secret = encryption.Decrypt(user.MfaSecretEncrypted);
             var isValid = mfaService.ValidateTotp(secret, request.TotpCode);
             if (!isValid)
-                return Unauthorized(new { code = "AUTH_MFA_INVALID_CODE", message = "MFA 验证码错误" });
+                return this.Unauthorized(BusinessErrorCode.AuthMfaInvalidCode, "MFA 验证码错误");
         }
         else if (!string.IsNullOrWhiteSpace(request.RecoveryCode))
         {
@@ -96,14 +97,14 @@ public class AuthController(
             var normalizedCode = request.RecoveryCode.Trim().ToUpperInvariant();
             var matchedIndex = recoveryCodes.FindIndex(c => c.Equals(normalizedCode, StringComparison.OrdinalIgnoreCase));
             if (matchedIndex < 0)
-                return Unauthorized(new { code = "AUTH_MFA_INVALID_CODE", message = "恢复码无效或已使用" });
+                return this.Unauthorized(BusinessErrorCode.AuthMfaInvalidCode, "恢复码无效或已使用");
 
             recoveryCodes.RemoveAt(matchedIndex);
             user.RecoveryCodesJson = JsonSerializer.Serialize(recoveryCodes);
         }
         else
         {
-            return BadRequest(new { code = "VALIDATION_ERROR", message = "请提供 TOTP 码或恢复码" });
+            return this.BadRequest(BusinessErrorCode.ValidationError, "请提供 TOTP 码或恢复码");
         }
 
         user.LastLoginAt = DateTime.UtcNow;
@@ -137,11 +138,11 @@ public class AuthController(
     {
         var storedToken = await refreshTokenRepo.GetByTokenAsync(request.RefreshToken, ct);
         if (storedToken is null || storedToken.IsExpired || storedToken.IsRevoked)
-            return Unauthorized(new { code = "AUTH_REFRESH_TOKEN_INVALID", message = "Refresh token 无效或已过期" });
+            return this.Unauthorized(BusinessErrorCode.AuthRefreshTokenInvalid, "Refresh token 无效或已过期");
 
         var user = await userRepo.GetByIdAsync(storedToken.UserId, ct);
         if (user is null)
-            return Unauthorized(new { code = "AUTH_REFRESH_TOKEN_INVALID", message = "用户不存在" });
+            return this.Unauthorized(BusinessErrorCode.AuthRefreshTokenInvalid, "用户不存在");
 
         storedToken.RevokedAt = DateTime.UtcNow;
 
@@ -213,11 +214,11 @@ public class AuthController(
             return NotFound();
 
         if (string.IsNullOrWhiteSpace(user.MfaSecretEncrypted))
-            return BadRequest(new { code = "AUTH_MFA_INVALID_CODE", message = "请先调用 mfa/setup 生成密钥" });
+            return this.BadRequest(BusinessErrorCode.AuthMfaInvalidCode, "请先调用 mfa/setup 生成密钥");
 
         var secret = encryption.Decrypt(user.MfaSecretEncrypted);
         if (!mfaService.ValidateTotp(secret, request.Code))
-            return BadRequest(new { code = "AUTH_MFA_INVALID_CODE", message = "MFA 验证码错误" });
+            return this.BadRequest(BusinessErrorCode.AuthMfaInvalidCode, "MFA 验证码错误");
 
         user.IsMfaEnabled = true;
         user.Status = UserStatus.Active;
@@ -251,7 +252,7 @@ public class AuthController(
     {
         var user = await userRepo.GetByIdAsync(request.UserId, ct);
         if (user is null)
-            return NotFound(new { code = "USER_NOT_FOUND", message = "用户不存在" });
+            return this.NotFound(BusinessErrorCode.UserNotFound, "用户不存在");
 
         var recoveryCodes = mfaService.GenerateRecoveryCodes(user.Id);
         user.RecoveryCodesJson = JsonSerializer.Serialize(recoveryCodes.Select(c => c.Code).ToList());

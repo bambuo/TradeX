@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TradeX.Core.Enums;
+using TradeX.Core.ErrorCodes;
 using TradeX.Core.Models;
 using TradeX.Infrastructure.Data;
 using static BCrypt.Net.BCrypt;
@@ -23,13 +24,13 @@ public class SetupController(TradeXDbContext db) : ControllerBase
     {
         var hasSuperAdmin = await db.Users.AnyAsync(u => u.Role == UserRole.SuperAdmin, ct);
         if (hasSuperAdmin)
-            return Conflict(new { code = "SETUP_ALREADY_INITIALIZED", message = "系统已初始化" });
+            return this.Conflict(BusinessErrorCode.SetupAlreadyInitialized, "系统已初始化");
 
         if (string.IsNullOrWhiteSpace(request.UserName) || request.UserName.Length < 3)
-            return BadRequest(new { code = "SETUP_INVALID_INPUT", message = "用户名至少 3 个字符" });
+            return this.BadRequest(BusinessErrorCode.SetupInvalidInput, "用户名至少 3 个字符");
 
         if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 8)
-            return BadRequest(new { code = "SETUP_INVALID_INPUT", message = "密码至少 8 个字符" });
+            return this.BadRequest(BusinessErrorCode.SetupInvalidInput, "密码至少 8 个字符");
 
         var jwtSecret = string.IsNullOrWhiteSpace(request.JwtSecret)
             ? Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32))
@@ -47,17 +48,27 @@ public class SetupController(TradeXDbContext db) : ControllerBase
         };
         db.Users.Add(superAdmin);
 
-        db.SystemConfigs.Add(new SystemConfig { Key = "jwt.secret", Value = jwtSecret });
-        db.SystemConfigs.Add(new SystemConfig { Key = "jwt.access_token_expires_minutes", Value = "30" });
-        db.SystemConfigs.Add(new SystemConfig { Key = "jwt.refresh_token_expires_days", Value = "7" });
-        db.SystemConfigs.Add(new SystemConfig { Key = "risk.default_slippage_percent", Value = "0.1" });
-        db.SystemConfigs.Add(new SystemConfig { Key = "risk.max_daily_loss_percent", Value = "10" });
-        db.SystemConfigs.Add(new SystemConfig { Key = "risk.max_drawdown_percent", Value = "25" });
-        db.SystemConfigs.Add(new SystemConfig { Key = "risk.cooldown_seconds", Value = "300" });
-        db.SystemConfigs.Add(new SystemConfig { Key = "risk.volatility_grid_dedup_seconds", Value = "60" });
-        db.SystemConfigs.Add(new SystemConfig { Key = "risk.consecutive_loss_limit", Value = "5" });
-        db.SystemConfigs.Add(new SystemConfig { Key = "data.kline_warmup_days", Value = "3" });
-        db.SystemConfigs.Add(new SystemConfig { Key = "data.kline_warmup_interval", Value = "15m" });
+        var existingKeys = await db.SystemConfigs.Select(s => s.Key).ToListAsync(ct);
+        var defaults = new Dictionary<string, string>
+        {
+            ["jwt.secret"] = jwtSecret,
+            ["jwt.access_token_expires_minutes"] = "30",
+            ["jwt.refresh_token_expires_days"] = "7",
+            ["risk.default_slippage_percent"] = "0.1",
+            ["risk.max_daily_loss_percent"] = "10",
+            ["risk.max_drawdown_percent"] = "25",
+            ["risk.cooldown_seconds"] = "300",
+            ["risk.volatility_grid_dedup_seconds"] = "60",
+            ["risk.consecutive_loss_limit"] = "5",
+            ["data.kline_warmup_days"] = "3",
+            ["data.kline_warmup_interval"] = "15m"
+        };
+
+        foreach (var (key, value) in defaults)
+        {
+            if (!existingKeys.Contains(key))
+                db.SystemConfigs.Add(new SystemConfig { Key = key, Value = value });
+        }
 
         await db.SaveChangesAsync(ct);
 

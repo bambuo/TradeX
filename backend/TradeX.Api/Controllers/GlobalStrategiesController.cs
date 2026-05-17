@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TradeX.Core.ErrorCodes;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 
@@ -30,7 +31,7 @@ public class StrategiesController(
     {
         var strategy = await strategyRepo.GetByIdAsync(id, ct);
         if (strategy is null)
-            return NotFound(new { code = "STRATEGY_NOT_FOUND", message = "策略不存在" });
+            return this.NotFound(BusinessErrorCode.StrategyNotFound, "策略不存在");
 
         return Ok(new
         {
@@ -44,7 +45,7 @@ public class StrategiesController(
     public async Task<IActionResult> Create([FromBody] CreateStrategyRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest(new { code = "VALIDATION_ERROR", message = "策略名称不能为空" });
+            return this.BadRequest(BusinessErrorCode.ValidationError, "策略名称不能为空");
 
         var strategy = new Strategy
         {
@@ -67,7 +68,7 @@ public class StrategiesController(
     {
         var strategy = await strategyRepo.GetByIdAsync(id, ct);
         if (strategy is null)
-            return NotFound(new { code = "STRATEGY_NOT_FOUND", message = "策略不存在" });
+            return this.NotFound(BusinessErrorCode.StrategyNotFound, "策略不存在");
 
         if (request.Name is not null)
             strategy.Name = request.Name;
@@ -89,7 +90,7 @@ public class StrategiesController(
     {
         var strategy = await strategyRepo.GetByIdAsync(id, ct);
         if (strategy is null)
-            return NotFound(new { code = "STRATEGY_NOT_FOUND", message = "策略不存在" });
+            return this.NotFound(BusinessErrorCode.StrategyNotFound, "策略不存在");
 
         await strategyRepo.DeleteAsync(strategy, ct);
         return NoContent();

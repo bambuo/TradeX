@@ -25,7 +25,7 @@ const indicators = ['RSI', 'SMA_20', 'SMA_50', 'EMA_20', 'MACD_LINE', 'MACD_SIGN
 const comparisons = ['>', '<', '>=', '<=', '==', 'CrossAbove', 'CrossBelow']
 
 function removeFromParent() {
-  emit('update', null as any)
+  emit('update', null as unknown as ConditionNode)
 }
 
 function updateChild(index: number, child: ConditionNode | null) {
@@ -42,7 +42,7 @@ function updateChild(index: number, child: ConditionNode | null) {
   }
 }
 
-function updateField(field: string, value: any) {
+function updateField(field: string, value: unknown) {
   emit('update', { ...props.node, [field]: value })
 }
 </script>
@@ -70,7 +70,7 @@ function updateField(field: string, value: any) {
           :key="i"
           :node="child"
           :depth="(depth || 0) + 1"
-          @update="(c: any) => updateChild(i, c)"
+          @update="(c: ConditionNode) => updateChild(i, c)"
         />
       </div>
       <div class="add-actions">
