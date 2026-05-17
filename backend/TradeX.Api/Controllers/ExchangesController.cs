@@ -223,7 +223,7 @@ public class ExchangesController(
     }
 
     [HttpGet("{id:guid}/pairs")]
-    public async Task<IActionResult> GetPairs(Guid id, CancellationToken ct)
+    public async Task<IActionResult> GetPairs(Guid id, CancellationToken ct, [FromQuery] string? quoteCurrency = "USDT")
     {
         var exchange = await exchangeRepo.GetByIdAsync(id, ct);
         if (exchange is null)
@@ -250,7 +250,8 @@ public class ExchangesController(
             var tickerMap = tickers.ToDictionary(t => t.Pair, t => t);
 
             var Pairs = rules
-                .Where(r => r.Pair.EndsWith("USDT", StringComparison.OrdinalIgnoreCase))
+                .Where(r => quoteCurrency is null ||
+                    r.Pair.EndsWith(quoteCurrency, StringComparison.OrdinalIgnoreCase))
                 .Select(r =>
                 {
                     var t = tickerMap.GetValueOrDefault(r.Pair);

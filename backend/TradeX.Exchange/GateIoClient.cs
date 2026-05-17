@@ -205,7 +205,7 @@ public class GateIoClient(string apiKey, string secretKey) : IExchangeClient
 
         try
         {
-            var orders = await _api.GetOrdersAsync("BTCUSDT", from: from, limit: 50, ct: ct);
+            var orders = await _api.GetOrdersAsync(from: from, limit: 50, ct: ct);
             return orders.Select(o => new OrderResult(
                 o.Status == "closed",
                 o.Id,
