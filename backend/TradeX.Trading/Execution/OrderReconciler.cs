@@ -3,8 +3,9 @@ using Microsoft.Extensions.Options;
 using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
+using TradeX.Trading.Risk;
 
-namespace TradeX.Trading;
+namespace TradeX.Trading.Execution;
 
 /// <summary>
 /// 订单对账器：周期性扫描 Pending 订单，配合 TradeExecutor 三段式实现崩溃恢复。

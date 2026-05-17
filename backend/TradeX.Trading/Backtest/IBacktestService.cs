@@ -1,6 +1,6 @@
 using TradeX.Core.Models;
 
-namespace TradeX.Trading;
+namespace TradeX.Trading.Backtest;
 
 public interface IBacktestService
 {

@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using TradeX.Trading.Events;
 
-namespace TradeX.Trading;
+namespace TradeX.Trading.Messaging;
 
 /// <summary>
 /// 通过 Redis Pub/Sub 跨进程发布交易事件。Worker 端使用；API 端的

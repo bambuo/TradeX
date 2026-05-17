@@ -2,7 +2,7 @@ using System.Text.Json;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 
-namespace TradeX.Trading;
+namespace TradeX.Trading.Engine;
 
 public class ConditionTreeEvaluator : IConditionTreeEvaluator
 {

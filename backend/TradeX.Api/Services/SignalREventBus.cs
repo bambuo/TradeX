@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using TradeX.Api.Hubs;
-using TradeX.Trading;
+using TradeX.Trading.Messaging;
 
 namespace TradeX.Api.Services;
 

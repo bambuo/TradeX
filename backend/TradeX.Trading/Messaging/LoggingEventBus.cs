@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-namespace TradeX.Trading;
+namespace TradeX.Trading.Messaging;
 
 /// <summary>
 /// ITradingEventBus 的临时实现 —— 阶段 2 用于 Worker 进程，把事件仅打到日志而不推送给前端。

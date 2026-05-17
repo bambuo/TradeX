@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 using TradeX.Trading.Events;
+using TradeX.Trading.Messaging;
 
 namespace TradeX.Trading.Outbox;
 

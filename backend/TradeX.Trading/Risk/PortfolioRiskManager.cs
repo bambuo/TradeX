@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Options;
 using TradeX.Core.Interfaces;
 
-namespace TradeX.Trading;
+namespace TradeX.Trading.Risk;
 
 public class PortfolioRiskManager(
     IPositionRepository positionRepo,

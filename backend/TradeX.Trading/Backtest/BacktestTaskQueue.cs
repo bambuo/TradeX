@@ -1,6 +1,6 @@
 using System.Threading.Channels;
 
-namespace TradeX.Trading;
+namespace TradeX.Trading.Backtest;
 
 public class BacktestTaskQueue : IBacktestTaskQueue
 {

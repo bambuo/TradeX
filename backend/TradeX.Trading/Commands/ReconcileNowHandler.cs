@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using TradeX.Trading.Execution;
 
 namespace TradeX.Trading.Commands;
 

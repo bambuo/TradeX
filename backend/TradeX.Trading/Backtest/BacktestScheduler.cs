@@ -6,7 +6,7 @@ using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 
-namespace TradeX.Trading;
+namespace TradeX.Trading.Backtest;
 
 public class BacktestScheduler(
     IServiceScopeFactory scopeFactory,

@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 
-namespace TradeX.Trading;
+namespace TradeX.Trading.Engine;
 
 public record VolatilityGridExecutionRule(
     string Type,

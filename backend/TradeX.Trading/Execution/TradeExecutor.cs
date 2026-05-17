@@ -3,7 +3,7 @@ using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 
-namespace TradeX.Trading;
+namespace TradeX.Trading.Execution;
 
 /// <summary>
 /// 三段式下单：

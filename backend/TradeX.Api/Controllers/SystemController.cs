@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TradeX.Core.Interfaces;
 using TradeX.Trading;
+using TradeX.Trading.Messaging;
 
 namespace TradeX.Api.Controllers;
 

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 using TradeX.Trading;
+using TradeX.Trading.Backtest;
 
 namespace TradeX.Api.Controllers;
 

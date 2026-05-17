@@ -8,6 +8,7 @@ using TradeX.Infrastructure;
 using TradeX.Notifications;
 using TradeX.Trading;
 using TradeX.Trading.Events;
+using TradeX.Trading.Messaging;
 using TradeX.Trading.Observability;
 
 // Serilog bootstrap logger（DI 启动前用）
