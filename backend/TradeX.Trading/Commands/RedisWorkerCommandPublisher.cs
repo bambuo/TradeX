@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
+using TradeX.Trading.Streams;
 
 namespace TradeX.Trading.Commands;
 
@@ -14,10 +15,8 @@ public sealed class RedisWorkerCommandPublisher(
     {
         var envelope = new WorkerCommand(type, args is null ? "{}" : JsonSerializer.Serialize(args, Json));
         var payload = JsonSerializer.Serialize(envelope, Json);
-        var sent = await redis.GetSubscriber().PublishAsync(
-            RedisChannel.Literal(WorkerCommandChannels.Commands),
-            payload);
-        logger.LogInformation("命令已发布: Type={Type}, Subscribers={Subs}", type, sent);
+        var id = await RedisStreamHelpers.AddAsync(redis.GetDatabase(), WorkerCommandChannels.Commands, payload);
+        logger.LogInformation("命令已发布: Type={Type}, StreamId={Id}", type, id);
     }
 }
 

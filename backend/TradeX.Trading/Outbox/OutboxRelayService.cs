@@ -5,6 +5,7 @@ using StackExchange.Redis;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 using TradeX.Trading.Events;
+using TradeX.Trading.Streams;
 
 namespace TradeX.Trading.Outbox;
 
@@ -31,15 +32,15 @@ public sealed class OutboxRelayService(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        logger.LogInformation("OutboxRelayService 启动，轮询间隔 {Interval}", PollInterval);
-        var sub = redis.GetSubscriber();
-        var channel = RedisChannel.Literal(TradingEventChannels.Events);
+        logger.LogInformation("OutboxRelayService 启动，轮询间隔 {Interval}, 目标 stream {Stream}",
+            PollInterval, TradingEventChannels.Events);
+        var db = redis.GetDatabase();
 
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                var processed = await DrainBatchAsync(sub, channel, stoppingToken);
+                var processed = await DrainBatchAsync(db, stoppingToken);
                 if (processed == 0)
                 {
                     try { await Task.Delay(PollInterval, stoppingToken); }
@@ -58,7 +59,7 @@ public sealed class OutboxRelayService(
         logger.LogInformation("OutboxRelayService 已停止");
     }
 
-    private async Task<int> DrainBatchAsync(ISubscriber sub, RedisChannel channel, CancellationToken ct)
+    private async Task<int> DrainBatchAsync(IDatabase db, CancellationToken ct)
     {
         using var scope = scopeFactory.CreateScope();
         var repo = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
@@ -70,8 +71,8 @@ public sealed class OutboxRelayService(
             if (ct.IsCancellationRequested) break;
             try
             {
-                // outbox 里存的就是完整 envelope JSON，直接 publish
-                await sub.PublishAsync(channel, evt.PayloadJson);
+                // outbox 里存的就是完整 envelope JSON，XADD 到 stream
+                await RedisStreamHelpers.AddAsync(db, TradingEventChannels.Events, evt.PayloadJson);
                 await repo.MarkSentAsync(evt.Id, ct);
             }
             catch (Exception ex)
