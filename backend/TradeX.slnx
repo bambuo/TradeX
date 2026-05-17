@@ -1,6 +1,5 @@
 <Solution>
   <Project Path="TradeX.Api/TradeX.Api.csproj" />
-  <Project Path="TradeX.Blazor/TradeX.Blazor.csproj" />
   <Project Path="TradeX.Core/TradeX.Core.csproj" />
   <Project Path="TradeX.Exchange/TradeX.Exchange.csproj" />
   <Project Path="TradeX.Indicators/TradeX.Indicators.csproj" />
