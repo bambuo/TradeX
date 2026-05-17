@@ -16,7 +16,6 @@
     <ProjectReference Include="..\TradeX.Indicators\TradeX.Indicators.csproj" />
     <ProjectReference Include="..\TradeX.Infrastructure\TradeX.Infrastructure.csproj" />
     <ProjectReference Include="..\TradeX.Notifications\TradeX.Notifications.csproj" />
-    <ProjectReference Include="..\TradeX.Blazor\TradeX.Blazor.csproj" />
   </ItemGroup>
 
   <ItemGroup>
