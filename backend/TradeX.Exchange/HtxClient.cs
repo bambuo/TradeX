@@ -221,7 +221,6 @@ public class HtxClient(string apiKey, string secretKey) : IExchangeClient
         try
         {
             var resp = await _api.GetOrdersAsync(
-                symbol: "btcusdt",
                 states: "submitted,partial-filled,partial-canceled,filled,canceled",
                 startTime: startMs,
                 size: 50,

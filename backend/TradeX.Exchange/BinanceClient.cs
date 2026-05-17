@@ -174,21 +174,39 @@ public class BinanceClient(string apiKey, string secretKey, bool isTestnet) : IE
 
     public async Task<OrderResult[]> GetRecentOrdersAsync(DateTime since, CancellationToken ct = default)
     {
+        var startMs = new DateTimeOffset(since).ToUnixTimeMilliseconds();
+        var results = new List<OrderResult>();
+
         try
         {
-            var startMs = new DateTimeOffset(since).ToUnixTimeMilliseconds();
-            var orders = await _api.GetAllOrdersAsync("BTCUSDT", startTime: startMs, limit: 50, ct: ct);
-            return orders.Select(o => new OrderResult(
-                o.Status == "FILLED",
-                o.OrderId.ToString(),
-                o.ExecutedQty,
-                o.CumulativeQuoteQty,
-                0, null)).ToArray();
+            var info = await _api.GetExchangeInfoAsync(ct);
+            var symbols = info.Symbols
+                .Where(s => s.Status == "TRADING" && s.IsSpotTradingAllowed)
+                .Select(s => s.Symbol);
+
+            foreach (var symbol in symbols)
+            {
+                try
+                {
+                    var orders = await _api.GetAllOrdersAsync(symbol, startTime: startMs, limit: 50, ct: ct);
+                    results.AddRange(orders.Select(o => new OrderResult(
+                        o.Status == "FILLED",
+                        o.OrderId.ToString(),
+                        o.ExecutedQty,
+                        o.CumulativeQuoteQty,
+                        0, null)));
+                }
+                catch (ApiException)
+                {
+                }
+            }
         }
         catch (ApiException)
         {
             return [];
         }
+
+        return [.. results];
     }
 
     public async Task<ExchangeOrderDto[]> GetOpenOrdersAsync(CancellationToken ct = default)
@@ -213,8 +231,6 @@ public class BinanceClient(string apiKey, string secretKey, bool isTestnet) : IE
             .Where(a => a != "USDT")
             .Select(a => $"{a}USDT")
             .ToHashSet();
-        pairs.Add("BTCUSDT");
-        pairs.Add("ETHUSDT");
 
         foreach (var pair in pairs)
         {

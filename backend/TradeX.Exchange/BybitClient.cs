@@ -229,7 +229,7 @@ public class BybitClient(string apiKey, string secretKey, bool isTestnet) : IExc
 
         try
         {
-            var resp = await _api.GetOrderHistoryAsync("spot", "BTCUSDT", limit: 50, ct: ct);
+            var resp = await _api.GetOrderHistoryAsync("spot", limit: 50, ct: ct);
             if (resp.RetCode != 0) return [];
 
             return resp.Result.List
