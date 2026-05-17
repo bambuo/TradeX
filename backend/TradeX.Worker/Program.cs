@@ -50,11 +50,14 @@ try
     {
         builder.Services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(
             _ => StackExchange.Redis.ConnectionMultiplexer.Connect(redisConn));
-        builder.Services.AddSingleton<ITradingEventBus, RedisEventBus>();
+        // Outbox 模式：业务路径写 outbox 表（与业务事务原子），后台 relay 推到 Redis
+        // 解决 RedisEventBus 直接 publish 失败 → 事件丢失的一致性漏洞
+        builder.Services.AddScoped<ITradingEventBus, TradeX.Trading.Outbox.OutboxTradingEventBus>();
+        builder.Services.AddOutboxRelay();
         builder.Services.AddTradingWorkerCommandBus();
         builder.Services.AddBacktestTaskNotifier(redisAvailable: true);
         builder.Services.AddBacktestTaskListener();
-        Log.Information("Worker 事件总线 + 命令总线 + 回测任务桥: Redis → {Events} / {Commands} / {Backtest}",
+        Log.Information("Worker 事件总线(Outbox) + 命令总线 + 回测桥: Redis → {Events} / {Commands} / {Backtest}",
             TradingEventChannels.Events,
             TradeX.Trading.Commands.WorkerCommandChannels.Commands,
             TradeX.Trading.Backtest.BacktestChannels.Tasks);

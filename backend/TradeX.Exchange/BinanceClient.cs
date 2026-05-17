@@ -132,30 +132,29 @@ public class BinanceClient(string apiKey, string secretKey, bool isTestnet) : IE
         }
     }
 
-    public async Task<OrderResult> CancelOrderAsync(string exchangeOrderId, CancellationToken ct = default)
+    public async Task<OrderResult> CancelOrderAsync(string pair, string exchangeOrderId, CancellationToken ct = default)
     {
         try
         {
-            var resp = await _api.CancelOrderAsync("BTCUSDT", orderId: exchangeOrderId, ct: ct);
+            var resp = await _api.CancelOrderAsync(pair, orderId: exchangeOrderId, ct: ct);
             return new OrderResult(true, exchangeOrderId, 0, 0, 0, null);
         }
-        catch (ApiException)
+        catch (ApiException ex)
         {
-            return new OrderResult(false, null, 0, 0, 0, "撤单失败");
+            return new OrderResult(false, null, 0, 0, 0, $"撤单失败: {ex.Message}");
         }
     }
 
-    public async Task<OrderResult> GetOrderAsync(string exchangeOrderId, CancellationToken ct = default)
+    public async Task<OrderResult> GetOrderAsync(string pair, string exchangeOrderId, CancellationToken ct = default)
     {
         try
         {
-            // TODO: Binance API 强制要求 symbol，此处占位 BTCUSDT 是历史遗留；调用方应改用更具体的接口或传入 pair
-            var resp = await _api.GetOrderAsync("BTCUSDT", orderId: exchangeOrderId, ct: ct);
+            var resp = await _api.GetOrderAsync(pair, orderId: exchangeOrderId, ct: ct);
             return new OrderResult(true, exchangeOrderId, resp.ExecutedQty, 0, 0, null);
         }
-        catch (ApiException)
+        catch (ApiException ex)
         {
-            return new OrderResult(false, null, 0, 0, 0, "查询订单失败");
+            return new OrderResult(false, null, 0, 0, 0, $"查询订单失败: {ex.Message}");
         }
     }
 

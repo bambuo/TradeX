@@ -92,6 +92,35 @@ try
     builder.Services.AddTradingCommandPublisher(redisAvailable: redisEnabled);
     builder.Services.AddBacktestTaskNotifier(redisAvailable: redisEnabled);
 
+    // 限流：保护 /api/auth/* 端点防暴破
+    builder.Services.AddRateLimiter(options =>
+    {
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+        // 登录限流：按客户端 IP 每 60s 最多 10 次（10 次失败 + 退避通常足以让暴破不可行）
+        options.AddPolicy("auth", httpContext =>
+            System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+                {
+                    Window = TimeSpan.FromSeconds(60),
+                    PermitLimit = 10,
+                    QueueLimit = 0,
+                    AutoReplenishment = true
+                }));
+        // 全局兜底：单 IP 每秒 ≤50 RPS
+        options.GlobalLimiter = System.Threading.RateLimiting.PartitionedRateLimiter.Create<HttpContext, string>(
+            httpContext => System.Threading.RateLimiting.RateLimitPartition.GetTokenBucketLimiter(
+                partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                factory: _ => new System.Threading.RateLimiting.TokenBucketRateLimiterOptions
+                {
+                    TokenLimit = 100,
+                    QueueLimit = 0,
+                    ReplenishmentPeriod = TimeSpan.FromSeconds(1),
+                    TokensPerPeriod = 50,
+                    AutoReplenishment = true
+                }));
+    });
+
     builder.Services.AddScoped<TradeX.Api.Filters.MfaActionFilter>();
     builder.Services.AddControllers(o => o.Filters.AddService<TradeX.Api.Filters.MfaActionFilter>())
         .AddJsonOptions(o => o.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase);
@@ -130,6 +159,13 @@ try
     }
 
     app.UseSerilogRequestLogging();
+
+    // 安全响应头（在 ExceptionHandling 之前，确保错误响应也带头）
+    app.UseMiddleware<SecurityHeadersMiddleware>();
+    // 限流（在 controllers 之前激活）
+    app.UseRateLimiter();
+    // 幂等性：POST/PUT/DELETE/PATCH 带 Idempotency-Key 头时去重
+    app.UseMiddleware<IdempotencyMiddleware>();
 
     app.UseMiddleware<ExceptionHandlingMiddleware>();
     if (ipWhitelistEnabled)

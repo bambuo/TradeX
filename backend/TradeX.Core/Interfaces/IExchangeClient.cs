@@ -14,8 +14,9 @@ public interface IExchangeClient
     Task<ExchangePosition[]> GetPositionsAsync(CancellationToken ct = default);
 
     Task<OrderResult> PlaceOrderAsync(OrderRequest request, CancellationToken ct = default);
-    Task<OrderResult> CancelOrderAsync(string exchangeOrderId, CancellationToken ct = default);
-    Task<OrderResult> GetOrderAsync(string exchangeOrderId, CancellationToken ct = default);
+    Task<OrderResult> CancelOrderAsync(string pair, string exchangeOrderId, CancellationToken ct = default);
+    /// <summary>查询订单状态。各交易所均要求 pair 标识，不再硬编码 BTCUSDT。</summary>
+    Task<OrderResult> GetOrderAsync(string pair, string exchangeOrderId, CancellationToken ct = default);
 
     /// <summary>
     /// 凭 ClientOrderId 反查交易所订单状态。供 <c>OrderReconciler</c> 在订单缺少 ExchangeOrderId

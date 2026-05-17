@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using TradeX.Core.Interfaces;
 using TradeX.Trading.Backtest;
 using TradeX.Trading.Commands;
+using TradeX.Trading.Outbox;
 
 namespace TradeX.Trading;
 
@@ -96,6 +97,17 @@ public static class DependencyInjection
     public static IServiceCollection AddBacktestTaskListener(this IServiceCollection services)
     {
         services.AddHostedService<BacktestTaskListener>();
+        return services;
+    }
+
+    /// <summary>
+    /// Worker 端：注册 OutboxRelayService —— 后台轮询 outbox_events 表把 Pending 事件推到 Redis。
+    /// 调用方应同时使用 <see cref="OutboxTradingEventBus"/> 作为 ITradingEventBus 的实现。
+    /// 要求 Redis 已配置。
+    /// </summary>
+    public static IServiceCollection AddOutboxRelay(this IServiceCollection services)
+    {
+        services.AddHostedService<OutboxRelayService>();
         return services;
     }
 }

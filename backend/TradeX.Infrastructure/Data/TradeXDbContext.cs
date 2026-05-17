@@ -24,6 +24,7 @@ public class TradeXDbContext(DbContextOptions<TradeXDbContext> options) : DbCont
     public DbSet<Pair> Pairs => Set<Pair>();
     public DbSet<ExchangePairRuleSnapshot> ExchangePairRules => Set<ExchangePairRuleSnapshot>();
     public DbSet<NotificationChannel> NotificationChannels => Set<NotificationChannel>();
+    public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -189,6 +190,17 @@ public class TradeXDbContext(DbContextOptions<TradeXDbContext> options) : DbCont
             e.Property(x => x.ConfigEncrypted).IsRequired();
             e.Property(x => x.Type).HasConversion<string>().HasMaxLength(20);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+        });
+
+        modelBuilder.Entity<OutboxEvent>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.Status, x.CreatedAtUtc });
+            e.Property(x => x.Id).ValueGeneratedOnAdd();
+            e.Property(x => x.Type).HasMaxLength(100).IsRequired();
+            e.Property(x => x.PayloadJson).IsRequired();
+            e.Property(x => x.Status).HasConversion<int>();
+            e.Property(x => x.LastError).HasMaxLength(2000);
         });
 
         modelBuilder.Entity<Order>(e =>
