@@ -3,6 +3,7 @@ import client from './client'
 export interface BacktestTask {
   id: string
   strategyId: string
+  exchangeId: string
   strategyName?: string
   pair: string
   timeframe?: string
@@ -71,12 +72,20 @@ export interface AnalysisResponse {
 
 export const backtestsApi = {
   start(strategyId: string, exchangeId: string, pair: string, timeframe: string, startAt: string, endAt: string, initialCapital: number, positionSize?: number | null) {
-    let url = `/backtests?strategyId=${strategyId}&exchangeId=${exchangeId}&pair=${encodeURIComponent(pair)}&timeframe=${encodeURIComponent(timeframe)}&startAt=${encodeURIComponent(startAt)}&endAt=${encodeURIComponent(endAt)}&initialCapital=${initialCapital}`
-    if (positionSize !== null && positionSize !== undefined) url += `&positionSize=${positionSize}`
-    return client.post<{ taskId: string; status: string; createdAt: string; strategyName?: string; pair?: string; timeframe?: string }>(url)
+    return client.post<{ taskId: string; status: string; createdAt: string; strategyName?: string; pair?: string; timeframe?: string }>('/backtests', {
+      strategyId,
+      exchangeId,
+      pair,
+      timeframe,
+      startAt,
+      endAt,
+      initialCapital,
+      positionSize: positionSize ?? null
+    })
   },
-  getTasks(strategyId: string) {
-    return client.get<BacktestTask[]>(`/backtests/tasks?strategyId=${strategyId}`)
+  getTasks(strategyId?: string) {
+    const url = strategyId ? `/backtests/tasks?strategyId=${strategyId}` : '/backtests/tasks'
+    return client.get<BacktestTask[]>(url)
   },
   getTask(taskId: string) {
     return client.get<BacktestTask>(`/backtests/tasks/${taskId}`)

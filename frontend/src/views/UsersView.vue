@@ -29,7 +29,7 @@ async function load() {
   loading.value = true
   try {
     const { data } = await usersApi.getAll()
-    const list = Array.isArray(data) ? data : (data as any).data ?? []
+    const list = Array.isArray(data) ? data : (data as { data: User[] }).data ?? []
     users.value = list
   } finally {
     loading.value = false
@@ -50,8 +50,13 @@ async function create() {
 }
 
 async function changeRole(id: string, role: string) {
-  await usersApi.updateRole(id, role)
-  await load()
+  try {
+    await usersApi.updateRole(id, role)
+    await load()
+  } catch (e: any) {
+    if (e._mfaCancelled) return
+    throw e
+  }
 }
 
 const tagRoleColors: Record<string, string> = {

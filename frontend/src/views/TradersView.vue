@@ -90,7 +90,7 @@ async function save() {
     showForm.value = false
     await loadTraders()
   } catch (e: any) {
-    formError.value = e.response?.data?.message || e.response?.data?.error || '保存失败'
+    formError.value = e.response?.data?.message || '保存失败'
   }
 }
 
@@ -140,9 +140,14 @@ function getAvatarColor(trader: { name: string; avatarColor?: string }): string 
 }
 
 async function toggleStatus(trader: Trader) {
-  const newStatus = normalizeStatus(trader.status) === 'Active' ? 'Disabled' : 'Active'
-  await tradersApi.update(trader.id, { status: newStatus })
-  await loadTraders()
+  try {
+    const newStatus = normalizeStatus(trader.status) === 'Active' ? 'Disabled' : 'Active'
+    await tradersApi.update(trader.id, { status: newStatus })
+    await loadTraders()
+  } catch (e: any) {
+    if (e._mfaCancelled) return
+    throw e
+  }
 }
 
 onMounted(loadTraders)

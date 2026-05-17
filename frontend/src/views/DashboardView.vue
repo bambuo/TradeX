@@ -5,12 +5,27 @@ import { dashboardApi, type DashboardStats, type DashboardTrade } from '../api/d
 import { exchangesApi } from '../api/exchanges'
 import { getExchangeInfo } from '../api/exchangeInfo'
 import { formatSmallNumber } from '../utils/format'
+import type { HubConnection } from '@microsoft/signalr'
 
 const stats = ref<DashboardStats | null>(null)
 const loading = ref(true)
 const loadError = ref('')
 const exchangeAssets = ref<Record<string, { currency: string; balance: number }[]>>({})
-const signalr: any = inject('signalr')
+const signalr = inject<{ on: HubConnection['on']; off: HubConnection['off']; connected: { value: boolean } }>('signalr')
+
+interface SummaryPayload {
+  totalPnl?: number
+  dailyPnl?: number
+  winRate?: number
+  totalPositions?: number
+  activeStrategies?: number
+  lastUpdateAtUtc?: string
+}
+
+interface RiskAlertPayload {
+  level?: string
+  message?: string
+}
 
 const realtimeStats = ref({
   totalPnl: 0,
@@ -105,9 +120,9 @@ async function loadStats() {
 async function fetchExchangeBalances() {
   try {
     const { data } = await exchangesApi.getAll()
-    const enabled = (data.data ?? []).filter((a: any) => a.isEnabled)
+    const enabled = (data.data ?? []).filter(a => a.isEnabled)
     const results = await Promise.allSettled(
-      enabled.map((a: any) =>
+      enabled.map(a =>
         exchangesApi.getAssets(a.id).then(r => ({ id: a.exchangeType.toLowerCase(), items: r.data.data }))
       )
     )
@@ -122,7 +137,7 @@ async function fetchExchangeBalances() {
 function bindRealtime() {
   if (!signalr?.connected?.value) return
 
-  signalr.on('DashboardSummary', (data: any) => {
+  signalr.on('DashboardSummary', (data: SummaryPayload) => {
     realtimeStats.value = {
       totalPnl: Number(data.totalPnl ?? 0),
       dailyPnl: Number(data.dailyPnl ?? 0),
@@ -139,7 +154,7 @@ function bindRealtime() {
     }
   })
 
-  signalr.on('RiskAlert', (data: any) => {
+  signalr.on('RiskAlert', (data: RiskAlertPayload) => {
     const level = (data.level ?? '').toLowerCase()
     const content = `[${data.level}] ${data.message}`
     if (level === 'high' || level === 'critical') {

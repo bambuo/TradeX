@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import client from '../api/client'
 import { resetInitCheck } from '../router'
 
 const router = useRouter()
 const step = ref<'checking' | 'form' | 'success'>('checking')
-const username = ref('')
-const password = ref('')
-const confirmPassword = ref('')
+const form = ref({ name: '', password: '', confirmPassword: '' })
+const username = computed(() => form.value.name)
+const password = computed(() => form.value.password)
+const confirmPassword = computed(() => form.value.confirmPassword)
 const error = ref('')
 const loading = ref(false)
 
@@ -25,19 +26,20 @@ onMounted(async () => {
   }
 })
 
+function validatePassword(pw: string): boolean {
+  return pw.length >= 8 && /[a-zA-Z]/.test(pw) && /[0-9]/.test(pw)
+}
+
+const passwordValid = () => password.value.length === 0 || validatePassword(password.value)
+const confirmValid = () => password.value === confirmPassword.value
+const canSubmit = () => username.value.length >= 3 && validatePassword(password.value) && confirmValid()
+
 async function initialize() {
   error.value = ''
-
-  if (!username.value || username.value.length < 3) {
-    error.value = '用户名至少 3 个字符'
-    return
-  }
-  if (!password.value || password.value.length < 8) {
-    error.value = '密码至少 8 个字符'
-    return
-  }
-  if (password.value !== confirmPassword.value) {
-    error.value = '两次密码输入不一致'
+  if (!canSubmit()) {
+    if (username.value.length < 3) error.value = '用户名至少 3 个字符'
+    else if (!validatePassword(password.value)) error.value = '密码至少 8 位，需包含字母和数字'
+    else if (!confirmValid()) error.value = '两次密码输入不一致'
     return
   }
 
@@ -59,120 +61,233 @@ async function initialize() {
 
 <template>
   <div class="setup-page">
-    <div class="setup-card">
-      <div v-if="step === 'checking'" class="loading-state">
-        <div class="spinner" />
-        <p>检查系统状态...</p>
+    <div class="setup-wrapper">
+      <div class="brand">
+        <div class="brand-icon">
+          <icon-safe :size="32" />
+        </div>
+        <h1 class="brand-title">TradeX</h1>
+        <p class="brand-desc">系统初始化</p>
       </div>
 
-      <div v-else-if="step === 'form'" class="setup-form">
-        <h1>TradeX 初始化</h1>
-        <p class="subtitle">首次部署，请创建 Super Admin 账户</p>
+      <a-card class="setup-card" :bordered="false">
 
-        <div v-if="error" class="error">{{ error }}</div>
+        <div v-if="step === 'checking'" class="loading-state">
+          <a-spin />
+          <p>检查系统状态...</p>
+        </div>
 
-        <input v-model="username" placeholder="Super Admin 用户名" required />
-        <input v-model="password" type="password" placeholder="密码 (至少 8 位)" required />
-        <input v-model="confirmPassword" type="password" placeholder="确认密码" required />
+        <div v-else-if="step === 'form'">
+          <div v-if="error" class="error-banner">{{ error }}</div>
 
-        <a-button type="primary" :loading="loading" @click="initialize">
-          <template #icon><icon-safe /></template>
-          {{ loading ? '初始化中...' : '初始化系统' }}
-        </a-button>
-      </div>
+          <a-form :model="form" layout="vertical">
+            <a-form-item label="用户名">
+              <a-input
+                v-model="form.name"
+                placeholder="Super Admin 用户名"
+                size="large"
+                :max-length="64"
+                allow-clear
+              />
+            </a-form-item>
 
-      <div v-else class="success-state">
-        <div class="success-icon">✓</div>
-        <h2>初始化成功！</h2>
-        <p>系统已就绪，请登录后完成 MFA 绑定</p>
-        <a-button type="primary" @click="router.push('/login')">
-          <template #icon><icon-login /></template>
-          前往登录
-        </a-button>
-      </div>
+            <a-form-item label="密码">
+              <a-input-password
+                v-model="form.password"
+                placeholder="至少 8 位，需包含字母和数字"
+                size="large"
+                allow-clear
+              />
+              <template #extra>
+                <span v-if="password.length > 0 && !passwordValid()" class="field-error">
+                  密码需至少 8 位，包含字母和数字
+                </span>
+                <span v-else class="field-hint">至少 8 位，包含字母和数字</span>
+              </template>
+            </a-form-item>
+
+            <a-form-item label="确认密码">
+              <a-input-password
+                v-model="form.confirmPassword"
+                placeholder="再次输入密码"
+                size="large"
+                allow-clear
+              />
+              <template #extra>
+                <span v-if="confirmPassword.length > 0 && !confirmValid()" class="field-error">
+                  两次密码不一致
+                </span>
+              </template>
+            </a-form-item>
+
+            <a-form-item>
+              <a-button
+                type="primary"
+                size="large"
+                long
+                :loading="loading"
+                :disabled="!canSubmit()"
+                @click="initialize"
+              >{{ loading ? '初始化中...' : '初始化系统' }}</a-button>
+            </a-form-item>
+          </a-form>
+        </div>
+
+        <div v-else class="success-step">
+          <div class="success-icon">
+            <icon-check-circle-fill :size="48" />
+          </div>
+          <h3>初始化成功！</h3>
+          <p>系统已就绪，请登录后完成 MFA 绑定</p>
+          <a-button type="primary" size="large" @click="router.push('/login')">
+            <template #icon><icon-login /></template>
+            前往登录
+          </a-button>
+        </div>
+      </a-card>
     </div>
   </div>
 </template>
 
 <style scoped>
 .setup-page {
-  min-height: 100vh;
   display: flex;
-  justify-content: center;
   align-items: center;
-  background: rgba(255,255,255,0.35);
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0b0f1e 0%, #1a1a2e 50%, #16213e 100%);
+  padding: 24px;
 }
-.setup-card {
-  background: rgba(255,255,255,0.55);
-  border: 1px solid var(--glass-border);
-  border-radius: 6px;
-  padding: 3rem;
+
+.setup-wrapper {
   width: 100%;
   max-width: 420px;
 }
-h1 { margin: 0 0 0.25rem; color: var(--text-primary); font-size: 1.5rem; text-align: center; }
-h2 { margin: 0 0 0.5rem; color: var(--text-primary); font-size: 1.3rem; }
-.subtitle { color: var(--text-muted); text-align: center; margin: 0 0 1.5rem; font-size: 0.9rem; }
-.setup-form, .success-state, .loading-state {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-input {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid var(--glass-border);
-  border-radius: 6px;
-  background: rgba(255,255,255,0.35);
-  color: var(--text-primary);
-  font-size: 0.95rem;
-  box-sizing: border-box;
-}
-input:focus { outline: none; border-color: var(--accent-blue); }
-button {
-  padding: 0.75rem;
-  background: var(--accent-blue);
-  color: var(--text-primary);
-  border: none;
-  border-radius: 6px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  margin-top: 0.5rem;
-}
-button:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-primary { background: var(--accent-blue); color: var(--text-primary); }
-.error {
-  padding: 0.75rem;
-  background: rgba(239,68,68,0.1);
-  color: var(--accent-red);
-  border: 1px solid rgba(239,68,68,0.3);
-  border-radius: 6px;
-  font-size: 0.85rem;
+
+.brand {
   text-align: center;
+  margin-bottom: 32px;
 }
-.success-icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: rgba(34,197,94,0.15);
-  color: var(--accent-green);
+
+.brand-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.8rem;
-  font-weight: bold;
-  margin: 0 auto;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  background: linear-gradient(135deg, #165DFF 0%, #4080FF 100%);
+  border-radius: 14px;
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(22, 93, 255, 0.3);
 }
-.spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid #334155;
-  border-top-color: var(--accent-blue);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin: 0 auto;
+
+.brand-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 6px;
+  letter-spacing: 1px;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
-.loading-state p { text-align: center; color: var(--text-muted); }
+
+.brand-desc {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0;
+}
+
+.setup-card {
+  border-radius: 12px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
+}
+
+.setup-card :deep(.arco-card-body) {
+  padding: 24px;
+}
+
+.error-banner {
+  color: #f87171;
+  font-size: 13px;
+  text-align: center;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: rgba(248, 113, 113, 0.08);
+  border-radius: 6px;
+}
+
+.field-error {
+  font-size: 12px;
+  color: #f87171;
+}
+
+.field-hint {
+  font-size: 12px;
+  color: var(--color-text-3, #86909c);
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px;
+}
+
+.loading-state p {
+  color: var(--color-text-3, #86909c);
+  margin: 0;
+}
+
+.success-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.success-icon {
+  color: rgb(var(--success-6));
+}
+
+.success-step h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.success-step p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-3, #86909c);
+}
+
+@media (max-width: 480px) {
+  .setup-page {
+    padding: 16px;
+    background: var(--color-bg-2);
+  }
+
+  .brand {
+    margin-bottom: 24px;
+  }
+
+  .brand-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .brand-title {
+    font-size: 20px;
+  }
+
+  .setup-card {
+    box-shadow: none;
+    border-radius: 8px;
+  }
+
+  .setup-card :deep(.arco-card-body) {
+    padding: 20px 16px;
+  }
+}
 </style>

@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import client from '../api/client'
+import TotpInputDigits from '../components/login/TotpInputDigits.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
 
-const step = ref<'login' | 'mfa' | 'recovery' | 'mfa-setup'>('login')
+type Step = 'login' | 'mfa' | 'recovery' | 'mfa-setup'
+const step = ref<Step>('login')
 const username = ref('')
 const password = ref('')
 const totpCode = ref('')
@@ -15,9 +17,33 @@ const recoveryCode = ref('')
 const error = ref('')
 const loading = ref(false)
 
-// MFA 绑定流程状态
 const mfaSetupSecret = ref('')
 const mfaSetupQrUrl = ref('')
+
+// MFA 倒计时
+const mfaCountdown = ref(300)
+let countdownTimer: ReturnType<typeof setInterval> | null = null
+
+function startCountdown(seconds: number) {
+  mfaCountdown.value = seconds
+  if (countdownTimer) clearInterval(countdownTimer)
+  countdownTimer = setInterval(() => {
+    if (mfaCountdown.value > 0) mfaCountdown.value--
+    else clearInterval(countdownTimer!)
+  }, 1000)
+}
+
+const countdownText = computed(() => {
+  const m = Math.floor(mfaCountdown.value / 60)
+  const s = mfaCountdown.value % 60
+  return `${m}:${s.toString().padStart(2, '0')}`
+})
+
+const countdownUrgent = computed(() => mfaCountdown.value <= 60 && step.value !== 'login')
+
+onUnmounted(() => {
+  if (countdownTimer) clearInterval(countdownTimer)
+})
 
 async function handleLogin() {
   error.value = ''
@@ -26,8 +52,8 @@ async function handleLogin() {
     const result = await auth.login(username.value, password.value)
     if (result.mfaRequired) {
       step.value = 'mfa'
+      startCountdown(300)
     } else if (result.mfaSetupRequired) {
-      // 临时将 mfaToken 存入 localStorage 供 axios client 使用
       localStorage.setItem('accessToken', result.mfaToken || '')
       step.value = 'mfa-setup'
       await loadMfaSetup()
@@ -111,133 +137,355 @@ function loadFromToken() {
   }
 }
 
-function switchToRecovery() {
-  step.value = 'recovery'
+function switchStep(s: Step) {
+  step.value = s
   error.value = ''
-}
-
-function switchToMfa() {
-  step.value = 'mfa'
-  error.value = ''
+  totpCode.value = ''
 }
 </script>
 
 <template>
-  <div class="login-container">
-    <!-- 登录表单 -->
-    <form v-if="step === 'login'" class="login-form" @submit.prevent="handleLogin">
-      <h1>TradeX</h1>
-      <p class="subtitle">多交易所现货交易系统</p>
-      <div v-if="error" class="error">{{ error }}</div>
-      <a-input v-model="username" placeholder="用户名" />
-      <a-input-password v-model="password" placeholder="密码" />
-      <a-button type="primary" html-type="submit" :loading="loading" long>
-        <template #icon><icon-login /></template>
-        {{ loading ? '登录中...' : '登录' }}
-      </a-button>
-      <div class="login-footer">
-        <p>管理系统</p>
-      </div>
-    </form>
-
-    <!-- MFA 验证（已有 MFA 的用户） -->
-    <form v-else-if="step === 'mfa'" class="login-form" @submit.prevent="handleVerifyMfa">
-      <h1>MFA 验证</h1>
-      <p class="subtitle">请输入身份验证器中的 6 位代码</p>
-      <div v-if="error" class="error">{{ error }}</div>
-      <a-input v-model="totpCode" placeholder="6 位验证码" maxlength="6" />
-      <a-button type="primary" html-type="submit" :loading="loading" long>
-        <template #icon><icon-safe /></template>
-        {{ loading ? '验证中...' : '验证' }}
-      </a-button>
-      <a-button type="text" long @click="switchToRecovery">
-        <template #icon><icon-key /></template>
-        使用恢复码
-      </a-button>
-    </form>
-
-    <!-- MFA 绑定流程（首次登录/无 MFA 的用户） -->
-    <div v-else-if="step === 'mfa-setup'" class="login-form">
-      <h1>绑定双重认证</h1>
-      <div v-if="error" class="error">{{ error }}</div>
-
-      <template v-if="mfaSetupQrUrl">
-        <p class="subtitle">使用身份验证器应用（如 Google Authenticator）扫描以下二维码：</p>
-        <div class="qr-section">
-          <img :src="mfaSetupQrUrl" alt="MFA QR Code" class="qr" />
-          <div class="secret-box">
-            <span class="label">密钥：</span>
-            <code>{{ mfaSetupSecret }}</code>
-          </div>
+  <div class="login-page">
+    <div class="login-wrapper">
+      <div class="brand">
+        <div class="brand-icon">
+          <icon-safe :size="32" />
         </div>
-        <p class="subtitle">扫描完成后，输入应用中的 6 位验证码：</p>
-        <a-input v-model="totpCode" placeholder="6 位验证码" maxlength="6" class="totp-input" />
-        <a-button type="primary" :loading="loading || !totpCode" long @click="handleVerifyMfaSetup">
-          <template #icon><icon-safe /></template>
-          {{ loading ? '验证中...' : '确认并绑定' }}
-        </a-button>
-      </template>
-
-      <div v-else class="loading-state">
-        <a-spin />
-        <p>正在获取 MFA 配置...</p>
+        <h1 class="brand-title">TradeX</h1>
+        <p class="brand-desc">多交易所现货自动交易系统</p>
       </div>
-    </div>
 
-    <!-- 恢复码验证 -->
-    <form v-else-if="step === 'recovery'" class="login-form" @submit.prevent="handleRecoveryCode">
-      <h1>恢复码验证</h1>
-      <p class="subtitle">输入一个恢复码（格式：XXXX-XXXX）</p>
-      <div v-if="error" class="error">{{ error }}</div>
-      <a-input v-model="recoveryCode" placeholder="XXXX-XXXX" />
-      <a-button type="primary" html-type="submit" :loading="loading" long>
-        <template #icon><icon-key /></template>
-        {{ loading ? '验证中...' : '验证' }}
-      </a-button>
-      <a-button type="text" long @click="switchToMfa">
-        <template #icon><icon-safe /></template>
-        使用 TOTP 验证码
-      </a-button>
-    </form>
+      <a-card class="login-card" :bordered="false">
+
+        <div v-if="error" class="error-banner">{{ error }}</div>
+
+        <Transition name="fade-slide" mode="out-in">
+          <!-- 凭据登录 -->
+          <div v-if="step === 'login'" key="login">
+            <a-input
+              v-model="username"
+              placeholder="用户名"
+              size="large"
+              class="form-input"
+            >
+              <template #prefix><icon-user /></template>
+            </a-input>
+            <a-input-password
+              v-model="password"
+              placeholder="密码"
+              size="large"
+              class="form-input"
+              @keyup.enter="handleLogin"
+            >
+              <template #prefix><icon-lock /></template>
+            </a-input-password>
+            <a-button
+              type="primary"
+              size="large"
+              long
+              :loading="loading"
+              @click="handleLogin"
+            >{{ loading ? '登录中...' : '登录' }}</a-button>
+          </div>
+
+          <!-- MFA 验证 -->
+          <div v-else-if="step === 'mfa'" key="mfa" class="mfa-step">
+            <p class="mfa-hint">请输入身份验证器中的 6 位代码</p>
+            <TotpInputDigits v-model="totpCode" :error="error" @submit="handleVerifyMfa" />
+            <a-button
+              type="primary"
+              size="large"
+              long
+              :disabled="totpCode.length !== 6"
+              :loading="loading"
+              @click="handleVerifyMfa"
+            >{{ loading ? '验证中...' : '验证' }}</a-button>
+            <a-button type="text" long @click="switchStep('recovery')">
+              <template #icon><icon-key /></template>
+              使用恢复码
+            </a-button>
+          </div>
+
+          <!-- MFA 绑定 -->
+          <div v-else-if="step === 'mfa-setup'" key="mfa-setup" class="mfa-step">
+            <template v-if="mfaSetupQrUrl">
+              <div class="qr-wrap">
+                <img :src="mfaSetupQrUrl" alt="MFA QR" class="qr-img" />
+              </div>
+              <div class="secret-row">
+                <span class="secret-lbl">密钥</span>
+                <a-tag color="arcoblue" class="secret-tag">{{ mfaSetupSecret }}</a-tag>
+              </div>
+              <p class="mfa-hint">扫描二维码后，输入应用中的 6 位代码</p>
+              <TotpInputDigits v-model="totpCode" :error="error" @submit="handleVerifyMfaSetup" />
+              <a-button
+                type="primary"
+                size="large"
+                long
+                :disabled="totpCode.length !== 6"
+                :loading="loading"
+                @click="handleVerifyMfaSetup"
+              >{{ loading ? '验证中...' : '确认并绑定' }}</a-button>
+            </template>
+            <div v-else class="loading-state">
+              <a-spin />
+              <p>正在获取 MFA 配置...</p>
+            </div>
+          </div>
+
+          <!-- 恢复码 -->
+          <div v-else-if="step === 'recovery'" key="recovery" class="mfa-step">
+            <p class="mfa-hint">输入一个恢复码（格式：XXXX-XXXX）</p>
+            <a-input
+              v-model="recoveryCode"
+              placeholder="XXXX-XXXX"
+              size="large"
+              class="form-input"
+              @keyup.enter="handleRecoveryCode"
+            >
+              <template #prefix><icon-key /></template>
+            </a-input>
+            <a-button
+              type="primary"
+              size="large"
+              long
+              :disabled="!recoveryCode"
+              :loading="loading"
+              @click="handleRecoveryCode"
+            >{{ loading ? '验证中...' : '验证' }}</a-button>
+            <a-button type="text" long @click="switchStep('mfa')">
+              <template #icon><icon-safe /></template>
+              使用 TOTP 验证码
+            </a-button>
+          </div>
+        </Transition>
+
+        <!-- 倒计时（仅 MFA 验证步骤） -->
+        <div v-if="step === 'mfa' || step === 'mfa-setup'" class="countdown-bar">
+          <span :class="['countdown', { urgent: countdownUrgent }]">
+            <icon-safe /> {{ countdownText }}
+          </span>
+          <a-button type="text" size="small" @click="switchStep('login')">返回登录</a-button>
+        </div>
+      </a-card>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.login-container {
+.login-page {
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   min-height: 100vh;
-  background: rgba(255,255,255,0.35);
+  background: linear-gradient(135deg, #0b0f1e 0%, #1a1a2e 50%, #16213e 100%);
+  padding: 24px;
 }
-.login-form {
-  background: rgba(255,255,255,0.55);
-  padding: 2rem;
-  border-radius: 6px;
+
+.login-wrapper {
   width: 100%;
   max-width: 420px;
+}
+
+/* ── 品牌区 ── */
+.brand {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.brand-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  background: linear-gradient(135deg, #165DFF 0%, #4080FF 100%);
+  border-radius: 14px;
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(22, 93, 255, 0.3);
+}
+
+.brand-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 6px;
+  letter-spacing: 1px;
+}
+
+.brand-desc {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0;
+}
+
+/* ── 登录卡片 ── */
+.login-card {
+  border-radius: 12px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
+  background: var(--color-bg-1, #fff);
+}
+
+.login-card :deep(.arco-card-body) {
+  padding: 24px;
+}
+
+/* ── 表单元素 ── */
+.form-input {
+  margin-bottom: 12px;
+}
+
+.mfa-step {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 12px;
+  align-items: center;
 }
-h1 { margin: 0; color: var(--accent-blue); text-align: center; }
-.subtitle { color: var(--text-muted); text-align: center; font-size: 0.9rem; margin: 0; }
-.totp-input {
+
+.mfa-hint {
+  font-size: 13px;
+  color: var(--color-text-2, #4e5969);
   text-align: center;
-  font-size: 1.25rem;
-  letter-spacing: 0.25em;
+  margin: 0;
 }
-.error { color: var(--accent-red); font-size: 0.9rem; text-align: center; }
-.qr-section {
+
+.error-banner {
+  color: #f87171;
+  font-size: 13px;
+  text-align: center;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: rgba(248, 113, 113, 0.08);
+  border-radius: 6px;
+}
+
+/* ── 二维码 ── */
+.qr-wrap {
+  padding: 12px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid var(--color-border-2, #e5e8ef);
+}
+
+.qr-img {
+  display: block;
+  width: 180px;
+  height: 180px;
+}
+
+.secret-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.secret-lbl {
+  font-size: 13px;
+  color: var(--color-text-3, #86909c);
+}
+
+.secret-tag {
+  font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
+  user-select: all;
+  font-size: 12px;
+}
+
+/* ── 倒计时 ── */
+.countdown-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 12px;
+  margin-top: 12px;
+  border-top: 1px solid var(--color-border-2, #e5e8ef);
+}
+
+.countdown {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--color-text-3, #86909c);
+  font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
+}
+
+.countdown.urgent {
+  color: rgb(var(--danger-6));
+  font-weight: 600;
+  animation: blink 1s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.loading-state {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
+  gap: 12px;
+  padding: 24px;
 }
-.qr { width: 160px; height: 160px; border-radius: 4px; }
-.secret-box { display: flex; align-items: center; gap: 0.5rem; }
-.secret-box .label { color: var(--text-muted); font-size: 0.85rem; }
-.secret-box code { color: var(--accent-blue); font-size: 0.85rem; word-break: break-all; }
-.loading-state { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; padding: 2rem; }
-.loading-state p { color: var(--text-muted); }
+
+.loading-state p {
+  color: var(--color-text-3, #86909c);
+  margin: 0;
+}
+
+/* ── 步骤动画 ── */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-12px);
+}
+
+/* ── 响应式 ── */
+@media (max-width: 480px) {
+  .login-page {
+    padding: 16px;
+    background: var(--color-bg-2, #f2f3f5);
+  }
+
+  .brand {
+    margin-bottom: 24px;
+  }
+
+  .brand-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .brand-title {
+    font-size: 20px;
+  }
+
+  .brand-desc {
+    font-size: 12px;
+  }
+
+  .login-card {
+    box-shadow: none;
+    border-radius: 8px;
+  }
+
+  .login-card :deep(.arco-card-body) {
+    padding: 20px 16px;
+  }
+
+  .qr-img {
+    width: 160px;
+    height: 160px;
+  }
+}
 </style>

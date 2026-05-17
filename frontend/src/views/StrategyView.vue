@@ -194,7 +194,7 @@ async function fetchPairs(exchangeId: string) {
   pairs.value = []
   try {
     const { data } = await exchangesApi.getPairs(exchangeId)
-    pairs.value = (data.data ?? []).map((s: any) => ({
+    pairs.value = (data.data ?? []).map((s: { pair: string; pricePrecision: number; price?: number; priceChangePercent?: number; volume?: number; highPrice?: number; lowPrice?: number }) => ({
       symbol: s.pair,
       pricePrecision: s.pricePrecision,
       price: s.price ?? 0,
@@ -274,27 +274,37 @@ function swapScope(newScope: 'Trader' | 'Exchange' | 'Pair') {
 }
 
 async function save() {
-  const PairsStr = serializePairs()
-  if (editId.value) {
-    await strategiesApi.update(traderId, editId.value, {
-      pairs: PairsStr,
-      timeframe: formTimeframe.value
-    })
-  } else {
-    await strategiesApi.create(traderId, {
-      strategyId: formStrategyId.value,
-      exchangeId: ['Exchange', 'Pair'].includes(scope.value) ? formExchangeId.value : '00000000-0000-0000-0000-000000000000',
-      pairs: PairsStr,
-      timeframe: formTimeframe.value
-    })
+  try {
+    const PairsStr = serializePairs()
+    if (editId.value) {
+      await strategiesApi.update(traderId, editId.value, {
+        pairs: PairsStr,
+        timeframe: formTimeframe.value
+      })
+    } else {
+      await strategiesApi.create(traderId, {
+        strategyId: formStrategyId.value,
+        exchangeId: ['Exchange', 'Pair'].includes(scope.value) ? formExchangeId.value : '00000000-0000-0000-0000-000000000000',
+        pairs: PairsStr,
+        timeframe: formTimeframe.value
+      })
+    }
+    showForm.value = false
+    await load()
+  } catch (e: any) {
+    if (e._mfaCancelled) return
+    throw e
   }
-  showForm.value = false
-  await load()
 }
 
 async function remove(id: string) {
-  await strategiesApi.delete(traderId, id)
-  await load()
+  try {
+    await strategiesApi.delete(traderId, id)
+    await load()
+  } catch (e: any) {
+    if (e._mfaCancelled) return
+    throw e
+  }
 }
 
 const errorMsg = ref('')
@@ -306,7 +316,7 @@ async function toggle(d: StrategyBinding) {
     await strategiesApi.toggle(traderId, d.id, !isActive(d.status))
     await load()
   } catch (e: any) {
-    errorMsg.value = e.response?.data?.message || e.response?.data?.error || '操作失败'
+    errorMsg.value = e.response?.data?.message || '操作失败'
   } finally {
     toggleLoading.value = null
   }
