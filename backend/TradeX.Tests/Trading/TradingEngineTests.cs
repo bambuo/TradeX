@@ -35,6 +35,7 @@ public class TradingEngineTests
 
         _engine = new TradingEngine(scopeFactory, _cache, _eventBus,
             new TradeX.Trading.Observability.TradeXMetrics(),
+            Microsoft.Extensions.Options.Options.Create(new RiskSettings()),
             Substitute.For<ILogger<TradingEngine>>());
     }
 
