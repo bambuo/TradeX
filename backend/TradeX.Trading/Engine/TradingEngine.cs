@@ -312,9 +312,7 @@ public class TradingEngine(
                         if (volatilityRule is not null)
                             MarkVolatilityGridOrderExecuted(strategy.TraderId, strategy.ExchangeId, pair, OrderSide.Sell);
 
-                        position.Status = PositionStatus.Closed;
-                        position.ClosedAtUtc = DateTime.UtcNow;
-                        position.UpdatedAt = DateTime.UtcNow;
+                        position.Close(currentPrice);
                         await cycle.PositionRepo.UpdateAsync(position, ct);
 
                         logger.LogInformation("策略 {StrategyName}: 卖出平仓 {Pair} {Quantity}, PnL={PnL}",
@@ -461,10 +459,7 @@ public class TradingEngine(
                 var lastPrice = prices[^1];
                 var oldUnrealizedPnl = position.UnrealizedPnl;
 
-                position.CurrentPrice = lastPrice;
-                position.UnrealizedPnl = (lastPrice - position.EntryPrice) * position.Quantity;
-                position.UpdatedAt = DateTime.UtcNow;
-
+                position.UpdateMarketPrice(lastPrice);
                 await positionRepo.UpdateAsync(position, ct);
 
                 if (Math.Abs(position.UnrealizedPnl - oldUnrealizedPnl) > 0.01m)

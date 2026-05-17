@@ -106,27 +106,16 @@ public class TradeExecutor(
 
     private async Task ApplyExchangeResultAsync(Order order, OrderResult result, CancellationToken ct)
     {
-        order.UpdatedAt = DateTime.UtcNow;
         if (result.Success)
-        {
-            order.ExchangeOrderId = result.ExchangeOrderId;
-            order.FilledQuantity = result.FilledQuantity;
-            order.Fee = result.Fee;
-            order.Status = result.FilledQuantity >= order.Quantity
-                ? OrderStatus.Filled
-                : (result.FilledQuantity > 0 ? OrderStatus.PartiallyFilled : OrderStatus.Pending);
-        }
+            order.RecordFill(result.FilledQuantity, result.Fee, result.ExchangeOrderId);
         else
-        {
-            order.Status = OrderStatus.Failed;
-        }
+            order.MarkFailed(result.Error);
         await orderRepo.UpdateAsync(order, ct);
     }
 
     private async Task MarkFailedAsync(Order order, string reason, CancellationToken ct)
     {
-        order.Status = OrderStatus.Failed;
-        order.UpdatedAt = DateTime.UtcNow;
+        order.MarkFailed(reason);
         try
         {
             await orderRepo.UpdateAsync(order, ct);

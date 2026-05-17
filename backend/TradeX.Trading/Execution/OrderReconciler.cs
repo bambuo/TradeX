@@ -165,22 +165,16 @@ public class OrderReconciler(
 
     private static bool ApplyResultToOrder(Order order, OrderResult result)
     {
+        if (order.IsTerminal()) return false;
         var prev = order.Status;
-        order.FilledQuantity = result.FilledQuantity;
-        order.Fee = result.Fee;
-        if (result.FilledQuantity >= order.Quantity && order.Quantity > 0)
-            order.Status = OrderStatus.Filled;
-        else if (result.FilledQuantity > 0)
-            order.Status = OrderStatus.PartiallyFilled;
-        // 否则保持 Pending，下一轮再查
-        order.UpdatedAt = DateTime.UtcNow;
+        order.RecordFill(result.FilledQuantity, result.Fee);
         return order.Status != prev;
     }
 
     private async Task MarkFailedAsync(Order order, string reason, CancellationToken ct)
     {
-        order.Status = OrderStatus.Failed;
-        order.UpdatedAt = DateTime.UtcNow;
+        if (order.IsTerminal()) return;
+        order.MarkFailed(reason);
         await orderRepo.UpdateAsync(order, ct);
         logger.LogWarning("Reconciliation 标记订单失败: OrderId={OrderId}, Reason={Reason}", order.Id, reason);
     }
