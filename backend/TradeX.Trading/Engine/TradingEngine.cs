@@ -22,6 +22,7 @@ public class TradingEngine(
     MarketDataCache marketData,
     ITradingEventBus eventBus,
     TradeXMetrics metrics,
+    Microsoft.Extensions.Options.IOptions<TradeX.Trading.Risk.RiskSettings> riskSettings,
     ILogger<TradingEngine> logger) : BackgroundService
 {
     private static readonly TimeSpan EvaluationCycle = TimeSpan.FromSeconds(15);
@@ -56,31 +57,57 @@ public class TradingEngine(
     private async Task ProcessCycleAsync(CancellationToken ct)
     {
         var cycleStart = DateTime.UtcNow;
-        using var cycle = new TradingCycleScope(scopeFactory);
 
-        var activeStrategies = await cycle.StrategyBindingRepo.GetAllActiveAsync(ct);
-        if (activeStrategies.Count == 0)
-            return;
-
-        var volatilityGridDedupWindow = await ResolveVolatilityGridDedupWindowAsync(cycle.SystemConfigRepo, ct);
-
-        foreach (var strategy in activeStrategies)
+        // 阶段 1：读取活跃策略 + 配置（短暂使用一个 scope）
+        List<Core.Models.StrategyBinding> activeStrategies;
+        TimeSpan volatilityGridDedupWindow;
+        using (var initScope = new TradingCycleScope(scopeFactory))
         {
-            try
-            {
-                await EvaluateStrategyAsync(strategy, cycle, volatilityGridDedupWindow, ct);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "策略评估异常, StrategyId={StrategyId}, Name={StrategyName}", strategy.Id, strategy.Name);
-            }
+            activeStrategies = await initScope.StrategyBindingRepo.GetAllActiveAsync(ct);
+            if (activeStrategies.Count == 0)
+                return;
+            volatilityGridDedupWindow = await ResolveVolatilityGridDedupWindowAsync(initScope.SystemConfigRepo, ct);
         }
 
-        await UpdateAllPositionsPnlAsync(cycle.PositionRepo, ct);
-        await PushDashboardSummaryAsync(cycle.PositionRepo, cycle.StrategyBindingRepo, ct);
+        // 阶段 2：按 trader 分组并行评估
+        // 同一 trader 内的策略保持顺序（共享 DI scope = 共享 DbContext + 避免同 trader 风控竞争）；
+        // 不同 trader 并行（各自独立 scope/DbContext，无线程安全冲突）。
+        var groupedByTrader = activeStrategies.GroupBy(s => s.TraderId).ToList();
+        var configured = riskSettings.Value.StrategyEvaluationParallelism;
+        var parallelism = configured > 0
+            ? Math.Min(configured, groupedByTrader.Count)
+            : Math.Min(Environment.ProcessorCount, groupedByTrader.Count);
+        parallelism = Math.Max(1, parallelism);
 
-        logger.LogInformation("评估周期完成: {StrategyCount} 个活跃策略, 耗时 {Elapsed:F1}s",
-            activeStrategies.Count, (DateTime.UtcNow - cycleStart).TotalSeconds);
+        await Parallel.ForEachAsync(groupedByTrader,
+            new ParallelOptions { MaxDegreeOfParallelism = parallelism, CancellationToken = ct },
+            async (traderGroup, token) =>
+            {
+                using var cycle = new TradingCycleScope(scopeFactory);
+                foreach (var strategy in traderGroup)
+                {
+                    if (token.IsCancellationRequested) break;
+                    try
+                    {
+                        await EvaluateStrategyAsync(strategy, cycle, volatilityGridDedupWindow, token);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, "策略评估异常, TraderId={TraderId}, StrategyId={StrategyId}, Name={StrategyName}",
+                            traderGroup.Key, strategy.Id, strategy.Name);
+                    }
+                }
+            });
+
+        // 阶段 3：position PnL 更新 + dashboard 推送（一个独立 scope）
+        using (var finalScope = new TradingCycleScope(scopeFactory))
+        {
+            await UpdateAllPositionsPnlAsync(finalScope.PositionRepo, ct);
+            await PushDashboardSummaryAsync(finalScope.PositionRepo, finalScope.StrategyBindingRepo, ct);
+        }
+
+        logger.LogInformation("评估周期完成: {StrategyCount} 个策略 / {TraderCount} 个 trader, 并行度 {Parallelism}, 耗时 {Elapsed:F1}s",
+            activeStrategies.Count, groupedByTrader.Count, parallelism, (DateTime.UtcNow - cycleStart).TotalSeconds);
     }
 
     private async Task EvaluateStrategyAsync(
