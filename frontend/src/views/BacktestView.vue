@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { backtestsApi, type BacktestTask, type BacktestResult, type BacktestKlineAnalysis } from '../api/backtests'
 import BacktestKlineAnalysisView from '../components/BacktestKlineAnalysis.vue'
+import BacktestKlineCursorInfo from '../components/BacktestKlineCursorInfo.vue'
 
 const route = useRoute()
 const taskId = route.params.taskId as string
@@ -29,19 +30,14 @@ const tableTotal = ref(0)
 const tableTotalPages = ref(0)
 let replayTimer: ReturnType<typeof setInterval> | null = null
 
-const analysisItems = computed(() =>
-  replayBuffer.value.slice(0, replayIndex.value)
-)
-const displayAnalysisItems = computed(() =>
-  analysisItems.value.filter((_, i) => i % replaySpeed.value === 0)
-)
-
-const tableDisplayItems = computed(() => {
-  const data = tableBuffer.value
-  const actions = tableActionFilter.value
-  if (actions === 'all') return data
-  return data.filter(d => d.action === actions)
+const currentAnalysisItem = computed(() => {
+  const buf = replayBuffer.value
+  const idx = replayIndex.value
+  if (buf.length === 0 || idx < 0 || idx >= buf.length) return null
+  return buf[idx]
 })
+
+const tableDisplayItems = computed(() => tableBuffer.value)
 
 const statusLabels: Record<string, string> = {
   Pending: '待处理',
@@ -59,6 +55,44 @@ function formatDate(dt: string): string {
     year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', second: '2-digit'
   })
+}
+
+/** Safe toFixed — treats null/undefined/NaN as 0 */
+function fmt(v: number | null | undefined, decimals = 2): string {
+  const n = Number(v)
+  return (isFinite(n) ? n : 0).toFixed(decimals)
+}
+
+/** Normalize trade rows from the API.
+ *  Handles legacy DB records where PnL was serialised as "pnL" (capital-L)
+ *  instead of the corrected "pnl", and guards every numeric field.
+ */
+function fmtTrades(raw: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(raw)) return []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return raw.map((t: any, idx: number) => {
+    const pnl: number = Number(t.pnl ?? t.pnL ?? 0)
+    const pnlPct: number = Number(t.pnlPercent ?? t.pnLPercent ?? 0)
+    return {
+      index: idx + 1,
+      key: `${t.enteredAt ?? ''}-${t.exitedAt ?? ''}`,
+      enteredAt: formatDate(t.enteredAt ?? ''),
+      exitedAt: formatDate(t.exitedAt ?? ''),
+      entryPrice: fmt(t.entryPrice),
+      exitPrice: fmt(t.exitPrice),
+      quantity: fmt(t.quantity, 4),
+      pnl,
+      pnlFormatted: (pnl >= 0 ? '+' : '') + pnl.toFixed(2),
+      pnlPercentFormatted: (pnlPct >= 0 ? '+' : '') + pnlPct.toFixed(2) + '%',
+    }
+  })
+}
+
+function tradeRowClassName(record: Record<string, unknown>): string {
+  const pnl = Number(record.pnl ?? 0)
+  if (pnl > 0) return 'trade-row-up'
+  if (pnl < 0) return 'trade-row-down'
+  return ''
 }
 
 function load() {
@@ -80,17 +114,25 @@ function loadAnalysis() {
   backtestsApi.getAnalysis(taskId, 1, 100000).then(({ data }) => {
     replayBuffer.value = data.items ?? []
     replayTotal.value = data.total
+    if (data.items && data.items.length > 0) {
+      replayIndex.value = 0
+    }
   })
 }
 
 function loadTable(page: number) {
-  tablePage.value = Math.min(Math.max(page, 1), tableTotalPages.value)
+  tablePage.value = Math.max(page, 1)
   tableLoading.value = true
   backtestsApi.getAnalysis(taskId, tablePage.value, tablePageSize.value, tableActionFilter.value).then(({ data }) => {
     tableBuffer.value = data.items ?? []
-    replayTotal.value = data.total
     tableTotal.value = data.total
     tableTotalPages.value = data.totalPages
+
+    const maxPage = data.totalPages > 0 ? data.totalPages : 1
+    if (tablePage.value > maxPage) {
+      loadTable(maxPage)
+      return
+    }
   }).finally(() => {
     tableLoading.value = false
   })
@@ -107,15 +149,21 @@ function toggleTab(tab: 'overview' | 'analysis') {
 }
 
 function startReplay() {
+  if (replayBuffer.value.length === 0) return
   replayPlaying.value = true
-  replayIndex.value = 0
+  if (replayIndex.value >= replayBuffer.value.length - 1) {
+    replayIndex.value = 0
+  }
   replayTimer = setInterval(() => {
-    if (replayIndex.value >= replayBuffer.value.length) {
+    const step = replaySpeed.value
+    const next = replayIndex.value + step
+    if (next >= replayBuffer.value.length) {
+      replayIndex.value = replayBuffer.value.length - 1
       stopReplay()
       return
     }
-    replayIndex.value++
-  }, 100)
+    replayIndex.value = next
+  }, 50)
 }
 
 function stopReplay() {
@@ -126,12 +174,26 @@ function stopReplay() {
   }
 }
 
+function onSeek(val: number) {
+  replayIndex.value = Math.max(0, Math.min(val, replayBuffer.value.length - 1))
+}
+
 function onTableActionFilterChange(action: string) {
   tableActionFilter.value = action
   loadTable(1)
 }
 
+function onTablePageChange(page: number) {
+  loadTable(page)
+}
+
+function onTablePageSizeChange(size: number) {
+  tablePageSize.value = size
+  loadTable(1)
+}
+
 onMounted(load)
+onUnmounted(stopReplay)
 </script>
 
 <template>
@@ -154,64 +216,56 @@ onMounted(load)
         <a-tab-pane key="overview" title="概览">
           <div class="metrics-grid">
             <div class="metric-card">
-              <span class="metric-value" :class="result.totalReturnPercent >= 0 ? 'up' : 'down'">
-                {{ result.totalReturnPercent >= 0 ? '+' : '' }}{{ result.totalReturnPercent.toFixed(2) }}%
+              <span class="metric-value" :class="(result.totalReturnPercent ?? 0) >= 0 ? 'up' : 'down'">
+                {{ (result.totalReturnPercent ?? 0) >= 0 ? '+' : '' }}{{ fmt(result.totalReturnPercent) }}%
               </span>
               <span class="metric-label">总收益率</span>
             </div>
             <div class="metric-card">
-              <span class="metric-value" :class="result.annualizedReturnPercent >= 0 ? 'up' : 'down'">
-                {{ result.annualizedReturnPercent >= 0 ? '+' : '' }}{{ result.annualizedReturnPercent.toFixed(2) }}%
+              <span class="metric-value" :class="(result.annualizedReturnPercent ?? 0) >= 0 ? 'up' : 'down'">
+                {{ (result.annualizedReturnPercent ?? 0) >= 0 ? '+' : '' }}{{ fmt(result.annualizedReturnPercent) }}%
               </span>
               <span class="metric-label">年化收益率</span>
             </div>
             <div class="metric-card">
-              <span class="metric-value down">{{ result.maxDrawdownPercent.toFixed(2) }}%</span>
+              <span class="metric-value down">{{ fmt(result.maxDrawdownPercent) }}%</span>
               <span class="metric-label">最大回撤</span>
             </div>
             <div class="metric-card">
-              <span class="metric-value">{{ result.sharpeRatio.toFixed(2) }}</span>
+              <span class="metric-value">{{ fmt(result.sharpeRatio) }}</span>
               <span class="metric-label">夏普比率</span>
             </div>
             <div class="metric-card">
-              <span class="metric-value" :class="result.winRate >= 50 ? 'up' : 'down'">{{ result.winRate.toFixed(1) }}%</span>
+              <span class="metric-value" :class="(result.winRate ?? 0) >= 50 ? 'up' : 'down'">{{ fmt(result.winRate, 1) }}%</span>
               <span class="metric-label">胜率</span>
             </div>
             <div class="metric-card">
-              <span class="metric-value">{{ result.totalTrades }}</span>
+              <span class="metric-value">{{ result.totalTrades ?? 0 }}</span>
               <span class="metric-label">交易次数</span>
             </div>
             <div class="metric-card">
-              <span class="metric-value" :class="result.profitLossRatio >= 1.5 ? 'up' : (result.profitLossRatio >= 1 ? '' : 'down')">
-                {{ result.profitLossRatio.toFixed(2) }}
+              <span class="metric-value" :class="(result.profitLossRatio ?? 0) >= 1.5 ? 'up' : ((result.profitLossRatio ?? 0) >= 1 ? '' : 'down')">
+                {{ fmt(result.profitLossRatio) }}
               </span>
               <span class="metric-label">盈亏比</span>
             </div>
           </div>
 
-          <div v-if="result.trades.length > 0" class="trades-section">
+          <div v-if="Array.isArray(result.trades) && result.trades.length > 0" class="trades-section">
             <h4>交易记录 ({{ result.trades.length }})</h4>
             <a-table
               :columns="[
-                { title: '入场', dataIndex: 'enteredAt', width: 160 },
-                { title: '出场', dataIndex: 'exitedAt', width: 160 },
-                { title: '入场价', dataIndex: 'entryPrice' },
-                { title: '出场价', dataIndex: 'exitPrice' },
-                { title: '数量', dataIndex: 'quantity' },
-                { title: '盈亏', dataIndex: 'pnlFormatted' },
-                { title: '收益率', dataIndex: 'pnlPercentFormatted' },
+                { title: '#', dataIndex: 'index', width: 70 },
+                { title: '入场', dataIndex: 'enteredAt', width: 170 },
+                { title: '出场', dataIndex: 'exitedAt', width: 170 },
+                { title: '入场价', dataIndex: 'entryPrice', width: 110 },
+                { title: '出场价', dataIndex: 'exitPrice', width: 110 },
+                { title: '数量', dataIndex: 'quantity', width: 110 },
+                { title: '盈亏', dataIndex: 'pnlFormatted', width: 130 },
+                { title: '收益率', dataIndex: 'pnlPercentFormatted', width: 120 },
               ]"
-              :data="result.trades.map(t => ({
-                ...t,
-                key: t.enteredAt + '-' + t.exitedAt,
-                enteredAt: formatDate(t.enteredAt),
-                exitedAt: formatDate(t.exitedAt),
-                entryPrice: t.entryPrice.toFixed(2),
-                exitPrice: t.exitPrice.toFixed(2),
-                quantity: t.quantity.toFixed(4),
-                pnlFormatted: t.pnl >= 0 ? '+'+t.pnl.toFixed(2) : t.pnl.toFixed(2),
-                pnlPercentFormatted: (t.pnlPercent >= 0 ? '+' : '') + t.pnlPercent.toFixed(2) + '%'
-              }))"
+              :data="fmtTrades(result.trades)"
+              :row-class="(record: Record<string, unknown>) => tradeRowClassName(record)"
               :pagination="false"
               stripe
               size="small"
@@ -244,31 +298,63 @@ onMounted(load)
                 暂停
               </a-button>
               <span class="speed-label">速度</span>
-              <a-select :model-value="replaySpeed" style="width: 70px" @change="(v: unknown) => replaySpeed = Number(v as number)">
+              <a-select size="mini" :model-value="replaySpeed" style="width: 70px" @change="(v: unknown) => replaySpeed = Number(v as number)">
                 <a-option :value="1" label="1x" />
                 <a-option :value="2" label="2x" />
                 <a-option :value="5" label="5x" />
                 <a-option :value="10" label="10x" />
               </a-select>
-              <span class="replay-progress">K 线 {{ replayIndex }}/{{ replayBuffer.length }}</span>
+              <a-slider
+                :min="0"
+                :max="Math.max(0, replayBuffer.length - 1)"
+                :model-value="replayIndex"
+                :step="1"
+                style="width: 160px"
+                @change="(val: number | [number, number]) => { if (typeof val === 'number') onSeek(val) }"
+              />
+              <span class="replay-progress">K 线 {{ replayBuffer.length > 0 ? replayIndex + 1 : 0 }}/{{ replayBuffer.length }}</span>
             </div>
           </div>
 
           <div v-if="analysisViewMode === 'chart' && replayBuffer.length > 0" class="analysis-chart">
-            <BacktestKlineAnalysisView :analysis="displayAnalysisItems" chart-only />
+            <BacktestKlineAnalysisView
+              :all-data="replayBuffer"
+              :current-index="replayIndex"
+              chart-only
+            />
+            <BacktestKlineCursorInfo
+              :item="currentAnalysisItem"
+              :total="replayTotal"
+              :current="replayIndex"
+            />
           </div>
 
           <div v-else-if="analysisViewMode === 'table'" class="analysis-table">
             <div class="table-toolbar">
-              <a-select :model-value="tableActionFilter" style="width: 120px" @change="(v: unknown) => onTableActionFilterChange(String(v))">
-                <a-option value="all" label="全部" />
-                <a-option value="enter" label="仅入场" />
-                <a-option value="exit" label="仅出场" />
-                <a-option value="none" label="无操作" />
-              </a-select>
-              <span>共 {{ tableTotal }} 条</span>
+              <a-card class="condition-card" :bordered="false">
+                <span class="condition-label">筛选条件</span>
+                <a-select size="mini" :model-value="tableActionFilter" style="width: 120px" @change="(v: unknown) => onTableActionFilterChange(String(v))">
+                  <a-option value="all" label="全部" />
+                  <a-option value="enter" label="仅入场" />
+                  <a-option value="exit" label="仅出场" />
+                  <a-option value="none" label="无操作" />
+                </a-select>
+              </a-card>
             </div>
             <BacktestKlineAnalysisView :analysis="tableDisplayItems" table-only />
+            <div class="table-pagination">
+              <a-pagination
+                :current="tablePage"
+                :page-size="tablePageSize"
+                :total="tableTotal"
+                :show-total="true"
+                :show-page-size="true"
+                :page-size-options="[10, 20, 50, 100]"
+                size="mini"
+                @change="onTablePageChange"
+                @page-size-change="onTablePageSizeChange"
+              />
+            </div>
           </div>
         </a-tab-pane>
       </a-tabs>
@@ -293,10 +379,34 @@ onMounted(load)
 .metric-label { display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem; }
 .trades-section { margin-top: 1rem; }
 .trades-section h4 { margin: 0 0 0.5rem; color: var(--text-primary); }
+.trades-section :deep(.trade-row-up td) { color: var(--accent-green); }
+.trades-section :deep(.trade-row-down td) { color: var(--accent-red); }
 .analysis-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; gap: 0.5rem; }
 .toolbar-left, .toolbar-right { display: flex; align-items: center; gap: 0.5rem; }
 .speed-label { color: var(--text-muted); font-size: 0.8rem; }
 .replay-progress { color: var(--text-muted); font-size: 0.8rem; white-space: nowrap; }
 .analysis-chart { min-height: 400px; }
 .table-toolbar { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
+.condition-card { margin: 0; }
+.condition-card :deep(.arco-card-body) {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+.condition-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.table-pagination { display: flex; justify-content: flex-end; margin-top: 0.6rem; }
+
+/* Replay scrubber */
+.replay-scrubber {
+  width: 100%;
+  margin: 0.4rem 0;
+  accent-color: var(--accent-blue, #4f7ec9);
+  cursor: pointer;
+}
+
 </style>

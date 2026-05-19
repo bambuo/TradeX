@@ -107,6 +107,15 @@ public class BacktestingController(
         });
     }
 
+    [HttpDelete("tasks/{taskId:guid}")]
+    public async Task<IActionResult> CancelBacktest(Guid taskId, CancellationToken ct)
+    {
+        var cancelled = await backtestService.CancelBacktestAsync(taskId, ct);
+        if (!cancelled)
+            return BadRequest(new { error = "任务不存在或已处于终态，无法取消" });
+        return Ok(new { taskId, status = "Cancelled" });
+    }
+
     [HttpGet("tasks/{taskId:guid}/analysis")]
     public async Task<IActionResult> GetAnalysis(Guid taskId,
         [FromQuery] int page = 1,
@@ -155,7 +164,7 @@ public class BacktestingController(
             });
         }
 
-        // Completed task — read from SQLite table
+        // Completed task — read from database table
         var task = await backtestService.GetTaskAsync(taskId, ct);
         if (task is null)
             return NotFound(new { error = "回测任务不存在" });
@@ -250,7 +259,7 @@ public class BacktestingController(
             return;
         }
 
-        // Completed task — read from SQLite table
+        // Completed task — read from database table
         var task = await backtestService.GetTaskAsync(taskId, ct);
         if (task?.Status != BacktestTaskStatus.Completed)
         {

@@ -96,6 +96,7 @@ public class BacktestScheduler(
         var strategyRepo = scope.ServiceProvider.GetRequiredService<IStrategyRepository>();
         var exchangeRepo = scope.ServiceProvider.GetRequiredService<IExchangeRepository>();
         var clientFactory = scope.ServiceProvider.GetRequiredService<IExchangeClientFactory>();
+        var engine = scope.ServiceProvider.GetRequiredService<BacktestEngine>();
 
         var task = await taskRepo.GetByIdAsync(taskId, ct);
         if (task is null)
@@ -136,12 +137,20 @@ public class BacktestScheduler(
 
         analysisStore.Init(task.Id);
 
-        var engine = new BacktestEngine();
         var (result, trades, analysis) = engine.Run(strategy, task.Pair, candles, task.InitialCapital, task.PositionSize,
             a => analysisStore.Push(task.Id, a), task.Timeframe);
 
+        // 引擎执行期间可能已被用户取消，重新读取最新状态
+        var latestTask = await taskRepo.GetByIdAsync(task.Id, ct);
+        if (latestTask?.Status == BacktestTaskStatus.Cancelled)
+        {
+            logger.LogInformation("回测任务已被取消，跳过写入结果: TaskId={TaskId}", task.Id);
+            analysisStore.Remove(task.Id);
+            return;
+        }
+
         await taskRepo.AddKlineAnalysesAsync(task.Id, analysis, ct);
-        logger.LogInformation("回测分析数据已写入 SQLite: TaskId={TaskId}, Count={Count}", task.Id, analysis.Count);
+        logger.LogInformation("回测分析数据已写入数据库: TaskId={TaskId}, Count={Count}", task.Id, analysis.Count);
 
         var resultWithTask = new BacktestResult
         {
@@ -228,52 +237,22 @@ public class BacktestScheduler(
         }
     }
 
-    private static long GetIntervalMs(string timeframe) =>
-        timeframe switch
-        {
-            "1m" => 60_000,
-            "5m" => 300_000,
-            "15m" => 900_000,
-            "30m" => 1_800_000,
-            "1h" => 3_600_000,
-            "4h" => 14_400_000,
-            "1d" => 86_400_000,
-            _ => throw new ArgumentException($"不支持的回测周期: {timeframe}", nameof(timeframe))
-        };
-
+    // Adapter 内部已按各家 SDK 语义（Binance 升序、Bybit/OKX 降序、HTX 仅支持 last-N）
+    // 翻页拉齐 [startAt, endAt] 区间数据。此处只做防御性 dedup/sort/clip。
     private static async Task<List<Candle>> FetchAllKlinesAsync(IExchangeClient client, string pair, string timeframe, DateTime startAt, DateTime endAt, CancellationToken ct)
     {
-        List<Candle> allKlines = [];
-        HashSet<DateTime> seen = [];
-        var currentStart = startAt;
-        var intervalMs = GetIntervalMs(timeframe);
+        var chunk = await client.GetKlinesAsync(pair, timeframe, startAt, endAt, ct);
 
-        while (currentStart < endAt && !ct.IsCancellationRequested)
-        {
-            var chunk = await client.GetKlinesAsync(pair, timeframe, currentStart, endAt, ct);
-            if (chunk.Length == 0) break;
-
-            var newKlines = chunk
-                .Where(c => c.Timestamp >= currentStart && c.Timestamp <= endAt && seen.Add(c.Timestamp))
-                .OrderBy(c => c.Timestamp)
-                .ToList();
-
-            if (newKlines.Count == 0) break;
-
-            allKlines.AddRange(newKlines);
-
-            var lastTime = newKlines[^1].Timestamp;
-            if (lastTime >= endAt - TimeSpan.FromMilliseconds(intervalMs)) break;
-
-            currentStart = lastTime.AddMilliseconds(intervalMs);
-        }
-
-        if (allKlines.Count == 0)
-            throw new InvalidOperationException($"未获取到回测 K 线: Pair={pair}, Timeframe={timeframe}, Start={startAt:O}, End={endAt:O}");
-
-        return allKlines
+        var result = chunk
             .Where(c => c.Timestamp >= startAt && c.Timestamp <= endAt)
+            .GroupBy(c => c.Timestamp)
+            .Select(g => g.First())
             .OrderBy(c => c.Timestamp)
             .ToList();
+
+        if (result.Count == 0)
+            throw new InvalidOperationException($"未获取到回测 K 线: Pair={pair}, Timeframe={timeframe}, Start={startAt:O}, End={endAt:O}");
+
+        return result;
     }
 }

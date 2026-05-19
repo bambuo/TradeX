@@ -60,4 +60,19 @@ public class BacktestService(
 
     public async Task<List<BacktestTask>> GetTasksByStrategyAsync(Guid strategyId, CancellationToken ct = default)
         => await taskRepo.GetByStrategyIdAsync(strategyId, ct);
+
+    public async Task<bool> CancelBacktestAsync(Guid taskId, CancellationToken ct = default)
+    {
+        var task = await taskRepo.GetByIdAsync(taskId, ct);
+        if (task is null) return false;
+        if (task.Status is BacktestTaskStatus.Completed or BacktestTaskStatus.Failed or BacktestTaskStatus.Cancelled)
+            return false;
+
+        task.Status = BacktestTaskStatus.Cancelled;
+        task.CompletedAt = DateTime.UtcNow;
+        await taskRepo.UpdateAsync(task, ct);
+
+        logger.LogInformation("回测任务已取消: TaskId={TaskId}", taskId);
+        return true;
+    }
 }

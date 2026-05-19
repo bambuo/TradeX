@@ -43,11 +43,38 @@ public class BinanceClientAdapter : IExchangeClient
 
     public async Task<Candle[]> GetKlinesAsync(string pair, string interval, DateTime start, DateTime end, CancellationToken ct = default)
     {
+        // Binance /api/v3/klines 按 startTime 升序返回, 单次最多 1000 条; 翻页通过推进 startTime
         var ki = MapInterval(interval);
-        var r = await _client.SpotApi.ExchangeData.GetKlinesAsync(pair, ki, start, end, ct: ct);
-        if (!r.Success) throw new InvalidOperationException($"Binance K 线获取失败: {r.Error}");
-        return r.Data.Select(k => new Candle(k.OpenTime, k.OpenPrice, k.HighPrice, k.LowPrice, k.ClosePrice, k.Volume)).OrderBy(c => c.Timestamp).ToArray();
+        var stepMs = IntervalMs(interval);
+        var all = new List<Candle>();
+        var seen = new HashSet<DateTime>();
+        var cursor = start;
+        while (cursor < end && !ct.IsCancellationRequested)
+        {
+            var r = await _client.SpotApi.ExchangeData.GetKlinesAsync(pair, ki, cursor, end, limit: 1000, ct: ct);
+            if (!r.Success) throw new InvalidOperationException($"Binance K 线获取失败: {r.Error}");
+            var batch = r.Data.OrderBy(k => k.OpenTime).ToArray();
+            if (batch.Length == 0) break;
+            var lastTime = cursor;
+            foreach (var k in batch)
+            {
+                if (k.OpenTime < start || k.OpenTime > end) continue;
+                if (seen.Add(k.OpenTime))
+                    all.Add(new Candle(k.OpenTime, k.OpenPrice, k.HighPrice, k.LowPrice, k.ClosePrice, k.Volume));
+                if (k.OpenTime > lastTime) lastTime = k.OpenTime;
+            }
+            if (lastTime <= cursor) break;
+            cursor = lastTime.AddMilliseconds(stepMs);
+        }
+        return all.OrderBy(c => c.Timestamp).ToArray();
     }
+
+    private static long IntervalMs(string interval) => interval switch
+    {
+        "1m" => 60_000, "5m" => 300_000, "15m" => 900_000, "30m" => 1_800_000,
+        "1h" => 3_600_000, "4h" => 14_400_000, "1d" => 86_400_000,
+        _ => throw new ArgumentException($"不支持的周期: {interval}")
+    };
 
     public async Task<OrderBook> GetOrderBookAsync(string pair, int limit, CancellationToken ct = default)
     {

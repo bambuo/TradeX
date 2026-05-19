@@ -9,4 +9,5 @@ public interface IBacktestService
     Task<BacktestResult?> GetResultAsync(Guid taskId, CancellationToken ct = default);
     Task<List<BacktestTask>> GetTasksAsync(Guid? strategyId = null, CancellationToken ct = default);
     Task<List<BacktestTask>> GetTasksByStrategyAsync(Guid strategyId, CancellationToken ct = default);
+    Task<bool> CancelBacktestAsync(Guid taskId, CancellationToken ct = default);
 }

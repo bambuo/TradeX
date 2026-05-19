@@ -1,11 +1,14 @@
 using System.Text.Json;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
+using TradeX.Indicators;
 
 namespace TradeX.Trading.Backtest;
 
-public class BacktestEngine
+public class BacktestEngine(IIndicatorService indicatorService, IConditionEvaluator conditionEvaluator)
 {
+    private const int MaxKlines = 100_000;
+
     public (BacktestResult Result, List<BacktestTrade> Trades, List<BacktestKlineAnalysis> Analysis) Run(
         Strategy strategy,
         string pair,
@@ -17,6 +20,9 @@ public class BacktestEngine
     {
         if (klines.Count < 50)
             return (CreateEmptyResult("数据不足，至少需要 50 根 K 线"), [], []);
+
+        if (klines.Count > MaxKlines)
+            return (CreateEmptyResult($"数据量过大，超过 {MaxKlines} 根 K 线上限"), [], []);
 
         List<BacktestTrade> trades = [];
         List<BacktestKlineAnalysis> analysis = [];
@@ -36,27 +42,27 @@ public class BacktestEngine
 
             Dictionary<string, decimal> currentValues = new()
             {
-                ["RSI"] = CalculateRsi(window),
-                ["SMA_20"] = CalculateSma(window, 20),
-                ["SMA_50"] = CalculateSma(window, 50),
-                ["EMA_20"] = CalculateEma(window, 20),
-                ["MACD_LINE"] = CalculateMacd(window).MacdLine,
-                ["MACD_SIGNAL"] = CalculateMacd(window).SignalLine,
-                ["BB_UPPER"] = CalculateBollingerBands(window).UpperBand,
-                ["BB_LOWER"] = CalculateBollingerBands(window).LowerBand,
-                ["OBV"] = CalculateObv(prices[..(i + 1)], volWindow),
-                ["VOLUME_SMA"] = CalculateVolumeSma(volWindow),
+                ["RSI"] = indicatorService.CalculateRsi(window),
+                ["SMA_20"] = indicatorService.CalculateSma(window, 20),
+                ["SMA_50"] = indicatorService.CalculateSma(window, 50),
+                ["EMA_20"] = indicatorService.CalculateEma(window, 20),
+                ["MACD_LINE"] = indicatorService.CalculateMacd(window).MacdLine,
+                ["MACD_SIGNAL"] = indicatorService.CalculateMacd(window).SignalLine,
+                ["BB_UPPER"] = indicatorService.CalculateBollingerBands(window).UpperBand,
+                ["BB_LOWER"] = indicatorService.CalculateBollingerBands(window).LowerBand,
+                ["OBV"] = indicatorService.CalculateObv(prices[..(i + 1)], volWindow),
+                ["VOLUME_SMA"] = indicatorService.CalculateVolumeSma(volWindow),
                 ["RANGE_PCT"] = klines[i].Open > 0 ? (klines[i].High - klines[i].Low) / klines[i].Open * 100m : 0m,
             };
 
             Dictionary<string, decimal> previousValues = new()
             {
-                ["RSI"] = CalculateRsi(prevWindow),
-                ["SMA_20"] = CalculateSma(prevWindow, 20),
-                ["SMA_50"] = CalculateSma(prevWindow, 50),
-                ["EMA_20"] = CalculateEma(prevWindow, 20),
-                ["MACD_LINE"] = CalculateMacd(prevWindow).MacdLine,
-                ["MACD_SIGNAL"] = CalculateMacd(prevWindow).SignalLine,
+                ["RSI"] = indicatorService.CalculateRsi(prevWindow),
+                ["SMA_20"] = indicatorService.CalculateSma(prevWindow, 20),
+                ["SMA_50"] = indicatorService.CalculateSma(prevWindow, 50),
+                ["EMA_20"] = indicatorService.CalculateEma(prevWindow, 20),
+                ["MACD_LINE"] = indicatorService.CalculateMacd(prevWindow).MacdLine,
+                ["MACD_SIGNAL"] = indicatorService.CalculateMacd(prevWindow).SignalLine,
                 ["RANGE_PCT"] = klines[i - 1].Open > 0 ? (klines[i - 1].High - klines[i - 1].Low) / klines[i - 1].Open * 100m : 0m,
             };
 
@@ -65,14 +71,17 @@ public class BacktestEngine
 
             if (!inPosition)
             {
-                var shouldEnter = EvaluateCondition(strategy.EntryCondition, currentValues, previousValues);
+                var shouldEnter = conditionEvaluator.Evaluate(strategy.EntryCondition, currentValues, previousValues);
                 if (shouldEnter)
                 {
                     inPosition = true;
                     action = "enter";
                     entryPrice = kline.Close;
                     entryIndex = i;
-                    entryQuantity = entryPrice > 0 ? workedCapital / entryPrice : 0m;
+                    // positionSize 指定时按固定金额入场，否则全仓
+                    entryQuantity = entryPrice > 0
+                        ? (positionSize.HasValue ? positionSize.Value / entryPrice : workedCapital / entryPrice)
+                        : 0m;
                 }
 
                 analysis.Add(new BacktestKlineAnalysis(
@@ -87,7 +96,7 @@ public class BacktestEngine
             }
             else
             {
-                var shouldExit = EvaluateCondition(strategy.ExitCondition, currentValues, previousValues);
+                var shouldExit = conditionEvaluator.Evaluate(strategy.ExitCondition, currentValues, previousValues);
                 var avgEntryForRow = entryPrice;
                 var quantityForRow = entryQuantity;
                 decimal? costForRow = quantityForRow > 0 ? avgEntryForRow * quantityForRow : null;
@@ -130,7 +139,7 @@ public class BacktestEngine
         {
             var lastIdx = prices.Length - 1;
             var exitPrice = klines[lastIdx].Close;
-            var qty = workedCapital / entryPrice;
+            var qty = entryQuantity;
             var pnl = (exitPrice - entryPrice) * qty;
             var pnlPercent = (exitPrice - entryPrice) / entryPrice * 100;
             trades.Add(new BacktestTrade(
@@ -139,15 +148,14 @@ public class BacktestEngine
                 entryPrice, exitPrice, qty, pnl, pnlPercent));
         }
 
-        var result = CalculateMetrics(trades, klines, prices, analysis);
+        var result = CalculateMetrics(trades, klines, prices);
         return (result, trades, analysis);
     }
 
     private static BacktestResult CalculateMetrics(
         IReadOnlyList<BacktestTrade> trades,
         IReadOnlyList<Candle> klines,
-        decimal[] prices,
-        IReadOnlyList<BacktestKlineAnalysis> analysis)
+        decimal[] prices)
     {
         var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
@@ -161,7 +169,7 @@ public class BacktestEngine
                 TotalTrades = 0,
                 SharpeRatio = 0,
                 ProfitLossRatio = 0,
-                Details = $"{{\"message\":\"无交易产生\"}}"
+                Details = "{\"message\":\"无交易产生\"}"
             };
 
         var wins = trades.Count(t => t.PnL > 0);
@@ -174,9 +182,7 @@ public class BacktestEngine
         {
             var baseVal = 1 + (double)Math.Max(-50, Math.Min(9999, totalReturn)) / 100;
             if (baseVal > 0)
-            {
                 annualizedReturn = (decimal)Math.Max(-9999, Math.Min(9999, Math.Pow(baseVal, 365.0 / totalDays) - 1)) * 100;
-            }
         }
 
         var peak = prices[0];
@@ -201,7 +207,9 @@ public class BacktestEngine
         var details = JsonSerializer.Serialize(trades.Select(t => new
         {
             t.EnteredAt, t.ExitedAt, t.EntryPrice, t.ExitPrice,
-            t.Quantity, t.PnL, t.PnLPercent
+            t.Quantity,
+            pnl = t.PnL,
+            pnlPercent = t.PnLPercent
         }), jsonOptions);
 
         return new BacktestResult
@@ -229,154 +237,4 @@ public class BacktestEngine
             ProfitLossRatio = 0,
             Details = $"{{\"message\":\"{reason}\"}}"
         };
-
-    private static bool EvaluateCondition(string conditionJson, Dictionary<string, decimal> currentValues, Dictionary<string, decimal> previousValues)
-    {
-        // Simple JSON-based condition evaluator for backtest
-        if (string.IsNullOrWhiteSpace(conditionJson) || conditionJson == "{}")
-            return false;
-
-        try
-        {
-            var node = JsonSerializer.Deserialize<ConditionNode>(conditionJson);
-            return EvaluateNode(node, currentValues, previousValues);
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static bool EvaluateNode(ConditionNode? node, Dictionary<string, decimal> currentValues, Dictionary<string, decimal> previousValues)
-    {
-        if (node is null) return false;
-
-        if (node.Operator == "AND")
-            return node.Conditions?.All(c => EvaluateNode(c, currentValues, previousValues)) ?? true;
-
-        if (node.Operator == "OR")
-            return node.Conditions?.Any(c => EvaluateNode(c, currentValues, previousValues)) ?? false;
-
-        if (node.Operator == "NOT")
-            return node.Conditions?.Length == 1 && !EvaluateNode(node.Conditions[0], currentValues, previousValues);
-
-        // Leaf node
-        var indicator = node.Indicator ?? "";
-        var currentVal = currentValues.GetValueOrDefault(indicator, 0m);
-        var prevVal = previousValues.GetValueOrDefault(indicator, 0m);
-
-        var refIndicator = node.Ref;
-        decimal compareValue = node.Value;
-        if (!string.IsNullOrEmpty(refIndicator))
-        {
-            var refVal = currentValues.GetValueOrDefault(refIndicator, 1m);
-            compareValue = refVal * node.Value;
-        }
-
-        return node.Comparison switch
-        {
-            ">" => currentVal > compareValue,
-            "<" => currentVal < compareValue,
-            ">=" => currentVal >= compareValue,
-            "<=" => currentVal <= compareValue,
-            "==" => Math.Abs(currentVal - compareValue) < 0.0001m,
-            "CA" => prevVal <= compareValue && currentVal > compareValue,
-            "CB" => prevVal >= compareValue && currentVal < compareValue,
-            _ => false
-        };
-    }
-
-    // Indicator calculations (inlined for backtest independence)
-    private static decimal CalculateRsi(IReadOnlyList<decimal> prices)
-    {
-        const int period = 14;
-        if (prices.Count < period + 1) return 50m;
-        var gains = 0m; var losses = 0m;
-        for (var i = prices.Count - period; i < prices.Count; i++)
-        {
-            var diff = prices[i] - prices[i - 1];
-            if (diff > 0) gains += diff; else losses -= diff;
-        }
-        var avgGain = gains / period; var avgLoss = losses / period;
-        if (avgLoss == 0) return 100m;
-        var rs = avgGain / avgLoss;
-        return 100m - 100m / (1 + rs);
-    }
-
-    private static decimal CalculateSma(IReadOnlyList<decimal> prices, int period)
-    {
-        if (prices.Count < period) return 0m;
-        var sum = 0m;
-        for (var i = prices.Count - period; i < prices.Count; i++) sum += prices[i];
-        return sum / period;
-    }
-
-    private static decimal CalculateEma(IReadOnlyList<decimal> prices, int period)
-    {
-        if (prices.Count < period + 1) return prices[^1];
-        var sliced = new List<decimal>(prices.Count - 1);
-        for (var i = 0; i < prices.Count - 1; i++) sliced.Add(prices[i]);
-        var sma = CalculateSma(sliced, period);
-        var multiplier = 2m / (period + 1);
-        return (prices[^1] - sma) * multiplier + sma;
-    }
-
-    private static (decimal MacdLine, decimal SignalLine) CalculateMacd(IReadOnlyList<decimal> prices)
-    {
-        if (prices.Count < 27) return (0, 0);
-        var ema12 = CalculateEma(prices, 12);
-        var ema26 = CalculateEma(prices, 26);
-        var macdLine = ema12 - ema26;
-        var signalPrices = new List<decimal>(9);
-        var start = prices.Count - 9;
-        for (var i = start; i < prices.Count; i++) signalPrices.Add(prices[i]);
-        var signalLine = CalculateEma(signalPrices, 9);
-        return (macdLine, signalLine);
-    }
-
-    private static (decimal UpperBand, decimal LowerBand) CalculateBollingerBands(IReadOnlyList<decimal> prices)
-    {
-        const int period = 20;
-        if (prices.Count < period) return (0, 0);
-        var sma = CalculateSma(prices, period);
-        var variance = 0d;
-        var count = 0;
-        for (var i = prices.Count - period; i < prices.Count; i++, count++)
-        {
-            var diff = (double)(prices[i] - sma);
-            variance += diff * diff;
-        }
-        variance /= count;
-        var std = (decimal)Math.Sqrt(variance);
-        return (sma + 2 * std, sma - 2 * std);
-    }
-
-    private static decimal CalculateObv(IReadOnlyList<decimal> closes, IReadOnlyList<long> volumes)
-    {
-        if (closes.Count < 2 || volumes.Count < 2) return 0m;
-        var obv = 0m;
-        for (var i = 1; i < closes.Count; i++)
-        {
-            if (closes[i] > closes[i - 1]) obv += volumes[i];
-            else if (closes[i] < closes[i - 1]) obv -= volumes[i];
-        }
-        return obv;
-    }
-
-    private static decimal CalculateVolumeSma(IReadOnlyList<long> volumes)
-    {
-        const int period = 20;
-        if (volumes.Count < period) return volumes.Count > 0 ? (decimal)volumes.Average() : 0m;
-        return (decimal)volumes.Skip(volumes.Count - period).Take(period).Average();
-    }
-
-    private class ConditionNode
-    {
-        public string? Operator { get; set; }
-        public ConditionNode[]? Conditions { get; set; }
-        public string? Indicator { get; set; }
-        public string? Comparison { get; set; }
-        public decimal Value { get; set; }
-        public string? Ref { get; set; }
-    }
 }

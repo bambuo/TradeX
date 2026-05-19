@@ -5,7 +5,8 @@ import BacktestKlineChart from './BacktestKlineChart.vue'
 import { formatSmallNumber } from '../utils/format'
 
 const props = defineProps<{
-  analysis: BacktestKlineAnalysis[]
+  analysis?: BacktestKlineAnalysis[]
+  allData?: BacktestKlineAnalysis[]
   chartOnly?: boolean
   tableOnly?: boolean
   currentIndex?: number
@@ -18,13 +19,17 @@ function fmt(v: unknown): string {
   return formatSmallNumber(v)
 }
 
+const chartData = computed(() => props.allData ?? props.analysis ?? [])
+
 const sorted = computed(() => {
-  return [...props.analysis].sort((a, b) => sortAsc.value ? a.index - b.index : b.index - a.index)
+  const src = props.analysis ?? []
+  return [...src].sort((a, b) => sortAsc.value ? a.index - b.index : b.index - a.index)
 })
 
 const indicatorKeys = computed(() => {
-  if (props.analysis.length === 0) return []
-  const first = props.analysis[0]
+  const src = props.analysis ?? []
+  if (src.length === 0) return []
+  const first = src[0]
   if (!first || !first.indicators) return []
   return Object.keys(first.indicators)
 })
@@ -37,6 +42,14 @@ const expandedIndex = ref<number | null>(null)
 
 function toggleExpand(index: number) {
   expandedIndex.value = expandedIndex.value === index ? null : index
+}
+
+function rowPnl(a: BacktestKlineAnalysis): number | null {
+  return a.positionPnl ?? a.taskPnl ?? null
+}
+
+function rowPnlPercent(a: BacktestKlineAnalysis): number | null {
+  return a.positionPnlPercent ?? a.taskPnlPercent ?? null
 }
 
 const tableWrapRef = ref<HTMLDivElement>()
@@ -82,12 +95,12 @@ watch(() => props.analysis?.length, () => nextTick(updateStickyRight))
 
 <template>
   <div class="analysis-section">
-    <BacktestKlineChart v-if="!tableOnly" :analysis="analysis" :current-index="currentIndex" />
+    <BacktestKlineChart v-if="!tableOnly" :all-data="chartData" :current-index="currentIndex ?? 0" />
 
     <div v-if="!chartOnly">
       <div class="analysis-toolbar">
         <div class="toolbar-left">
-          <span class="toolbar-label">共 {{ analysis.length }} 根 K 线</span>
+          <span class="toolbar-label">共 {{ (props.analysis ?? []).length }} 根 K 线</span>
         </div>
         <button class="sort-btn" @click="sortAsc = !sortAsc">
           {{ sortAsc ? '↑ 正序' : '↓ 倒序' }}
@@ -116,6 +129,8 @@ watch(() => props.analysis?.length, () => nextTick(updateStickyRight))
                 'row-enter': a.action === 'enter',
                 'row-exit': a.action === 'exit',
                 'row-in-position': a.inPosition,
+                'row-pnl-up': (rowPnl(a) ?? 0) > 0,
+                'row-pnl-down': (rowPnl(a) ?? 0) < 0,
                 'row-expanded': expandedIndex === a.index
               }"
               @click="toggleExpand(a.index)"
@@ -128,14 +143,14 @@ watch(() => props.analysis?.length, () => nextTick(updateStickyRight))
               <td :title="String(a.positionCost ?? 0)">{{ a.positionCost ? `$${fmt(a.positionCost)}` : '-' }}</td>
               <td :title="String(a.positionValue ?? 0)">{{ a.positionValue ? `$${fmt(a.positionValue)}` : '-' }}</td>
               <td>
-                <span v-if="a.taskPnl !== null && a.taskPnl !== undefined" :class="a.taskPnl >= 0 ? 'pnl-up' : 'pnl-down'">
-                  {{ a.taskPnl >= 0 ? '+' : '' }}${{ fmt(a.taskPnl) }}
+                <span v-if="rowPnl(a) !== null" :class="(rowPnl(a) ?? 0) >= 0 ? 'pnl-up' : 'pnl-down'">
+                  {{ (rowPnl(a) ?? 0) >= 0 ? '+' : '' }}${{ fmt(rowPnl(a)) }}
                 </span>
                 <span v-else>-</span>
               </td>
               <td>
-                <span v-if="a.taskPnlPercent !== null && a.taskPnlPercent !== undefined" :class="a.taskPnlPercent >= 0 ? 'pnl-up' : 'pnl-down'">
-                  {{ a.taskPnlPercent >= 0 ? '+' : '' }}{{ fmt(a.taskPnlPercent) }}%
+                <span v-if="rowPnlPercent(a) !== null" :class="(rowPnlPercent(a) ?? 0) >= 0 ? 'pnl-up' : 'pnl-down'">
+                  {{ (rowPnlPercent(a) ?? 0) >= 0 ? '+' : '' }}{{ fmt(rowPnlPercent(a)) }}%
                 </span>
                 <span v-else>-</span>
               </td>
@@ -196,18 +211,15 @@ watch(() => props.analysis?.length, () => nextTick(updateStickyRight))
 .analysis-table-wrap { overflow-x: auto; max-height: 300px; overflow-y: auto; border: 1px solid var(--glass-border); border-radius: 6px; }
 .analysis-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; white-space: nowrap; }
 .analysis-table th, .analysis-table td {
-  padding: 0.375rem 0.5rem; text-align: right; border-bottom: 1px solid rgba(100, 116, 139, 0.16);
+  padding: 0.375rem 0.5rem; text-align: left; border-bottom: 1px solid rgba(100, 116, 139, 0.16);
   color: #334155; font-family: 'SF Mono', 'Fira Code', monospace;
 }
 .analysis-table th {
   position: sticky; top: 0; z-index: 1;
   background: rgba(242, 246, 252, 0.96); color: #334155; font-weight: 700;
-  text-align: right; border-bottom: 1px solid rgba(79, 126, 201, 0.18);
+  text-align: left; border-bottom: 1px solid rgba(79, 126, 201, 0.18);
   box-shadow: 0 1px 0 rgba(255,255,255,0.8) inset, 0 4px 12px rgba(15,23,42,0.06);
 }
-.analysis-table thead th:first-child,
-.analysis-table tbody td:first-child { text-align: center; }
-
 .analysis-table td:nth-last-child(-n+3) {
   position: sticky;
   z-index: 2;
@@ -224,11 +236,9 @@ watch(() => props.analysis?.length, () => nextTick(updateStickyRight))
 }
 
 .analysis-row:hover { background: rgba(79, 126, 201, 0.04); }
-.row-enter { background: rgba(34, 197, 94, 0.06); }
-.row-enter:hover { background: rgba(34, 197, 94, 0.1); }
-.row-exit { background: rgba(239, 68, 68, 0.06); }
-.row-exit:hover { background: rgba(239, 68, 68, 0.1); }
 .row-in-position td { color: var(--text-primary); }
+.analysis-row.row-pnl-up td { color: var(--accent-green); }
+.analysis-row.row-pnl-down td { color: var(--accent-red); }
 
 .detail-row td {
   padding: 0;

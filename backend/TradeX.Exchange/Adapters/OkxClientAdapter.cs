@@ -35,11 +35,40 @@ public class OkxClientAdapter : IExchangeClient
 
     public async Task<Candle[]> GetKlinesAsync(string pair, string interval, DateTime start, DateTime end, CancellationToken ct = default)
     {
+        // OKX /market/candles 仅含最近 1440 根, 历史回测必须走 /market/history-candles;
+        // 单次最多 100 条, 按 after(endTime) 降序返回, 翻页通过回退 endTime
         var op = pair.Replace("USDT", "-USDT");
-        var r = await _client.UnifiedApi.ExchangeData.GetKlinesAsync(op, MapInterval(interval), start, end, ct: ct);
-        if (!r.Success) throw new InvalidOperationException($"OKX K 线获取失败: {r.Error}");
-        return r.Data.Select(k => new Candle(k.Time, k.OpenPrice, k.HighPrice, k.LowPrice, k.ClosePrice, k.Volume)).OrderBy(c => c.Timestamp).ToArray();
+        var ki = MapInterval(interval);
+        var stepMs = IntervalMs(interval);
+        var all = new List<Candle>();
+        var seen = new HashSet<DateTime>();
+        var cursor = end;
+        while (cursor > start && !ct.IsCancellationRequested)
+        {
+            var r = await _client.UnifiedApi.ExchangeData.GetKlineHistoryAsync(op, ki, start, cursor, 100, ct);
+            if (!r.Success) throw new InvalidOperationException($"OKX K 线获取失败: {r.Error}");
+            var batch = r.Data.OrderByDescending(k => k.Time).ToArray();
+            if (batch.Length == 0) break;
+            var earliest = cursor;
+            foreach (var k in batch)
+            {
+                if (k.Time < start || k.Time > end) continue;
+                if (seen.Add(k.Time))
+                    all.Add(new Candle(k.Time, k.OpenPrice, k.HighPrice, k.LowPrice, k.ClosePrice, k.Volume));
+                if (k.Time < earliest) earliest = k.Time;
+            }
+            if (earliest >= cursor) break;
+            cursor = earliest.AddMilliseconds(-stepMs);
+        }
+        return all.OrderBy(c => c.Timestamp).ToArray();
     }
+
+    private static long IntervalMs(string interval) => interval switch
+    {
+        "1m" => 60_000, "5m" => 300_000, "15m" => 900_000, "30m" => 1_800_000,
+        "1h" => 3_600_000, "4h" => 14_400_000, "1d" => 86_400_000,
+        _ => throw new ArgumentException($"不支持的周期: {interval}")
+    };
 
     public Task<OrderBook> GetOrderBookAsync(string pair, int limit, CancellationToken ct = default)
         => Task.FromResult(new OrderBook(new decimal[0, 0], new decimal[0, 0], DateTime.UtcNow));

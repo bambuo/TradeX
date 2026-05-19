@@ -47,8 +47,9 @@ AI 代理唯一编码准则。不遵守 = 拒收 PR。
 | Nullable | `enable` |
 | ImplicitUsings | `enable` |
 | 测试 | xUnit + NSubstitute |
-| 前端 | Blazor Server (InteractiveServer) + Bootstrap Blazor |
-| 前端 NuGet | `BootstrapBlazor` v10.6.0 |
+| 前端 | Vue 3 + TypeScript + Vite |
+| 前端组件库 | Arco Design Vue (`@arco-design/web-vue`) |
+| 后端 ORM | EF Core + MySQL (Pomelo) |
 
 所有代码必须使用以下 C# 14 语法：
 - **主构造函数** — 消除所有简单 DI 字段注入。例外：`IOptions<T>.Value` 延迟访问、循环依赖
@@ -65,10 +66,11 @@ backend/
 ├── TradeX.Api/            # ASP.NET Core + SignalR Hubs
 ├── TradeX.Core/           # 纯领域模型、枚举、接口（叶节点，零依赖）
 ├── TradeX.Exchange/       # IExchangeClient + 各交易所实现
-├── TradeX.Indicators/     # Trady 封装
+├── TradeX.Indicators/     # Skender.Stock.Indicators 封装
 ├── TradeX.Trading/        # 策略引擎 + 风控 + 回测 + 订单 reconciliation
-├── TradeX.Infrastructure/ # EF Core + SQLite + Casbin + IoTDB
+├── TradeX.Infrastructure/ # EF Core + MySQL + Casbin + Encryption
 ├── TradeX.Notifications/  # Telegram / Discord / Email
+├── TradeX.Worker/         # 策略/回测 Worker 进程
 └── TradeX.Tests/
 ```
 
@@ -85,7 +87,6 @@ backend/
 - [ ] I/O 方法传递 `CancellationToken`，后缀 `Async`
 - [ ] 结构化日志，禁止字符串拼接
 - [ ] Casbin 策略已为新 API 端点添加规则
-- [ ] Blazor 新页面已添加路由 + 角色守卫
 - [ ] 详细编码约定见 `ROLE.md`
 
 ---

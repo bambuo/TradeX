@@ -6,8 +6,7 @@ TradeX 是一个多交易所现货自动交易系统，基于 ASP.NET Core 10 + 
 
 ```mermaid
 flowchart TB
-    subgraph Container["tradex 容器 :80"]
-        direction TB
+    subgraph API["tradex-api 容器 :80"]
         A["ASP.NET Core 10"]
         A --> B["/api/* — REST Controllers"]
         A --> C["/hubs/* — SignalR (TradingHub)"]
@@ -15,11 +14,19 @@ flowchart TB
         A --> E["/* — Vue SPA 静态文件"]
     end
 
-    subgraph Services["外部服务"]
-        F["SQLite (数据库)"]
+    subgraph Worker["tradex-worker 容器"]
+        W["TradingEngine + BacktestScheduler"]
     end
 
-    B -->|EF Core| F
+    subgraph Services["基础设施"]
+        F["MySQL 8.4"]
+        R["Redis 7.4"]
+    end
+
+    API -->|EF Core Pomelo| F
+    API -.->|Redis Pub/Sub| R
+    Worker -->|EF Core Pomelo| F
+    Worker -.->|Redis Pub/Sub 事件/命令| R
 ```
 
 ## 技术栈
@@ -28,7 +35,7 @@ flowchart TB
 |---|------|
 | 后端 | ASP.NET Core 10 + C# 14（主构造函数、集合表达式 `[]`、`field` 关键字）|
 | 前端 | Vue 3 + TypeScript + Pinia |
-| 数据库 | SQLite |
+| 数据库 | MySQL + Redis |
 | 鉴权 | Casbin.NET RBAC + JWT + MFA TOTP |
 | 实时通信 | SignalR |
 | 通知 | Telegram / Discord / Email |

@@ -441,12 +441,12 @@ flowchart TD
 
 #### 行业规范
 
-- **Blazor 组件原则**：单一职责、自包含、参数驱动、避免直接 DOM 操作
-- **Bootstrap Blazor**：遵循 Bootstrap 5 设计系统，使用 `BootstrapBlazor` 组件库，响应式布局，社区活跃
-- **状态管理模式**：DI 单例服务 + `@implements IAsyncDisposable` 生命周期管理，避免静态状态
-- **类型安全**：启用 `<Nullable>enable</Nullable>`，Razor 文件中使用强类型模型绑定
-- **WAI-ARIA 1.2**：Web 无障碍访问标准，角色/状态/属性定义。Bootstrap Blazor 组件内建 ARIA 支持
-- **Blazor 渲染模式**：InteractiveServer 模式下注意 SignalR 连接保活、状态管理作用域
+- **Vue 组件原则**：单一职责、组合式 API（`<script setup>`）、props 驱动、避免直接 DOM 操作
+- **Arco Design Vue**：遵循 Arco Design 设计系统，使用 `@arco-design/web-vue` 组件库，响应式布局
+- **状态管理模式**：Pinia Store 按业务域拆分，组合式 API 管理组件本地状态
+- **类型安全**：启用 TypeScript strict 模式，API 接口定义使用类型推导
+- **WAI-ARIA 1.2**：Web 无障碍访问标准，角色/状态/属性定义。Arco Design 组件内建 ARIA 支持
+- **Vue 渲染模式**：Vue 3 组合式 API + `<script setup>`，注意组件生命周期与 SignalR 连接保活
 - **Conventional Commits**：`feat:` / `fix:` / `refactor:` 提交信息规范
 
 ---

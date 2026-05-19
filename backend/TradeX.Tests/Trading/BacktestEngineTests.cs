@@ -1,6 +1,8 @@
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
+using TradeX.Indicators;
 using TradeX.Trading;
+using TradeX.Trading.Engine;
 
 namespace TradeX.Tests.Trading;
 
@@ -10,7 +12,7 @@ public class BacktestEngineTests
 
     public BacktestEngineTests()
     {
-        _engine = new BacktestEngine();
+        _engine = new BacktestEngine(new IndicatorService(), new ConditionEvaluator(new ConditionTreeEvaluator()));
     }
 
     [Fact]

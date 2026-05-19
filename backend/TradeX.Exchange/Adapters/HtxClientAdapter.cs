@@ -35,11 +35,25 @@ public class HtxClientAdapter : IExchangeClient
 
     public async Task<Candle[]> GetKlinesAsync(string pair, string interval, DateTime start, DateTime end, CancellationToken ct = default)
     {
-        var r = await _client.SpotApi.ExchangeData.GetKlinesAsync(pair, MapInterval(interval), (int)(end - start).TotalHours + 100, ct: ct);
+        // HTX /market/history/kline 不支持 from/to, 只接受 size(最大 2000), 返回最近 N 根降序;
+        // 按 interval 估算需求条数, 取上限 2000, 客户端再 clip 到 [start, end].
+        // 若 [start, end] 已超出 HTX 能返回的最早时间, 上层会触发 "未获取到回测 K 线" 失败.
+        var stepMs = IntervalMs(interval);
+        var needed = (int)Math.Ceiling((end - start).TotalMilliseconds / stepMs) + 10;
+        var size = Math.Min(Math.Max(needed, 100), 2000);
+        var r = await _client.SpotApi.ExchangeData.GetKlinesAsync(pair, MapInterval(interval), size, ct: ct);
         if (!r.Success) throw new InvalidOperationException($"HTX K 线获取失败: {r.Error}");
         return r.Data.Where(k => k.OpenTime >= start && k.OpenTime <= end)
-            .Select(k => new Candle(k.OpenTime, k.OpenPrice.GetValueOrDefault(), k.HighPrice.GetValueOrDefault(), k.LowPrice.GetValueOrDefault(), k.ClosePrice.GetValueOrDefault(), k.Volume.GetValueOrDefault())).OrderBy(c => c.Timestamp).ToArray();
+            .Select(k => new Candle(k.OpenTime, k.OpenPrice.GetValueOrDefault(), k.HighPrice.GetValueOrDefault(), k.LowPrice.GetValueOrDefault(), k.ClosePrice.GetValueOrDefault(), k.Volume.GetValueOrDefault()))
+            .OrderBy(c => c.Timestamp).ToArray();
     }
+
+    private static long IntervalMs(string interval) => interval switch
+    {
+        "1m" => 60_000, "5m" => 300_000, "15m" => 900_000, "30m" => 1_800_000,
+        "1h" => 3_600_000, "4h" => 14_400_000, "1d" => 86_400_000,
+        _ => throw new ArgumentException($"不支持的周期: {interval}")
+    };
 
     public Task<OrderBook> GetOrderBookAsync(string pair, int limit, CancellationToken ct = default)
         => Task.FromResult(new OrderBook(new decimal[0, 0], new decimal[0, 0], DateTime.UtcNow));

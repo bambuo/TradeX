@@ -35,11 +35,39 @@ public class GateIoClientAdapter : IExchangeClient
 
     public async Task<Candle[]> GetKlinesAsync(string pair, string interval, DateTime start, DateTime end, CancellationToken ct = default)
     {
+        // Gate /api/v4/spot/candlesticks 按 from 升序返回, 单次最多 1000 条; 翻页通过推进 from
         var gp = pair.Replace("USDT", "_USDT");
-        var r = await _client.SpotApi.ExchangeData.GetKlinesAsync(gp, MapInterval(interval), start, end, ct: ct);
-        if (!r.Success) throw new InvalidOperationException($"Gate K 线获取失败: {r.Error}");
-        return r.Data.Select(k => new Candle(k.OpenTime, k.OpenPrice, k.HighPrice, k.LowPrice, k.ClosePrice, k.BaseVolume)).OrderBy(c => c.Timestamp).ToArray();
+        var ki = MapInterval(interval);
+        var stepMs = IntervalMs(interval);
+        var all = new List<Candle>();
+        var seen = new HashSet<DateTime>();
+        var cursor = start;
+        while (cursor < end && !ct.IsCancellationRequested)
+        {
+            var r = await _client.SpotApi.ExchangeData.GetKlinesAsync(gp, ki, cursor, end, limit: 1000, ct: ct);
+            if (!r.Success) throw new InvalidOperationException($"Gate K 线获取失败: {r.Error}");
+            var batch = r.Data.OrderBy(k => k.OpenTime).ToArray();
+            if (batch.Length == 0) break;
+            var lastTime = cursor;
+            foreach (var k in batch)
+            {
+                if (k.OpenTime < start || k.OpenTime > end) continue;
+                if (seen.Add(k.OpenTime))
+                    all.Add(new Candle(k.OpenTime, k.OpenPrice, k.HighPrice, k.LowPrice, k.ClosePrice, k.BaseVolume));
+                if (k.OpenTime > lastTime) lastTime = k.OpenTime;
+            }
+            if (lastTime <= cursor) break;
+            cursor = lastTime.AddMilliseconds(stepMs);
+        }
+        return all.OrderBy(c => c.Timestamp).ToArray();
     }
+
+    private static long IntervalMs(string interval) => interval switch
+    {
+        "1m" => 60_000, "5m" => 300_000, "15m" => 900_000, "30m" => 1_800_000,
+        "1h" => 3_600_000, "4h" => 14_400_000, "1d" => 86_400_000,
+        _ => throw new ArgumentException($"不支持的周期: {interval}")
+    };
 
     public Task<OrderBook> GetOrderBookAsync(string pair, int limit, CancellationToken ct = default)
         => Task.FromResult(new OrderBook(new decimal[0, 0], new decimal[0, 0], DateTime.UtcNow));
