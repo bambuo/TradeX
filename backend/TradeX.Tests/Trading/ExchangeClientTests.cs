@@ -83,7 +83,7 @@ public class TradeExecutorTests
             exchangeRepo,
             Substitute.For<IOrderRepository>(),
             Substitute.For<IEncryptionService>(),
-            new OrderBookSlippageGuard(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
+            new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
 
         var result = await executor.ExecuteMarketOrderAsync(new Order { ExchangeId = Guid.NewGuid() });
 
@@ -99,7 +99,7 @@ public class TradeExecutorTests
             Substitute.For<IExchangeRepository>(),
             Substitute.For<IOrderRepository>(),
             Substitute.For<IEncryptionService>(),
-            new OrderBookSlippageGuard(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
+            new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
 
         var result = await executor.ExecuteLimitOrderAsync(new Order { ExchangeId = Guid.NewGuid() });
 
@@ -115,7 +115,7 @@ public class TradeExecutorTests
             Substitute.For<IExchangeRepository>(),
             Substitute.For<IOrderRepository>(),
             Substitute.For<IEncryptionService>(),
-            new OrderBookSlippageGuard(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
+            new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
 
         var result = await executor.ExecuteStopLimitOrderAsync(new Order { ExchangeId = Guid.NewGuid() }, 100);
 
@@ -154,7 +154,7 @@ public class TradeExecutorTests
 
         var executor = new TradeExecutor(
             clientFactory, exchangeRepo, Substitute.For<IOrderRepository>(), encryption,
-            new OrderBookSlippageGuard(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
+            new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
 
         var order = new Order
         {
@@ -202,7 +202,7 @@ public class TradeExecutorTests
             .Returns(exchangeClient);
 
         var executor = new TradeExecutor(clientFactory, exchangeRepo, orderRepo, encryption,
-            new OrderBookSlippageGuard(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
+            new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
 
         var order = new Order
         {
@@ -251,7 +251,7 @@ public class TradeExecutorTests
             .Returns(exchangeClient);
 
         var executor = new TradeExecutor(clientFactory, exchangeRepo, Substitute.For<IOrderRepository>(),
-            encryption, new OrderBookSlippageGuard(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
+            encryption, new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
 
         var clientOrderId = Guid.NewGuid();
         var order = new Order
@@ -294,7 +294,7 @@ public class TradeExecutorTests
 
         var orderRepo = Substitute.For<IOrderRepository>();
         var executor = new TradeExecutor(clientFactory, exchangeRepo, orderRepo, encryption,
-            new OrderBookSlippageGuard(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
+            new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
 
         var order = new Order
         {
@@ -335,7 +335,7 @@ public class TradeExecutorTests
 
         var orderRepo = Substitute.For<IOrderRepository>();
         var executor = new TradeExecutor(clientFactory, exchangeRepo, orderRepo, encryption,
-            new OrderBookSlippageGuard(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
+            new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
 
         var order = new Order
         {
@@ -349,5 +349,70 @@ public class TradeExecutorTests
         // Pending 保留：交易所是否实际收到未知，留给对账器处理
         await orderRepo.Received(1).AddAsync(Arg.Is<Order>(o => o.Status == OrderStatus.Pending), Arg.Any<CancellationToken>());
         await orderRepo.DidNotReceive().UpdateAsync(Arg.Any<Order>(), Arg.Any<CancellationToken>());
+    }
+
+    private static (TradeExecutor executor, IExchangeClient client) BuildExecutorWithRule(PairRule rule, OrderResult? placeResult = null)
+    {
+        var exchange = new TradeX.Core.Models.Exchange
+        {
+            Id = Guid.NewGuid(), Type = ExchangeType.Binance,
+            ApiKeyEncrypted = "k", SecretKeyEncrypted = "s"
+        };
+        var exchangeRepo = Substitute.For<IExchangeRepository>();
+        exchangeRepo.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<TradeX.Core.Models.Exchange?>(exchange));
+
+        var encryption = Substitute.For<IEncryptionService>();
+        encryption.Decrypt(Arg.Any<string>()).Returns("decrypted");
+
+        var client = Substitute.For<IExchangeClient>();
+        client.GetOrderBookAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(new OrderBook(new decimal[,] { { 29990m, 100m } }, new decimal[,] { { 30000m, 100m } }, DateTime.UtcNow));
+        client.GetPairRulesAsync(Arg.Any<CancellationToken>()).Returns([rule]);
+        client.PlaceOrderAsync(Arg.Any<OrderRequest>(), Arg.Any<CancellationToken>())
+            .Returns(placeResult ?? new OrderResult(true, "EX", 0, 0, 0, null));
+
+        var clientFactory = Substitute.For<IExchangeClientFactory>();
+        clientFactory.CreateClient(Arg.Any<ExchangeType>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>())
+            .Returns(client);
+
+        var executor = new TradeExecutor(clientFactory, exchangeRepo, Substitute.For<IOrderRepository>(), encryption,
+            new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Options.Create(new RiskSettings()),
+            Substitute.For<ILogger<TradeExecutor>>());
+        return (executor, client);
+    }
+
+    [Fact]
+    public async Task ExecuteMarketBuy_RoundsQuantityDownToStepSize()
+    {
+        // step=0.001, ask=30000, 花 100 USDT → 0.003333... → 向下取整到 0.003
+        var (executor, client) = BuildExecutorWithRule(
+            new PairRule("BTCUSDT", 2, 3, MinNotional: 0m, MinQuantity: 0m, TickSize: 0.01m, StepSize: 0.001m));
+
+        var result = await executor.ExecuteMarketOrderAsync(new Order
+        {
+            Pair = "BTCUSDT", Side = OrderSide.Buy, QuoteQuantity = 100m
+        });
+
+        Assert.True(result.Success);
+        await client.Received(1).PlaceOrderAsync(
+            Arg.Is<OrderRequest>(r => r.Quantity == 0.003m), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteMarketBuy_BelowMinNotional_Rejected()
+    {
+        // 不取整(step=0)，minNotional=50；花 10 USDT 名义价值 10 < 50 → 拒单
+        var (executor, client) = BuildExecutorWithRule(
+            new PairRule("BTCUSDT", 2, 8, MinNotional: 50m, MinQuantity: 0m, TickSize: 0.01m, StepSize: 0m));
+
+        var result = await executor.ExecuteMarketOrderAsync(new Order
+        {
+            Pair = "BTCUSDT", Side = OrderSide.Buy, QuoteQuantity = 10m
+        });
+
+        Assert.False(result.Success);
+        Assert.Contains("最小下单额", result.Error);
+        await client.DidNotReceive().PlaceOrderAsync(Arg.Any<OrderRequest>(), Arg.Any<CancellationToken>());
     }
 }

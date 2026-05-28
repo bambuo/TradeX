@@ -35,6 +35,7 @@ public static class DependencyInjection
 
         services.AddSingleton<IKillSwitch, KillSwitch>();
         services.AddSingleton<OrderBookSlippageGuard>();
+        services.AddSingleton<Execution.PairRuleCache>();
         services.AddSingleton<Execution.KlineGapDetector>();
         services.AddScoped<DailyLossHandler>();
         services.AddScoped<DrawdownHandler>();

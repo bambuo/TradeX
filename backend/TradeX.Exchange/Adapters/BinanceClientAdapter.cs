@@ -290,7 +290,16 @@ public class BinanceClientAdapter : IExchangeClient
         var r = await _client.SpotApi.ExchangeData.GetExchangeInfoAsync(ct: ct);
         if (!r.Success) return [];
         return r.Data.Symbols.Where(s => s.Status == SymbolStatus.Trading && s.IsSpotTradingAllowed)
-            .Select(s => new PairRule(s.Name, 8, 4, 0, 0, 0, 0)).ToArray();
+            .Select(s =>
+            {
+                var tickSize = s.PriceFilter?.TickSize ?? 0m;
+                var stepSize = s.LotSizeFilter?.StepSize ?? 0m;
+                var minQty = s.LotSizeFilter?.MinQuantity ?? 0m;
+                var minNotional = s.NotionalFilter?.MinNotional ?? s.MinNotionalFilter?.MinNotional ?? 0m;
+                return new PairRule(s.Name,
+                    PairRuleMath.PrecisionFromStep(tickSize), PairRuleMath.PrecisionFromStep(stepSize),
+                    minNotional, minQty, tickSize, stepSize);
+            }).ToArray();
     }
 
     private static KlineInterval MapInterval(string interval) => interval switch

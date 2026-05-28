@@ -282,7 +282,14 @@ public class OkxClientAdapter : IExchangeClient
         var r = await _client.UnifiedApi.ExchangeData.GetSymbolsAsync(InstrumentType.Spot, ct: ct);
         if (!r.Success) return [];
         return r.Data.Where(s => s.State == InstrumentState.Live)
-            .Select(s => new PairRule(s.Symbol, 8, 4, 0, 0, s.TickSize ?? 0, s.LotSize ?? 0)).ToArray();
+            .Select(s =>
+            {
+                var tickSize = s.TickSize ?? 0m;
+                var stepSize = s.LotSize ?? 0m;
+                return new PairRule(s.Symbol,
+                    PairRuleMath.PrecisionFromStep(tickSize), PairRuleMath.PrecisionFromStep(stepSize),
+                    0m, s.MinimumOrderSize ?? 0m, tickSize, stepSize);
+            }).ToArray();
     }
 
     private static KlineInterval MapInterval(string interval) => interval switch

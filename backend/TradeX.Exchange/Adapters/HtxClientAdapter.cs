@@ -287,7 +287,11 @@ public class HtxClientAdapter : IExchangeClient
         var r = await _client.SpotApi.ExchangeData.GetSymbolsAsync(ct: ct);
         if (!r.Success) return [];
         return r.Data.Where(s => s.SymbolStatus == SymbolStatus.Online)
-            .Select(s => new PairRule(s.Name, (int)s.PricePrecision, (int)s.QuantityPrecision, 0, 0, 0, 0)).ToArray();
+            .Select(s => new PairRule(s.Name, (int)s.PricePrecision, (int)s.QuantityPrecision,
+                0m, 0m,
+                PairRuleMath.StepFromPrecision((int)s.PricePrecision),
+                PairRuleMath.StepFromPrecision((int)s.QuantityPrecision)))
+            .ToArray();
     }
 
     private static KlineInterval MapInterval(string interval) => interval switch

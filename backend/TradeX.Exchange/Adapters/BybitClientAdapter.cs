@@ -283,10 +283,16 @@ public class BybitClientAdapter : IExchangeClient
         var r = await _client.V5Api.ExchangeData.GetSpotSymbolsAsync(ct: ct);
         if (!r.Success) return [];
         return r.Data.List.Where(s => s.Status == SymbolStatus.Trading)
-            .Select(s => new PairRule(s.Name, 8, 4, 0,
-                s.LotSizeFilter?.MinOrderQuantity ?? 0,
-                s.PriceFilter?.TickSize ?? 0,
-                s.LotSizeFilter?.BasePrecision ?? 0)).ToArray();
+            .Select(s =>
+            {
+                var tickSize = s.PriceFilter?.TickSize ?? 0m;
+                var stepSize = s.LotSizeFilter?.BasePrecision ?? 0m;
+                return new PairRule(s.Name,
+                    PairRuleMath.PrecisionFromStep(tickSize), PairRuleMath.PrecisionFromStep(stepSize),
+                    s.LotSizeFilter?.MinOrderValue ?? 0m,
+                    s.LotSizeFilter?.MinOrderQuantity ?? 0m,
+                    tickSize, stepSize);
+            }).ToArray();
     }
 
     private static KlineInterval MapInterval(string interval) => interval switch

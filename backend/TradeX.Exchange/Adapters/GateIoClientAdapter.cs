@@ -270,7 +270,10 @@ public class GateIoClientAdapter : IExchangeClient
         var r = await _client.SpotApi.ExchangeData.GetSymbolsAsync(ct: ct);
         if (!r.Success) return [];
         return r.Data.Where(s => s.TradeStatus == SymbolStatus.Tradable)
-            .Select(s => new PairRule(s.Name, s.PricePrecision, s.QuantityPrecision, 0, s.MinBaseQuantity, 0, 0)).ToArray();
+            .Select(s => new PairRule(s.Name, s.PricePrecision, s.QuantityPrecision,
+                s.MinQuoteQuantity, s.MinBaseQuantity,
+                PairRuleMath.StepFromPrecision(s.PricePrecision), PairRuleMath.StepFromPrecision(s.QuantityPrecision)))
+            .ToArray();
     }
 
     private static KlineInterval MapInterval(string interval) => interval switch

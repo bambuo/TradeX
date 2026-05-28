@@ -21,6 +21,7 @@ public class TradeExecutor(
     IOrderRepository orderRepo,
     IEncryptionService encryptionService,
     OrderBookSlippageGuard slippageGuard,
+    PairRuleCache pairRuleCache,
     IOptions<RiskSettings> riskSettings,
     ILogger<TradeExecutor> logger) : ITradeExecutor
 {
@@ -134,6 +135,11 @@ public class TradeExecutor(
             catch (Exception ex) { logger.LogWarning(ex, "获取订单簿失败, OrderId={OrderId}", order.Id); }
         }
 
+        // 参考价：市价取最优对手价，限价取委托价。用于 quote→base 换算、名义价值校验、滑点估算。
+        var refPrice = orderType == OrderType.Market
+            ? (book is null ? 0m : BestPrice(order.Side == OrderSide.Buy ? book.Asks : book.Bids))
+            : price ?? 0m;
+
         decimal baseQuantity;
         if (order.Side == OrderSide.Sell)
         {
@@ -145,39 +151,42 @@ public class TradeExecutor(
             var quote = order.QuoteQuantity;
             if (quote <= 0)
                 return order.Quantity > 0 ? (true, order.Quantity, null) : (false, 0, "买单金额无效");
-
-            decimal refPrice;
-            if (orderType == OrderType.Market)
-            {
-                var bestAsk = book is null ? 0m : BestPrice(book.Asks);
-                if (bestAsk <= 0) return (false, 0, "无法获取订单簿参考价，拒绝市价买单");
-                refPrice = bestAsk;
-            }
-            else
-            {
-                if (price is null or <= 0) return (false, 0, "限价买单缺少有效价格");
-                refPrice = price.Value;
-            }
-
+            if (refPrice <= 0)
+                return (false, 0, orderType == OrderType.Market ? "无法获取订单簿参考价，拒绝市价买单" : "限价买单缺少有效价格");
             baseQuantity = quote / refPrice;
             if (baseQuantity <= 0) return (false, 0, "换算后数量无效");
+        }
+
+        // 按交易对规则取整数量 + 校验最小下单量/名义价值（规则缺失则降级跳过，不阻断交易）
+        PairRule? rule = null;
+        try { rule = await pairRuleCache.GetRuleAsync(order.ExchangeId, client, order.Pair, ct); }
+        catch (Exception ex) { logger.LogWarning(ex, "获取交易对规则失败, Pair={Pair}", order.Pair); }
+        if (rule is not null)
+        {
+            if (rule.StepSize > 0)
+            {
+                var rounded = Math.Floor(baseQuantity / rule.StepSize) * rule.StepSize;
+                if (rounded <= 0)
+                    return (false, 0, $"数量按步进 {rule.StepSize} 取整后为 0（原始 {baseQuantity}）");
+                baseQuantity = rounded;
+            }
+            if (rule.MinQuantity > 0 && baseQuantity < rule.MinQuantity)
+                return (false, 0, $"数量 {baseQuantity} 低于最小下单量 {rule.MinQuantity}");
+            if (rule.MinNotional > 0 && refPrice > 0 && baseQuantity * refPrice < rule.MinNotional)
+                return (false, 0, $"名义价值 {baseQuantity * refPrice:F2} 低于最小下单额 {rule.MinNotional}");
         }
 
         // 市价单滑点护栏（走订单簿模拟成交）
         if (orderType == OrderType.Market)
         {
             var maxPct = riskSettings.Value.MaxSlippagePercent;
-            if (maxPct > 0 && book is not null)
+            if (maxPct > 0 && book is not null && refPrice > 0)
             {
-                var refPrice = order.Side == OrderSide.Buy ? BestPrice(book.Asks) : BestPrice(book.Bids);
-                if (refPrice > 0)
-                {
-                    var est = slippageGuard.Estimate(book, order.Side, baseQuantity, refPrice);
-                    if (!est.Sufficient)
-                        return (false, 0, $"订单簿深度不足，拒绝市价单: {est.Reason}");
-                    if (est.SlippagePercent > maxPct)
-                        return (false, 0, $"预估滑点 {est.SlippagePercent:F2}% 超过上限 {maxPct}%");
-                }
+                var est = slippageGuard.Estimate(book, order.Side, baseQuantity, refPrice);
+                if (!est.Sufficient)
+                    return (false, 0, $"订单簿深度不足，拒绝市价单: {est.Reason}");
+                if (est.SlippagePercent > maxPct)
+                    return (false, 0, $"预估滑点 {est.SlippagePercent:F2}% 超过上限 {maxPct}%");
             }
         }
 
