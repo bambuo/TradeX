@@ -12,6 +12,8 @@ public class OutboxRepository(TradeXDbContext context) : IOutboxRepository
         // 不在这里 SaveChanges — 调用方负责事务边界
     }
 
+    public Task SaveChangesAsync(CancellationToken ct = default) => context.SaveChangesAsync(ct);
+
     public async Task<List<OutboxEvent>> PickPendingAsync(int batchSize, CancellationToken ct = default)
     {
         return await context.OutboxEvents
@@ -31,15 +33,16 @@ public class OutboxRepository(TradeXDbContext context) : IOutboxRepository
         await context.SaveChangesAsync(ct);
     }
 
-    public async Task MarkFailedAsync(long id, string error, int maxAttempts, CancellationToken ct = default)
+    public async Task<bool> MarkFailedAsync(long id, string error, int maxAttempts, CancellationToken ct = default)
     {
         var row = await context.OutboxEvents.AsTracking().FirstOrDefaultAsync(e => e.Id == id, ct);
-        if (row is null) return;
+        if (row is null) return false;
         row.AttemptCount += 1;
         row.LastError = error;
         if (row.AttemptCount >= maxAttempts)
             row.Status = OutboxStatus.Failed;
         // 否则保持 Pending，下一轮再试
         await context.SaveChangesAsync(ct);
+        return row.Status == OutboxStatus.Failed;
     }
 }

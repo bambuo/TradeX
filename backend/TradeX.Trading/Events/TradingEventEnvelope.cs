@@ -18,6 +18,8 @@ public static class TradingEventTypes
     public const string RiskAlert = "RiskAlert";
     public const string DashboardSummary = "DashboardSummary";
     public const string ExchangeConnectionChanged = "ExchangeConnectionChanged";
+    /// <summary>系统级告警：对账发现交易所有、本地无记录的孤儿订单。无 trader 归属，推送至管理员组。</summary>
+    public const string OrphanOrderDetected = "OrphanOrderDetected";
 }
 
 public static class TradingEventChannels
@@ -52,3 +54,7 @@ public sealed record DashboardSummaryPayload(
 public sealed record ExchangeConnectionChangedPayload(
     Guid ExchangeId, Guid TraderId, string OldStatus,
     string NewStatus, string? ErrorMessage, DateTime ChangedAtUtc);
+
+public sealed record OrphanOrderDetectedPayload(
+    Guid ExchangeId, string ExchangeType, string Pair, string ExchangeOrderId,
+    string Side, string Type, decimal Price, decimal Quantity, DateTime DetectedAt);

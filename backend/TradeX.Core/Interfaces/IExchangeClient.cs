@@ -96,7 +96,8 @@ public record OrderResult(
     decimal FilledQuantity,
     decimal AvgPrice,
     decimal Fee,
-    string? Error);
+    string? Error,
+    string? FeeAsset = null);
 
 public record ExchangePosition(
     string Pair,

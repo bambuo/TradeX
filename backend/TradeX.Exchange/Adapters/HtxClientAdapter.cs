@@ -203,7 +203,12 @@ public class HtxClientAdapter : IExchangeClient
         var r = await _client.SpotApi.Trading.PlaceOrderAsync(spotAccount.Id, request.Pair, side, type,
             quantity: request.Quantity, price: request.Price, clientOrderId: request.ClientOrderId, ct: ct);
         if (!r.Success) return new OrderResult(false, null, 0, 0, 0, r.Error?.Message ?? "下单失败");
-        return new OrderResult(true, r.Data.ToString(), 0, 0, 0, null);
+        // HTX 下单仅返回 orderId，成交量/均价/手续费需回查订单补全
+        var orderId = r.Data.ToString();
+        var detail = await GetOrderAsync(request.Pair, orderId, ct);
+        return detail.Success
+            ? detail with { ExchangeOrderId = orderId }
+            : new OrderResult(true, orderId, 0, 0, 0, null);
     }
 
     public async Task<OrderResult> CancelOrderAsync(string pair, string exchangeOrderId, CancellationToken ct = default)
@@ -219,7 +224,8 @@ public class HtxClientAdapter : IExchangeClient
         if (!_hasCredentials) return new OrderResult(false, null, 0, 0, 0, "未配置 API Key");
         var r = await _client.SpotApi.Trading.GetOrderAsync(long.Parse(exchangeOrderId), ct: ct);
         if (!r.Success) return new OrderResult(false, null, 0, 0, 0, r.Error?.Message ?? "查询订单失败");
-        return new OrderResult(true, exchangeOrderId, r.Data.QuantityFilled, 0, r.Data.Fee, null);
+        var avg = r.Data.QuantityFilled > 0 ? r.Data.QuoteQuantityFilled / r.Data.QuantityFilled : 0m;
+        return new OrderResult(true, exchangeOrderId, r.Data.QuantityFilled, avg, Math.Abs(r.Data.Fee), null);
     }
 
     public async Task<OrderResult> GetOrderByClientOrderIdAsync(string pair, string clientOrderId, CancellationToken ct = default)
@@ -227,7 +233,8 @@ public class HtxClientAdapter : IExchangeClient
         if (!_hasCredentials) return new OrderResult(false, null, 0, 0, 0, "未配置 API Key");
         var r = await _client.SpotApi.Trading.GetOrderByClientOrderIdAsync(clientOrderId, ct: ct);
         if (!r.Success) return new OrderResult(false, null, 0, 0, 0, r.Error?.Message ?? "按订单号查询失败");
-        return new OrderResult(true, r.Data.Id.ToString(), r.Data.QuantityFilled, 0, r.Data.Fee, null);
+        var avg = r.Data.QuantityFilled > 0 ? r.Data.QuoteQuantityFilled / r.Data.QuantityFilled : 0m;
+        return new OrderResult(true, r.Data.Id.ToString(), r.Data.QuantityFilled, avg, Math.Abs(r.Data.Fee), null);
     }
 
     public async Task<OrderResult[]> GetRecentOrdersAsync(DateTime since, CancellationToken ct = default)

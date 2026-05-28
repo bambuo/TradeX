@@ -3,11 +3,11 @@ using Microsoft.Extensions.Logging;
 namespace TradeX.Trading.Messaging;
 
 /// <summary>
-/// ITradingEventBus 的临时实现 —— 阶段 2 用于 Worker 进程，把事件仅打到日志而不推送给前端。
-/// 阶段 3 会替换为 RedisEventBus（Worker 端发布到 Redis 频道，API 端订阅后桥接到 SignalR）。
+/// ITradingEventBus 的降级实现 —— 未配置 Redis 时用于 Worker 进程，把事件仅打到日志而不推送前端。
+/// 正常路径用 <c>OutboxTradingEventBus</c>（写 outbox）+ <c>OutboxRelayService</c>（XADD 到
+/// tradex:events Stream）+ API 端 <c>RedisToSignalRBridge</c>（消费组订阅后桥接 SignalR）。
 ///
-/// 影响：在阶段 2 期间，前端 SignalR 实时事件会暂时缺失；订单/持仓状态的真相仍以 DB 为准，
-/// 前端可通过下拉刷新或定时轮询查到最新状态。
+/// 影响：降级期间前端 SignalR 实时事件缺失；订单/持仓真相仍以 DB 为准，前端可刷新/轮询查最新状态。
 /// </summary>
 public sealed class LoggingEventBus(ILogger<LoggingEventBus> logger) : ITradingEventBus
 {

@@ -16,8 +16,7 @@ public class StrategyBindingsController(
     ITraderRepository traderRepo,
     IStrategyRepository strategyRepo,
     IStrategyBindingRepository bindingRepo,
-    IWorkerCommandPublisher commandPublisher,
-    ILogger<StrategyBindingsController> logger) : ControllerBase
+    IWorkerCommandPublisher commandPublisher) : ControllerBase
 {
     private Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 

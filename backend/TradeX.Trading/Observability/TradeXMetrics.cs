@@ -20,6 +20,7 @@ public sealed class TradeXMetrics : IDisposable
     public Counter<long> RateLimitHits { get; }
     public Counter<long> KillSwitchActivations { get; }
     public Counter<long> NotificationsFailed { get; }
+    public Counter<long> OutboxEventsFailed { get; }
     public Histogram<double> StrategyEvalDurationMs { get; }
     public Histogram<double> BacktestRunDurationMs { get; }
 
@@ -45,6 +46,8 @@ public sealed class TradeXMetrics : IDisposable
             description: "Kill Switch 激活次数（按 reason 打标签）");
         NotificationsFailed = _meter.CreateCounter<long>("tradex.notifications.failed", unit: "{event}",
             description: "通知最终失败 (重试耗尽进 DLQ) 计数（按 channel 打标签）");
+        OutboxEventsFailed = _meter.CreateCounter<long>("tradex.outbox.events_failed", unit: "{event}",
+            description: "Outbox 事件重试耗尽进入 Failed 终态计数（毒消息，需人工排查；按 type 打标签）");
 
         StrategyEvalDurationMs = _meter.CreateHistogram<double>("tradex.strategy.eval_duration", unit: "ms",
             description: "单个策略评估耗时 (ms)");

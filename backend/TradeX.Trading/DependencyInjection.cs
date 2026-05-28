@@ -33,16 +33,6 @@ public static class DependencyInjection
         services.AddScoped<BacktestEngine>();
         services.AddScoped<LegacyStrategyScanner>();
 
-        // 注意：以下 Singleton 当前是进程内实现（Channel / 内存）。
-        // 跨进程语义在阶段 3/4 通过 Redis 解决；此前 API 端入队不会被 Worker 端消费。
-        services.AddSingleton<IBacktestTaskQueue, BacktestTaskQueue>();
-        services.AddSingleton<TaskAnalysisStore>();
-
-        // ResourceMonitor 作为 Singleton 注册，仅在 Worker 端通过 AddTradingWorker 加 HostedService 真正运行。
-        // API 端能注入到 HealthController 但读到的是默认值 0（不会真正采样）。
-        services.AddSingleton<IResourceProvider, SystemResourceProvider>();
-        services.AddSingleton<ResourceMonitor>();
-
         services.AddSingleton<IKillSwitch, KillSwitch>();
         services.AddSingleton<OrderBookSlippageGuard>();
         services.AddSingleton<Execution.KlineGapDetector>();
@@ -70,6 +60,11 @@ public static class DependencyInjection
 
     public static IServiceCollection AddTradingWorker(this IServiceCollection services)
     {
+        services.AddSingleton<IBacktestTaskQueue, BacktestTaskQueue>();
+        services.AddSingleton<TaskAnalysisStore>();
+        services.AddSingleton<IResourceProvider, SystemResourceProvider>();
+        services.AddSingleton<ResourceMonitor>();
+
         // Trade 逐笔成交事件通道
         services.AddSingleton(_ => Channel.CreateBounded<TradeEvent>(new BoundedChannelOptions(TradeEventChannelCapacity)
         {

@@ -60,7 +60,7 @@ public class Order : IVersioned
     }
 
     /// <summary>记录成交。根据已成交量与申报量决定 Filled / PartiallyFilled。</summary>
-    public void RecordFill(decimal filledQuantity, decimal fee, string? exchangeOrderId = null)
+    public void RecordFill(decimal filledQuantity, decimal fee, string? exchangeOrderId = null, string? feeAsset = null)
     {
         if (filledQuantity < 0)
             throw new ArgumentOutOfRangeException(nameof(filledQuantity), "成交数量不能为负");
@@ -69,6 +69,8 @@ public class Order : IVersioned
             ExchangeOrderId = exchangeOrderId;
         FilledQuantity = filledQuantity;
         Fee = fee;
+        if (feeAsset is not null)
+            FeeAsset = feeAsset;
         Status = filledQuantity >= Quantity && Quantity > 0
             ? OrderStatus.Filled
             : filledQuantity > 0

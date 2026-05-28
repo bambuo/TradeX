@@ -105,9 +105,16 @@ public class SlippageHandler(ILogger<SlippageHandler> logger) : RiskCheckHandler
 {
     public override async Task<RiskContext> CheckAsync(RiskContext context, CancellationToken ct = default)
     {
-        if (context.OrderQuantity.HasValue && context.OrderPrice.HasValue)
+        // 名义价值优先用 OrderNotional（风控管理器按 quote 金额下单时提供），
+        // 退化到 OrderQuantity × OrderPrice（手动单等显式数量/价格场景）。
+        decimal? notionalValue = context.OrderNotional
+            ?? (context.OrderQuantity.HasValue && context.OrderPrice.HasValue
+                ? context.OrderQuantity.Value * context.OrderPrice.Value
+                : null);
+
+        if (notionalValue is { } notional)
         {
-            var slippage = Math.Abs(context.OrderQuantity.Value * context.OrderPrice.Value * context.SlippageTolerance);
+            var slippage = Math.Abs(notional * context.SlippageTolerance);
             if (slippage > context.MaxSlippageAmount)
             {
                 context.Deny($"滑点预估 {slippage:F2} 超过限制 {context.MaxSlippageAmount}");

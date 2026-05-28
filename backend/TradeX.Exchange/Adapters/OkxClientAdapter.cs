@@ -40,7 +40,7 @@ public class OkxClientAdapter : IExchangeClient
 
     public async IAsyncEnumerable<Candle> SubscribeKlinesStreamAsync(string pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
     {
-        var op = pair.Replace("USDT", "-USDT");
+        var op = ToOkxSymbol(pair);
         var socketClient = new OKXSocketClient();
         var channel = Channel.CreateBounded<Candle>(new BoundedChannelOptions(100)
         {
@@ -99,7 +99,7 @@ public class OkxClientAdapter : IExchangeClient
     {
         // OKX /market/candles 仅含最近 1440 根, 历史回测必须走 /market/history-candles;
         // 单次最多 100 条, 按 after(endTime) 降序返回, 翻页通过回退 endTime
-        var op = pair.Replace("USDT", "-USDT");
+        var op = ToOkxSymbol(pair);
         var ki = MapInterval(interval);
         var stepMs = IntervalMs(interval);
         var all = new List<Candle>();
@@ -134,7 +134,7 @@ public class OkxClientAdapter : IExchangeClient
 
     public async Task<OrderBook> GetOrderBookAsync(string pair, int limit, CancellationToken ct = default)
     {
-        var op = pair.Replace("USDT", "-USDT");
+        var op = ToOkxSymbol(pair);
         var r = await _client.UnifiedApi.ExchangeData.GetOrderBookAsync(op, limit, ct);
         if (!r.Success) return new OrderBook(new decimal[0, 0], new decimal[0, 0], DateTime.UtcNow);
         return new OrderBook(ToDepth(r.Data.Bids), ToDepth(r.Data.Asks), DateTime.UtcNow);
@@ -188,20 +188,25 @@ public class OkxClientAdapter : IExchangeClient
     public async Task<OrderResult> PlaceOrderAsync(OrderRequest request, CancellationToken ct = default)
     {
         if (!_hasCredentials) return new OrderResult(false, null, 0, 0, 0, "未配置 API Key");
-        var op = request.Pair.Replace("USDT", "-USDT");
+        var op = ToOkxSymbol(request.Pair);
         var side = request.Side == OrderSide.Buy ? OKX.Net.Enums.OrderSide.Buy : OKX.Net.Enums.OrderSide.Sell;
         var type = request.Type == OrderType.Limit ? OKX.Net.Enums.OrderType.Limit : OKX.Net.Enums.OrderType.Market;
         var r = await _client.UnifiedApi.Trading.PlaceOrderAsync(op, side, type,
             quantity: request.Quantity, price: request.Price, tradeMode: TradeMode.Cash,
             clientOrderId: request.ClientOrderId, ct: ct);
         if (!r.Success) return new OrderResult(false, null, 0, 0, 0, r.Error?.Message ?? "下单失败");
-        return new OrderResult(true, r.Data.OrderId.ToString(), 0, 0, 0, null);
+        // OKX 下单仅返回 orderId，成交量/均价/手续费需回查订单详情补全
+        var orderId = r.Data.OrderId.ToString() ?? "";
+        var detail = await GetOrderAsync(request.Pair, orderId, ct);
+        return detail.Success
+            ? detail with { ExchangeOrderId = orderId }
+            : new OrderResult(true, orderId, 0, 0, 0, null);
     }
 
     public async Task<OrderResult> CancelOrderAsync(string pair, string exchangeOrderId, CancellationToken ct = default)
     {
         if (!_hasCredentials) return new OrderResult(false, null, 0, 0, 0, "未配置 API Key");
-        var op = pair.Replace("USDT", "-USDT");
+        var op = ToOkxSymbol(pair);
         var r = await _client.UnifiedApi.Trading.CancelOrderAsync(op, orderId: long.Parse(exchangeOrderId), ct: ct);
         if (!r.Success) return new OrderResult(false, null, 0, 0, 0, r.Error?.Message ?? "撤单失败");
         return new OrderResult(true, exchangeOrderId, 0, 0, 0, null);
@@ -210,19 +215,21 @@ public class OkxClientAdapter : IExchangeClient
     public async Task<OrderResult> GetOrderAsync(string pair, string exchangeOrderId, CancellationToken ct = default)
     {
         if (!_hasCredentials) return new OrderResult(false, null, 0, 0, 0, "未配置 API Key");
-        var op = pair.Replace("USDT", "-USDT");
+        var op = ToOkxSymbol(pair);
         var r = await _client.UnifiedApi.Trading.GetOrderDetailsAsync(op, orderId: long.Parse(exchangeOrderId), ct: ct);
         if (!r.Success) return new OrderResult(false, null, 0, 0, 0, r.Error?.Message ?? "查询订单失败");
-        return new OrderResult(true, exchangeOrderId, r.Data.AccumulatedFillQuantity ?? 0, r.Data.AveragePrice ?? 0, 0, null);
+        return new OrderResult(true, exchangeOrderId, r.Data.AccumulatedFillQuantity ?? 0, r.Data.AveragePrice ?? 0,
+            Math.Abs(r.Data.Fee ?? 0), null, r.Data.FeeAsset);
     }
 
     public async Task<OrderResult> GetOrderByClientOrderIdAsync(string pair, string clientOrderId, CancellationToken ct = default)
     {
         if (!_hasCredentials) return new OrderResult(false, null, 0, 0, 0, "未配置 API Key");
-        var op = pair.Replace("USDT", "-USDT");
+        var op = ToOkxSymbol(pair);
         var r = await _client.UnifiedApi.Trading.GetOrderDetailsAsync(op, clientOrderId: clientOrderId, ct: ct);
         if (!r.Success) return new OrderResult(false, null, 0, 0, 0, r.Error?.Message ?? "按订单号查询失败");
-        return new OrderResult(true, r.Data.OrderId.ToString(), r.Data.AccumulatedFillQuantity ?? 0, r.Data.AveragePrice ?? 0, 0, null);
+        return new OrderResult(true, r.Data.OrderId.ToString(), r.Data.AccumulatedFillQuantity ?? 0, r.Data.AveragePrice ?? 0,
+            Math.Abs(r.Data.Fee ?? 0), null, r.Data.FeeAsset);
     }
 
     public async Task<OrderResult[]> GetRecentOrdersAsync(DateTime since, CancellationToken ct = default)
@@ -286,6 +293,9 @@ public class OkxClientAdapter : IExchangeClient
         _ => throw new ArgumentException($"不支持的周期: {interval}")
     };
 
+    // 按已知计价币后缀插入分隔符（BTCUSDT → BTC-USDT），避免对 USDT 作基础币等情形误转
+    private static string ToOkxSymbol(string pair) => SymbolFormatter.WithSeparator(pair, '-');
+
     private static decimal[,] ToDepth(IEnumerable<OKXOrderBookRow>? entries)
     {
         if (entries is null) return new decimal[0, 0];
@@ -299,5 +309,5 @@ public class OkxClientAdapter : IExchangeClient
         o.OrderSide == OKX.Net.Enums.OrderSide.Buy ? "Buy" : "Sell",
         o.OrderType == OKX.Net.Enums.OrderType.Limit ? "Limit" : "Market",
         o.OrderState switch { OKX.Net.Enums.OrderStatus.Live => "New", OKX.Net.Enums.OrderStatus.PartiallyFilled => "PartiallyFilled", OKX.Net.Enums.OrderStatus.Filled => "Filled", OKX.Net.Enums.OrderStatus.Canceled => "Cancelled", _ => o.OrderState.ToString() },
-        o.Price ?? 0, o.Quantity ?? 0, o.AccumulatedFillQuantity ?? 0, o.OrderId.ToString(), o.CreateTime);
+        o.Price ?? 0, o.Quantity ?? 0, o.AccumulatedFillQuantity ?? 0, o.OrderId.ToString() ?? "", o.CreateTime);
 }

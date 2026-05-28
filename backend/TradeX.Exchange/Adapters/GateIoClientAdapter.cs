@@ -37,7 +37,7 @@ public class GateIoClientAdapter : IExchangeClient
 
     public async IAsyncEnumerable<Candle> SubscribeKlinesStreamAsync(string pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
     {
-        var gatePair = pair.Replace("USDT", "_USDT");
+        var gatePair = ToGateSymbol(pair);
         var socketClient = new GateIoSocketClient();
         var channel = Channel.CreateBounded<Candle>(new BoundedChannelOptions(100)
         {
@@ -72,7 +72,7 @@ public class GateIoClientAdapter : IExchangeClient
             FullMode = BoundedChannelFullMode.DropOldest
         });
 
-        var gatePair = pair.Replace("USDT", "_USDT");
+        var gatePair = ToGateSymbol(pair);
         var subResult = await socketClient.SpotApi.SubscribeToTradeUpdatesAsync(gatePair, data =>
         {
             var t = data.Data;
@@ -96,7 +96,7 @@ public class GateIoClientAdapter : IExchangeClient
     public async Task<Candle[]> GetKlinesAsync(string pair, string interval, DateTime start, DateTime end, CancellationToken ct = default)
     {
         // Gate /api/v4/spot/candlesticks 按 from 升序返回, 单次最多 1000 条; 翻页通过推进 from
-        var gp = pair.Replace("USDT", "_USDT");
+        var gp = ToGateSymbol(pair);
         var ki = MapInterval(interval);
         var stepMs = IntervalMs(interval);
         var all = new List<Candle>();
@@ -131,7 +131,7 @@ public class GateIoClientAdapter : IExchangeClient
 
     public async Task<OrderBook> GetOrderBookAsync(string pair, int limit, CancellationToken ct = default)
     {
-        var gp = pair.Replace("USDT", "_USDT");
+        var gp = ToGateSymbol(pair);
         var r = await _client.SpotApi.ExchangeData.GetOrderBookAsync(gp, limit: limit, ct: ct);
         if (!r.Success) return new OrderBook(new decimal[0, 0], new decimal[0, 0], DateTime.UtcNow);
         return new OrderBook(ToDepth(r.Data.Bids), ToDepth(r.Data.Asks), DateTime.UtcNow);
@@ -184,19 +184,19 @@ public class GateIoClientAdapter : IExchangeClient
     public async Task<OrderResult> PlaceOrderAsync(OrderRequest request, CancellationToken ct = default)
     {
         if (!_hasCredentials) return new OrderResult(false, null, 0, 0, 0, "未配置 API Key");
-        var gp = request.Pair.Replace("USDT", "_USDT");
+        var gp = ToGateSymbol(request.Pair);
         var side = request.Side == OrderSide.Buy ? GateIo.Net.Enums.OrderSide.Buy : GateIo.Net.Enums.OrderSide.Sell;
         var type = request.Type == OrderType.Limit ? NewOrderType.Limit : NewOrderType.Market;
         var r = await _client.SpotApi.Trading.PlaceOrderAsync(gp, side, type,
             quantity: request.Quantity, price: request.Price, text: request.ClientOrderId, ct: ct);
         if (!r.Success) return new OrderResult(false, null, 0, 0, 0, r.Error?.Message ?? "下单失败");
-        return new OrderResult(true, r.Data.Id.ToString(), r.Data.QuantityFilled, r.Data.AveragePrice ?? 0, 0, null);
+        return new OrderResult(true, r.Data.Id.ToString(), r.Data.QuantityFilled, r.Data.AveragePrice ?? 0, Math.Abs(r.Data.Fee ?? 0), null, r.Data.FeeAsset);
     }
 
     public async Task<OrderResult> CancelOrderAsync(string pair, string exchangeOrderId, CancellationToken ct = default)
     {
         if (!_hasCredentials) return new OrderResult(false, null, 0, 0, 0, "未配置 API Key");
-        var gp = pair.Replace("USDT", "_USDT");
+        var gp = ToGateSymbol(pair);
         var r = await _client.SpotApi.Trading.CancelOrderAsync(gp, orderId: long.Parse(exchangeOrderId), ct: ct);
         if (!r.Success) return new OrderResult(false, null, 0, 0, 0, r.Error?.Message ?? "撤单失败");
         return new OrderResult(true, exchangeOrderId, 0, 0, 0, null);
@@ -205,19 +205,19 @@ public class GateIoClientAdapter : IExchangeClient
     public async Task<OrderResult> GetOrderAsync(string pair, string exchangeOrderId, CancellationToken ct = default)
     {
         if (!_hasCredentials) return new OrderResult(false, null, 0, 0, 0, "未配置 API Key");
-        var gp = pair.Replace("USDT", "_USDT");
+        var gp = ToGateSymbol(pair);
         var r = await _client.SpotApi.Trading.GetOrderAsync(gp, orderId: long.Parse(exchangeOrderId), ct: ct);
         if (!r.Success) return new OrderResult(false, null, 0, 0, 0, r.Error?.Message ?? "查询订单失败");
-        return new OrderResult(true, exchangeOrderId, r.Data.QuantityFilled, r.Data.AveragePrice ?? 0, 0, null);
+        return new OrderResult(true, exchangeOrderId, r.Data.QuantityFilled, r.Data.AveragePrice ?? 0, Math.Abs(r.Data.Fee ?? 0), null, r.Data.FeeAsset);
     }
 
     public async Task<OrderResult> GetOrderByClientOrderIdAsync(string pair, string clientOrderId, CancellationToken ct = default)
     {
         if (!_hasCredentials) return new OrderResult(false, null, 0, 0, 0, "未配置 API Key");
-        var gp = pair.Replace("USDT", "_USDT");
+        var gp = ToGateSymbol(pair);
         var r = await _client.SpotApi.Trading.GetOrderAsync(gp, clientOrderId: clientOrderId, ct: ct);
         if (!r.Success) return new OrderResult(false, null, 0, 0, 0, r.Error?.Message ?? "按订单号查询失败");
-        return new OrderResult(true, r.Data.Id.ToString(), r.Data.QuantityFilled, r.Data.AveragePrice ?? 0, 0, null);
+        return new OrderResult(true, r.Data.Id.ToString(), r.Data.QuantityFilled, r.Data.AveragePrice ?? 0, Math.Abs(r.Data.Fee ?? 0), null, r.Data.FeeAsset);
     }
 
     public async Task<OrderResult[]> GetRecentOrdersAsync(DateTime since, CancellationToken ct = default)
@@ -280,6 +280,8 @@ public class GateIoClientAdapter : IExchangeClient
         "1h" => KlineInterval.OneHour, "4h" => KlineInterval.FourHours, "1d" => KlineInterval.OneDay,
         _ => throw new ArgumentException($"不支持的周期: {interval}")
     };
+
+    private static string ToGateSymbol(string pair) => SymbolFormatter.WithSeparator(pair, '_');
 
     private static decimal[,] ToDepth(IEnumerable<GateIoOrderBookEntry>? entries)
     {

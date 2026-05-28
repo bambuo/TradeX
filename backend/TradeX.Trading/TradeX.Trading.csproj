@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="TradeX.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.1" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.1" />
     <PackageReference Include="StackExchange.Redis" Version="2.8.16" />
@@ -17,7 +21,6 @@
     <ProjectReference Include="..\TradeX.Core\TradeX.Core.csproj" />
     <ProjectReference Include="..\TradeX.Exchange\TradeX.Exchange.csproj" />
     <ProjectReference Include="..\TradeX.Indicators\TradeX.Indicators.csproj" />
-    <ProjectReference Include="..\TradeX.Infrastructure\TradeX.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

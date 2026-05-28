@@ -35,6 +35,14 @@ public class BacktestTaskRepository(TradeXDbContext context) : IBacktestTaskRepo
 
     public async Task UpdateAsync(BacktestTask task, CancellationToken ct = default)
     {
+        // 全局 NoTracking 下每次查询返回新实例；同一 scope 内对同一任务多次 Update
+        // （阶段推进 Queued→Running→FetchingData→… 及写结果/收尾）会因同主键被重复 Attach
+        // 抛 "instance ... is already being tracked"。Attach 前先剥离已追踪的陈旧实例。
+        var stale = context.ChangeTracker.Entries<BacktestTask>()
+            .FirstOrDefault(e => e.Entity.Id == task.Id && !ReferenceEquals(e.Entity, task));
+        if (stale is not null)
+            stale.State = EntityState.Detached;
+
         context.BacktestTasks.Update(task);
         await context.SaveChangesAsync(ct);
     }

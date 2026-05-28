@@ -58,6 +58,7 @@ public sealed class KillSwitch(IServiceScopeFactory scopeFactory, TradeXMetrics 
             }),
             TraderId = null
         }, ct);
+        await outbox.SaveChangesAsync(ct);
 
         metrics.SetKillSwitchActive(true);
         metrics.KillSwitchActivations.Add(1, new KeyValuePair<string, object?>("reason", reason));
@@ -90,5 +91,6 @@ public sealed class KillSwitch(IServiceScopeFactory scopeFactory, TradeXMetrics 
             }),
             TraderId = null
         }, ct);
+        await outbox.SaveChangesAsync(ct);
     }
 }

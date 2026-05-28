@@ -1,7 +1,9 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
+using TradeX.Trading.Risk;
 
 namespace TradeX.Trading.Execution;
 
@@ -18,6 +20,8 @@ public class TradeExecutor(
     IExchangeRepository exchangeRepo,
     IOrderRepository orderRepo,
     IEncryptionService encryptionService,
+    OrderBookSlippageGuard slippageGuard,
+    IOptions<RiskSettings> riskSettings,
     ILogger<TradeExecutor> logger) : ITradeExecutor
 {
     public Task<OrderResult> ExecuteMarketOrderAsync(Order order, CancellationToken ct = default)
@@ -73,13 +77,24 @@ public class TradeExecutor(
                 encryptionService.Decrypt(exchange.SecretKeyEncrypted),
                 exchange.PassphraseEncrypted is not null ? encryptionService.Decrypt(exchange.PassphraseEncrypted) : null);
 
-            var quantity = order.Side == OrderSide.Buy ? order.QuoteQuantity : order.Quantity;
+            // 统一换算为基础货币数量（市价买单按订单簿/限价买单按委托价把 QuoteQuantity → base）
+            // 并对市价单执行订单簿滑点护栏。失败则拒单（此前已 pre-persist，标 Failed）。
+            var (ok, baseQuantity, prepError) = await PrepareQuantityAsync(client, order, orderType, price, ct);
+            if (!ok)
+            {
+                logger.LogWarning("下单前置检查未通过，拒单: OrderId={OrderId}, Reason={Reason}", order.Id, prepError);
+                await MarkFailedAsync(order, prepError ?? "下单前置检查未通过", ct);
+                return new OrderResult(false, null, 0, 0, 0, prepError);
+            }
+
+            // 写回申报数量，使 RecordFill 能据 (FilledQuantity >= Quantity) 正确判定 Filled
+            order.Quantity = baseQuantity;
 
             logger.LogInformation("执行{OrderSide}{OrderType}单: {Pair} {Quantity} @ {Price}, OrderId={OrderId}, ClientOrderId={ClientOrderId}",
-                order.Side, orderType, order.Pair, quantity, price, order.Id, order.ClientOrderId);
+                order.Side, orderType, order.Pair, baseQuantity, price, order.Id, order.ClientOrderId);
 
             exchangeResult = await client.PlaceOrderAsync(
-                new OrderRequest(order.Pair, order.Side, orderType, quantity, price, stopPrice, order.ClientOrderId.ToString("N")),
+                new OrderRequest(order.Pair, order.Side, orderType, baseQuantity, price, stopPrice, order.ClientOrderId.ToString("N")),
                 ct);
         }
         catch (Exception ex)
@@ -104,10 +119,78 @@ public class TradeExecutor(
         return exchangeResult;
     }
 
+    /// <summary>
+    /// 计算实际提交给交易所的基础货币数量，并对市价单做订单簿滑点护栏。
+    /// 买单：QuoteQuantity（quote 金额）→ base（市价用最优卖价，限价用委托价）。
+    /// 卖单：直接用 Quantity（已是 base）。
+    /// </summary>
+    private async Task<(bool Ok, decimal Quantity, string? Error)> PrepareQuantityAsync(
+        IExchangeClient client, Order order, OrderType orderType, decimal? price, CancellationToken ct)
+    {
+        OrderBook? book = null;
+        if (orderType == OrderType.Market)
+        {
+            try { book = await client.GetOrderBookAsync(order.Pair, 50, ct); }
+            catch (Exception ex) { logger.LogWarning(ex, "获取订单簿失败, OrderId={OrderId}", order.Id); }
+        }
+
+        decimal baseQuantity;
+        if (order.Side == OrderSide.Sell)
+        {
+            if (order.Quantity <= 0) return (false, 0, "卖单数量无效");
+            baseQuantity = order.Quantity;
+        }
+        else
+        {
+            var quote = order.QuoteQuantity;
+            if (quote <= 0)
+                return order.Quantity > 0 ? (true, order.Quantity, null) : (false, 0, "买单金额无效");
+
+            decimal refPrice;
+            if (orderType == OrderType.Market)
+            {
+                var bestAsk = book is null ? 0m : BestPrice(book.Asks);
+                if (bestAsk <= 0) return (false, 0, "无法获取订单簿参考价，拒绝市价买单");
+                refPrice = bestAsk;
+            }
+            else
+            {
+                if (price is null or <= 0) return (false, 0, "限价买单缺少有效价格");
+                refPrice = price.Value;
+            }
+
+            baseQuantity = quote / refPrice;
+            if (baseQuantity <= 0) return (false, 0, "换算后数量无效");
+        }
+
+        // 市价单滑点护栏（走订单簿模拟成交）
+        if (orderType == OrderType.Market)
+        {
+            var maxPct = riskSettings.Value.MaxSlippagePercent;
+            if (maxPct > 0 && book is not null)
+            {
+                var refPrice = order.Side == OrderSide.Buy ? BestPrice(book.Asks) : BestPrice(book.Bids);
+                if (refPrice > 0)
+                {
+                    var est = slippageGuard.Estimate(book, order.Side, baseQuantity, refPrice);
+                    if (!est.Sufficient)
+                        return (false, 0, $"订单簿深度不足，拒绝市价单: {est.Reason}");
+                    if (est.SlippagePercent > maxPct)
+                        return (false, 0, $"预估滑点 {est.SlippagePercent:F2}% 超过上限 {maxPct}%");
+                }
+            }
+        }
+
+        return (true, baseQuantity, null);
+    }
+
+    private static decimal BestPrice(decimal[,] ladder)
+        => ladder.GetLength(0) > 0 ? ladder[0, 0] : 0m;
+
     private async Task ApplyExchangeResultAsync(Order order, OrderResult result, CancellationToken ct)
     {
         if (result.Success)
-            order.RecordFill(result.FilledQuantity, result.Fee, result.ExchangeOrderId);
+            order.RecordFill(result.FilledQuantity, result.Fee, result.ExchangeOrderId, result.FeeAsset);
         else
             order.MarkFailed(result.Error);
         await orderRepo.UpdateAsync(order, ct);

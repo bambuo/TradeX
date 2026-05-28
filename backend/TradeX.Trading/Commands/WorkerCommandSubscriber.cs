@@ -20,6 +20,8 @@ public sealed class WorkerCommandSubscriber(
 {
     private const string ConsumerGroup = "worker-cmd";
     private static readonly TimeSpan PollDelay = TimeSpan.FromMilliseconds(500);
+    private const long StaleIdleMs = 60_000;
+    private static readonly TimeSpan ReclaimInterval = TimeSpan.FromSeconds(30);
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -41,10 +43,22 @@ public sealed class WorkerCommandSubscriber(
 
         await DrainPendingAsync(db, streamKey, consumer, handlerMap, stoppingToken);
 
+        var lastClaim = DateTime.UtcNow;
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
+                if (DateTime.UtcNow - lastClaim > ReclaimInterval)
+                {
+                    lastClaim = DateTime.UtcNow;
+                    var reclaimed = await RedisStreamHelpers.ClaimStaleAsync(db, streamKey, ConsumerGroup, consumer, StaleIdleMs);
+                    foreach (var entry in reclaimed)
+                    {
+                        if (stoppingToken.IsCancellationRequested) break;
+                        await ProcessAsync(db, streamKey, entry, handlerMap, stoppingToken);
+                    }
+                }
+
                 var entries = await db.StreamReadGroupAsync(streamKey, ConsumerGroup, consumer, ">", count: 20);
                 if (entries.Length == 0)
                 {
@@ -94,6 +108,11 @@ public sealed class WorkerCommandSubscriber(
     {
         try
         {
+            if (await RedisStreamHelpers.IsAlreadyProcessedAsync(db, ConsumerGroup, entry.Id))
+            {
+                await db.StreamAcknowledgeAsync(streamKey, ConsumerGroup, entry.Id);
+                return;
+            }
             var raw = entry[RedisStreamHelpers.PayloadField];
             if (!raw.HasValue)
             {
@@ -115,6 +134,7 @@ public sealed class WorkerCommandSubscriber(
                 return;
             }
             await handler.HandleAsync(cmd.ArgsJson, ct);
+            await RedisStreamHelpers.MarkProcessedAsync(db, ConsumerGroup, entry.Id);
             await db.StreamAcknowledgeAsync(streamKey, ConsumerGroup, entry.Id);
         }
         catch (Exception ex)

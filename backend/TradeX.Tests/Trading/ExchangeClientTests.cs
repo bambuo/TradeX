@@ -1,5 +1,6 @@
 using System.Reflection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
@@ -7,6 +8,7 @@ using TradeX.Core.Models;
 using TradeX.Exchange;
 using TradeX.Exchange.Adapters;
 using TradeX.Trading;
+using TradeX.Trading.Risk;
 
 namespace TradeX.Tests.Trading;
 
@@ -81,7 +83,7 @@ public class TradeExecutorTests
             exchangeRepo,
             Substitute.For<IOrderRepository>(),
             Substitute.For<IEncryptionService>(),
-            Substitute.For<ILogger<TradeExecutor>>());
+            new OrderBookSlippageGuard(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
 
         var result = await executor.ExecuteMarketOrderAsync(new Order { ExchangeId = Guid.NewGuid() });
 
@@ -97,7 +99,7 @@ public class TradeExecutorTests
             Substitute.For<IExchangeRepository>(),
             Substitute.For<IOrderRepository>(),
             Substitute.For<IEncryptionService>(),
-            Substitute.For<ILogger<TradeExecutor>>());
+            new OrderBookSlippageGuard(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
 
         var result = await executor.ExecuteLimitOrderAsync(new Order { ExchangeId = Guid.NewGuid() });
 
@@ -113,7 +115,7 @@ public class TradeExecutorTests
             Substitute.For<IExchangeRepository>(),
             Substitute.For<IOrderRepository>(),
             Substitute.For<IEncryptionService>(),
-            Substitute.For<ILogger<TradeExecutor>>());
+            new OrderBookSlippageGuard(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
 
         var result = await executor.ExecuteStopLimitOrderAsync(new Order { ExchangeId = Guid.NewGuid() }, 100);
 
@@ -141,6 +143,8 @@ public class TradeExecutorTests
         encryption.Decrypt("enc-secret").Returns("secret");
 
         var exchangeClient = Substitute.For<IExchangeClient>();
+        exchangeClient.GetOrderBookAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(new OrderBook(new decimal[,] { { 49990m, 10m } }, new decimal[,] { { 50000m, 10m } }, DateTime.UtcNow));
         exchangeClient.PlaceOrderAsync(Arg.Any<OrderRequest>(), Arg.Any<CancellationToken>())
             .Returns(new OrderResult(true, "123", 1, 50000, 0, null));
 
@@ -150,7 +154,7 @@ public class TradeExecutorTests
 
         var executor = new TradeExecutor(
             clientFactory, exchangeRepo, Substitute.For<IOrderRepository>(), encryption,
-            Substitute.For<ILogger<TradeExecutor>>());
+            new OrderBookSlippageGuard(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
 
         var order = new Order
         {
@@ -188,6 +192,8 @@ public class TradeExecutorTests
 
         var orderRepo = Substitute.For<IOrderRepository>();
         var exchangeClient = Substitute.For<IExchangeClient>();
+        exchangeClient.GetOrderBookAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(new OrderBook(new decimal[,] { { 49990m, 10m } }, new decimal[,] { { 50000m, 10m } }, DateTime.UtcNow));
         exchangeClient.PlaceOrderAsync(Arg.Any<OrderRequest>(), Arg.Any<CancellationToken>())
             .Returns(new OrderResult(true, "EX-1", 1m, 50000m, 0.05m, null));
 
@@ -196,7 +202,7 @@ public class TradeExecutorTests
             .Returns(exchangeClient);
 
         var executor = new TradeExecutor(clientFactory, exchangeRepo, orderRepo, encryption,
-            Substitute.For<ILogger<TradeExecutor>>());
+            new OrderBookSlippageGuard(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
 
         var order = new Order
         {
@@ -235,6 +241,8 @@ public class TradeExecutorTests
         encryption.Decrypt(Arg.Any<string>()).Returns("decrypted");
 
         var exchangeClient = Substitute.For<IExchangeClient>();
+        exchangeClient.GetOrderBookAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(new OrderBook(new decimal[,] { { 49990m, 10m } }, new decimal[,] { { 50000m, 10m } }, DateTime.UtcNow));
         exchangeClient.PlaceOrderAsync(Arg.Any<OrderRequest>(), Arg.Any<CancellationToken>())
             .Returns(new OrderResult(true, "EX-2", 1m, 50000m, 0, null));
 
@@ -243,7 +251,7 @@ public class TradeExecutorTests
             .Returns(exchangeClient);
 
         var executor = new TradeExecutor(clientFactory, exchangeRepo, Substitute.For<IOrderRepository>(),
-            encryption, Substitute.For<ILogger<TradeExecutor>>());
+            encryption, new OrderBookSlippageGuard(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
 
         var clientOrderId = Guid.NewGuid();
         var order = new Order
@@ -275,6 +283,8 @@ public class TradeExecutorTests
         encryption.Decrypt(Arg.Any<string>()).Returns("decrypted");
 
         var exchangeClient = Substitute.For<IExchangeClient>();
+        exchangeClient.GetOrderBookAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(new OrderBook(new decimal[,] { { 49990m, 10m } }, new decimal[,] { { 50000m, 10m } }, DateTime.UtcNow));
         exchangeClient.PlaceOrderAsync(Arg.Any<OrderRequest>(), Arg.Any<CancellationToken>())
             .Returns(new OrderResult(false, null, 0, 0, 0, "insufficient balance"));
 
@@ -284,7 +294,7 @@ public class TradeExecutorTests
 
         var orderRepo = Substitute.For<IOrderRepository>();
         var executor = new TradeExecutor(clientFactory, exchangeRepo, orderRepo, encryption,
-            Substitute.For<ILogger<TradeExecutor>>());
+            new OrderBookSlippageGuard(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
 
         var order = new Order
         {
@@ -314,6 +324,8 @@ public class TradeExecutorTests
         encryption.Decrypt(Arg.Any<string>()).Returns("decrypted");
 
         var exchangeClient = Substitute.For<IExchangeClient>();
+        exchangeClient.GetOrderBookAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(new OrderBook(new decimal[,] { { 49990m, 10m } }, new decimal[,] { { 50000m, 10m } }, DateTime.UtcNow));
         exchangeClient.PlaceOrderAsync(Arg.Any<OrderRequest>(), Arg.Any<CancellationToken>())
             .Returns<OrderResult>(_ => throw new HttpRequestException("network error"));
 
@@ -323,7 +335,7 @@ public class TradeExecutorTests
 
         var orderRepo = Substitute.For<IOrderRepository>();
         var executor = new TradeExecutor(clientFactory, exchangeRepo, orderRepo, encryption,
-            Substitute.For<ILogger<TradeExecutor>>());
+            new OrderBookSlippageGuard(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
 
         var order = new Order
         {

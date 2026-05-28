@@ -16,7 +16,6 @@ namespace TradeX.Trading.Outbox;
 /// </summary>
 public sealed class OutboxTradingEventBus(
     IOutboxRepository outboxRepo,
-    TradeX.Infrastructure.Data.TradeXDbContext context,
     ILogger<OutboxTradingEventBus> logger) : ITradingEventBus
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
@@ -36,10 +35,8 @@ public sealed class OutboxTradingEventBus(
             Status = OutboxStatus.Pending,
         };
         await outboxRepo.EnqueueAsync(evt, ct);
-        // 立即 SaveChanges 把 outbox 行刷盘。注意：调用方业务通常也已经 SaveChanges 过；
-        // 这里再次 SaveChanges 是无副作用的（只新增一行）。如果调用方在自己的事务里，
-        // 此行将随事务一起提交/回滚。
-        await context.SaveChangesAsync(ct);
+        // 立即提交 outbox 行。若调用方开启显式事务，此提交仍随同一事务提交/回滚。
+        await outboxRepo.SaveChangesAsync(ct);
         logger.LogDebug("Outbox enqueued: Type={Type} TraderId={Trader} TraceId={Trace}", type, traderId, traceId);
     }
 

@@ -13,9 +13,7 @@ namespace TradeX.Api.Controllers;
 [Route("api/backtests")]
 public class BacktestingController(
     IBacktestService backtestService,
-    TaskAnalysisStore analysisStore,
-    IBacktestTaskRepository taskRepo,
-    ILogger<BacktestingController> logger) : ControllerBase
+    IBacktestTaskRepository taskRepo) : ControllerBase
 {
     public record StartBacktestRequest(
         Guid StrategyId,
@@ -126,51 +124,23 @@ public class BacktestingController(
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 10000);
 
-        // Check running store first
-        var runningList = analysisStore.Get(taskId);
-        if (runningList is not null)
-        {
-            var filtered = runningList.AsEnumerable();
-            if (!string.IsNullOrWhiteSpace(action) && action != "all")
-                filtered = filtered.Where(a => a.Action == action);
-            var total = filtered.Count();
-            var items = filtered
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .Select(a => new
-                {
-                    a.Index, a.Timestamp, a.Open, a.High, a.Low, a.Close, a.Volume,
-                    indicators = a.IndicatorValues,
-                    entry = a.EntryConditionResult,
-                    exit = a.ExitConditionResult,
-                    inPosition = a.InPosition,
-                    a.Action,
-                    a.AvgEntryPrice,
-                    a.PositionQuantity,
-                    a.PositionCost,
-                    a.PositionValue,
-                    a.PositionPnl,
-                    a.PositionPnlPercent
-                })
-                .ToList();
-
-            return Ok(new
-            {
-                total,
-                page,
-                pageSize,
-                totalPages = (int)Math.Ceiling((double)total / pageSize),
-                items
-            });
-        }
-
-        // Completed task — read from database table
         var task = await backtestService.GetTaskAsync(taskId, ct);
         if (task is null)
             return NotFound(new { error = "回测任务不存在" });
 
         if (task.Status != BacktestTaskStatus.Completed)
-            return NotFound(new { error = "没有运行中的分析数据" });
+            return Accepted(new
+            {
+                taskId,
+                total = 0,
+                page,
+                pageSize,
+                totalPages = 0,
+                items = (object[])[],
+                status = task.Status.ToString(),
+                phase = task.Phase?.ToString(),
+                message = "回测分析数据将在任务完成后从数据库读取"
+            });
 
         var dbItems = await taskRepo.GetKlineAnalysesPageAsync(taskId, page, pageSize, action, ct);
         var dbTotal = await taskRepo.GetKlineAnalysesCountAsync(taskId, action, ct);
@@ -212,57 +182,17 @@ public class BacktestingController(
         var ss = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
         speed = Math.Clamp(speed, 1, 50);
 
-        // Check if running task — live stream from channel
-        var runningList = analysisStore.Get(taskId);
-        if (runningList is null)
-        {
-            var btTask = await backtestService.GetTaskAsync(taskId, ct);
-            if (btTask?.Status == BacktestTaskStatus.Running)
-            {
-                using var waitCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                waitCts.CancelAfter(TimeSpan.FromSeconds(60));
-                try
-                {
-                    while (!waitCts.Token.IsCancellationRequested)
-                    {
-                        await Task.Delay(200, waitCts.Token);
-                        runningList = analysisStore.Get(taskId);
-                        if (runningList is not null) break;
-                        btTask = await backtestService.GetTaskAsync(taskId, ct);
-                        if (btTask?.Status != BacktestTaskStatus.Running) break;
-                    }
-                }
-                catch (OperationCanceledException) { }
-            }
-        }
-
-        if (runningList is not null)
-        {
-            var initialCount = runningList.Count;
-            if (initialCount > 0)
-            {
-                var batch = runningList.Select(a => FormatItem(a)).ToList();
-                var batchPayload = JsonSerializer.Serialize(new { type = "batch", total = initialCount, items = batch }, ss);
-                await Response.WriteAsync($"data: {batchPayload}\n\n", ct);
-                await Response.Body.FlushAsync(ct);
-            }
-
-            var lastIndex = initialCount > 0 ? runningList[^1].Index : -1;
-            await foreach (var a in analysisStore.SubscribeAsync(taskId, ct))
-            {
-                if (a.Index <= lastIndex) continue;
-                lastIndex = a.Index;
-                await WriteItemAsync(Response, a, ss, ct);
-            }
-
-            await WriteCompleteAsync(Response, ss, ct);
-            return;
-        }
-
-        // Completed task — read from database table
         var task = await backtestService.GetTaskAsync(taskId, ct);
         if (task?.Status != BacktestTaskStatus.Completed)
         {
+            var statusPayload = JsonSerializer.Serialize(new
+            {
+                type = "status",
+                status = task?.Status.ToString() ?? "NotFound",
+                phase = task?.Phase?.ToString()
+            }, ss);
+            await Response.WriteAsync($"data: {statusPayload}\n\n", ct);
+            await Response.Body.FlushAsync(ct);
             await WriteCompleteAsync(Response, ss, ct);
             return;
         }

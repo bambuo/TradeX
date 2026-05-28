@@ -21,8 +21,6 @@ public class BacktestServiceTests
         var exchangeRepo = Substitute.For<IExchangeRepository>();
         var clientFactory = Substitute.For<IExchangeClientFactory>();
         var encryption = Substitute.For<IEncryptionService>();
-        var queue = Substitute.For<IBacktestTaskQueue>();
-        queue.EnqueueAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(ValueTask.CompletedTask);
         var notifier = Substitute.For<IBacktestTaskNotifier>();
 
         services.AddSingleton(taskRepo);
@@ -30,7 +28,6 @@ public class BacktestServiceTests
         services.AddSingleton(exchangeRepo);
         services.AddSingleton(clientFactory);
         services.AddSingleton(encryption);
-        services.AddSingleton(queue);
         services.AddSingleton(notifier);
         services.AddSingleton<IIndicatorService>(_ => new IndicatorService());
         services.AddSingleton<IConditionTreeEvaluator, ConditionTreeEvaluator>();
@@ -98,7 +95,9 @@ public class BacktestServiceTests
             DateTime.UtcNow.AddDays(-30), DateTime.UtcNow, 2000m);
 
         Assert.Equal(BacktestTaskStatus.Pending, result.Status);
-        _ = sp.GetRequiredService<IBacktestTaskQueue>().Received(1).EnqueueAsync(result.Id, Arg.Any<CancellationToken>());
+        await sp.GetRequiredService<IBacktestTaskNotifier>()
+            .Received(1)
+            .NotifyTaskQueuedAsync(result.Id, Arg.Any<CancellationToken>());
     }
 
     [Fact]

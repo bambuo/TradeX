@@ -45,4 +45,35 @@ public static class RedisStreamHelpers
             PayloadField, payload,
             maxLength: DefaultMaxLength,
             useApproximateMaxLength: true);
+
+    /// <summary>
+    /// 回收同组内空闲超过 <paramref name="minIdleMs"/> 的 PEL 消息（XAUTOCLAIM）。
+    /// 用于接管永久宕机实例（consumer 名 = 机器名）遗留的未 ACK 消息，避免事件永久卡死。
+    /// </summary>
+    public static async Task<StreamEntry[]> ClaimStaleAsync(
+        IDatabase db, string streamKey, string group, string consumer, long minIdleMs, int count = 50)
+    {
+        try
+        {
+            var result = await db.StreamAutoClaimAsync(streamKey, group, consumer, minIdleMs, "0-0", count);
+            return result.ClaimedEntries ?? [];
+        }
+        catch (RedisServerException)
+        {
+            // group/stream 尚不存在等场景，安全忽略
+            return [];
+        }
+    }
+
+    // ─── 消费端去重（至少一次投递 + XAUTOCLAIM 可能产生重复，按 stream 条目 id 去重）───
+    private static readonly TimeSpan DedupTtl = TimeSpan.FromMinutes(10);
+    private static string DedupKey(string group, RedisValue entryId) => $"tradex:dedup:{group}:{entryId}";
+
+    /// <summary>该条目此前是否已被本组成功处理过（用于跳过重复投递）。</summary>
+    public static Task<bool> IsAlreadyProcessedAsync(IDatabase db, string group, RedisValue entryId)
+        => db.KeyExistsAsync(DedupKey(group, entryId));
+
+    /// <summary>标记条目已成功处理（带 TTL，覆盖重投/回收窗口）。在处理成功后调用。</summary>
+    public static Task MarkProcessedAsync(IDatabase db, string group, RedisValue entryId)
+        => db.StringSetAsync(DedupKey(group, entryId), "1", DedupTtl);
 }

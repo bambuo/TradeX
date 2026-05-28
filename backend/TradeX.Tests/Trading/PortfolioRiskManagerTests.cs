@@ -207,7 +207,9 @@ public class PortfolioRiskManagerTests
             {
                 Status = PositionStatus.Open,
                 CurrentPrice = 1000,
-                Quantity = 1
+                Quantity = 1,
+                // 远早于冷却窗口，避免触发冷却检查（本用例只验证持仓数量临界）
+                OpenedAtUtc = DateTime.UtcNow.AddHours(-1)
             }).ToList());
         _positionRepo.GetClosedByTraderIdSinceAsync(traderId, Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
             .Returns([
@@ -218,5 +220,29 @@ public class PortfolioRiskManagerTests
 
         // DailyLoss = 100 < 1000, drawdown = 100/9000*100 = 1.1% < 20%, positions = 9 < 10
         Assert.True(result.IsAllowed);
+    }
+
+    [Fact]
+    public async Task CheckAsync_WithinCooldown_Denies()
+    {
+        var traderId = Guid.NewGuid();
+        // 刚开仓（5s 前），冷却期 300s 未结束 → 应拒绝
+        _positionRepo.GetOpenByTraderIdAsync(traderId, Arg.Any<CancellationToken>())
+            .Returns([
+                new Position
+                {
+                    Status = PositionStatus.Open,
+                    CurrentPrice = 1000,
+                    Quantity = 1,
+                    OpenedAtUtc = DateTime.UtcNow.AddSeconds(-5)
+                }
+            ]);
+        _positionRepo.GetClosedByTraderIdSinceAsync(traderId, Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+            .Returns([]);
+
+        var result = await _manager.CheckAsync(traderId, Guid.NewGuid());
+
+        Assert.False(result.IsAllowed);
+        Assert.Contains(result.DeniedReasons, r => r.Contains("冷却期"));
     }
 }

@@ -1,6 +1,6 @@
 # TradeX
 
-TradeX 是一个多交易所现货自动交易系统，基于 ASP.NET Core 10 + Vue 3。前端 SPA 内嵌至 ASP.NET Core 同一进程，单容器部署。
+TradeX 是一个多交易所现货自动交易系统，基于 ASP.NET Core 10 + Vue 3。前端 SPA 内嵌至 ASP.NET Core API 进程，交易引擎与回测任务运行在独立 Worker 进程。
 
 ## 架构概览
 
@@ -24,9 +24,9 @@ flowchart TB
     end
 
     API -->|EF Core Pomelo| F
-    API -.->|Redis Pub/Sub| R
+    API -.->|Redis Stream + SignalR Backplane| R
     Worker -->|EF Core Pomelo| F
-    Worker -.->|Redis Pub/Sub 事件/命令| R
+    Worker -.->|Outbox + Redis Stream 事件/命令| R
 ```
 
 ## 技术栈

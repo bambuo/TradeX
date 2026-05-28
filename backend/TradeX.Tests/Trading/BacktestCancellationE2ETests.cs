@@ -21,10 +21,9 @@ public class BacktestCancellationE2ETests
     private static BacktestService BuildService(IBacktestTaskRepository taskRepo)
     {
         var strategyRepo = Substitute.For<IStrategyRepository>();
-        var queue = Substitute.For<IBacktestTaskQueue>();
         var notifier = Substitute.For<IBacktestTaskNotifier>();
         var logger = Substitute.For<ILogger<BacktestService>>();
-        return new BacktestService(strategyRepo, taskRepo, queue, notifier, logger);
+        return new BacktestService(strategyRepo, taskRepo, notifier, logger);
     }
 
     [Fact]

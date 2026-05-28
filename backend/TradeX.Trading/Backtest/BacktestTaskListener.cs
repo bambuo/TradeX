@@ -22,6 +22,8 @@ public sealed class BacktestTaskListener(
     private const string ConsumerGroup = "worker-backtest";
     private static readonly TimeSpan PollDelay = TimeSpan.FromMilliseconds(500);
     private static readonly TimeSpan SafetyNetInterval = TimeSpan.FromMinutes(5);
+    private const long StaleIdleMs = 60_000;
+    private static readonly TimeSpan ReclaimInterval = TimeSpan.FromSeconds(30);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -48,10 +50,22 @@ public sealed class BacktestTaskListener(
 
     private async Task StreamReadLoopAsync(IDatabase db, string streamKey, string consumer, CancellationToken ct)
     {
+        var lastClaim = DateTime.UtcNow;
         while (!ct.IsCancellationRequested)
         {
             try
             {
+                if (DateTime.UtcNow - lastClaim > ReclaimInterval)
+                {
+                    lastClaim = DateTime.UtcNow;
+                    var reclaimed = await RedisStreamHelpers.ClaimStaleAsync(db, streamKey, ConsumerGroup, consumer, StaleIdleMs);
+                    foreach (var entry in reclaimed)
+                    {
+                        if (ct.IsCancellationRequested) break;
+                        await ProcessEntryAsync(db, streamKey, entry, ct);
+                    }
+                }
+
                 var entries = await db.StreamReadGroupAsync(streamKey, ConsumerGroup, consumer, ">", count: 20);
                 if (entries.Length == 0)
                 {
@@ -98,6 +112,11 @@ public sealed class BacktestTaskListener(
     {
         try
         {
+            if (await RedisStreamHelpers.IsAlreadyProcessedAsync(db, ConsumerGroup, entry.Id))
+            {
+                await db.StreamAcknowledgeAsync(streamKey, ConsumerGroup, entry.Id);
+                return;
+            }
             var raw = entry[RedisStreamHelpers.PayloadField];
             if (raw.HasValue && Guid.TryParseExact((string)raw!, "N", out var taskId))
             {
@@ -108,6 +127,7 @@ public sealed class BacktestTaskListener(
             {
                 logger.LogWarning("BacktestTaskListener 收到无效 payload id={Id}, ACK 跳过", entry.Id);
             }
+            await RedisStreamHelpers.MarkProcessedAsync(db, ConsumerGroup, entry.Id);
             await db.StreamAcknowledgeAsync(streamKey, ConsumerGroup, entry.Id);
         }
         catch (Exception ex)

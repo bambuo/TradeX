@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, provide, type Component } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { Notification } from '@arco-design/web-vue'
 import { useAuthStore } from '../stores/auth'
 import { useSignalR } from '../composables/useSignalR'
 import ErrorBoundary from '../components/ErrorBoundary.vue'
@@ -70,11 +71,38 @@ function handleFabClick() {
 
 provide('signalr', signalr)
 
+interface OrphanOrderPayload {
+  exchangeId: string
+  exchangeType: string
+  pair: string
+  exchangeOrderId: string
+  side: string
+  type: string
+  price: number
+  quantity: number
+  detectedAt: string
+}
+
+function registerSystemAlertHandlers() {
+  // 系统级告警：交易所有、本地无记录的孤儿订单。仅管理员会被服务端加入 system_alerts 组而收到。
+  signalr.on<OrphanOrderPayload>('OrphanOrderDetected', (data) => {
+    Notification.warning({
+      title: '检测到孤儿订单',
+      content: `${data.exchangeType} ${data.pair} ${data.side} ${data.type} `
+        + `数量 ${data.quantity}${data.price ? ` @ ${data.price}` : ''}，`
+        + `交易所订单号 ${data.exchangeOrderId} 在本地无记录，请核查。`,
+      duration: 0,
+      closable: true
+    })
+  })
+}
+
 onMounted(async () => {
   registerMfaModal(mfaModal.value!)
   if (auth.isAuthenticated) {
     try {
       await signalr.connect()
+      registerSystemAlertHandlers()
     } catch {
       // connection will be retried by automatic reconnect
     }
@@ -86,6 +114,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  signalr.off('OrphanOrderDetected')
   signalr.disconnect()
   document.removeEventListener('mousemove', onDragMove)
   document.removeEventListener('mouseup', onDragEnd)

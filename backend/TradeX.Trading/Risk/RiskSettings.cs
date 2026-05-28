@@ -8,6 +8,12 @@ public class RiskSettings
     public int MaxOpenPositions { get; set; } = 10;
     public decimal SlippageTolerance { get; set; } = 0.001m;
     public decimal MaxSlippageAmount { get; set; } = 10;
+
+    /// <summary>
+    /// 市价单下单前基于实时订单簿"走簿"估算的最大可接受滑点（百分比）。
+    /// 超过即拒绝下单。0 表示禁用此护栏（仅做 quote→base 换算，不拦截）。
+    /// </summary>
+    public decimal MaxSlippagePercent { get; set; } = 1.0m;
     public bool CircuitBreakerActive { get; set; }
     public int CooldownSeconds { get; set; } = 300;
 

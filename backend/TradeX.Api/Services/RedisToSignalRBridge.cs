@@ -27,6 +27,8 @@ public sealed class RedisToSignalRBridge(
 {
     private const string ConsumerGroup = "api-signalr-bridge";
     private static readonly TimeSpan PollDelay = TimeSpan.FromMilliseconds(500);
+    private const long StaleIdleMs = 60_000;                                   // PEL 空闲超 60s 视为死实例遗留
+    private static readonly TimeSpan ReclaimInterval = TimeSpan.FromSeconds(30);
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -42,11 +44,25 @@ public sealed class RedisToSignalRBridge(
         // 阶段 1: 清理上次未 ACK 的 PEL（重启恢复）
         await DrainPendingAsync(db, streamKey, consumer, stoppingToken);
 
-        // 阶段 2: 长轮询新消息
+        // 阶段 2: 长轮询新消息 + 周期回收死实例 PEL
+        var lastClaim = DateTime.UtcNow;
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
+                if (DateTime.UtcNow - lastClaim > ReclaimInterval)
+                {
+                    lastClaim = DateTime.UtcNow;
+                    var reclaimed = await RedisStreamHelpers.ClaimStaleAsync(db, streamKey, ConsumerGroup, consumer, StaleIdleMs);
+                    if (reclaimed.Length > 0)
+                        logger.LogInformation("回收死实例 PEL 消息 {Count} 条", reclaimed.Length);
+                    foreach (var entry in reclaimed)
+                    {
+                        if (stoppingToken.IsCancellationRequested) break;
+                        await ProcessAsync(db, streamKey, entry);
+                    }
+                }
+
                 var entries = await db.StreamReadGroupAsync(streamKey, ConsumerGroup, consumer, ">", count: 50);
                 if (entries.Length == 0)
                 {
@@ -94,6 +110,13 @@ public sealed class RedisToSignalRBridge(
     {
         try
         {
+            // 去重：重投/回收可能重复投递，已处理过则直接 ACK 跳过
+            if (await RedisStreamHelpers.IsAlreadyProcessedAsync(db, ConsumerGroup, entry.Id))
+            {
+                await db.StreamAcknowledgeAsync(streamKey, ConsumerGroup, entry.Id);
+                return;
+            }
+
             var payload = entry[RedisStreamHelpers.PayloadField];
             if (!payload.HasValue)
             {
@@ -102,6 +125,7 @@ public sealed class RedisToSignalRBridge(
                 return;
             }
             await HandleAsync((string)payload!);
+            await RedisStreamHelpers.MarkProcessedAsync(db, ConsumerGroup, entry.Id);
             await db.StreamAcknowledgeAsync(streamKey, ConsumerGroup, entry.Id);
         }
         catch (Exception ex)
@@ -168,6 +192,16 @@ public sealed class RedisToSignalRBridge(
                 if (p is null) return;
                 await group.SendAsync(TradingHub.ExchangeConnectionChanged, new ExchangeConnectionChangedEvent(
                     p.ExchangeId, p.TraderId, p.OldStatus, p.NewStatus, p.ErrorMessage, p.ChangedAtUtc, traceId));
+                break;
+            }
+            case TradingEventTypes.OrphanOrderDetected:
+            {
+                var p = JsonSerializer.Deserialize<OrphanOrderDetectedPayload>(envelope.DataJson, Json);
+                if (p is null) return;
+                // 无 trader 归属，推送到管理员系统告警组
+                await hub.Clients.Group(TradingHub.SystemAlertsGroup).SendAsync(TradingHub.OrphanOrderDetected,
+                    new OrphanOrderDetectedEvent(p.ExchangeId, p.ExchangeType, p.Pair, p.ExchangeOrderId,
+                        p.Side, p.Type, p.Price, p.Quantity, p.DetectedAt, traceId));
                 break;
             }
             default:

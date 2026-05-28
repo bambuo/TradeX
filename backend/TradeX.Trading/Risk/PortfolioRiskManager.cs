@@ -67,6 +67,14 @@ public class PortfolioRiskManager(
 
         var totalPortfolioValue = openPositions.Sum(p => p.CurrentPrice * p.Quantity);
 
+        // 最近一次交易活动时间（持仓开仓 / 当日平仓中取最新）用于冷却期判定
+        DateTime? lastTradeTime = null;
+        if (openPositions.Count > 0)
+            lastTradeTime = openPositions.Max(p => p.OpenedAtUtc);
+        var lastClose = closedToday.Where(p => p.ClosedAtUtc.HasValue).Select(p => p.ClosedAtUtc!.Value);
+        foreach (var c in lastClose)
+            if (lastTradeTime is null || c > lastTradeTime) lastTradeTime = c;
+
         return new RiskContext
         {
             TraderId = traderId,
@@ -77,6 +85,7 @@ public class PortfolioRiskManager(
             DailyProfit = dailyProfit,
             ConsecutiveLossCount = consecutiveLosses,
             OpenPositionCount = openPositions.Count,
+            LastTradeTimeUtc = lastTradeTime,
             MaxDailyLoss = settings.MaxDailyLoss,
             MaxDrawdownPercent = settings.MaxDrawdownPercent,
             MaxConsecutiveLosses = settings.MaxConsecutiveLosses,

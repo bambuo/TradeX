@@ -13,17 +13,19 @@ namespace TradeX.Trading.Outbox;
 /// 后台轮询 outbox_events 表，将 Pending 事件发布到 Redis tradex:events 频道。
 /// 解决"业务写 DB 已提交但 Redis 发布失败 → 事件永远丢失"的一致性漏洞。
 ///
-/// 与 <c>RedisEventBus</c> 配合：业务路径调用 <c>OutboxTradingEventBus</c>（写 outbox），
-/// 后台 relay 异步把 outbox 内容 publish 到 Redis；Redis 消费侧不变。
+/// 配合 <c>OutboxTradingEventBus</c>：业务路径写 outbox 行，本 relay 异步 XADD 到
+/// tradex:events Stream，消费组（如 RedisToSignalRBridge）订阅后处理。
 ///
 /// 设计点：
-/// - 轮询间隔 2 秒（事件延迟可接受 &lt;5s；前端 SignalR 实时性要求由 Redis Pub/Sub 满足）
-/// - 失败重试最多 5 次，超过置 Failed 状态人工排查
-/// - 单实例运行；多实例同时跑无大碍（每行被多次发布，订阅端去重靠业务）
+/// - 轮询间隔 2 秒（事件延迟可接受 &lt;5s）
+/// - 失败重试最多 5 次，超过置 Failed 状态并上报 OutboxEventsFailed 指标供告警
+/// - 仅在 Worker 进程运行，而 Worker 由 <c>WorkerSingleInstanceGuard</c> 强制单实例，
+///   故不存在多 relay 重复 XADD；消费端另有 entryId 去重作二次防护
 /// </summary>
 public sealed class OutboxRelayService(
     IServiceScopeFactory scopeFactory,
     IConnectionMultiplexer redis,
+    TradeX.Trading.Observability.TradeXMetrics metrics,
     ILogger<OutboxRelayService> logger) : BackgroundService
 {
     private const int BatchSize = 50;
@@ -79,7 +81,12 @@ public sealed class OutboxRelayService(
             {
                 logger.LogWarning(ex, "Outbox 事件发布失败 Id={Id} Type={Type} Attempt={Attempt}",
                     evt.Id, evt.Type, evt.AttemptCount + 1);
-                await repo.MarkFailedAsync(evt.Id, ex.Message, MaxAttempts, ct);
+                var dead = await repo.MarkFailedAsync(evt.Id, ex.Message, MaxAttempts, ct);
+                if (dead)
+                {
+                    metrics.OutboxEventsFailed.Add(1, new KeyValuePair<string, object?>("type", evt.Type));
+                    logger.LogError("Outbox 事件重试耗尽进入 Failed 终态（毒消息）Id={Id} Type={Type}", evt.Id, evt.Type);
+                }
             }
         }
         return batch.Count;

@@ -20,10 +20,10 @@ public class BacktestEngine(IIndicatorRegistry indicators, IConditionEvaluator c
         CancellationToken ct = default)
     {
         if (klines.Count < 50)
-            return (CreateEmptyResult("数据不足，至少需要 50 根 K 线"), [], []);
+            return (CreateEmptyResult("数据不足，至少需要 50 根 K 线", initialCapital), [], []);
 
         if (klines.Count > MaxKlines)
-            return (CreateEmptyResult($"数据量过大，超过 {MaxKlines} 根 K 线上限"), [], []);
+            return (CreateEmptyResult($"数据量过大，超过 {MaxKlines} 根 K 线上限", initialCapital), [], []);
 
         List<BacktestTrade> trades = [];
         List<BacktestKlineAnalysis> analysis = [];
@@ -32,8 +32,11 @@ public class BacktestEngine(IIndicatorRegistry indicators, IConditionEvaluator c
         var entryPrice = 0m;
         var entryIndex = 0;
         var entryQuantity = 0m;
-        var workedCapital = initialCapital;
+        // 现金 + 持仓市值 = 账户权益。现金随平仓回笼，全仓模式下次入场即用最新现金 → 自然复利。
+        var cash = initialCapital;
         var inPosition = false;
+        // 每根 K 线的账户权益序列，用于回撤 / Sharpe（基于策略资金曲线而非标的价格）。
+        List<decimal> equityCurve = [];
 
         for (var i = 50; i < prices.Length; i++)
         {
@@ -53,16 +56,16 @@ public class BacktestEngine(IIndicatorRegistry indicators, IConditionEvaluator c
             if (!inPosition)
             {
                 var shouldEnter = conditionEvaluator.Evaluate(strategy.EntryCondition, currentValues, previousValues);
-                if (shouldEnter)
+                if (shouldEnter && kline.Close > 0)
                 {
                     inPosition = true;
                     action = "enter";
                     entryPrice = kline.Close;
                     entryIndex = i;
-                    // positionSize 指定时按固定金额入场，否则全仓
-                    entryQuantity = entryPrice > 0
-                        ? (positionSize.HasValue ? positionSize.Value / entryPrice : workedCapital / entryPrice)
-                        : 0m;
+                    // positionSize 指定时按固定金额（不超过可用现金）入场，否则全仓投入当前现金（复利）
+                    var capitalToUse = positionSize.HasValue ? Math.Min(positionSize.Value, cash) : cash;
+                    entryQuantity = capitalToUse / entryPrice;
+                    cash -= entryQuantity * entryPrice;
                 }
 
                 analysis.Add(new BacktestKlineAnalysis(
@@ -90,13 +93,14 @@ public class BacktestEngine(IIndicatorRegistry indicators, IConditionEvaluator c
                     var exitPrice = kline.Close;
                     var qty = entryQuantity;
                     var pnl = (exitPrice - entryPrice) * qty;
-                    var pnlPercent = (exitPrice - entryPrice) / entryPrice * 100;
+                    var pnlPercent = entryPrice > 0 ? (exitPrice - entryPrice) / entryPrice * 100 : 0;
 
                     trades.Add(new BacktestTrade(
                         entryIndex, i,
                         klines[entryIndex].Timestamp, kline.Timestamp,
                         entryPrice, exitPrice, qty, pnl, pnlPercent));
 
+                    cash += qty * exitPrice; // 平仓资金回笼，驱动复利
                     inPosition = false;
                     action = "exit";
                     entryQuantity = 0m;
@@ -113,36 +117,32 @@ public class BacktestEngine(IIndicatorRegistry indicators, IConditionEvaluator c
                     pnlPercentForRow));
             }
 
+            // 账户权益 = 现金 + 当前持仓市值
+            equityCurve.Add(cash + (inPosition ? entryQuantity * kline.Close : 0m));
+
             onAnalysis?.Invoke(analysis[^1]);
         }
 
-        if (inPosition)
-        {
-            var lastIdx = prices.Length - 1;
-            var exitPrice = klines[lastIdx].Close;
-            var qty = entryQuantity;
-            var pnl = (exitPrice - entryPrice) * qty;
-            var pnlPercent = (exitPrice - entryPrice) / entryPrice * 100;
-            trades.Add(new BacktestTrade(
-                entryIndex, lastIdx,
-                klines[entryIndex].Timestamp, klines[lastIdx].Timestamp,
-                entryPrice, exitPrice, qty, pnl, pnlPercent));
-        }
-
-        var result = CalculateMetrics(trades, klines, prices);
+        var finalEquity = equityCurve.Count > 0 ? equityCurve[^1] : initialCapital;
+        var result = CalculateMetrics(trades, klines, equityCurve, initialCapital, finalEquity, timeframe);
         return (result, trades, analysis);
     }
 
     private static BacktestResult CalculateMetrics(
         IReadOnlyList<BacktestTrade> trades,
         IReadOnlyList<Candle> klines,
-        decimal[] prices)
+        IReadOnlyList<decimal> equityCurve,
+        decimal initialCapital,
+        decimal finalEquity,
+        string? timeframe)
     {
         var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
         if (trades.Count == 0)
             return new BacktestResult
             {
+                InitialCapital = initialCapital,
+                FinalValue = initialCapital,
                 TotalReturnPercent = 0,
                 AnnualizedReturnPercent = 0,
                 MaxDrawdownPercent = 0,
@@ -156,37 +156,28 @@ public class BacktestEngine(IIndicatorRegistry indicators, IConditionEvaluator c
         var wins = trades.Count(t => t.PnL > 0);
         var winRate = (decimal)wins / trades.Count * 100;
 
-        var totalReturn = trades.Sum(t => t.PnLPercent);
+        // 总收益基于账户权益（期末/期初），而非各笔百分比简单累加
+        var totalReturn = initialCapital > 0 ? (finalEquity - initialCapital) / initialCapital * 100 : 0;
+
         var totalDays = (klines[^1].Timestamp - klines[0].Timestamp).TotalDays;
         var annualizedReturn = 0m;
-        if (totalDays > 0)
+        if (totalDays > 0 && initialCapital > 0 && finalEquity > 0)
         {
-            var baseVal = 1 + (double)Math.Max(-50, Math.Min(9999, totalReturn)) / 100;
-            if (baseVal > 0)
-                annualizedReturn = (decimal)Math.Max(-9999, Math.Min(9999, Math.Pow(baseVal, 365.0 / totalDays) - 1)) * 100;
+            var growth = (double)(finalEquity / initialCapital);
+            annualizedReturn = (decimal)Math.Max(-9999, Math.Min(9999, Math.Pow(growth, 365.0 / totalDays) - 1)) * 100;
         }
 
-        var peak = prices[0];
-        var maxDrawdown = 0m;
-        foreach (var price in prices)
-        {
-            if (price > peak) peak = price;
-            var dd = (peak - price) / peak * 100;
-            if (dd > maxDrawdown) maxDrawdown = dd;
-        }
+        // 最大回撤基于账户权益曲线（策略真实回撤），而非标的价格
+        var maxDrawdown = ComputeMaxDrawdown(equityCurve);
 
-        var avgReturn = trades.Count > 0 ? trades.Average(t => t.PnLPercent) : 0;
-        var stdDev = trades.Count > 1
-            ? (decimal)Math.Sqrt(Math.Max(0, Math.Min(1e10, trades.Average(t => Math.Pow((double)Math.Max(-9999, Math.Min(9999, t.PnLPercent - avgReturn)), 2)))))
-            : 1;
-        var sharpe = stdDev > 0 ? avgReturn / stdDev * (decimal)Math.Sqrt(365) : 0;
+        // Sharpe：账户权益的逐根收益率，按 timeframe 推导的年化周期数缩放
+        var sharpe = ComputeSharpe(equityCurve, timeframe);
 
         var totalWin = trades.Where(t => t.PnL > 0).Sum(t => t.PnL);
         var totalLoss = trades.Where(t => t.PnL <= 0).Sum(t => Math.Abs(t.PnL));
         var profitLossRatio = totalLoss > 0 ? totalWin / totalLoss : totalWin > 0 ? totalWin : 0;
 
         // 保持与历史 BacktestResult.Details 一致的字段名 (pnL/pnLPercent), 避免前端读取失败.
-        // CamelCase 策略对 "PnL"/"PnLPercent" 只小写首字母, 输出即 pnL/pnLPercent.
         var details = JsonSerializer.Serialize(trades.Select(t => new
         {
             t.EnteredAt, t.ExitedAt, t.EntryPrice, t.ExitPrice,
@@ -195,6 +186,8 @@ public class BacktestEngine(IIndicatorRegistry indicators, IConditionEvaluator c
 
         return new BacktestResult
         {
+            InitialCapital = initialCapital,
+            FinalValue = Math.Round(finalEquity, 2),
             TotalReturnPercent = Math.Round(totalReturn, 2),
             AnnualizedReturnPercent = Math.Round(annualizedReturn, 2),
             MaxDrawdownPercent = Math.Round(maxDrawdown, 2),
@@ -206,9 +199,64 @@ public class BacktestEngine(IIndicatorRegistry indicators, IConditionEvaluator c
         };
     }
 
-    private static BacktestResult CreateEmptyResult(string reason)
+    private static decimal ComputeMaxDrawdown(IReadOnlyList<decimal> equityCurve)
+    {
+        if (equityCurve.Count == 0) return 0m;
+        var peak = equityCurve[0];
+        var maxDrawdown = 0m;
+        foreach (var equity in equityCurve)
+        {
+            if (equity > peak) peak = equity;
+            if (peak > 0)
+            {
+                var dd = (peak - equity) / peak * 100;
+                if (dd > maxDrawdown) maxDrawdown = dd;
+            }
+        }
+        return maxDrawdown;
+    }
+
+    private static decimal ComputeSharpe(IReadOnlyList<decimal> equityCurve, string? timeframe)
+    {
+        if (equityCurve.Count < 3) return 0m;
+
+        var returns = new List<double>(equityCurve.Count - 1);
+        for (var i = 1; i < equityCurve.Count; i++)
+        {
+            var prev = (double)equityCurve[i - 1];
+            if (prev <= 0) continue;
+            returns.Add((double)equityCurve[i] / prev - 1);
+        }
+        if (returns.Count < 2) return 0m;
+
+        var mean = returns.Average();
+        var variance = returns.Average(r => Math.Pow(r - mean, 2));
+        var stdDev = Math.Sqrt(Math.Max(0, variance));
+        if (stdDev <= 0) return 0m;
+
+        var periodsPerYear = PeriodsPerYear(timeframe);
+        var sharpe = mean / stdDev * Math.Sqrt(periodsPerYear);
+        return (decimal)Math.Max(-9999, Math.Min(9999, sharpe));
+    }
+
+    // 一年内该周期的 K 线根数，用于把逐根收益率年化
+    private static double PeriodsPerYear(string? timeframe) => timeframe switch
+    {
+        "1m" => 525_600,
+        "5m" => 105_120,
+        "15m" => 35_040,
+        "30m" => 17_520,
+        "1h" => 8_760,
+        "4h" => 2_190,
+        "1d" => 365,
+        _ => 365
+    };
+
+    private static BacktestResult CreateEmptyResult(string reason, decimal initialCapital)
         => new()
         {
+            InitialCapital = initialCapital,
+            FinalValue = initialCapital,
             TotalReturnPercent = 0,
             AnnualizedReturnPercent = 0,
             MaxDrawdownPercent = 0,

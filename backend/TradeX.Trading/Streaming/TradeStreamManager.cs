@@ -142,6 +142,7 @@ public sealed class TradeStreamManager(
 
     private async Task RunSubscriptionLoopAsync(string key, SubscriptionState state, CancellationToken ct)
     {
+        await Task.Yield();
         var retryDelay = TimeSpan.FromSeconds(1);
         const int maxRetryDelaySeconds = 30;
 
@@ -158,6 +159,10 @@ public sealed class TradeStreamManager(
                     var evt = new TradeEvent(state.Pair, state.ExchangeType, state.ExchangeId, trade);
                     await tradeChannel.Writer.WriteAsync(evt, ct);
                 }
+
+                state.MarkDisconnected();
+                try { await Task.Delay(retryDelay, ct); }
+                catch (OperationCanceledException) { break; }
             }
             catch (OperationCanceledException) { break; }
             catch (Exception ex) when (!ct.IsCancellationRequested)

@@ -8,7 +8,6 @@ namespace TradeX.Trading.Backtest;
 public class BacktestService(
     IStrategyRepository strategyRepo,
     IBacktestTaskRepository taskRepo,
-    IBacktestTaskQueue queue,
     IBacktestTaskNotifier notifier,
     ILogger<BacktestService> logger) : IBacktestService
 {
@@ -38,7 +37,6 @@ public class BacktestService(
         };
 
         await taskRepo.AddAsync(task, ct);
-        await queue.EnqueueAsync(task.Id, ct);
         // 跨进程通知（API → Worker）；Redis 未配置时为 no-op，Worker 端兜底扫描会捡起
         await notifier.NotifyTaskQueuedAsync(task.Id, ct);
 

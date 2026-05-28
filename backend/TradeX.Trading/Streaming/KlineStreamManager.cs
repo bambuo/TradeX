@@ -129,6 +129,7 @@ public sealed class KlineStreamManager(
 
     private async Task RunSubscriptionLoopAsync(string key, KlineSubscriptionState state, CancellationToken ct)
     {
+        await Task.Yield();
         var retryDelay = TimeSpan.FromSeconds(1);
         const int maxRetryDelaySeconds = 30;
 
@@ -145,7 +146,7 @@ public sealed class KlineStreamManager(
                 DateTime? lastOpenTime = null;
                 Candle? lastCandle = null;
 
-                await foreach (var candle in client.SubscribeKlinesAsync(state.Pair, state.Interval, ct))
+                await foreach (var candle in client.SubscribeKlinesStreamAsync(state.Pair, state.Interval, ct))
                 {
                     retryDelay = TimeSpan.FromSeconds(1);
                     state.MarkConnected();
@@ -170,6 +171,10 @@ public sealed class KlineStreamManager(
                     lastOpenTime = candle.Timestamp;
                     lastCandle = candle;
                 }
+
+                state.MarkDisconnected();
+                try { await Task.Delay(retryDelay, ct); }
+                catch (OperationCanceledException) { break; }
             }
             catch (OperationCanceledException) { break; }
             catch (Exception ex) when (!ct.IsCancellationRequested)

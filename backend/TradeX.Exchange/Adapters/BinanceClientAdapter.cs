@@ -185,7 +185,11 @@ public class BinanceClientAdapter : IExchangeClient
         var r = await _client.SpotApi.Trading.PlaceOrderAsync(request.Pair, side, type,
             quantity: request.Quantity, price: request.Price, newClientOrderId: request.ClientOrderId, ct: ct);
         if (!r.Success) return new OrderResult(false, null, 0, 0, 0, r.Error?.Message ?? "下单失败");
-        return new OrderResult(true, r.Data.Id.ToString(), r.Data.QuantityFilled, r.Data.AverageFillPrice ?? 0, 0, null);
+        // 手续费来自成交明细（Trades），同一订单可能含多笔不同费币，汇总后取首笔费币
+        var fee = r.Data.Trades?.Sum(t => t.Fee) ?? 0m;
+        var feeAsset = r.Data.Trades?.FirstOrDefault()?.FeeAsset;
+        return new OrderResult(true, r.Data.Id.ToString(), r.Data.QuantityFilled, r.Data.AverageFillPrice ?? 0,
+            Math.Abs(fee), null, feeAsset);
     }
 
     public async Task<OrderResult> CancelOrderAsync(string pair, string exchangeOrderId, CancellationToken ct = default)

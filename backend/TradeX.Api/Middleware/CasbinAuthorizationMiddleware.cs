@@ -14,6 +14,7 @@ public class CasbinAuthorizationMiddleware(RequestDelegate next)
         "/api/auth/login",
         "/api/auth/verify-mfa",
         "/api/auth/refresh",
+        "/api/strategies/schema",
         "/api/auth/mfa/setup",
         "/api/auth/mfa/verify",
         "/api/auth/send-recovery-codes"

@@ -325,7 +325,7 @@ public sealed class StrategyEvaluationConsumer(
                     Pair = pair,
                     Side = OrderSide.Buy,
                     Type = OrderType.Market,
-                    Quantity = volatilityRule?.BasePositionSize ?? 100,
+                    Quantity = 0,
                     QuoteQuantity = volatilityRule?.BasePositionSize ?? 100
                 };
 

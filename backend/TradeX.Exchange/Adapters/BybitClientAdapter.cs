@@ -197,7 +197,12 @@ public class BybitClientAdapter : IExchangeClient
         var r = await _client.V5Api.Trading.PlaceOrderAsync(Category.Spot, request.Pair, side, type,
             quantity: request.Quantity, price: request.Price, clientOrderId: request.ClientOrderId, ct: ct);
         if (!r.Success) return new OrderResult(false, null, 0, 0, 0, r.Error?.Message ?? "下单失败");
-        return new OrderResult(true, r.Data.OrderId, 0, 0, 0, null);
+        // Bybit 下单仅返回 orderId，成交量/均价/手续费需回查订单补全
+        var orderId = r.Data.OrderId;
+        var detail = await GetOrderAsync(request.Pair, orderId, ct);
+        return detail.Success
+            ? detail with { ExchangeOrderId = orderId }
+            : new OrderResult(true, orderId, 0, 0, 0, null);
     }
 
     public async Task<OrderResult> CancelOrderAsync(string pair, string exchangeOrderId, CancellationToken ct = default)
@@ -215,7 +220,7 @@ public class BybitClientAdapter : IExchangeClient
         if (!r.Success) return new OrderResult(false, null, 0, 0, 0, r.Error?.Message ?? "查询订单失败");
         var o = r.Data.List.FirstOrDefault();
         if (o is null) return new OrderResult(false, null, 0, 0, 0, "订单不存在");
-        return new OrderResult(true, exchangeOrderId, o.QuantityFilled ?? 0, o.AveragePrice ?? 0, 0, null);
+        return new OrderResult(true, exchangeOrderId, o.QuantityFilled ?? 0, o.AveragePrice ?? 0, Math.Abs(o.ExecutedFee ?? 0), null, o.FeeAsset);
     }
 
     public async Task<OrderResult> GetOrderByClientOrderIdAsync(string pair, string clientOrderId, CancellationToken ct = default)
@@ -225,7 +230,7 @@ public class BybitClientAdapter : IExchangeClient
         if (!r.Success) return new OrderResult(false, null, 0, 0, 0, r.Error?.Message ?? "按订单号查询失败");
         var o = r.Data.List.FirstOrDefault();
         if (o is null) return new OrderResult(false, null, 0, 0, 0, "订单不存在");
-        return new OrderResult(true, o.OrderId, o.QuantityFilled ?? 0, o.AveragePrice ?? 0, 0, null);
+        return new OrderResult(true, o.OrderId, o.QuantityFilled ?? 0, o.AveragePrice ?? 0, Math.Abs(o.ExecutedFee ?? 0), null, o.FeeAsset);
     }
 
     public async Task<OrderResult[]> GetRecentOrdersAsync(DateTime since, CancellationToken ct = default)
