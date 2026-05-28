@@ -13,6 +13,10 @@
 **/docker-compose*
 **/secrets.dev.yaml
 **/values.dev.yaml
+**/.env
+**/*.key
+**/*.pem
+**/*.crt
 LICENSE
 README.md
 docs

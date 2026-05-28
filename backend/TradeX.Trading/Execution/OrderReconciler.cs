@@ -24,6 +24,7 @@ public class OrderReconciler(
     IOrderRepository orderRepo,
     IExchangeClientFactory clientFactory,
     IEncryptionService encryption,
+    IOutboxRepository outbox,
     IOptions<RiskSettings> riskSettings,
     ILogger<OrderReconciler> logger) : IOrderReconciler
 {
@@ -143,6 +144,67 @@ public class OrderReconciler(
         if (totalChecked > 0)
             logger.LogInformation("Reconciliation 完成: 检查 {CheckedCount} 笔, 修复 {FixedCount} 笔",
                 totalChecked, totalFixed);
+    }
+
+    public async Task<int> DetectOrphanOrdersAsync(CancellationToken ct = default)
+    {
+        var enabledExchanges = await exchangeRepo.GetAllEnabledAsync(ct);
+        if (enabledExchanges.Count == 0) return 0;
+
+        var totalOrphans = 0;
+
+        foreach (var exchange in enabledExchanges)
+        {
+            if (ct.IsCancellationRequested) break;
+            var client = TryCreateClient(exchange);
+            if (client is null) continue;
+
+            ExchangeOrderDto[] openOrders;
+            try
+            {
+                openOrders = await client.GetOpenOrdersAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "孤儿检测: 拉取未结订单失败, ExchangeId={ExchangeId}", exchange.Id);
+                continue;
+            }
+
+            foreach (var remote in openOrders)
+            {
+                if (ct.IsCancellationRequested) break;
+                if (string.IsNullOrEmpty(remote.ExchangeOrderId)) continue;
+
+                var local = await orderRepo.GetByExchangeOrderIdAsync(remote.ExchangeOrderId, ct);
+                if (local is not null) continue;
+
+                totalOrphans++;
+                var payload = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    exchangeId = exchange.Id,
+                    exchangeType = exchange.Type.ToString(),
+                    pair = remote.Pair,
+                    exchangeOrderId = remote.ExchangeOrderId,
+                    side = remote.Side,
+                    type = remote.Type,
+                    price = remote.Price,
+                    quantity = remote.Quantity,
+                    detectedAt = DateTime.UtcNow
+                });
+                await outbox.EnqueueAsync(new OutboxEvent
+                {
+                    Type = "OrphanOrderDetected",
+                    PayloadJson = payload,
+                    TraderId = null
+                }, ct);
+                logger.LogWarning("孤儿订单检测: ExchangeId={ExchangeId}, Pair={Pair}, ExchangeOrderId={Eid}",
+                    exchange.Id, remote.Pair, remote.ExchangeOrderId);
+            }
+        }
+
+        if (totalOrphans > 0)
+            logger.LogWarning("孤儿订单巡检完成: 共发现 {Count} 笔交易所未结订单本地缺失记录", totalOrphans);
+        return totalOrphans;
     }
 
     private IExchangeClient? TryCreateClient(TradeX.Core.Models.Exchange exchange)

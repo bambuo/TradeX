@@ -6,6 +6,7 @@ namespace TradeX.Trading.Events;
 /// </summary>
 public sealed record TradingEventEnvelope(
     string Type,
+    Guid TraceId,
     Guid TraderId,
     string DataJson);
 

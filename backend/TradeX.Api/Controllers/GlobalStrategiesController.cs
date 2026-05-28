@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using TradeX.Core.ErrorCodes;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
+using TradeX.Indicators;
+using TradeX.Trading.Engine;
 
 namespace TradeX.Api.Controllers;
 
@@ -10,8 +12,53 @@ namespace TradeX.Api.Controllers;
 [Route("api/strategies")]
 [Authorize]
 public class StrategiesController(
-    IStrategyRepository strategyRepo) : ControllerBase
+    IStrategyRepository strategyRepo,
+    ConditionTreeValidator validator,
+    IIndicatorRegistry indicatorRegistry) : ControllerBase
 {
+    /// <summary>前端可视化编辑器拉取可用指标列表 + 合法运算符, 用于条件树节点下拉.</summary>
+    [HttpGet("schema")]
+    [AllowAnonymous]
+    public IActionResult GetSchema() => Ok(new
+    {
+        indicators = indicatorRegistry.RegisteredNames.OrderBy(n => n).ToArray(),
+        comparisons = new[] { ">", "<", ">=", "<=", "==", "CrossAbove", "CrossBelow" },
+        groupOperators = new[] { "AND", "OR", "NOT" }
+    });
+
+    /// <summary>前端实时校验条件树, 不持久化. 用于编辑器即时反馈错误.</summary>
+    [HttpPost("validate")]
+    public IActionResult ValidateConditionTree([FromBody] ValidateRequest request)
+    {
+        var entry = validator.Validate(request.EntryCondition ?? "{}");
+        var exit = validator.Validate(request.ExitCondition ?? "{}");
+        return Ok(new
+        {
+            valid = entry.IsValid && exit.IsValid,
+            entryIssues = entry.Issues,
+            exitIssues = exit.Issues
+        });
+    }
+
+    public record ValidateRequest(string? EntryCondition, string? ExitCondition);
+
+    private IActionResult? ValidateConditions(string? entry, string? exit)
+    {
+        var issues = new List<ValidationIssue>();
+        if (entry is not null)
+        {
+            var r = validator.Validate(entry);
+            if (!r.IsValid) issues.AddRange(r.Issues.Select(i => new ValidationIssue($"EntryCondition.{i.Path[2..]}", i.Message)));
+        }
+        if (exit is not null)
+        {
+            var r = validator.Validate(exit);
+            if (!r.IsValid) issues.AddRange(r.Issues.Select(i => new ValidationIssue($"ExitCondition.{i.Path[2..]}", i.Message)));
+        }
+        return issues.Count == 0
+            ? null
+            : StatusCode(400, new { code = BusinessErrorCode.ValidationError, message = "条件树校验失败", issues });
+    }
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken ct)
     {
@@ -47,6 +94,9 @@ public class StrategiesController(
         if (string.IsNullOrWhiteSpace(request.Name))
             return this.BadRequest(BusinessErrorCode.ValidationError, "策略名称不能为空");
 
+        var validationError = ValidateConditions(request.EntryCondition, request.ExitCondition);
+        if (validationError is not null) return validationError;
+
         var strategy = new Strategy
         {
             Name = request.Name,
@@ -69,6 +119,9 @@ public class StrategiesController(
         var strategy = await strategyRepo.GetByIdAsync(id, ct);
         if (strategy is null)
             return this.NotFound(BusinessErrorCode.StrategyNotFound, "策略不存在");
+
+        var validationError = ValidateConditions(request.EntryCondition, request.ExitCondition);
+        if (validationError is not null) return validationError;
 
         if (request.Name is not null)
             strategy.Name = request.Name;

@@ -16,7 +16,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  update: [node: ConditionNode]
+  update: [node: ConditionNode | null]
 }>()
 
 const isLeaf = computed(() => !props.node.conditions || props.node.conditions.length === 0)
@@ -25,7 +25,7 @@ const indicators = ['RSI', 'SMA_20', 'SMA_50', 'EMA_20', 'MACD_LINE', 'MACD_SIGN
 const comparisons = ['>', '<', '>=', '<=', '==', 'CrossAbove', 'CrossBelow']
 
 function removeFromParent() {
-  emit('update', null as unknown as ConditionNode)
+  emit('update', null)
 }
 
 function updateChild(index: number, child: ConditionNode | null) {
@@ -70,7 +70,7 @@ function updateField(field: string, value: unknown) {
           :key="i"
           :node="child"
           :depth="(depth || 0) + 1"
-          @update="(c: ConditionNode) => updateChild(i, c)"
+          @update="(c: ConditionNode | null) => updateChild(i, c)"
         />
       </div>
       <div class="add-actions">

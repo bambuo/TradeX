@@ -116,6 +116,7 @@ public sealed class RedisToSignalRBridge(
         var envelope = JsonSerializer.Deserialize<TradingEventEnvelope>(raw, Json);
         if (envelope is null) return;
         var group = hub.Clients.Group($"trader_{envelope.TraderId}");
+        var traceId = envelope.TraceId;
 
         switch (envelope.Type)
         {
@@ -125,7 +126,7 @@ public sealed class RedisToSignalRBridge(
                 if (p is null) return;
                 await group.SendAsync(TradingHub.PositionUpdated, new PositionUpdatedEvent(
                     p.PositionId, p.TraderId, p.ExchangeId, p.StrategyId, p.Pair, p.Quantity,
-                    p.EntryPrice, p.UnrealizedPnl, p.RealizedPnl, p.Status, p.UpdatedAt));
+                    p.EntryPrice, p.UnrealizedPnl, p.RealizedPnl, p.Status, p.UpdatedAt, traceId));
                 break;
             }
             case TradingEventTypes.OrderPlaced:
@@ -134,7 +135,7 @@ public sealed class RedisToSignalRBridge(
                 if (p is null) return;
                 await group.SendAsync(TradingHub.OrderPlaced, new OrderPlacedEvent(
                     p.OrderId, p.TraderId, p.ExchangeId, p.StrategyId, p.Pair,
-                    p.Side, p.Type, p.Status, p.Quantity, p.PlacedAtUtc));
+                    p.Side, p.Type, p.Status, p.Quantity, p.PlacedAtUtc, traceId));
                 break;
             }
             case TradingEventTypes.BindingStatusChanged:
@@ -142,7 +143,7 @@ public sealed class RedisToSignalRBridge(
                 var p = JsonSerializer.Deserialize<BindingStatusChangedPayload>(envelope.DataJson, Json);
                 if (p is null) return;
                 await group.SendAsync(TradingHub.BindingStatusChanged, new BindingStatusChangedEvent(
-                    p.StrategyId, p.TraderId, p.OldStatus, p.NewStatus, p.Reason, p.ChangedAtUtc));
+                    p.StrategyId, p.TraderId, p.OldStatus, p.NewStatus, p.Reason, p.ChangedAtUtc, traceId));
                 break;
             }
             case TradingEventTypes.RiskAlert:
@@ -150,7 +151,7 @@ public sealed class RedisToSignalRBridge(
                 var p = JsonSerializer.Deserialize<RiskAlertPayload>(envelope.DataJson, Json);
                 if (p is null) return;
                 await group.SendAsync(TradingHub.RiskAlert, new RiskAlertEvent(
-                    p.AlertId, p.Level, p.Category, p.TraderId, p.StrategyId, p.Message, p.TriggeredAtUtc));
+                    p.AlertId, p.Level, p.Category, p.TraderId, p.StrategyId, p.Message, p.TriggeredAtUtc, traceId));
                 break;
             }
             case TradingEventTypes.DashboardSummary:
@@ -158,7 +159,7 @@ public sealed class RedisToSignalRBridge(
                 var p = JsonSerializer.Deserialize<DashboardSummaryPayload>(envelope.DataJson, Json);
                 if (p is null) return;
                 await group.SendAsync(TradingHub.DashboardSummary, new DashboardSummaryEvent(
-                    p.TotalPnl, p.TotalPositions, p.ActiveStrategies, p.DailyPnl, p.WinRate, p.LastUpdateAtUtc));
+                    p.TotalPnl, p.TotalPositions, p.ActiveStrategies, p.DailyPnl, p.WinRate, p.LastUpdateAtUtc, traceId));
                 break;
             }
             case TradingEventTypes.ExchangeConnectionChanged:
@@ -166,7 +167,7 @@ public sealed class RedisToSignalRBridge(
                 var p = JsonSerializer.Deserialize<ExchangeConnectionChangedPayload>(envelope.DataJson, Json);
                 if (p is null) return;
                 await group.SendAsync(TradingHub.ExchangeConnectionChanged, new ExchangeConnectionChangedEvent(
-                    p.ExchangeId, p.TraderId, p.OldStatus, p.NewStatus, p.ErrorMessage, p.ChangedAtUtc));
+                    p.ExchangeId, p.TraderId, p.OldStatus, p.NewStatus, p.ErrorMessage, p.ChangedAtUtc, traceId));
                 break;
             }
             default:

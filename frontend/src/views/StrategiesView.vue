@@ -193,7 +193,7 @@ onMounted(load)
           <span class="section-label">入场条件</span>
           <ConditionTreeEditor
             :node="entryNode"
-            @update="(n: ConditionNode) => entryNode = n"
+            @update="(n: ConditionNode | null) => { if (n) entryNode = n }"
           />
         </div>
 
@@ -201,7 +201,7 @@ onMounted(load)
           <span class="section-label">出场条件</span>
           <ConditionTreeEditor
             :node="exitNode"
-            @update="(n: ConditionNode) => exitNode = n"
+            @update="(n: ConditionNode | null) => { if (n) exitNode = n }"
           />
         </div>
 

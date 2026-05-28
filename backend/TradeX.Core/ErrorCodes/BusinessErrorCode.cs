@@ -21,6 +21,7 @@ public enum BusinessErrorCode
     AuthRefreshTokenInvalid = 1107,
     AuthUsernameExists = 1108,
     AuthInvalidRole = 1109,
+    AuthInsufficientPermissions = 1110,
 
     // Setup 1150-
     SetupAlreadyInitialized = 1150,

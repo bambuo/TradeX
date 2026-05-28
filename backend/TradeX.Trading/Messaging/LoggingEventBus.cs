@@ -13,52 +13,58 @@ public sealed class LoggingEventBus(ILogger<LoggingEventBus> logger) : ITradingE
 {
     public Task PositionUpdatedAsync(Guid traderId, Guid positionId, Guid exchangeId, Guid strategyId,
         string Pair, decimal quantity, decimal entryPrice, decimal unrealizedPnl,
-        decimal realizedPnl, string status, DateTime updatedAtUtc, CancellationToken ct = default)
+        decimal realizedPnl, string status, DateTime updatedAtUtc,
+        CancellationToken ct = default, Guid? traceId = null)
     {
-        logger.LogDebug("EventBus(Logging) PositionUpdated: TraderId={Trader}, Pair={Pair}, Status={Status}, RealizedPnl={Pnl}",
-            traderId, Pair, status, realizedPnl);
+        logger.LogDebug("EventBus(Logging) PositionUpdated: TraceId={TraceId}, TraderId={Trader}, Pair={Pair}, Status={Status}, RealizedPnl={Pnl}",
+            traceId ?? Guid.Empty, traderId, Pair, status, realizedPnl);
         return Task.CompletedTask;
     }
 
     public Task OrderPlacedAsync(Guid traderId, Guid orderId, Guid exchangeId, Guid? strategyId,
         string Pair, string side, string type, string status,
-        decimal quantity, DateTime placedAtUtc, CancellationToken ct = default)
+        decimal quantity, DateTime placedAtUtc,
+        CancellationToken ct = default, Guid? traceId = null)
     {
-        logger.LogDebug("EventBus(Logging) OrderPlaced: TraderId={Trader}, OrderId={Order}, {Side} {Type} {Pair} qty={Qty} status={Status}",
-            traderId, orderId, side, type, Pair, quantity, status);
+        logger.LogDebug("EventBus(Logging) OrderPlaced: TraceId={TraceId}, TraderId={Trader}, OrderId={Order}, {Side} {Type} {Pair} qty={Qty} status={Status}",
+            traceId ?? Guid.Empty, traderId, orderId, side, type, Pair, quantity, status);
         return Task.CompletedTask;
     }
 
     public Task BindingStatusChangedAsync(Guid traderId, Guid strategyId, string oldStatus,
-        string newStatus, string? reason, CancellationToken ct = default)
+        string newStatus, string? reason,
+        CancellationToken ct = default, Guid? traceId = null)
     {
-        logger.LogDebug("EventBus(Logging) BindingStatusChanged: TraderId={Trader}, StrategyId={Strategy}, {Old}→{New}, Reason={Reason}",
-            traderId, strategyId, oldStatus, newStatus, reason);
+        logger.LogDebug("EventBus(Logging) BindingStatusChanged: TraceId={TraceId}, TraderId={Trader}, StrategyId={Strategy}, {Old}→{New}, Reason={Reason}",
+            traceId ?? Guid.Empty, traderId, strategyId, oldStatus, newStatus, reason);
         return Task.CompletedTask;
     }
 
     public Task RiskAlertAsync(Guid traderId, string level, string category, Guid? strategyId,
-        string message, CancellationToken ct = default)
+        string message,
+        CancellationToken ct = default, Guid? traceId = null)
     {
-        logger.LogWarning("EventBus(Logging) RiskAlert[{Level}/{Category}]: TraderId={Trader}, StrategyId={Strategy}, Msg={Msg}",
-            level, category, traderId, strategyId, message);
+        logger.LogWarning("EventBus(Logging) RiskAlert[{Level}/{Category}]: TraceId={TraceId}, TraderId={Trader}, StrategyId={Strategy}, Msg={Msg}",
+            level, category, traceId ?? Guid.Empty, traderId, strategyId, message);
         return Task.CompletedTask;
     }
 
     public Task DashboardSummaryAsync(Guid traderId, decimal totalPnl, int totalPositions,
         int activeStrategies, decimal dailyPnl, decimal winRate,
-        DateTime lastUpdateAtUtc, CancellationToken ct = default)
+        DateTime lastUpdateAtUtc,
+        CancellationToken ct = default, Guid? traceId = null)
     {
-        logger.LogDebug("EventBus(Logging) DashboardSummary: TraderId={Trader}, TotalPnl={Total}, DailyPnl={Daily}, Positions={Pos}, Strategies={Strat}",
-            traderId, totalPnl, dailyPnl, totalPositions, activeStrategies);
+        logger.LogDebug("EventBus(Logging) DashboardSummary: TraceId={TraceId}, TraderId={Trader}, TotalPnl={Total}, DailyPnl={Daily}, Positions={Pos}, Strategies={Strat}",
+            traceId ?? Guid.Empty, traderId, totalPnl, dailyPnl, totalPositions, activeStrategies);
         return Task.CompletedTask;
     }
 
     public Task ExchangeConnectionChangedAsync(Guid traderId, Guid exchangeId, string oldStatus,
-        string newStatus, string? errorMessage, CancellationToken ct = default)
+        string newStatus, string? errorMessage,
+        CancellationToken ct = default, Guid? traceId = null)
     {
-        logger.LogInformation("EventBus(Logging) ExchangeConnectionChanged: TraderId={Trader}, ExchangeId={Exch}, {Old}→{New}, Err={Err}",
-            traderId, exchangeId, oldStatus, newStatus, errorMessage);
+        logger.LogInformation("EventBus(Logging) ExchangeConnectionChanged: TraceId={TraceId}, TraderId={Trader}, ExchangeId={Exch}, {Old}→{New}, Err={Err}",
+            traceId ?? Guid.Empty, traderId, exchangeId, oldStatus, newStatus, errorMessage);
         return Task.CompletedTask;
     }
 }

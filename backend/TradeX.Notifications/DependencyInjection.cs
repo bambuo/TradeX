@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Refit;
 using TradeX.Core.Interfaces;
 using TradeX.Notifications.Refit;
@@ -16,6 +17,9 @@ public static class DependencyInjection
         services.AddTransient<ITelegramSender, TelegramSender>();
         services.AddTransient<IEmailSender, EmailSender>();
         services.AddTransient<INotificationService, NotificationService>();
+        // 默认无指标; Worker/Api Program 可覆盖注入真实实现 (转发到 TradeXMetrics.NotificationsFailed)
+        services.TryAddSingleton<INotificationMetrics, NullNotificationMetrics>();
+        services.AddScoped<NotificationRetryPolicy>();
         services.Configure<TelegramSettings>(_ => { });
         services.Configure<DiscordSettings>(_ => { });
         services.Configure<EmailSettings>(_ => { });

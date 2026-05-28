@@ -66,7 +66,7 @@ async function submitOrder() {
   try {
     await ordersApi.createManual(traderId, {
       exchangeId: formExchangeId.value,
-      Pair: formPair.value.toUpperCase(),
+      pair: formPair.value.toUpperCase(),
       side: formSide.value,
       type: formType.value,
       quantity: formQuantity.value,
@@ -145,7 +145,7 @@ onMounted(load)
       </thead>
       <tbody>
         <tr v-for="o in orders" :key="o.id">
-          <td>{{ o.Pair }}</td>
+          <td>{{ o.pair }}</td>
           <td><span :class="o.side === 'Buy' ? 'side-buy' : 'side-sell'">{{ o.side === 'Buy' ? '买入' : '卖出' }}</span></td>
           <td>{{ o.type === 'Market' ? '市价' : o.type === 'Limit' ? '限价' : '止损限价' }}</td>
           <td><a-tag :color="statusColors[o.status]">{{ statusLabels[o.status] ?? o.status }}</a-tag></td>

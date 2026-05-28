@@ -10,6 +10,20 @@ export const ErrorCode = {
   AuthMfaSecretInvalid: 1106,
 } as const
 
+// Axios 请求配置扩展（运行时附加属性）
+interface AxiosConfigMeta {
+  _mfa?: boolean
+  _retry?: boolean
+}
+
+// 拦截器错误类型（运行时附加属性）
+interface InterceptorError {
+  _mfaCancelled?: boolean
+  response?: { data?: { code?: number }; status?: number }
+  config: import('axios').AxiosRequestConfig & AxiosConfigMeta
+  message?: string
+}
+
 const client = axios.create({
   baseURL: '/api',
   headers: { 'Content-Type': 'application/json' }
@@ -31,9 +45,9 @@ export function registerMfaModal(modal: { requestCode: (error?: string) => Promi
 
 client.interceptors.response.use(
   response => response,
-  async error => {
-    const originalRequest = error.config
-    const errCode = error.response?.data?.code
+  async (err: InterceptorError) => {
+    const originalRequest = err.config
+    const errCode = err.response?.data?.code
 
     // MFA 需要验证 或 验证码错误（重试）
     if ((errCode === ErrorCode.AuthMfaRequired
@@ -43,9 +57,10 @@ client.interceptors.response.use(
       originalRequest._mfa = true
       const code = await mfaModal.requestCode()
       if (!code) {
-        (error as any)._mfaCancelled = true
-        return Promise.reject(error)
+        err._mfaCancelled = true
+        return Promise.reject(err)
       }
+      if (!originalRequest.headers) originalRequest.headers = {}
       originalRequest.headers['X-MFA-Code'] = code
       return client(originalRequest)
     }
@@ -54,15 +69,16 @@ client.interceptors.response.use(
     if (errCode === ErrorCode.AuthMfaInvalidCode && originalRequest._mfa && mfaModal) {
       const code = await mfaModal.requestCode('TOTP 验证码错误，请重新输入')
       if (!code) {
-        (error as any)._mfaCancelled = true
-        return Promise.reject(error)
+        err._mfaCancelled = true
+        return Promise.reject(err)
       }
+      if (!originalRequest.headers) originalRequest.headers = {}
       originalRequest.headers['X-MFA-Code'] = code
       return client(originalRequest)
     }
 
     // 401 且非 MFA（未取消）— 尝试 refresh token
-    if (error.response?.status === 401 && !originalRequest._retry && !(error as any)._mfaCancelled) {
+    if (err.response?.status === 401 && !originalRequest._retry && !err._mfaCancelled) {
       originalRequest._retry = true
       const refreshToken = localStorage.getItem('refreshToken')
       if (refreshToken) {
@@ -70,7 +86,8 @@ client.interceptors.response.use(
           const { data } = await axios.post('/api/auth/refresh', { refreshToken })
           localStorage.setItem('accessToken', data.accessToken)
           localStorage.setItem('refreshToken', data.refreshToken)
-          originalRequest.headers.Authorization = `Bearer ${data.accessToken}`
+          if (!originalRequest.headers) originalRequest.headers = {}
+      originalRequest.headers.Authorization = `Bearer ${data.accessToken}`
           return client(originalRequest)
         } catch {
           localStorage.clear()
@@ -78,7 +95,7 @@ client.interceptors.response.use(
         }
       }
     }
-    return Promise.reject(error)
+    return Promise.reject(err)
   }
 )
 

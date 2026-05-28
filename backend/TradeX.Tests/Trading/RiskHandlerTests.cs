@@ -2,8 +2,19 @@ using Microsoft.Extensions.Logging;
 using NSubstitute;
 using TradeX.Core.Interfaces;
 using TradeX.Trading;
+using TradeX.Trading.Risk;
 
 namespace TradeX.Tests.Trading;
+
+internal static class RiskTestHelpers
+{
+    public static IKillSwitch BuildIdleKillSwitch()
+    {
+        var ks = Substitute.For<IKillSwitch>();
+        ks.IsActive.Returns(false);
+        return ks;
+    }
+}
 
 public class DailyLossHandlerTests
 {
@@ -135,7 +146,7 @@ public class CircuitBreakerHandlerTests
     public async Task CheckAsync_CircuitBreakerInactive_Passes()
     {
         var logger = Substitute.For<ILogger<CircuitBreakerHandler>>();
-        var handler = new CircuitBreakerHandler(logger);
+        var handler = new CircuitBreakerHandler(RiskTestHelpers.BuildIdleKillSwitch(), logger);
 
         var result = await handler.CheckAsync(new RiskContext { CircuitBreakerActive = false });
 
@@ -146,7 +157,7 @@ public class CircuitBreakerHandlerTests
     public async Task CheckAsync_CircuitBreakerActive_Denies()
     {
         var logger = Substitute.For<ILogger<CircuitBreakerHandler>>();
-        var handler = new CircuitBreakerHandler(logger);
+        var handler = new CircuitBreakerHandler(RiskTestHelpers.BuildIdleKillSwitch(), logger);
 
         var result = await handler.CheckAsync(new RiskContext { CircuitBreakerActive = true });
 
@@ -219,7 +230,7 @@ public class RiskChainIntegrationTests
         var dailyLoss = new DailyLossHandler(Substitute.For<ILogger<DailyLossHandler>>());
         var drawdown = new DrawdownHandler(Substitute.For<ILogger<DrawdownHandler>>());
         var consecutiveLoss = new ConsecutiveLossHandler(Substitute.For<ILogger<ConsecutiveLossHandler>>());
-        var circuitBreaker = new CircuitBreakerHandler(Substitute.For<ILogger<CircuitBreakerHandler>>());
+        var circuitBreaker = new CircuitBreakerHandler(RiskTestHelpers.BuildIdleKillSwitch(), Substitute.For<ILogger<CircuitBreakerHandler>>());
         var positionLimit = new PositionLimitHandler(Substitute.For<ILogger<PositionLimitHandler>>());
         var slippage = new SlippageHandler(Substitute.For<ILogger<SlippageHandler>>());
 

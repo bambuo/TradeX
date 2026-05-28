@@ -41,6 +41,62 @@ public class BinanceClientAdapter : IExchangeClient
         }
     }
 
+    public async IAsyncEnumerable<Candle> SubscribeKlinesStreamAsync(string pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        var socketClient = new BinanceSocketClient();
+        var channel = System.Threading.Channels.Channel.CreateBounded<Candle>(new System.Threading.Channels.BoundedChannelOptions(100)
+        {
+            FullMode = System.Threading.Channels.BoundedChannelFullMode.DropOldest
+        });
+
+        var subResult = await socketClient.SpotApi.ExchangeData.SubscribeToKlineUpdatesAsync(pair, MapInterval(interval), data =>
+        {
+            var k = data.Data.Data;
+            channel.Writer.TryWrite(new Candle(k.OpenTime, k.OpenPrice, k.HighPrice, k.LowPrice, k.ClosePrice, k.Volume));
+        }, ct);
+
+        try
+        {
+            if (!subResult.Success)
+                yield break;
+
+            await foreach (var candle in channel.Reader.ReadAllAsync(ct))
+                yield return candle;
+        }
+        finally
+        {
+            socketClient.Dispose();
+        }
+    }
+
+    public async IAsyncEnumerable<Trade> SubscribeTradesAsync(string pair, [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        var socketClient = new BinanceSocketClient();
+        var channel = System.Threading.Channels.Channel.CreateBounded<Trade>(new System.Threading.Channels.BoundedChannelOptions(100)
+        {
+            FullMode = System.Threading.Channels.BoundedChannelFullMode.DropOldest
+        });
+
+        var subResult = await socketClient.SpotApi.ExchangeData.SubscribeToTradeUpdatesAsync(pair, data =>
+        {
+            var t = data.Data;
+            channel.Writer.TryWrite(new Trade(t.TradeTime, t.Price, t.Quantity, t.BuyerIsMaker));
+        }, ct);
+
+        try
+        {
+            if (!subResult.Success)
+                yield break;
+
+            await foreach (var trade in channel.Reader.ReadAllAsync(ct))
+                yield return trade;
+        }
+        finally
+        {
+            socketClient.Dispose();
+        }
+    }
+
     public async Task<Candle[]> GetKlinesAsync(string pair, string interval, DateTime start, DateTime end, CancellationToken ct = default)
     {
         // Binance /api/v3/klines 按 startTime 升序返回, 单次最多 1000 条; 翻页通过推进 startTime
@@ -155,14 +211,32 @@ public class BinanceClientAdapter : IExchangeClient
 
     public async Task<OrderResult[]> GetRecentOrdersAsync(DateTime since, CancellationToken ct = default)
     {
+        // 不遍历全部 400+ 交易对（会触发限流熔断），
+        // 改为通过持仓资产 + 当前未结订单推导需要查询的交易对。
+        // 覆盖不了"已清仓且不再持有"的交易对，但此方法当前无实际调用方，
+        // 将来若需全量扫描，调用方可改传已知交易对列表。
+        var balances = await GetAssetBalancesAsync(ct);
+        var pairs = balances.Keys
+            .Where(a => a != "USDT" && a != "USDC")
+            .Select(a => $"{a}USDT")
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        // 补充当前挂单涉及但已无持仓的交易对
+        var openOrders = await GetOpenOrdersAsync(ct);
+        foreach (var o in openOrders)
+            pairs.Add(o.Pair);
+
+        if (pairs.Count == 0) return [];
+
         var results = new List<OrderResult>();
-        var infoR = await _client.SpotApi.ExchangeData.GetExchangeInfoAsync(ct: ct);
-        if (!infoR.Success) return [];
-        foreach (var sym in infoR.Data.Symbols.Where(s => s.Status == SymbolStatus.Trading && s.IsSpotTradingAllowed))
+        foreach (var pair in pairs)
         {
-            var r = await _client.SpotApi.Trading.GetOrdersAsync(sym.Name, startTime: since, ct: ct);
-            if (r.Success) results.AddRange(r.Data.Where(o => o.CreateTime >= since)
-                .Select(o => new OrderResult(o.Status == Binance.Net.Enums.OrderStatus.Filled, o.Id.ToString(), o.QuantityFilled, o.AverageFillPrice ?? 0, 0, null)));
+            if (ct.IsCancellationRequested) break;
+            var r = await _client.SpotApi.Trading.GetOrdersAsync(pair, startTime: since, ct: ct);
+            if (r.Success)
+                results.AddRange(r.Data.Where(o => o.CreateTime >= since)
+                    .Select(o => new OrderResult(o.Status == Binance.Net.Enums.OrderStatus.Filled,
+                        o.Id.ToString(), o.QuantityFilled, o.AverageFillPrice ?? 0, 0, null)));
         }
         return results.ToArray();
     }
@@ -176,9 +250,35 @@ public class BinanceClientAdapter : IExchangeClient
         }
         catch { return new ConnectionTestResult(false, null, "连接失败"); }
         if (!_hasCredentials) return new ConnectionTestResult(true, null, "Ping 成功");
-        var r = await _client.SpotApi.Account.GetBalancesAsync(ct: ct);
-        if (!r.Success) return new ConnectionTestResult(true, new() { ["spotTrade"] = false }, "API Key 无权限");
-        return new ConnectionTestResult(true, new() { ["spotTrade"] = true }, "连接成功");
+
+        // FR-02.5: 必须区分 (a) 现货交易权限是否开启 (b) 提现权限是否已关闭
+        var perms = await _client.SpotApi.Account.GetAPIKeyPermissionsAsync(ct: ct);
+        if (!perms.Success)
+        {
+            // 退化: GetAPIKeyPermissions 失败 (旧版 Key 可能不支持), 改用 GetBalances 推断只读权限
+            var bals = await _client.SpotApi.Account.GetBalancesAsync(ct: ct);
+            return bals.Success
+                ? new ConnectionTestResult(true, new() { ["spotTrade"] = false, ["withdraw"] = false, ["readOnly"] = true },
+                    "无法读取 API Key 权限位, 已退化为只读检测")
+                : new ConnectionTestResult(true, new() { ["spotTrade"] = false }, $"API Key 无权限: {bals.Error}");
+        }
+
+        var p = perms.Data;
+        var permMap = new Dictionary<string, bool>
+        {
+            ["spotTrade"] = p.EnableSpotAndMarginTrading,
+            ["withdraw"] = p.EnableWithdrawals,
+            ["reading"] = p.EnableReading,
+            ["ipRestrict"] = p.IpRestrict
+        };
+
+        var warnings = new List<string>();
+        if (!p.EnableSpotAndMarginTrading) warnings.Add("现货交易权限未开启");
+        if (p.EnableWithdrawals) warnings.Add("⚠ 提现权限已开启, 强烈建议在 Binance 后台关闭");
+        if (!p.IpRestrict) warnings.Add("未配置 IP 白名单, 建议在 Binance 后台限制访问 IP");
+
+        var message = warnings.Count > 0 ? string.Join("; ", warnings) : "连接成功, 权限校验通过";
+        return new ConnectionTestResult(true, permMap, message);
     }
 
     public async Task<PairRule[]> GetPairRulesAsync(CancellationToken ct = default)

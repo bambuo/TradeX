@@ -10,6 +10,8 @@ public class ConditionNode
     public Dictionary<string, object>? Parameters { get; set; }
     public string? Comparison { get; set; }
     public decimal? Value { get; set; }
+    // 相对比较: compareValue = currentValues[Ref] * Value（如 Close > SMA_20 * 1.02）
+    public string? Ref { get; set; }
 }
 
 public class ExecutionRule

@@ -12,7 +12,9 @@ public class BacktestEngineTests
 
     public BacktestEngineTests()
     {
-        _engine = new BacktestEngine(new IndicatorService(), new ConditionEvaluator(new ConditionTreeEvaluator()));
+        var reg = new IndicatorRegistry();
+        TradeX.Indicators.DependencyInjection.RegisterDefaults(reg, new IndicatorService());
+        _engine = new BacktestEngine(reg, new ConditionEvaluator(new ConditionTreeEvaluator()));
     }
 
     [Fact]

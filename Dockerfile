@@ -33,16 +33,22 @@ RUN dotnet publish -c Release -o /app
 
 # Stage 4a: Runtime — API (default target)
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-preview AS api
+RUN groupadd --system app && useradd --system --gid app -d /app -s /bin/false app
 WORKDIR /app
 EXPOSE 80
 COPY --from=api-publish /app .
 COPY --from=frontend-build /frontend/dist /app/wwwroot
+RUN chown -R app:app /app
+USER app
 ENTRYPOINT ["dotnet", "TradeX.Api.dll"]
 
 # Stage 4b: Runtime — Worker
 FROM mcr.microsoft.com/dotnet/runtime:10.0-preview AS worker
+RUN groupadd --system app && useradd --system --gid app -d /app -s /bin/false app
 WORKDIR /app
 # Prometheus metrics endpoint
 EXPOSE 9464
 COPY --from=worker-publish /app .
+RUN chown -R app:app /app
+USER app
 ENTRYPOINT ["dotnet", "TradeX.Worker.dll"]

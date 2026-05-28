@@ -5,7 +5,7 @@ services:
     environment:
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
       - MYSQL_DATABASE=tradex
-      - MYSQL_USER=root
+      - MYSQL_USER=tradex
       - MYSQL_PASSWORD=${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
     command:
       - --character-set-server=utf8mb4
@@ -25,9 +25,13 @@ services:
   redis:
     image: redis:7.4-alpine
     container_name: tradex-redis
-    command: ["redis-server", "--appendonly", "no", "--save", ""]
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    # 如果设置了 REDIS_PASSWORD 环境变量，则启用密码认证
+    command: >
+      sh -c 'exec redis-server --appendonly no --save "" ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}'
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: redis-cli ${REDIS_PASSWORD:+--no-auth-warning -a $REDIS_PASSWORD} ping
       interval: 10s
       timeout: 3s
       retries: 5
@@ -51,8 +55,8 @@ services:
       - ASPNETCORE_URLS=http://+:80
       - ConnectionStrings__DefaultConnection=Server=mysql;Port=3306;Database=tradex;User Id=tradex;Password=${MYSQL_PASSWORD};SslMode=Preferred;CharSet=utf8mb4;DefaultCommandTimeout=30;
       - Database__MySqlServerVersion=8.4.0
-      - Redis__ConnectionString=redis:6379
-      - Jwt__Secret=${JWT_SECRET:?JWT_SECRET is required}
+      - Redis__ConnectionString=redis:6379${REDIS_PASSWORD:+,password=${REDIS_PASSWORD}}
+      - Jwt__SecretKey=${JWT_SECRET:?JWT_SECRET is required}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80/health"]
       interval: 30s
@@ -76,11 +80,17 @@ services:
       - DOTNET_ENVIRONMENT=Production
       - ConnectionStrings__DefaultConnection=Server=mysql;Port=3306;Database=tradex;User Id=tradex;Password=${MYSQL_PASSWORD};SslMode=Preferred;CharSet=utf8mb4;DefaultCommandTimeout=30;
       - Database__MySqlServerVersion=8.4.0
-      - Redis__ConnectionString=redis:6379
+      - Redis__ConnectionString=redis:6379${REDIS_PASSWORD:+,password=${REDIS_PASSWORD}}
       - Otel__PrometheusListener=http://+:9464/
     # Worker 不对外暴露端口；Prometheus 在内部网络 scrape worker:9464/metrics
     expose:
       - "9464"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9464/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     restart: unless-stopped
 
 volumes:

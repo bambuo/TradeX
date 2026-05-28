@@ -131,7 +131,17 @@ public class ExchangesController(
             exchange.TestResult = result.Message;
             await exchangeRepo.UpdateAsync(exchange, ct);
 
-            return Ok(new { connected = result.Success, error = result.Success ? null : result.Message });
+            // 提现权限开启或缺少 IP 白名单视为 hasWarning, 前端据此渲染红色横幅 + 阻止启用按钮
+            var perms = result.Permissions ?? [];
+            var hasWarning = perms.GetValueOrDefault("withdraw") || (perms.ContainsKey("ipRestrict") && !perms["ipRestrict"]);
+            return Ok(new
+            {
+                connected = result.Success,
+                error = result.Success ? null : result.Message,
+                message = result.Message,
+                permissions = perms,
+                hasWarning
+            });
         }
         catch (Exception ex)
         {

@@ -107,10 +107,9 @@ async function loadStats() {
   try {
     const { data } = await dashboardApi.getStats()
     stats.value = data
-  } catch (e: any) {
-    const msg = e?.response?.data?.message || e?.message || '仪表盘数据加载失败'
+  } catch (e: unknown) {
+    const msg = (e as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message || (e as { message?: string })?.message || '仪表盘数据加载失败'
     loadError.value = msg
-    console.error('[Dashboard] loadStats error:', msg, e)
     Message.error({ content: msg, duration: 4000 })
   } finally {
     loading.value = false

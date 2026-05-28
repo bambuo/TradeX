@@ -209,8 +209,9 @@ public class ConditionTreeEvaluatorTests
     }
 
     [Fact]
-    public void Evaluate_AndOperator_EmptyConditions_ReturnsFalse()
+    public void Evaluate_AndOperator_EmptyConditions_ReturnsTrue()
     {
+        // AND 空数组按"空真"语义返回 true, 与 JSON 解析层空条件不触发的语义在调用方组合: 引擎在空 JSON 时直接返回 false 不会走到这里
         var node = new ConditionNode
         {
             Operator = "AND",
@@ -223,7 +224,7 @@ public class ConditionTreeEvaluatorTests
 
         var result = _evaluator.Evaluate(node, values, []);
 
-        Assert.False(result);
+        Assert.True(result);
     }
 
     [Fact]
@@ -390,27 +391,28 @@ public class ConditionEvaluatorTests
     }
 
     [Fact]
-    public void Evaluate_EmptyJson_ReturnsTrue()
+    public void Evaluate_EmptyJson_ReturnsFalse()
     {
+        // 空条件视为不触发, 避免每根 K 线开/平仓
         var result = _evaluator.Evaluate("{}", [], []);
 
-        Assert.True(result);
+        Assert.False(result);
     }
 
     [Fact]
-    public void Evaluate_NullJson_ReturnsTrue()
+    public void Evaluate_NullJson_ReturnsFalse()
     {
         var result = _evaluator.Evaluate("", [], []);
 
-        Assert.True(result);
+        Assert.False(result);
     }
 
     [Fact]
-    public void Evaluate_WhitespaceJson_ReturnsTrue()
+    public void Evaluate_WhitespaceJson_ReturnsFalse()
     {
         var result = _evaluator.Evaluate("   ", [], []);
 
-        Assert.True(result);
+        Assert.False(result);
     }
 
     [Fact]
@@ -428,9 +430,11 @@ public class ConditionEvaluatorTests
     }
 
     [Fact]
-    public void Evaluate_InvalidJson_ThrowsJsonException()
+    public void Evaluate_InvalidJson_ReturnsFalse()
     {
-        Assert.Throws<System.Text.Json.JsonException>(() =>
-            _evaluator.Evaluate("not json", [], []));
+        // 损坏的策略 JSON 不应让整轮回测崩溃, 按"不触发"兜底
+        var result = _evaluator.Evaluate("not json", [], []);
+
+        Assert.False(result);
     }
 }

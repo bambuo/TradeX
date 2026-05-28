@@ -179,14 +179,14 @@ onMounted(load)
         @change="(v) => filterResource = String(v)"
       >
         <a-option value="" label="全部资源" />
-        <a-option value="交易员" label="交易员" />
-        <a-option value="交易所" label="交易所" />
-        <a-option value="策略" label="策略" />
-        <a-option value="系统设置" label="系统设置" />
-        <a-option value="用户" label="用户" />
-        <a-option value="认证" label="认证" />
-        <a-option value="订单" label="订单" />
-        <a-option value="通知渠道" label="通知渠道" />
+        <a-option value="traders" label="交易员" />
+        <a-option value="exchanges" label="交易所" />
+        <a-option value="strategies" label="策略" />
+        <a-option value="settings" label="系统设置" />
+        <a-option value="users" label="用户" />
+        <a-option value="auth" label="认证" />
+        <a-option value="orders" label="订单" />
+        <a-option value="notifications" label="通知渠道" />
       </a-select>
       <a-button type="primary" @click="load">
         <template #icon><icon-filter /></template>

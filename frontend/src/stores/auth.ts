@@ -27,7 +27,7 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem('accessToken', data.accessToken)
     localStorage.setItem('refreshToken', data.refreshToken)
     mfaToken.value = null
-    user.value = { id: '', username: '', role: data.role, email: '', isMfaEnabled: true }
+    loadFromStorage()
     return data
   }
 
@@ -37,7 +37,7 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem('accessToken', data.accessToken)
     localStorage.setItem('refreshToken', data.refreshToken)
     mfaToken.value = null
-    user.value = { id: '', username: '', role: data.role, email: '', isMfaEnabled: true }
+    loadFromStorage()
     return data
   }
 
@@ -59,7 +59,7 @@ export const useAuthStore = defineStore('auth', () => {
     const token = localStorage.getItem('accessToken')
     if (token) {
       try {
-        const payload = JSON.parse(atob(token.split('.')[1]))
+        const payload = JSON.parse(base64UrlDecode(token.split('.')[1]))
         user.value = {
           id: payload.nameidentifier || payload.sub,
           username: payload.name || payload.unique_name,
@@ -71,6 +71,12 @@ export const useAuthStore = defineStore('auth', () => {
         localStorage.clear()
       }
     }
+  }
+
+  function base64UrlDecode(str: string): string {
+    str = str.replace(/-/g, '+').replace(/_/g, '/')
+    while (str.length % 4) str += '='
+    return atob(str)
   }
 
   return { user, mfaToken, isAuthenticated, needsMfa, login, verifyMfa, verifyMfaWithRecoveryCode, register, logout, loadFromStorage }

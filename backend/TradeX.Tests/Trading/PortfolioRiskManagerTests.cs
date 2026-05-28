@@ -5,6 +5,7 @@ using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 using TradeX.Trading;
+using TradeX.Trading.Risk;
 
 namespace TradeX.Tests.Trading;
 
@@ -53,7 +54,7 @@ public class PortfolioRiskManagerTests
             new DailyLossHandler(Substitute.For<ILogger<DailyLossHandler>>()),
             new DrawdownHandler(Substitute.For<ILogger<DrawdownHandler>>()),
             new ConsecutiveLossHandler(Substitute.For<ILogger<ConsecutiveLossHandler>>()),
-            new CircuitBreakerHandler(Substitute.For<ILogger<CircuitBreakerHandler>>()),
+            new CircuitBreakerHandler(RiskTestHelpers.BuildIdleKillSwitch(), Substitute.For<ILogger<CircuitBreakerHandler>>()),
             new CooldownCheck(Substitute.For<ILogger<CooldownCheck>>()),
             new PositionLimitHandler(Substitute.For<ILogger<PositionLimitHandler>>()),
             new MaxOrderNotionalHandler(Substitute.For<ILogger<MaxOrderNotionalHandler>>()),

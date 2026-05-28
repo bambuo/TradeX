@@ -1,11 +1,15 @@
+using System.Threading.Channels;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using TradeX.Core.Interfaces;
 using TradeX.Trading.Backtest;
 using TradeX.Trading.Commands;
 using TradeX.Trading.Engine;
 using TradeX.Trading.Execution;
+using TradeX.Trading.Migration;
 using TradeX.Trading.Outbox;
 using TradeX.Trading.Risk;
+using TradeX.Trading.Streaming;
 
 namespace TradeX.Trading;
 
@@ -18,13 +22,16 @@ public static class DependencyInjection
     /// </summary>
     public static IServiceCollection AddTradingShared(this IServiceCollection services)
     {
+        services.TryAddSingleton<IClock, SystemClock>();
         services.AddScoped<IConditionEvaluator, ConditionEvaluator>();
         services.AddScoped<IConditionTreeEvaluator, ConditionTreeEvaluator>();
+        services.AddScoped<ConditionTreeValidator>();
         services.AddScoped<IPortfolioRiskManager, PortfolioRiskManager>();
         services.AddScoped<ITradeExecutor, TradeExecutor>();
         services.AddScoped<IOrderReconciler, OrderReconciler>();
         services.AddScoped<IBacktestService, BacktestService>();
         services.AddScoped<BacktestEngine>();
+        services.AddScoped<LegacyStrategyScanner>();
 
         // 注意：以下 Singleton 当前是进程内实现（Channel / 内存）。
         // 跨进程语义在阶段 3/4 通过 Redis 解决；此前 API 端入队不会被 Worker 端消费。
@@ -36,6 +43,9 @@ public static class DependencyInjection
         services.AddSingleton<IResourceProvider, SystemResourceProvider>();
         services.AddSingleton<ResourceMonitor>();
 
+        services.AddSingleton<IKillSwitch, KillSwitch>();
+        services.AddSingleton<OrderBookSlippageGuard>();
+        services.AddSingleton<Execution.KlineGapDetector>();
         services.AddScoped<DailyLossHandler>();
         services.AddScoped<DrawdownHandler>();
         services.AddScoped<ConsecutiveLossHandler>();
@@ -55,13 +65,34 @@ public static class DependencyInjection
     /// Worker 进程独占：启动 TradingEngine 评估循环 / BacktestScheduler 回测调度 / ResourceMonitor 资源采样。
     /// 同时注册 Worker 内存缓存 <see cref="MarketDataCache"/>。
     /// </summary>
+    private const int TradeEventChannelCapacity = 1000;
+    private const int KlineEventChannelCapacity = 100;
+
     public static IServiceCollection AddTradingWorker(this IServiceCollection services)
     {
-        services.AddSingleton<MarketDataCache>();
+        // Trade 逐笔成交事件通道
+        services.AddSingleton(_ => Channel.CreateBounded<TradeEvent>(new BoundedChannelOptions(TradeEventChannelCapacity)
+        {
+            FullMode = BoundedChannelFullMode.DropOldest,
+            SingleReader = false,
+            SingleWriter = false
+        }));
+        services.AddSingleton<TradeStreamManager>();
+
+        // K 线收盘事件通道（独立于 Trade，因推送频率低且需要不同订阅参数）
+        services.AddSingleton(_ => Channel.CreateBounded<KlineEvent>(new BoundedChannelOptions(KlineEventChannelCapacity)
+        {
+            FullMode = BoundedChannelFullMode.DropOldest,
+            SingleReader = false,
+            SingleWriter = false
+        }));
+        services.AddSingleton<KlineStreamManager>();
+
+        services.AddSingleton<StrategyEvaluationConsumer>();
         services.AddHostedService<ResourceMonitor>(sp => sp.GetRequiredService<ResourceMonitor>());
         services.AddHostedService<BacktestScheduler>();
-        services.AddHostedService<TradingEngine>();
         services.AddHostedService<OrderReconcilerService>();
+        services.AddHostedService(sp => sp.GetRequiredService<StrategyEvaluationConsumer>());
         return services;
     }
 
@@ -72,6 +103,7 @@ public static class DependencyInjection
     public static IServiceCollection AddTradingWorkerCommandBus(this IServiceCollection services)
     {
         services.AddSingleton<IWorkerCommandHandler, ReconcileNowHandler>();
+        services.AddSingleton<IWorkerCommandHandler, RefreshSubscriptionsHandler>();
         services.AddHostedService<WorkerCommandSubscriber>();
         return services;
     }

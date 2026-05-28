@@ -173,9 +173,33 @@ function handleResize() {
   }
 }
 
+function refreshSeriesData() {
+  if (!chart || !candleSeries || !volumeSeries) return
+  const candleData: CandlestickData[] = []
+  const volumeData: HistogramData[] = []
+  for (const a of props.allData) {
+    const time = Math.floor(new Date(a.timestamp).getTime() / 1000) as Time
+    candleData.push({ time, open: a.open, high: a.high, low: a.low, close: a.close })
+    const isUp = a.close >= a.open
+    volumeData.push({
+      time,
+      value: a.volume,
+      color: isUp ? 'rgba(34,197,94,0.4)' : 'rgba(239,68,68,0.4)'
+    })
+  }
+  candleSeries.setData(candleData)
+  volumeSeries.setData(volumeData)
+  chart.timeScale().fitContent()
+  moveCursor(props.currentIndex)
+}
+
 watch(() => props.allData, () => {
-  if (chartRef.value && props.allData.length > 0 && !chart) {
+  if (!chartRef.value || props.allData.length === 0) return
+  if (!chart) {
     initChart()
+  } else {
+    // 任务切换 / 数据刷新时同步重绘, 避免图表停留在旧数据
+    refreshSeriesData()
   }
 })
 

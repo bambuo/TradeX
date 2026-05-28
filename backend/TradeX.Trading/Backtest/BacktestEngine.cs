@@ -5,7 +5,7 @@ using TradeX.Indicators;
 
 namespace TradeX.Trading.Backtest;
 
-public class BacktestEngine(IIndicatorService indicatorService, IConditionEvaluator conditionEvaluator)
+public class BacktestEngine(IIndicatorRegistry indicators, IConditionEvaluator conditionEvaluator)
 {
     private const int MaxKlines = 100_000;
 
@@ -16,7 +16,8 @@ public class BacktestEngine(IIndicatorService indicatorService, IConditionEvalua
         decimal initialCapital = 1000m,
         decimal? positionSize = null,
         Action<BacktestKlineAnalysis>? onAnalysis = null,
-        string? timeframe = null)
+        string? timeframe = null,
+        CancellationToken ct = default)
     {
         if (klines.Count < 50)
             return (CreateEmptyResult("数据不足，至少需要 50 根 K 线"), [], []);
@@ -36,37 +37,17 @@ public class BacktestEngine(IIndicatorService indicatorService, IConditionEvalua
 
         for (var i = 50; i < prices.Length; i++)
         {
+            ct.ThrowIfCancellationRequested();
             var window = prices[..(i + 1)];
             var prevWindow = prices[..i];
             var volWindow = volumes[..(i + 1)];
 
-            Dictionary<string, decimal> currentValues = new()
-            {
-                ["RSI"] = indicatorService.CalculateRsi(window),
-                ["SMA_20"] = indicatorService.CalculateSma(window, 20),
-                ["SMA_50"] = indicatorService.CalculateSma(window, 50),
-                ["EMA_20"] = indicatorService.CalculateEma(window, 20),
-                ["MACD_LINE"] = indicatorService.CalculateMacd(window).MacdLine,
-                ["MACD_SIGNAL"] = indicatorService.CalculateMacd(window).SignalLine,
-                ["BB_UPPER"] = indicatorService.CalculateBollingerBands(window).UpperBand,
-                ["BB_LOWER"] = indicatorService.CalculateBollingerBands(window).LowerBand,
-                ["OBV"] = indicatorService.CalculateObv(prices[..(i + 1)], volWindow),
-                ["VOLUME_SMA"] = indicatorService.CalculateVolumeSma(volWindow),
-                ["RANGE_PCT"] = klines[i].Open > 0 ? (klines[i].High - klines[i].Low) / klines[i].Open * 100m : 0m,
-            };
+            var ohlc = klines[i];
+            var prevOhlc = klines[i - 1];
+            var currentValues = indicators.ComputeAll(new KlineWindow(window, volWindow, ohlc.Open, ohlc.High, ohlc.Low, ohlc.Close));
+            var previousValues = indicators.ComputeAll(new KlineWindow(prevWindow, volumes[..i], prevOhlc.Open, prevOhlc.High, prevOhlc.Low, prevOhlc.Close));
 
-            Dictionary<string, decimal> previousValues = new()
-            {
-                ["RSI"] = indicatorService.CalculateRsi(prevWindow),
-                ["SMA_20"] = indicatorService.CalculateSma(prevWindow, 20),
-                ["SMA_50"] = indicatorService.CalculateSma(prevWindow, 50),
-                ["EMA_20"] = indicatorService.CalculateEma(prevWindow, 20),
-                ["MACD_LINE"] = indicatorService.CalculateMacd(prevWindow).MacdLine,
-                ["MACD_SIGNAL"] = indicatorService.CalculateMacd(prevWindow).SignalLine,
-                ["RANGE_PCT"] = klines[i - 1].Open > 0 ? (klines[i - 1].High - klines[i - 1].Low) / klines[i - 1].Open * 100m : 0m,
-            };
-
-            var kline = klines[i];
+            var kline = ohlc;
             var action = "none";
 
             if (!inPosition)
@@ -204,12 +185,12 @@ public class BacktestEngine(IIndicatorService indicatorService, IConditionEvalua
         var totalLoss = trades.Where(t => t.PnL <= 0).Sum(t => Math.Abs(t.PnL));
         var profitLossRatio = totalLoss > 0 ? totalWin / totalLoss : totalWin > 0 ? totalWin : 0;
 
+        // 保持与历史 BacktestResult.Details 一致的字段名 (pnL/pnLPercent), 避免前端读取失败.
+        // CamelCase 策略对 "PnL"/"PnLPercent" 只小写首字母, 输出即 pnL/pnLPercent.
         var details = JsonSerializer.Serialize(trades.Select(t => new
         {
             t.EnteredAt, t.ExitedAt, t.EntryPrice, t.ExitPrice,
-            t.Quantity,
-            pnl = t.PnL,
-            pnlPercent = t.PnLPercent
+            t.Quantity, t.PnL, t.PnLPercent
         }), jsonOptions);
 
         return new BacktestResult

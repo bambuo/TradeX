@@ -1,11 +1,21 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, provide } from 'vue'
+import { ref, computed, onMounted, onUnmounted, provide, type Component } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useSignalR } from '../composables/useSignalR'
 import ErrorBoundary from '../components/ErrorBoundary.vue'
 import MfaInputModal from '../components/MfaInputModal.vue'
 import { registerMfaModal } from '../api/client'
+import {
+  IconDashboard,
+  IconUserGroup,
+  IconStorage,
+  IconCommon,
+  IconSettings,
+  IconNotification,
+  IconUser,
+  IconFile
+} from '@arco-design/web-vue/es/icon'
 
 const router = useRouter()
 const route = useRoute()
@@ -104,16 +114,16 @@ const navItems = [
   { path: '/users', label: '用户管理', icon: 'users' },
 ]
 
-const iconMap: Record<string, string> = {
-  dashboard: 'icon-dashboard',
-  traders: 'icon-user-group',
-  backtest: 'icon-common',
-  exchange: 'icon-storage',
-  strategy: 'icon-common',
-  audit: 'icon-file',
-  settings: 'icon-settings',
-  notification: 'icon-notification',
-  users: 'icon-user'
+const iconMap: Record<string, Component> = {
+  dashboard: IconDashboard,
+  traders: IconUserGroup,
+  backtest: IconCommon,
+  exchange: IconStorage,
+  strategy: IconCommon,
+  audit: IconFile,
+  settings: IconSettings,
+  notification: IconNotification,
+  users: IconUser
 }
 
 const selectedKeys = computed(() => [route.path])

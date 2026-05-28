@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
@@ -64,11 +65,18 @@ public class PositionLimitHandler(ILogger<PositionLimitHandler> logger) : RiskCh
     }
 }
 
-public class CircuitBreakerHandler(ILogger<CircuitBreakerHandler> logger) : RiskCheckHandler
+public class CircuitBreakerHandler(IKillSwitch killSwitch, ILogger<CircuitBreakerHandler> logger) : RiskCheckHandler
 {
     public override async Task<RiskContext> CheckAsync(RiskContext context, CancellationToken ct = default)
     {
-        if (context.CircuitBreakerActive)
+        // 优先读运行时 Kill Switch (可由 Admin 手动激活), 其次读 settings.CircuitBreakerActive (静态配置兜底)
+        if (killSwitch.IsActive)
+        {
+            context.Deny($"Kill Switch 已激活: {killSwitch.LastReason ?? "无原因"}");
+            logger.LogWarning("风控触发: Kill Switch, TraderId={TraderId}, Reason={Reason}",
+                context.TraderId, killSwitch.LastReason);
+        }
+        else if (context.CircuitBreakerActive)
         {
             context.Deny("熔断机制已激活，暂停所有交易");
             logger.LogWarning("风控触发: 熔断激活, TraderId={TraderId}", context.TraderId);
@@ -135,8 +143,9 @@ public class ExchangeHealthHandler(
     IEncryptionService encryptionService,
     ILogger<ExchangeHealthHandler> logger) : RiskCheckHandler
 {
-    private static readonly Dictionary<Guid, (bool Healthy, DateTime CheckedAt)> _healthCache = [];
+    private static readonly ConcurrentDictionary<Guid, (bool Healthy, DateTime CheckedAt)> _healthCache = new();
     private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(30);
+    private const int MaxCacheSize = 1000;
 
     public override async Task<RiskContext> CheckAsync(RiskContext context, CancellationToken ct = default)
     {
@@ -157,7 +166,7 @@ public class ExchangeHealthHandler(
             if (exchange is null)
             {
                 logger.LogWarning("交易所不存在, ExchangeId={ExchangeId}", context.ExchangeId);
-                _healthCache[context.ExchangeId] = (false, DateTime.UtcNow);
+                SetCache(context.ExchangeId, false);
                 context.Deny("交易所不存在");
                 return await base.CheckAsync(context, ct);
             }
@@ -167,7 +176,7 @@ public class ExchangeHealthHandler(
             var client = clientFactory.CreateClient(exchange.Type, apiKey, secretKey);
             var result = await client.TestConnectionAsync(ct);
 
-            _healthCache[context.ExchangeId] = (result.Success, DateTime.UtcNow);
+            SetCache(context.ExchangeId, result.Success);
 
             if (!result.Success)
             {
@@ -178,10 +187,27 @@ public class ExchangeHealthHandler(
         }
         catch (Exception ex)
         {
-            _healthCache[context.ExchangeId] = (false, DateTime.UtcNow);
+            SetCache(context.ExchangeId, false);
             logger.LogError(ex, "交易所健康检查异常, ExchangeId={ExchangeId}", context.ExchangeId);
         }
 
         return await base.CheckAsync(context, ct);
+    }
+
+    private static void SetCache(Guid exchangeId, bool healthy)
+    {
+        if (_healthCache.Count >= MaxCacheSize)
+            TrimStaleEntries();
+        _healthCache[exchangeId] = (healthy, DateTime.UtcNow);
+    }
+
+    private static void TrimStaleEntries()
+    {
+        var cutoff = DateTime.UtcNow - CacheTtl;
+        foreach (var kvp in _healthCache)
+        {
+            if (kvp.Value.CheckedAt < cutoff)
+                _healthCache.TryRemove(kvp.Key, out _);
+        }
     }
 }

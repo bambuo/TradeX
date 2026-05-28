@@ -98,7 +98,7 @@ async function handleVerifyMfa() {
   loading.value = true
   try {
     await auth.verifyMfa(totpCode.value)
-    loadFromToken()
+    auth.loadFromStorage()
     router.push('/')
   } catch (err: any) {
     error.value = err?.response?.data?.message || 'MFA 验证失败'
@@ -112,28 +112,12 @@ async function handleRecoveryCode() {
   loading.value = true
   try {
     await auth.verifyMfaWithRecoveryCode(recoveryCode.value)
-    loadFromToken()
+    auth.loadFromStorage()
     router.push('/')
   } catch (err: any) {
     error.value = err?.response?.data?.message || '恢复码无效'
   } finally {
     loading.value = false
-  }
-}
-
-function loadFromToken() {
-  const token = localStorage.getItem('accessToken')
-  if (token) {
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]))
-      auth['user'] = {
-        id: payload.nameidentifier || payload.sub,
-        username: payload.name || payload.unique_name,
-        role: payload.role || 'Viewer',
-        email: '',
-        isMfaEnabled: payload.mfa === 'true'
-      }
-    } catch { /* ignore */ }
   }
 }
 

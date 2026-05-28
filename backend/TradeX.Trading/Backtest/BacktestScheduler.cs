@@ -105,9 +105,8 @@ public class BacktestScheduler(
             return;
         }
 
-        task.Status = BacktestTaskStatus.Running;
-        task.Phase = BacktestPhase.Queued;
-        await taskRepo.UpdateAsync(task, ct);
+        if (!await TryAdvancePhaseAsync(taskRepo, task.Id, BacktestTaskStatus.Running, BacktestPhase.Queued, ct))
+            return;
 
         var strategy = await strategyRepo.GetByIdAsync(task.StrategyId, ct);
         if (strategy is null)
@@ -117,8 +116,8 @@ public class BacktestScheduler(
         if (exchange is null)
             throw new InvalidOperationException($"交易所不存在: {task.ExchangeId}");
 
-        task.Phase = BacktestPhase.FetchingData;
-        await taskRepo.UpdateAsync(task, ct);
+        if (!await TryAdvancePhaseAsync(taskRepo, task.Id, BacktestTaskStatus.Running, BacktestPhase.FetchingData, ct))
+            return;
 
         // Public kline API — no API key needed
         var klineReader = clientFactory.CreateClient(exchange.Type, "", "");
@@ -132,15 +131,38 @@ public class BacktestScheduler(
             if (klineReader is IDisposable d) d.Dispose();
         }
 
-        task.Phase = BacktestPhase.Running;
-        await taskRepo.UpdateAsync(task, ct);
+        if (!await TryAdvancePhaseAsync(taskRepo, task.Id, BacktestTaskStatus.Running, BacktestPhase.Running, ct))
+            return;
 
         analysisStore.Init(task.Id);
 
-        var (result, trades, analysis) = engine.Run(strategy, task.Pair, candles, task.InitialCapital, task.PositionSize,
-            a => analysisStore.Push(task.Id, a), task.Timeframe);
+        // 用户取消可能在引擎运行期间发生; 由独立的 poller 周期性查 DB, 检测到 Cancelled 即触发 engineCts.
+        // 引擎在每根 K 线开头调用 ct.ThrowIfCancellationRequested, 因此最大延迟约 = pollInterval + 单根 K 线处理时间.
+        using var engineCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var pollerTask = PollForCancellationAsync(scopeFactory, task.Id, engineCts, ct);
 
-        // 引擎执行期间可能已被用户取消，重新读取最新状态
+        BacktestResult result;
+        List<BacktestTrade> trades;
+        List<BacktestKlineAnalysis> analysis;
+        try
+        {
+            (result, trades, analysis) = await Task.Run(() => engine.Run(
+                strategy, task.Pair, candles, task.InitialCapital, task.PositionSize,
+                a => analysisStore.Push(task.Id, a), task.Timeframe, engineCts.Token), engineCts.Token);
+        }
+        catch (OperationCanceledException) when (engineCts.IsCancellationRequested && !ct.IsCancellationRequested)
+        {
+            logger.LogInformation("回测任务被用户取消, 引擎已中断: TaskId={TaskId}", task.Id);
+            analysisStore.Remove(task.Id);
+            return;
+        }
+        finally
+        {
+            engineCts.Cancel();
+            try { await pollerTask; } catch { /* poller 自身异常忽略 */ }
+        }
+
+        // 二次保险: 引擎跑完后再读一次, 防御 poll 间隙的取消
         var latestTask = await taskRepo.GetByIdAsync(task.Id, ct);
         if (latestTask?.Status == BacktestTaskStatus.Cancelled)
         {
@@ -173,15 +195,62 @@ public class BacktestScheduler(
         };
         await taskRepo.AddResultAsync(resultWithTask, ct);
 
-        task.Status = BacktestTaskStatus.Completed;
-        task.Phase = null;
-        task.CompletedAt = DateTime.UtcNow;
-        await taskRepo.UpdateAsync(task, ct);
+        // 在写入最终 Completed 之前再次校验, 避免覆盖 Cancelled
+        var finalTask = await taskRepo.GetByIdAsync(task.Id, ct);
+        if (finalTask is null || finalTask.Status == BacktestTaskStatus.Cancelled)
+        {
+            logger.LogInformation("回测任务在收尾阶段被取消, 跳过最终状态写入: TaskId={TaskId}", task.Id);
+            analysisStore.Remove(task.Id);
+            return;
+        }
+        finalTask.Status = BacktestTaskStatus.Completed;
+        finalTask.Phase = null;
+        finalTask.CompletedAt = DateTime.UtcNow;
+        await taskRepo.UpdateAsync(finalTask, ct);
 
         analysisStore.Remove(task.Id);
 
         logger.LogInformation("回测完成: TaskId={TaskId}, Trades={TradeCount}, Return={Return}%",
             task.Id, result.TotalTrades, result.TotalReturnPercent);
+    }
+
+    // 在独立 scope 内周期性查 DB, 若任务转为 Cancelled 则触发 engineCts.
+    private static async Task PollForCancellationAsync(IServiceScopeFactory scopeFactory, Guid taskId, CancellationTokenSource engineCts, CancellationToken stoppingToken)
+    {
+        var pollInterval = TimeSpan.FromSeconds(1);
+        try
+        {
+            while (!engineCts.IsCancellationRequested)
+            {
+                await Task.Delay(pollInterval, stoppingToken);
+                using var scope = scopeFactory.CreateScope();
+                var repo = scope.ServiceProvider.GetRequiredService<IBacktestTaskRepository>();
+                var current = await repo.GetByIdAsync(taskId, stoppingToken);
+                if (current?.Status == BacktestTaskStatus.Cancelled)
+                {
+                    engineCts.Cancel();
+                    return;
+                }
+            }
+        }
+        catch (OperationCanceledException) { /* stoppingToken 触发, 正常退出 */ }
+    }
+
+    // 写入前重读, 若任务已被取消则放弃此次写入, 防止脏写覆盖 CancelBacktestAsync 写入的 Cancelled 状态.
+    // 返回 true 表示已成功推进; false 表示任务被取消或不存在, 调用方应直接 return.
+    private async Task<bool> TryAdvancePhaseAsync(IBacktestTaskRepository taskRepo, Guid taskId, BacktestTaskStatus status, BacktestPhase phase, CancellationToken ct)
+    {
+        var current = await taskRepo.GetByIdAsync(taskId, ct);
+        if (current is null) return false;
+        if (current.Status == BacktestTaskStatus.Cancelled)
+        {
+            logger.LogInformation("回测任务已被取消, 跳过阶段推进: TaskId={TaskId}, TargetPhase={Phase}", taskId, phase);
+            return false;
+        }
+        current.Status = status;
+        current.Phase = phase;
+        await taskRepo.UpdateAsync(current, ct);
+        return true;
     }
 
     private async Task RecoverStuckTasksAsync(CancellationToken ct)

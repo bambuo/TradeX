@@ -5,6 +5,7 @@ using TradeX.Api.Filters;
 using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
+using TradeX.Trading.Commands;
 
 namespace TradeX.Api.Controllers;
 
@@ -15,6 +16,7 @@ public class StrategyBindingsController(
     ITraderRepository traderRepo,
     IStrategyRepository strategyRepo,
     IStrategyBindingRepository bindingRepo,
+    IWorkerCommandPublisher commandPublisher,
     ILogger<StrategyBindingsController> logger) : ControllerBase
 {
     private Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
@@ -185,6 +187,9 @@ public class StrategyBindingsController(
         }
 
         await bindingRepo.UpdateAsync(binding, ct);
+
+        // 通知 Worker 刷新 K 线订阅（仅 Redis 可用时生效）
+        await commandPublisher.PublishAsync(WorkerCommandTypes.RefreshSubscriptions, ct: ct);
 
         return Ok(new { binding.Id, binding.Status, UpdatedAt = Fmt(binding.UpdatedAt) });
     }

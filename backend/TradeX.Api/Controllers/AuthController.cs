@@ -250,6 +250,14 @@ public class AuthController(
     [Authorize]
     public async Task<IActionResult> SendRecoveryCodes([FromBody] SendRecoveryCodesRequest request, CancellationToken ct)
     {
+        var callerId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var callerRole = User.FindFirst(ClaimTypes.Role)?.Value;
+
+        // 仅 SuperAdmin/Admin 可为其他用户生成恢复码；普通用户只能为自己生成
+        var isAdmin = callerRole is "SuperAdmin" or "Admin";
+        if (!isAdmin && callerId != request.UserId)
+            return this.Forbidden(BusinessErrorCode.AuthInsufficientPermissions, "无权为其他用户生成恢复码");
+
         var user = await userRepo.GetByIdAsync(request.UserId, ct);
         if (user is null)
             return this.NotFound(BusinessErrorCode.UserNotFound, "用户不存在");

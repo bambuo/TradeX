@@ -18,12 +18,13 @@ public sealed class RedisEventBus(
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
-    private async Task PublishAsync<T>(string type, Guid traderId, T payload)
+    private async Task PublishAsync<T>(string type, Guid traderId, T payload, Guid traceId)
     {
         try
         {
             var envelope = new TradingEventEnvelope(
                 Type: type,
+                TraceId: traceId,
                 TraderId: traderId,
                 DataJson: JsonSerializer.Serialize(payload, Json));
             var json = JsonSerializer.Serialize(envelope, Json);
@@ -40,35 +41,47 @@ public sealed class RedisEventBus(
 
     public Task PositionUpdatedAsync(Guid traderId, Guid positionId, Guid exchangeId, Guid strategyId,
         string Pair, decimal quantity, decimal entryPrice, decimal unrealizedPnl,
-        decimal realizedPnl, string status, DateTime updatedAtUtc, CancellationToken ct = default)
+        decimal realizedPnl, string status, DateTime updatedAtUtc,
+        CancellationToken ct = default, Guid? traceId = null)
         => PublishAsync(TradingEventTypes.PositionUpdated, traderId, new PositionUpdatedPayload(
             positionId, traderId, exchangeId, strategyId, Pair, quantity,
-            entryPrice, unrealizedPnl, realizedPnl, status, updatedAtUtc));
+            entryPrice, unrealizedPnl, realizedPnl, status, updatedAtUtc),
+            traceId ?? Guid.NewGuid());
 
     public Task OrderPlacedAsync(Guid traderId, Guid orderId, Guid exchangeId, Guid? strategyId,
         string Pair, string side, string type, string status,
-        decimal quantity, DateTime placedAtUtc, CancellationToken ct = default)
+        decimal quantity, DateTime placedAtUtc,
+        CancellationToken ct = default, Guid? traceId = null)
         => PublishAsync(TradingEventTypes.OrderPlaced, traderId, new OrderPlacedPayload(
-            orderId, traderId, exchangeId, strategyId, Pair, side, type, status, quantity, placedAtUtc));
+            orderId, traderId, exchangeId, strategyId, Pair, side, type, status, quantity, placedAtUtc),
+            traceId ?? Guid.NewGuid());
 
     public Task BindingStatusChangedAsync(Guid traderId, Guid strategyId, string oldStatus,
-        string newStatus, string? reason, CancellationToken ct = default)
+        string newStatus, string? reason,
+        CancellationToken ct = default, Guid? traceId = null)
         => PublishAsync(TradingEventTypes.BindingStatusChanged, traderId, new BindingStatusChangedPayload(
-            strategyId, traderId, oldStatus, newStatus, reason, DateTime.UtcNow));
+            strategyId, traderId, oldStatus, newStatus, reason, DateTime.UtcNow),
+            traceId ?? Guid.NewGuid());
 
     public Task RiskAlertAsync(Guid traderId, string level, string category, Guid? strategyId,
-        string message, CancellationToken ct = default)
+        string message,
+        CancellationToken ct = default, Guid? traceId = null)
         => PublishAsync(TradingEventTypes.RiskAlert, traderId, new RiskAlertPayload(
-            Guid.NewGuid(), level, category, traderId, strategyId, message, DateTime.UtcNow));
+            Guid.NewGuid(), level, category, traderId, strategyId, message, DateTime.UtcNow),
+            traceId ?? Guid.NewGuid());
 
     public Task DashboardSummaryAsync(Guid traderId, decimal totalPnl, int totalPositions,
         int activeStrategies, decimal dailyPnl, decimal winRate,
-        DateTime lastUpdateAtUtc, CancellationToken ct = default)
+        DateTime lastUpdateAtUtc,
+        CancellationToken ct = default, Guid? traceId = null)
         => PublishAsync(TradingEventTypes.DashboardSummary, traderId, new DashboardSummaryPayload(
-            totalPnl, totalPositions, activeStrategies, dailyPnl, winRate, lastUpdateAtUtc));
+            totalPnl, totalPositions, activeStrategies, dailyPnl, winRate, lastUpdateAtUtc),
+            traceId ?? Guid.NewGuid());
 
     public Task ExchangeConnectionChangedAsync(Guid traderId, Guid exchangeId, string oldStatus,
-        string newStatus, string? errorMessage, CancellationToken ct = default)
+        string newStatus, string? errorMessage,
+        CancellationToken ct = default, Guid? traceId = null)
         => PublishAsync(TradingEventTypes.ExchangeConnectionChanged, traderId, new ExchangeConnectionChangedPayload(
-            exchangeId, traderId, oldStatus, newStatus, errorMessage, DateTime.UtcNow));
+            exchangeId, traderId, oldStatus, newStatus, errorMessage, DateTime.UtcNow),
+            traceId ?? Guid.NewGuid());
 }

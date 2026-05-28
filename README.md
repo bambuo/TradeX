@@ -69,9 +69,9 @@ TradeX/
 ├── backend/
 │   ├── TradeX.slnx
 │   ├── TradeX.Api/          # ASP.NET Core Web API + SPA 静态文件
-│   │   ├── Controllers/     # 16 个控制器（Auth、Traders、Strategies、Orders、Backtesting 等）
+│   │   ├── Controllers/     # 17 个控制器（Auth、Traders、Strategies、Orders、Backtesting 等）
 │   │   ├── Hubs/            # TradingHub（SignalR 实时行情推送）
-│   │   ├── Middleware/      # 5 个中间件（异常、鉴权、审计、IP 白名单、安装守卫）
+│   │   ├── Middleware/      # 7 个中间件（异常、鉴权、审计、幂等性、IP 白名单、安全头、安装守卫）
 │   │   ├── Services/        # JwtService、MfaService、SignalREventBus
 │   │   └── Settings/        # JwtSettings 强类型配置
 │   ├── TradeX.Core/         # 领域模型、接口、枚举（零依赖）
@@ -80,11 +80,12 @@ TradeX/
 │   ├── TradeX.Trading/      # 策略引擎 + 风控管线 + 回测 + Reconciliation
 │   ├── TradeX.Infrastructure/ # EF Core + Casbin
 │   ├── TradeX.Notifications/  # Telegram/Discord/Email 通知
-│   └── TradeX.Tests/        # xUnit + NSubstitute（14 文件，118+ 测试方法）
+│   ├── TradeX.Worker/         # 后台 Worker（TradingEngine、BacktestScheduler、OrderReconciler）
+│   └── TradeX.Tests/          # xUnit + NSubstitute（24 文件，208+ 测试方法）
 ├── frontend/                # Vue 3 + TypeScript SPA（Vite 构建）
-│   ├── api/                 # 15 个 API 模块
-│   ├── components/          # 14 个公共组件（ConditionTreeEditor、ExecutionRuleEditor 等）
-│   ├── views/               # 15 个视图页面（Dashboard、Strategies、Backtest、SetupWizard 等）
+│   ├── api/                 # 13 个 API 模块
+│   ├── components/          # 11 个公共组件（ConditionTreeEditor、ExecutionRuleEditor 等）
+│   ├── views/               # 16 个视图页面（Dashboard、Strategies、Backtest、SetupWizard 等）
 │   ├── composables/         # useSignalR（SignalR 实时连接管理）
 │   ├── stores/              # auth Pinia Store
 │   ├── router/              # Vue Router + 角色守卫

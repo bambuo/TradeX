@@ -165,7 +165,10 @@ function getTestOk(account: Exchange): boolean | null {
   }
   if (!account.testResult) return null
   const msg = account.testResult
-  if (/失败|错误|异常|无权限|error|invalid|unreachable|denied|reject|timeout|expired|HTTP \d/i.test(msg)) {
+  if (typeof msg === 'object' && msg !== null && 'connected' in msg) {
+    return (msg as { connected: boolean }).connected
+  }
+  if (/失败|错误|异常|无权限|error|invalid|unreachable|denied|reject|timeout|expired|HTTP [45]\d\d/i.test(String(msg))) {
     return false
   }
   return true

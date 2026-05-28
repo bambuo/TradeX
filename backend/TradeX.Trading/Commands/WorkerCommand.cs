@@ -5,12 +5,8 @@ public sealed record WorkerCommand(string Type, string ArgsJson);
 
 public static class WorkerCommandTypes
 {
-    /// <summary>立即触发一次 OrderReconciler.ReconcileAsync (无 args)。</summary>
     public const string ReconcileNow = "ReconcileNow";
-
-    // 后续可扩展：
-    // public const string CancelOrder = "CancelOrder";
-    // public const string CircuitBreaker = "CircuitBreaker";
+    public const string RefreshSubscriptions = "RefreshSubscriptions";
 }
 
 public static class WorkerCommandChannels

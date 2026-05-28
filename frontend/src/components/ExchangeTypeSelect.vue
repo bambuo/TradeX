@@ -17,7 +17,7 @@ const options = computed(() =>
   exchangeInfos.map(info => ({ label: info.label, value: info.type }))
 )
 
-function onSelect(value: string | number | boolean | Record<string, any> | (string | number | boolean | Record<string, any>)[]) {
+function onSelect(value: string | number | boolean | Record<string, unknown> | (string | number | boolean | Record<string, unknown>)[]) {
   emit('update:modelValue', String(value))
 }
 </script>

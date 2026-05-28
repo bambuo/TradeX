@@ -17,7 +17,7 @@ export function useSignalR() {
 
     const hub = new HubConnectionBuilder()
       .withUrl(`${getBaseUrl()}/hubs/trading`, {
-        accessTokenFactory: () => token
+        accessTokenFactory: () => localStorage.getItem('accessToken') ?? ''
       })
       .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
       .build()
