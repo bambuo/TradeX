@@ -10,6 +10,7 @@ using TradeX.Api.Hubs;
 using TradeX.Api.Middleware;
 using TradeX.Api.Services;
 using TradeX.Api.Settings;
+using TradeX.Application;
 using TradeX.Exchange;
 using TradeX.Indicators;
 using TradeX.Infrastructure;
@@ -68,6 +69,7 @@ try
     var encryptionKey = builder.Configuration.GetSection("Encryption")["Key"]!;
     builder.Services.AddEncryption(encryptionKey);
 
+    builder.Services.AddApplication();
     builder.Services.AddExchange();
     builder.Services.AddIndicators();
     builder.Services.AddTradingShared();

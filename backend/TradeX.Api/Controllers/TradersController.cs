@@ -1,13 +1,10 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using TradeX.Api.Filters;
-using TradeX.Core.Interfaces;
-using TradeX.Core.Models;
-using TradeX.Core.Enums;
-using TradeX.Core.ErrorCodes;
-using TradeX.Infrastructure.Data;
+using TradeX.Application.Common;
+using TradeX.Application.Traders;
+using TradeX.Application.Traders.DTOs;
 
 namespace TradeX.Api.Controllers;
 
@@ -15,125 +12,87 @@ namespace TradeX.Api.Controllers;
 [Route("api/[controller]")]
 [Authorize]
 public class TradersController(
-    ITraderRepository traderRepo,
-    IStrategyBindingRepository bindingRepo,
-    TradeXDbContext dbContext) : ControllerBase
+    IUseCase<GetTradersQuery, Result<List<TraderDto>>> getTraders,
+    IUseCase<CreateTraderCommand, Result<TraderDto>> createTrader,
+    IUseCase<GetTraderStatsQuery, Result<TraderStatsDto>> getTraderStats,
+    IUseCase<GetTraderByIdQuery, Result<TraderDetailDto>> getTraderById,
+    IUseCase<UpdateTraderCommand, Result<TraderDetailDto>> updateTrader,
+    IUseCase<DeleteTraderCommand, Result> deleteTrader) : ControllerBase
 {
     private Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken ct)
     {
-        var traders = await traderRepo.GetByUserIdAsync(UserId, ct);
-        var result = traders.Select(t => new
-        {
-            t.Id, t.Name, t.Status, t.AvatarColor, t.AvatarUrl, t.Style, t.CreatedAt, t.UpdatedAt
-        });
-        return Ok(result);
+        var result = await getTraders.ExecuteAsync(new GetTradersQuery(UserId), ct);
+        return Ok(result.Data);
     }
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
-        var trader = await traderRepo.GetByIdAsync(id, ct);
-        if (trader is null || trader.UserId != UserId)
-            return NotFound(new { message = "交易员不存在" });
-
-        return Ok(new
-        {
-            trader.Id, trader.Name, trader.Status, trader.CreatedAt, trader.UpdatedAt
-        });
+        var result = await getTraderById.ExecuteAsync(new GetTraderByIdQuery(id, UserId), ct);
+        if (!result.Success)
+            return NotFound(new { message = result.Error });
+        return Ok(result.Data);
     }
 
     [HttpPost]
     [RequireMfa]
     public async Task<IActionResult> Create([FromBody] CreateTraderRequest request, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest(new { message = "名称不能为空" });
+        var result = await createTrader.ExecuteAsync(
+            new CreateTraderCommand(UserId, request.Name, request.AvatarColor, request.Style), ct);
 
-        var isUnique = await traderRepo.IsNameUniqueAsync(UserId, request.Name, null, ct);
-        if (!isUnique)
-            return Conflict(new { message = "交易员名称已存在" });
+        if (!result.Success)
+            return result.StatusCode switch
+            {
+                409 => Conflict(new { message = result.Error }),
+                _ => BadRequest(new { message = result.Error })
+            };
 
-        var trader = new Trader
-        {
-            UserId = UserId,
-            Name = request.Name
-        };
-
-        await traderRepo.AddAsync(trader, ct);
-
-        return CreatedAtAction(nameof(GetById), new { id = trader.Id }, new
-        {
-            trader.Id, trader.Name, trader.Status, trader.CreatedAt
-        });
+        return CreatedAtAction(nameof(GetById), new { id = result.Data!.Id }, result.Data);
     }
 
     [HttpPut("{id:guid}")]
     [RequireMfa]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateTraderRequest request, CancellationToken ct)
     {
-        var trader = await traderRepo.GetByIdAsync(id, ct);
-        if (trader is null || trader.UserId != UserId)
-            return NotFound(new { message = "交易员不存在" });
+        var result = await updateTrader.ExecuteAsync(
+            new UpdateTraderCommand(id, UserId, request.Name, request.Status,
+                request.AvatarColor, request.Style), ct);
 
-        if (!string.IsNullOrWhiteSpace(request.Name))
-        {
-            var isUnique = await traderRepo.IsNameUniqueAsync(UserId, request.Name, id, ct);
-            if (!isUnique)
-                return Conflict(new { message = "交易员名称已存在" });
-            trader.Name = request.Name;
-        }
-
-        if (request.Status.HasValue)
-        {
-            if (request.Status.Value == TradeX.Core.Enums.TraderStatus.Disabled
-                && trader.Status == TradeX.Core.Enums.TraderStatus.Active)
+        if (!result.Success)
+            return result.StatusCode switch
             {
-                var activeBindings = await bindingRepo.GetByTraderIdAsync(trader.Id, ct);
-                foreach (var binding in activeBindings.Where(d => d.Status == BindingStatus.Active))
-                {
-                    binding.Status = BindingStatus.Disabled;
-                    await bindingRepo.UpdateAsync(binding, ct);
-                }
-            }
+                404 => NotFound(new { message = result.Error }),
+                409 => Conflict(new { message = result.Error }),
+                _ => BadRequest(new { message = result.Error })
+            };
 
-            trader.Status = request.Status.Value;
-        }
-
-        if (request.AvatarColor is not null)
-            trader.AvatarColor = request.AvatarColor;
-
-        if (request.Style is not null)
-            trader.Style = request.Style;
-
-        await traderRepo.UpdateAsync(trader, ct);
-
-        return Ok(new { trader.Id, trader.Name, trader.Status, trader.UpdatedAt });
+        return Ok(result.Data);
     }
 
     [HttpDelete("{id:guid}")]
     [RequireMfa]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
-        var trader = await traderRepo.GetByIdAsync(id, ct);
-        if (trader is null || trader.UserId != UserId)
-            return NotFound(new { message = "交易员不存在" });
+        var result = await deleteTrader.ExecuteAsync(new DeleteTraderCommand(id, UserId), ct);
+        if (!result.Success)
+            return result.StatusCode switch
+            {
+                404 => NotFound(new { message = result.Error }),
+                _ => Conflict(new { message = result.Error })
+            };
 
-        var activeBindings = await bindingRepo.GetByTraderIdAsync(trader.Id, ct);
-        if (activeBindings.Any(d => d.Status == BindingStatus.Active))
-            return this.Conflict(BusinessErrorCode.TraderHasActiveStrategies, "交易员存在活跃策略，无法删除，请先禁用所有策略");
-
-        await traderRepo.DeleteAsync(trader, ct);
         return NoContent();
     }
 
     [HttpPost("{id:guid}/avatar")]
     public async Task<IActionResult> UploadAvatar(Guid id, IFormFile file, CancellationToken ct)
     {
-        var trader = await traderRepo.GetByIdAsync(id, ct);
-        if (trader is null || trader.UserId != UserId)
+        var trader = await getTraderById.ExecuteAsync(new GetTraderByIdQuery(id, UserId), ct);
+        if (!trader.Success)
             return NotFound(new { message = "交易员不存在" });
 
         if (file is null || file.Length == 0)
@@ -152,53 +111,25 @@ public class TradersController(
         await using var stream = new FileStream(filePath, FileMode.Create);
         await file.CopyToAsync(stream, ct);
 
-        trader.AvatarUrl = $"/uploads/avatars/{fileName}";
-        await traderRepo.UpdateAsync(trader, ct);
+        var avatarResult = await updateTrader.ExecuteAsync(
+            new UpdateTraderCommand(id, UserId, AvatarUrl: $"/uploads/avatars/{fileName}"), ct);
 
-        return Ok(new { avatarUrl = trader.AvatarUrl });
+        if (!avatarResult.Success)
+            return StatusCode(500, new { message = "头像更新失败" });
+
+        return Ok(new { avatarUrl = avatarResult.Data!.AvatarUrl });
     }
 
     [HttpGet("{id:guid}/stats")]
     public async Task<IActionResult> GetStats(Guid id, CancellationToken ct)
     {
-        var trader = await traderRepo.GetByIdAsync(id, ct);
-        if (trader is null || trader.UserId != UserId)
-            return NotFound(new { message = "交易员不存在" });
-
-        var filledOrders = await dbContext.Orders
-            .Where(o => o.TraderId == id && o.Status == OrderStatus.Filled && o.QuoteQuantity > 0)
-            .ToListAsync(ct);
-
-        var totalTrades = filledOrders.Count;
-        var wins = filledOrders.Count(o => o.Side == OrderSide.Sell && (o.FilledQuantity * (o.Price ?? 0)) > o.QuoteQuantity);
-        var winRate = totalTrades > 0 ? Math.Round((decimal)wins / totalTrades * 100, 1) : 0m;
-
-        var profitableTrades = filledOrders
-            .Where(o => o.Side == OrderSide.Sell && (o.FilledQuantity * (o.Price ?? 0)) > o.QuoteQuantity)
-            .Select(o => Math.Abs((o.FilledQuantity * (o.Price ?? 0)) - o.QuoteQuantity))
-            .ToList();
-
-        var losingTrades = filledOrders
-            .Where(o => o.Side == OrderSide.Sell && (o.FilledQuantity * (o.Price ?? 0)) <= o.QuoteQuantity)
-            .Select(o => Math.Abs((o.FilledQuantity * (o.Price ?? 0)) - o.QuoteQuantity))
-            .ToList();
-
-        var avgWin = profitableTrades.Count > 0 ? profitableTrades.Average() : 0m;
-        var avgLoss = losingTrades.Count > 0 ? losingTrades.Average() : 0m;
-        var profitLossRatio = avgLoss > 0 ? Math.Round(avgWin / avgLoss, 2) : 0m;
-
-        var sharpeRatio = totalTrades > 1 ? (decimal)Math.Round((double)winRate / 100 * Math.Sqrt(365), 2) : 0m;
-
-        return Ok(new
-        {
-            totalTrades,
-            winRate,
-            profitLossRatio,
-            sharpeRatio
-        });
+        var result = await getTraderStats.ExecuteAsync(new GetTraderStatsQuery(id, UserId), ct);
+        if (!result.Success)
+            return NotFound(new { message = result.Error });
+        return Ok(result.Data);
     }
 
     public record CreateTraderRequest(string Name, string? AvatarColor = null, string? Style = null);
 
-    public record UpdateTraderRequest(string? Name = null, TradeX.Core.Enums.TraderStatus? Status = null, string? AvatarColor = null, string? Style = null);
+    public record UpdateTraderRequest(string? Name = null, Core.Enums.TraderStatus? Status = null, string? AvatarColor = null, string? Style = null);
 }

@@ -18,6 +18,7 @@ public static class DependencyInjection
     {
         var serverVersion = new MySqlServerVersion(new Version(mySqlVersion));
         services.AddSingleton<VersionInterceptor>();
+        services.AddSingleton<DomainEventInterceptor>();
         services.AddDbContext<TradeXDbContext>((sp, options) =>
             options
                 .UseMySql(connectionString, serverVersion, mysql => mysql
@@ -25,7 +26,9 @@ public static class DependencyInjection
                         maxRetryCount: 5,
                         maxRetryDelay: TimeSpan.FromSeconds(10),
                         errorNumbersToAdd: null))
-                .AddInterceptors(sp.GetRequiredService<VersionInterceptor>())
+                .AddInterceptors(
+                    sp.GetRequiredService<VersionInterceptor>(),
+                    sp.GetRequiredService<DomainEventInterceptor>())
                 // 全局默认 NoTracking — 读路径热点不再 ChangeTracker 开销；
                 // 需要修改的地方用 .AsTracking() 显式开启，或 ctx.Update/Attach
                 .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking)
@@ -47,6 +50,9 @@ public static class DependencyInjection
 
         services.AddSingleton<IEncryptionService, EncryptionService>();
         services.AddSingleton<CasbinEnforcer>();
+
+        // 应用层服务的 Infrastructure 实现（接口定义在 Core）
+        services.AddSingleton<Core.Interfaces.IHealthCheckService, Services.HealthCheckService>();
 
         return services;
     }

@@ -1,4 +1,6 @@
+using TradeX.Core.Abstractions;
 using TradeX.Core.Enums;
+using TradeX.Core.Events;
 using TradeX.Core.Interfaces;
 
 namespace TradeX.Core.Models;
@@ -12,8 +14,31 @@ namespace TradeX.Core.Models;
 ///      ──Close──► Closed (终态)
 /// </code>
 /// </summary>
-public class Position : IVersioned
+public class Position : AggregateRoot, IVersioned
 {
+    // EF Core 无参构造函数（公开以兼容现有代码）
+    public Position() { }
+
+    /// <summary>工厂方法：开仓。</summary>
+    public static Position Open(
+        Guid traderId, Guid exchangeId, Guid strategyId,
+        string pair, decimal quantity, decimal entryPrice)
+    {
+        var pos = new Position
+        {
+            TraderId = traderId,
+            ExchangeId = exchangeId,
+            StrategyId = strategyId,
+            Pair = pair,
+            Quantity = quantity,
+            EntryPrice = entryPrice,
+            CurrentPrice = entryPrice
+        };
+        pos.AddDomainEvent(new PositionOpenedEvent(
+            pos.Id, traderId, strategyId, pair, quantity, entryPrice));
+        return pos;
+    }
+
     public Guid Id { get; init; } = Guid.NewGuid();
     public Guid TraderId { get; init; }
     public Guid ExchangeId { get; init; }
@@ -64,5 +89,8 @@ public class Position : IVersioned
         var now = DateTime.UtcNow;
         ClosedAtUtc = now;
         UpdatedAt = now;
+
+        AddDomainEvent(new PositionClosedEvent(
+            Id, TraderId, Pair, Quantity, EntryPrice, exitPrice, RealizedPnl));
     }
 }

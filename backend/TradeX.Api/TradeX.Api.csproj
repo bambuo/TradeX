@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\TradeX.Application\TradeX.Application.csproj" />
     <ProjectReference Include="..\TradeX.Trading\TradeX.Trading.csproj" />
     <ProjectReference Include="..\TradeX.Exchange\TradeX.Exchange.csproj" />
     <ProjectReference Include="..\TradeX.Indicators\TradeX.Indicators.csproj" />

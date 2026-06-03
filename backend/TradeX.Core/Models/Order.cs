@@ -1,12 +1,13 @@
+using TradeX.Core.Abstractions;
 using TradeX.Core.Enums;
+using TradeX.Core.Events;
 using TradeX.Core.Interfaces;
 
 namespace TradeX.Core.Models;
 
 /// <summary>
-/// 订单聚合根。状态转换通过领域方法完成，setter 保留 public 以兼容 EF Core 物化与既有 controller，
-/// 但**生产代码请使用 <see cref="MarkPlaced"/> / <see cref="RecordFill"/> / <see cref="MarkFailed"/> /
-/// <see cref="MarkCancelled"/>** —— 这些方法封装了状态机不变量。
+/// 订单聚合根。状态转换通过领域方法完成，setter 保留 public 以兼容 EF Core 物化，
+/// 但**生产代码请使用领域方法** —— 这些方法封装了状态机不变量并发布领域事件。
 ///
 /// 状态机：
 /// <code>
@@ -18,8 +19,61 @@ namespace TradeX.Core.Models;
 ///                 ──MarkCancelled──► Cancelled (终态)
 /// </code>
 /// </summary>
-public class Order : IVersioned
+public class Order : AggregateRoot, IVersioned
 {
+    // EF Core 无参构造函数（公开以兼容现有代码中的 new Order { ... } 写法）
+    public Order() { }
+
+    /// <summary>工厂方法：创建手动订单。</summary>
+    public static Order CreateManual(
+        Guid traderId, Guid exchangeId, string pair,
+        OrderSide side, OrderType type, decimal quantity,
+        decimal? price = null, Guid? strategyId = null, Guid? positionId = null)
+    {
+        var order = new Order
+        {
+            TraderId = traderId,
+            ExchangeId = exchangeId,
+            Pair = pair,
+            Side = side,
+            Type = type,
+            Quantity = quantity,
+            Price = price,
+            StrategyId = strategyId,
+            PositionId = positionId,
+            IsManual = true
+        };
+        order.AddDomainEvent(new OrderPlacedEvent(
+            order.Id, traderId, exchangeId, strategyId,
+            pair, side.ToString(), type.ToString(), quantity, price));
+        return order;
+    }
+
+    /// <summary>工厂方法：创建策略自动订单。</summary>
+    public static Order CreateAuto(
+        Guid traderId, Guid exchangeId, string pair,
+        OrderSide side, decimal quoteQuantity,
+        Guid strategyId, Guid? positionId = null)
+    {
+        var order = new Order
+        {
+            TraderId = traderId,
+            ExchangeId = exchangeId,
+            Pair = pair,
+            Side = side,
+            Type = OrderType.Market,
+            Quantity = 0,
+            QuoteQuantity = quoteQuantity,
+            StrategyId = strategyId,
+            PositionId = positionId,
+            IsManual = false
+        };
+        order.AddDomainEvent(new OrderPlacedEvent(
+            order.Id, traderId, exchangeId, strategyId,
+            pair, side.ToString(), "Market", quoteQuantity, null));
+        return order;
+    }
+
     public Guid Id { get; init; } = Guid.NewGuid();
     public Guid TraderId { get; init; }
     /// <summary>客户端订单 ID（幂等键）。提交至交易所前生成，用于断线/崩溃后对账。</summary>
@@ -77,6 +131,9 @@ public class Order : IVersioned
                 ? OrderStatus.PartiallyFilled
                 : OrderStatus.Pending;
         UpdatedAt = DateTime.UtcNow;
+
+        if (Status == OrderStatus.Filled)
+            AddDomainEvent(new OrderFilledEvent(Id, TraderId, Pair, Side.ToString(), FilledQuantity, Fee, FeeAsset));
     }
 
     /// <summary>标记下单失败（交易所拒绝、网络错误等）。</summary>
@@ -85,6 +142,7 @@ public class Order : IVersioned
         EnsureNotTerminal(nameof(MarkFailed));
         Status = OrderStatus.Failed;
         UpdatedAt = DateTime.UtcNow;
+        AddDomainEvent(new OrderFailedEvent(Id, TraderId, reason ?? "unknown"));
     }
 
     /// <summary>标记订单已取消。</summary>
@@ -93,6 +151,7 @@ public class Order : IVersioned
         EnsureNotTerminal(nameof(MarkCancelled));
         Status = OrderStatus.Cancelled;
         UpdatedAt = DateTime.UtcNow;
+        AddDomainEvent(new OrderCancelledEvent(Id, TraderId));
     }
 
     /// <summary>是否已到达终态（不可再转换）。</summary>
