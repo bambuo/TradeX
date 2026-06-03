@@ -10,7 +10,7 @@ public sealed class OutboxEventConfiguration : IEntityTypeConfiguration<OutboxEv
     {
         builder.HasKey(x => x.Id);
         builder.HasIndex(x => new { x.Status, x.CreatedAtUtc });
-        builder.Property(x => x.Id).ValueGeneratedOnAdd();
+        // Id 由应用层 Guid.NewGuid() 生成，无需数据库默认值
         builder.Property(x => x.Type).HasMaxLength(100).IsRequired();
         builder.Property(x => x.PayloadJson).IsRequired();
         builder.Property(x => x.Status).HasConversion<int>();

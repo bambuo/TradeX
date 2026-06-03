@@ -7,7 +7,7 @@ namespace TradeX.Core.Models;
 /// </summary>
 public class OutboxEvent
 {
-    public long Id { get; init; }
+    public Guid Id { get; init; } = Guid.NewGuid();
     /// <summary>事件类型标签（如 "OrderPlaced"），消费方据此路由。</summary>
     public string Type { get; init; } = string.Empty;
     /// <summary>消息载荷 JSON。结构由 Type 决定。</summary>

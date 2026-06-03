@@ -14,8 +14,8 @@ public interface IOutboxRepository
     Task<List<OutboxEvent>> PickPendingAsync(int batchSize, CancellationToken ct = default);
 
     /// <summary>标记成功。</summary>
-    Task MarkSentAsync(long id, CancellationToken ct = default);
+    Task MarkSentAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>标记失败 + 增加重试次数。超过 maxAttempts 后置 Failed 状态。返回是否已进入终态 Failed。</summary>
-    Task<bool> MarkFailedAsync(long id, string error, int maxAttempts, CancellationToken ct = default);
+    Task<bool> MarkFailedAsync(Guid id, string error, int maxAttempts, CancellationToken ct = default);
 }

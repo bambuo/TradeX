@@ -20,17 +20,19 @@ public class OutboxRelayServiceTests
     public async Task DrainBatch_PendingEvents_PublishesToRedisStream()
     {
         var (db, repo, relay) = Build();
+        var id1 = Guid.NewGuid();
+        var id2 = Guid.NewGuid();
         var pendingEvents = new List<OutboxEvent>
         {
             new()
             {
-                Id = 1,
+                Id = id1,
                 PayloadJson = """{"Type":"OrderPlaced","TraceId":"0000-0000","TraderId":"0000-0000","DataJson":"{}"}""",
                 Type = "OrderPlaced"
             },
             new()
             {
-                Id = 2,
+                Id = id2,
                 PayloadJson = """{"Type":"PositionUpdated","TraceId":"0000-0000","TraderId":"0000-0000","DataJson":"{}"}""",
                 Type = "PositionUpdated"
             }
@@ -52,17 +54,18 @@ public class OutboxRelayServiceTests
                 useApproximateMaxLength: true);
         }
 
-        await repo.Received(1).MarkSentAsync(1, Arg.Any<CancellationToken>());
-        await repo.Received(1).MarkSentAsync(2, Arg.Any<CancellationToken>());
+        await repo.Received(1).MarkSentAsync(id1, Arg.Any<CancellationToken>());
+        await repo.Received(1).MarkSentAsync(id2, Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task DrainBatch_RedisFailure_MarksFailed()
     {
         var (db, repo, relay) = Build();
+        var evtId = Guid.NewGuid();
         var pendingEvents = new List<OutboxEvent>
         {
-            new() { Id = 1, PayloadJson = "{}", AttemptCount = 0, Type = "TestEvent" }
+            new() { Id = evtId, PayloadJson = "{}", AttemptCount = 0, Type = "TestEvent" }
         };
         repo.PickPendingAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(pendingEvents);
 
@@ -77,7 +80,7 @@ public class OutboxRelayServiceTests
         var processed = await InvokeDrainBatchAsync(relay, db);
 
         Assert.Equal(1, processed);
-        await repo.Received(1).MarkFailedAsync(1,
+        await repo.Received(1).MarkFailedAsync(evtId,
             Arg.Is<string>(s => s.Contains("Connection failed")),
             5,
             Arg.Any<CancellationToken>());
@@ -102,9 +105,10 @@ public class OutboxRelayServiceTests
     public async Task DrainBatch_ExceedsMaxAttempts_MarksFailed()
     {
         var (db, repo, relay) = Build();
+        var evtId = Guid.NewGuid();
         var evt = new OutboxEvent
         {
-            Id = 1,
+            Id = evtId,
             PayloadJson = "{}",
             AttemptCount = 4, // One more failure → 5 = maxAttempts → becomes Failed
             Type = "TestEvent"
@@ -122,7 +126,7 @@ public class OutboxRelayServiceTests
         await InvokeDrainBatchAsync(relay, db);
 
         // After failure with maxAttempts=5, attemptCount goes from 4→5 → Status becomes Failed
-        await repo.Received(1).MarkFailedAsync(1,
+        await repo.Received(1).MarkFailedAsync(evtId,
             Arg.Any<string>(),
             Arg.Is<int>(max => max == 5),
             Arg.Any<CancellationToken>());

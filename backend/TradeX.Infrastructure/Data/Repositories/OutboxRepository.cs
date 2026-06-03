@@ -24,7 +24,7 @@ public class OutboxRepository(TradeXDbContext context) : IOutboxRepository
             .ToListAsync(ct);
     }
 
-    public async Task MarkSentAsync(long id, CancellationToken ct = default)
+    public async Task MarkSentAsync(Guid id, CancellationToken ct = default)
     {
         var row = await context.OutboxEvents.AsTracking().FirstOrDefaultAsync(e => e.Id == id, ct);
         if (row is null) return;
@@ -33,7 +33,7 @@ public class OutboxRepository(TradeXDbContext context) : IOutboxRepository
         await context.SaveChangesAsync(ct);
     }
 
-    public async Task<bool> MarkFailedAsync(long id, string error, int maxAttempts, CancellationToken ct = default)
+    public async Task<bool> MarkFailedAsync(Guid id, string error, int maxAttempts, CancellationToken ct = default)
     {
         var row = await context.OutboxEvents.AsTracking().FirstOrDefaultAsync(e => e.Id == id, ct);
         if (row is null) return false;
