@@ -3,6 +3,8 @@ namespace TradeX.Trading.Backtest;
 public class BacktestSchedulerSettings
 {
     public int MaxConcurrency { get; init; } = 3;
+    /// <summary>回测单边手续费率（如 0.001 = 0.1%），买卖各收取一次。0 表示不计费。</summary>
+    public decimal FeeRate { get; init; } = 0.001m;
     public int TaskTimeoutMinutes { get; init; } = 30;
     public int MonitorIntervalSeconds { get; init; } = 5;
     public long MemoryWarningMb { get; init; } = 512;

@@ -6,19 +6,19 @@ namespace TradeX.Api.Middleware;
 
 public class IpWhitelistMiddleware(RequestDelegate next)
 {
-    private static readonly HashSet<string> _whitelist = [];
+    private static readonly HashSet<string> Whitelist = [];
     private static bool _enabled;
 
     public static void Configure(bool enabled, IEnumerable<string> allowedCidr)
     {
         _enabled = enabled;
-        _whitelist.Clear();
+        Whitelist.Clear();
         foreach (var cidr in allowedCidr)
         {
             var parts = cidr.Split('/');
             var ip = IPAddress.Parse(parts[0]);
             var prefix = parts.Length > 1 && int.TryParse(parts[1], out var len) ? len : 32;
-            _whitelist.Add($"{ip}/{prefix}");
+            Whitelist.Add($"{ip}/{prefix}");
         }
     }
 
@@ -41,9 +41,9 @@ public class IpWhitelistMiddleware(RequestDelegate next)
 
     private static bool IsAllowed(IPAddress? remoteIp)
     {
-        if (remoteIp is null || _whitelist.Count == 0) return true;
+        if (remoteIp is null || Whitelist.Count == 0) return true;
 
-        foreach (var entry in _whitelist)
+        foreach (var entry in Whitelist)
         {
             var parts = entry.Split('/');
             var network = IPAddress.Parse(parts[0]);

@@ -46,6 +46,9 @@ public sealed class StrategyEvaluationConsumer(
     // pair → 价格序列（Trade 价格逐步填充）
     private readonly ConcurrentDictionary<string, List<decimal>> _priceHistory = new(StringComparer.OrdinalIgnoreCase);
 
+    // (pair|exchange|interval) → 上一根已收盘 K 线，用于给 prevWindow 提供正确的“上一根”OHLC（穿越检测）
+    private readonly ConcurrentDictionary<string, Candle> _lastClosedCandle = new(StringComparer.OrdinalIgnoreCase);
+
     // 活跃策略缓存
     private volatile IReadOnlyList<StrategyBinding> _activeStrategies = [];
     private readonly object _refreshLock = new();
@@ -212,9 +215,12 @@ public sealed class StrategyEvaluationConsumer(
         var currentWindow = new KlineWindow(prices, Array.Empty<long>(),
             candle.Open, candle.High, candle.Low, candle.Close);
 
-        var prevWindow = prevPrices.Count > 0
-            ? new KlineWindow(prevPrices, Array.Empty<long>(), candle.Open, candle.High, candle.Low, candle.Close)
+        // prevWindow 须用“上一根”的 OHLC，否则 OHLC 类指标（如 RANGE_PCT）prev==cur，穿越永不触发
+        var candleKey = $"{pair}|{evt.ExchangeId}|{evt.Interval}";
+        var prevWindow = prevPrices.Count > 0 && _lastClosedCandle.TryGetValue(candleKey, out var prevCandle)
+            ? new KlineWindow(prevPrices, Array.Empty<long>(), prevCandle.Open, prevCandle.High, prevCandle.Low, prevCandle.Close)
             : currentWindow;
+        _lastClosedCandle[candleKey] = candle;
 
         // 按 trader 分组
         var traderGroups = matchingBindings.GroupBy(s => s.TraderId).ToList();
@@ -274,143 +280,182 @@ public sealed class StrategyEvaluationConsumer(
 
         var volatilityRule = VolatilityGridExecutionRuleParser.TryParse(executionRuleJson, logger);
 
-        // ═══ 入场评估 ═══
-        if (volatilityRule is not null || (!hasOpenPosition && hasEntryCondition))
+        // ═══ 波动率网格：复用已测算法 VolatilityGridExecutor（围绕持仓均价按 RebalancePercent 加/减仓）═══
+        if (volatilityRule is not null)
         {
-            var prices = _priceHistory.GetOrAdd(pair, _ => []);
-            decimal pricesMin;
-            lock (prices) { pricesMin = prices.Count > 0 ? prices.Min() : currentPrice; }
-
-            var shouldEnter = volatilityRule is null
-                ? cycle.ConditionEvaluator.Evaluate(entryConditionJson, indicatorValues, previousValues)
-                : currentPrice <= pricesMin;
-
-            if (shouldEnter)
-            {
-                var positionsToOpen = openPairPositions.Count;
-
-                if (volatilityRule is not null && positionsToOpen >= volatilityRule.MaxPyramidingLevels)
-                {
-                    logger.LogDebug("策略 {BindingId}: 已达加仓上限 {Max}, Pair={Pair}",
-                        binding.Id, volatilityRule.MaxPyramidingLevels, pair);
-                    return;
-                }
-
-                var riskCheck = await cycle.RiskManager.CheckAsync(binding.TraderId, binding.ExchangeId, ct);
-                if (!riskCheck.IsAllowed)
-                {
-                    var msg = string.Join("; ", riskCheck.DeniedReasons);
-                    logger.LogWarning("策略 {BindingId}: 风控拒绝入场, {Reasons}", binding.Id, msg);
-                    metrics.RiskDenials.Add(1, new KeyValuePair<string, object?>("scope", "portfolio"));
-                    await eventBus.RiskAlertAsync(binding.TraderId, "Warning", "RiskCheck", binding.Id, msg, ct);
-                    return;
-                }
-
-                var plannedNotional = volatilityRule?.BasePositionSize ?? 100m;
-                var pairRisk = await cycle.RiskManager.CheckPairRiskAsync(binding.TraderId, binding.ExchangeId, pair, plannedNotional, ct);
-                if (!pairRisk.IsAllowed)
-                {
-                    var msg = string.Join("; ", pairRisk.DeniedReasons);
-                    logger.LogWarning("策略 {BindingId}: 币种风控拒绝, {Reasons}", binding.Id, msg);
-                    metrics.RiskDenials.Add(1, new KeyValuePair<string, object?>("scope", "pair"));
-                    await eventBus.RiskAlertAsync(binding.TraderId, "Warning", "PairRisk", binding.Id, msg, ct);
-                    return;
-                }
-
-                var order = new Order
-                {
-                    TraderId = binding.TraderId,
-                    ExchangeId = binding.ExchangeId,
-                    StrategyId = binding.Id,
-                    Pair = pair,
-                    Side = OrderSide.Buy,
-                    Type = OrderType.Market,
-                    Quantity = 0,
-                    QuoteQuantity = volatilityRule?.BasePositionSize ?? 100
-                };
-
-                var result = await cycle.TradeExecutor.ExecuteMarketOrderAsync(order, ct);
-                if (result.Success)
-                {
-                    logger.LogInformation("策略 {BindingId}: 买入成交 {Pair} {Quantity}",
-                        binding.Id, pair, result.FilledQuantity);
-                    metrics.OrdersPlaced.Add(1,
-                        new KeyValuePair<string, object?>("side", "buy"),
-                        new KeyValuePair<string, object?>("status", order.Status.ToString()));
-                    await eventBus.OrderPlacedAsync(binding.TraderId, order.Id, order.ExchangeId, order.StrategyId,
-                        order.Pair, order.Side.ToString(), order.Type.ToString(),
-                        order.Status.ToString(), order.Quantity, order.PlacedAtUtc, ct);
-                }
-                else
-                {
-                    logger.LogWarning("策略 {BindingId}: 买入失败 {Pair}, {Error}",
-                        binding.Id, pair, result.Error);
-                    metrics.OrdersRejected.Add(1,
-                        new KeyValuePair<string, object?>("side", "buy"),
-                        new KeyValuePair<string, object?>("reason", result.Error ?? "unknown"));
-                }
-            }
+            await HandleVolatilityGridAsync(binding, pair, currentPrice, openPairPositions, volatilityRule, cycle, ct);
+            return;
         }
 
-        // ═══ 出场评估 ═══
-        if (hasOpenPosition && (volatilityRule is not null || hasExitCondition))
+        // ═══ 条件入场评估 ═══
+        if (!hasOpenPosition && hasEntryCondition)
         {
-            var shouldExit = volatilityRule is null
-                ? cycle.ConditionEvaluator.Evaluate(exitConditionJson, indicatorValues, previousValues)
-                : currentPrice >= openPairPositions.Average(p => p.EntryPrice) * (1 + volatilityRule.RebalancePercent / 100m);
+            var shouldEnter = cycle.ConditionEvaluator.Evaluate(entryConditionJson, indicatorValues, previousValues);
+            if (shouldEnter && await PassesRiskAsync(binding, pair, 100m, cycle, ct))
+                await PlaceMarketBuyAsync(binding, pair, 100m, cycle, ct);
+        }
 
+        // ═══ 条件出场评估 ═══
+        if (hasOpenPosition && hasExitCondition)
+        {
+            var shouldExit = cycle.ConditionEvaluator.Evaluate(exitConditionJson, indicatorValues, previousValues);
             if (shouldExit)
-            {
-                var positionsToClose = volatilityRule is null
-                    ? openPairPositions
-                    : openPairPositions.Take(1).ToList();
+                foreach (var position in openPairPositions)
+                    await CloseGridPositionAsync(binding, pair, position, currentPrice, cycle, ct);
+        }
+    }
 
-                foreach (var position in positionsToClose)
-                {
-                    var sellOrder = new Order
-                    {
-                        TraderId = binding.TraderId,
-                        ExchangeId = binding.ExchangeId,
-                        StrategyId = binding.Id,
-                        PositionId = position.Id,
-                        Pair = pair,
-                        Side = OrderSide.Sell,
-                        Type = OrderType.Market,
-                        Quantity = position.Quantity,
-                        QuoteQuantity = position.CurrentPrice * position.Quantity
-                    };
+    /// <summary>
+    /// 波动率网格决策与执行。
+    /// 由持仓聚合出 (均价, 总量, 加仓档位) → <see cref="VolatilityGridExecutor.Decide"/>：
+    /// 价格相对均价跌幅 ≥ RebalancePercent 加仓、涨幅 ≥ RebalancePercent 减仓，
+    /// 加仓档位与名义价值上限由 Decide 内部强制。
+    /// </summary>
+    private async Task HandleVolatilityGridAsync(
+        StrategyBinding binding, string pair, decimal currentPrice,
+        IReadOnlyList<Position> openPairPositions, VolatilityGridExecutionRule rule,
+        TradingCycleScope cycle, CancellationToken ct)
+    {
+        var quantityHeld = openPairPositions.Sum(p => p.Quantity);
+        var avgEntry = quantityHeld > 0
+            ? openPairPositions.Sum(p => p.EntryPrice * p.Quantity) / quantityHeld
+            : 0m;
+        var state = new VolatilityGridState(avgEntry, quantityHeld, openPairPositions.Count);
 
-                    var result = await cycle.TradeExecutor.ExecuteMarketOrderAsync(sellOrder, ct);
-                    if (result.Success)
-                    {
-                        position.Close(currentPrice);
-                        await cycle.PositionRepo.UpdateAsync(position, ct);
+        var decision = new VolatilityGridExecutor(rule).Decide(state, currentPrice);
+        switch (decision.Action)
+        {
+            case VolatilityGridAction.Buy:
+                if (await PassesRiskAsync(binding, pair, rule.BasePositionSize, cycle, ct))
+                    await PlaceMarketBuyAsync(binding, pair, rule.BasePositionSize, cycle, ct);
+                break;
 
-                        logger.LogInformation("策略 {BindingId}: 卖出平仓 {Pair} {Quantity}, PnL={PnL}",
-                            binding.Id, pair, position.Quantity, position.RealizedPnl);
+            case VolatilityGridAction.Sell:
+                // 每次减仓平掉最早的一笔持仓（每档加仓对应一条持仓记录 ≈ BasePositionSize）
+                var oldest = openPairPositions.FirstOrDefault();
+                if (oldest is not null)
+                    await CloseGridPositionAsync(binding, pair, oldest, currentPrice, cycle, ct);
+                break;
 
-                        await eventBus.PositionUpdatedAsync(binding.TraderId, position.Id, position.ExchangeId,
-                            position.StrategyId, position.Pair, position.Quantity, position.EntryPrice,
-                            position.UnrealizedPnl, position.RealizedPnl, position.Status.ToString(),
-                            position.UpdatedAt, ct);
+            default:
+                logger.LogDebug("策略 {BindingId}: 网格 Hold, {Reason}", binding.Id, decision.Reason);
+                break;
+        }
+    }
 
-                        await eventBus.OrderPlacedAsync(binding.TraderId, sellOrder.Id, sellOrder.ExchangeId,
-                            sellOrder.StrategyId, sellOrder.Pair, sellOrder.Side.ToString(),
-                            sellOrder.Type.ToString(), sellOrder.Status.ToString(),
-                            sellOrder.Quantity, sellOrder.PlacedAtUtc, ct);
+    /// <summary>组合级 + 币种级风控检查，任一不通过即拒绝并发告警/指标。</summary>
+    private async Task<bool> PassesRiskAsync(
+        StrategyBinding binding, string pair, decimal plannedNotional,
+        TradingCycleScope cycle, CancellationToken ct)
+    {
+        var riskCheck = await cycle.RiskManager.CheckAsync(binding.TraderId, binding.ExchangeId, ct);
+        if (!riskCheck.IsAllowed)
+        {
+            var msg = string.Join("; ", riskCheck.DeniedReasons);
+            logger.LogWarning("策略 {BindingId}: 风控拒绝入场, {Reasons}", binding.Id, msg);
+            metrics.RiskDenials.Add(1, new KeyValuePair<string, object?>("scope", "portfolio"));
+            await eventBus.RiskAlertAsync(binding.TraderId, "Warning", "RiskCheck", binding.Id, msg, ct);
+            return false;
+        }
 
-                        metrics.OrdersPlaced.Add(1,
-                            new KeyValuePair<string, object?>("side", "sell"),
-                            new KeyValuePair<string, object?>("status", sellOrder.Status.ToString()));
-                    }
-                    else
-                    {
-                        metrics.OrdersRejected.Add(1,
-                            new KeyValuePair<string, object?>("side", "sell"),
-                            new KeyValuePair<string, object?>("reason", result.Error ?? "unknown"));
-                    }
-                }
-            }
+        var pairRisk = await cycle.RiskManager.CheckPairRiskAsync(binding.TraderId, binding.ExchangeId, pair, plannedNotional, ct);
+        if (!pairRisk.IsAllowed)
+        {
+            var msg = string.Join("; ", pairRisk.DeniedReasons);
+            logger.LogWarning("策略 {BindingId}: 币种风控拒绝, {Reasons}", binding.Id, msg);
+            metrics.RiskDenials.Add(1, new KeyValuePair<string, object?>("scope", "pair"));
+            await eventBus.RiskAlertAsync(binding.TraderId, "Warning", "PairRisk", binding.Id, msg, ct);
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>按 quote 金额下市价买单，并发布成交/拒单事件与指标。</summary>
+    private async Task PlaceMarketBuyAsync(
+        StrategyBinding binding, string pair, decimal quoteSize,
+        TradingCycleScope cycle, CancellationToken ct)
+    {
+        var order = new Order
+        {
+            TraderId = binding.TraderId,
+            ExchangeId = binding.ExchangeId,
+            StrategyId = binding.Id,
+            Pair = pair,
+            Side = OrderSide.Buy,
+            Type = OrderType.Market,
+            Quantity = 0,
+            QuoteQuantity = quoteSize
+        };
+
+        var result = await cycle.TradeExecutor.ExecuteMarketOrderAsync(order, ct);
+        if (result.Success)
+        {
+            logger.LogInformation("策略 {BindingId}: 买入成交 {Pair} {Quantity}",
+                binding.Id, pair, result.FilledQuantity);
+            metrics.OrdersPlaced.Add(1,
+                new KeyValuePair<string, object?>("side", "buy"),
+                new KeyValuePair<string, object?>("status", order.Status.ToString()));
+            await eventBus.OrderPlacedAsync(binding.TraderId, order.Id, order.ExchangeId, order.StrategyId,
+                order.Pair, order.Side.ToString(), order.Type.ToString(),
+                order.Status.ToString(), order.Quantity, order.PlacedAtUtc, ct);
+        }
+        else
+        {
+            logger.LogWarning("策略 {BindingId}: 买入失败 {Pair}, {Error}",
+                binding.Id, pair, result.Error);
+            metrics.OrdersRejected.Add(1,
+                new KeyValuePair<string, object?>("side", "buy"),
+                new KeyValuePair<string, object?>("reason", result.Error ?? "unknown"));
+        }
+    }
+
+    /// <summary>对单笔持仓下市价卖单平仓，成交后落库并发布持仓/订单事件与指标。</summary>
+    private async Task CloseGridPositionAsync(
+        StrategyBinding binding, string pair, Position position, decimal currentPrice,
+        TradingCycleScope cycle, CancellationToken ct)
+    {
+        var sellOrder = new Order
+        {
+            TraderId = binding.TraderId,
+            ExchangeId = binding.ExchangeId,
+            StrategyId = binding.Id,
+            PositionId = position.Id,
+            Pair = pair,
+            Side = OrderSide.Sell,
+            Type = OrderType.Market,
+            Quantity = position.Quantity,
+            QuoteQuantity = position.CurrentPrice * position.Quantity
+        };
+
+        var result = await cycle.TradeExecutor.ExecuteMarketOrderAsync(sellOrder, ct);
+        if (result.Success)
+        {
+            position.Close(currentPrice);
+            await cycle.PositionRepo.UpdateAsync(position, ct);
+
+            logger.LogInformation("策略 {BindingId}: 卖出平仓 {Pair} {Quantity}, PnL={PnL}",
+                binding.Id, pair, position.Quantity, position.RealizedPnl);
+
+            await eventBus.PositionUpdatedAsync(binding.TraderId, position.Id, position.ExchangeId,
+                position.StrategyId, position.Pair, position.Quantity, position.EntryPrice,
+                position.UnrealizedPnl, position.RealizedPnl, position.Status.ToString(),
+                position.UpdatedAt, ct);
+
+            await eventBus.OrderPlacedAsync(binding.TraderId, sellOrder.Id, sellOrder.ExchangeId,
+                sellOrder.StrategyId, sellOrder.Pair, sellOrder.Side.ToString(),
+                sellOrder.Type.ToString(), sellOrder.Status.ToString(),
+                sellOrder.Quantity, sellOrder.PlacedAtUtc, ct);
+
+            metrics.OrdersPlaced.Add(1,
+                new KeyValuePair<string, object?>("side", "sell"),
+                new KeyValuePair<string, object?>("status", sellOrder.Status.ToString()));
+        }
+        else
+        {
+            metrics.OrdersRejected.Add(1,
+                new KeyValuePair<string, object?>("side", "sell"),
+                new KeyValuePair<string, object?>("reason", result.Error ?? "unknown"));
         }
     }
 

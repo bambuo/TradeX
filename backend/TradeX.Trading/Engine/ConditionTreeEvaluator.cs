@@ -26,11 +26,18 @@ public class ConditionTreeEvaluator : IConditionTreeEvaluator
         if (!indicatorValues.TryGetValue(leaf.Indicator, out var actual))
             return false;
 
+        var hasRef = !string.IsNullOrEmpty(leaf.Ref);
         var compareValue = leaf.Value.Value;
-        if (!string.IsNullOrEmpty(leaf.Ref) && indicatorValues.TryGetValue(leaf.Ref, out var refVal))
+        if (hasRef && indicatorValues.TryGetValue(leaf.Ref!, out var refVal))
             compareValue = refVal * leaf.Value.Value;
 
         var prevHasValue = previousValues.TryGetValue(leaf.Indicator, out var prev);
+
+        // 穿越判定的 prev 端比较基准：指标对指标（带 Ref）时须用“上一根”的参照值，
+        // 否则会拿上一根被测指标与当前参照指标比较，导致金叉/死叉在错误时机触发或漏触发。
+        var prevCompareValue = compareValue;
+        if (hasRef && previousValues.TryGetValue(leaf.Ref!, out var prevRefVal))
+            prevCompareValue = prevRefVal * leaf.Value.Value;
 
         return leaf.Comparison switch
         {
@@ -40,8 +47,8 @@ public class ConditionTreeEvaluator : IConditionTreeEvaluator
             "<=" => actual <= compareValue,
             "==" => Math.Abs(actual - compareValue) < 0.0001m,
             // 长名优先，短名 CA/CB 为历史策略兼容
-            "CrossAbove" or "CA" => prevHasValue && prev <= compareValue && actual > compareValue,
-            "CrossBelow" or "CB" => prevHasValue && prev >= compareValue && actual < compareValue,
+            "CrossAbove" or "CA" => prevHasValue && prev <= prevCompareValue && actual > compareValue,
+            "CrossBelow" or "CB" => prevHasValue && prev >= prevCompareValue && actual < compareValue,
             _ => false
         };
     }

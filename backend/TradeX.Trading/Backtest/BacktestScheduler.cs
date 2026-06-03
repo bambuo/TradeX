@@ -148,7 +148,8 @@ public class BacktestScheduler(
         {
             (result, trades, analysis) = await Task.Run(() => engine.Run(
                 strategy, task.Pair, candles, task.InitialCapital, task.PositionSize,
-                a => analysisStore.Push(task.Id, a), task.Timeframe, engineCts.Token), engineCts.Token);
+                a => analysisStore.Push(task.Id, a), task.Timeframe, engineCts.Token,
+                feeRate: settings.Value.FeeRate), engineCts.Token);
         }
         catch (OperationCanceledException) when (engineCts.IsCancellationRequested && !ct.IsCancellationRequested)
         {

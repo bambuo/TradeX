@@ -284,13 +284,14 @@ public class HtxClientAdapter : IExchangeClient
 
     public async Task<PairRule[]> GetPairRulesAsync(CancellationToken ct = default)
     {
-        var r = await _client.SpotApi.ExchangeData.GetSymbolsAsync(ct: ct);
+        // GetSymbolConfig 才带最小下单量/名义价值（GetSymbols 不含），用它填充 PairRule 以启用本地预校验
+        var r = await _client.SpotApi.ExchangeData.GetSymbolConfigAsync(ct: ct);
         if (!r.Success) return [];
-        return r.Data.Where(s => s.SymbolStatus == SymbolStatus.Online)
-            .Select(s => new PairRule(s.Name, (int)s.PricePrecision, (int)s.QuantityPrecision,
-                0m, 0m,
-                PairRuleMath.StepFromPrecision((int)s.PricePrecision),
-                PairRuleMath.StepFromPrecision((int)s.QuantityPrecision)))
+        return r.Data.Where(s => s.Status == SymbolStatus.Online)
+            .Select(s => new PairRule(s.Symbol, s.PricePrecision, s.QuantityPrecision,
+                s.MinOrderValue ?? 0m, s.MinOrderQuantity ?? 0m,
+                PairRuleMath.StepFromPrecision(s.PricePrecision),
+                PairRuleMath.StepFromPrecision(s.QuantityPrecision)))
             .ToArray();
     }
 

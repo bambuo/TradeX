@@ -123,6 +123,26 @@ public class BacktestEngineTests
         }
     }
 
+    [Fact]
+    public void Run_WithFee_ProducesLowerFinalValueThanZeroFee()
+    {
+        // 手续费应从权益中真实扣减：相同行情/策略下，含费回测期末权益严格低于无费
+        var strategy = new Strategy
+        {
+            EntryCondition = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":0}""",
+            ExitCondition = """{"Operator":"","Indicator":"RSI","Comparison":"<","Value":100}"""
+        };
+
+        var candles = GenerateCandles(200, 50000);
+
+        var (noFee, noFeeTrades, _) = _engine.Run(strategy, "BTCUSDT", candles, feeRate: 0m);
+        var (withFee, _, _) = _engine.Run(strategy, "BTCUSDT", candles, feeRate: 0.001m);
+
+        Assert.True(noFeeTrades.Count >= 1);
+        Assert.True(withFee.FinalValue < noFee.FinalValue,
+            $"含手续费期末权益({withFee.FinalValue})应低于无手续费({noFee.FinalValue})");
+    }
+
     private static List<Candle> GenerateCandles(int count, decimal basePrice)
     {
         var random = new Random(42);

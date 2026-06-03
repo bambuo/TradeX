@@ -17,7 +17,8 @@ public class BacktestEngine(IIndicatorRegistry indicators, IConditionEvaluator c
         decimal? positionSize = null,
         Action<BacktestKlineAnalysis>? onAnalysis = null,
         string? timeframe = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        decimal feeRate = 0m)
     {
         if (klines.Count < 50)
             return (CreateEmptyResult("数据不足，至少需要 50 根 K 线", initialCapital), [], []);
@@ -32,6 +33,7 @@ public class BacktestEngine(IIndicatorRegistry indicators, IConditionEvaluator c
         var entryPrice = 0m;
         var entryIndex = 0;
         var entryQuantity = 0m;
+        var entryFee = 0m;
         // 现金 + 持仓市值 = 账户权益。现金随平仓回笼，全仓模式下次入场即用最新现金 → 自然复利。
         var cash = initialCapital;
         var inPosition = false;
@@ -64,8 +66,10 @@ public class BacktestEngine(IIndicatorRegistry indicators, IConditionEvaluator c
                     entryIndex = i;
                     // positionSize 指定时按固定金额（不超过可用现金）入场，否则全仓投入当前现金（复利）
                     var capitalToUse = positionSize.HasValue ? Math.Min(positionSize.Value, cash) : cash;
-                    entryQuantity = capitalToUse / entryPrice;
-                    cash -= entryQuantity * entryPrice;
+                    // 含手续费入场：capitalToUse 同时覆盖 base 成本与买入手续费（feeRate=0 时与原逻辑等价）
+                    entryQuantity = capitalToUse / (entryPrice * (1 + feeRate));
+                    entryFee = entryQuantity * entryPrice * feeRate;
+                    cash -= entryQuantity * entryPrice + entryFee;
                 }
 
                 analysis.Add(new BacktestKlineAnalysis(
@@ -92,18 +96,22 @@ public class BacktestEngine(IIndicatorRegistry indicators, IConditionEvaluator c
                 {
                     var exitPrice = kline.Close;
                     var qty = entryQuantity;
-                    var pnl = (exitPrice - entryPrice) * qty;
-                    var pnlPercent = entryPrice > 0 ? (exitPrice - entryPrice) / entryPrice * 100 : 0;
+                    // 含手续费的已实现盈亏：扣减买入与卖出两腿手续费（feeRate=0 时与原逻辑等价）
+                    var exitFee = qty * exitPrice * feeRate;
+                    var pnl = (exitPrice - entryPrice) * qty - entryFee - exitFee;
+                    var costBasis = entryPrice * qty + entryFee;
+                    var pnlPercent = costBasis > 0 ? pnl / costBasis * 100 : 0;
 
                     trades.Add(new BacktestTrade(
                         entryIndex, i,
                         klines[entryIndex].Timestamp, kline.Timestamp,
                         entryPrice, exitPrice, qty, pnl, pnlPercent));
 
-                    cash += qty * exitPrice; // 平仓资金回笼，驱动复利
+                    cash += qty * exitPrice - exitFee; // 平仓资金回笼（扣卖出手续费），驱动复利
                     inPosition = false;
                     action = "exit";
                     entryQuantity = 0m;
+                    entryFee = 0m;
                 }
 
                 analysis.Add(new BacktestKlineAnalysis(
@@ -235,6 +243,8 @@ public class BacktestEngine(IIndicatorRegistry indicators, IConditionEvaluator c
         if (stdDev <= 0) return 0m;
 
         var periodsPerYear = PeriodsPerYear(timeframe);
+        // 约定无风险利率 rf = 0，故超额收益 ≈ 逐根平均收益 mean。
+        // 在加密市场短周期回测下 rf 影响可忽略；若需精确可在此减去按周期折算的 rf。
         var sharpe = mean / stdDev * Math.Sqrt(periodsPerYear);
         return (decimal)Math.Max(-9999, Math.Min(9999, sharpe));
     }
