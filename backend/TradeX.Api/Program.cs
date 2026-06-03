@@ -59,6 +59,7 @@ try
     builder.Services.AddAuthorization();
 
     builder.Services.AddSingleton<JwtService>();
+    builder.Services.AddSingleton<TradeX.Application.Common.IAuthTokenService>(sp => sp.GetRequiredService<JwtService>());
     builder.Services.AddSingleton<MfaService>();
     builder.Services.AddSingleton<ITradingEventBus, SignalREventBus>();
 

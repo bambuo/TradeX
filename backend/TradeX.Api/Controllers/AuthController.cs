@@ -7,7 +7,6 @@ using QRCoder;
 using TradeX.Api.Services;
 using TradeX.Application.Auth;
 using TradeX.Application.Common;
-using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 
@@ -16,7 +15,6 @@ namespace TradeX.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 public class AuthController(
-    IUserRepository userRepo,
     IRefreshTokenRepository refreshTokenRepo,
     IEncryptionService encryption,
     JwtService jwtService,
@@ -37,35 +35,38 @@ public class AuthController(
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken ct)
     {
         var result = await loginUseCase.ExecuteAsync(new LoginCommand(request.Username, request.Password), ct);
+
         if (!result.Success)
-            return Unauthorized(new { message = result.Error });
-
-        var authResult = result.Data!;
-        var user = await userRepo.GetByUsernameAsync(request.Username, ct);
-
-        if (user is null)
-            return this.Unauthorized("用户名或密码错误");
-
-        if (!user.IsMfaEnabled && user.Status == UserStatus.PendingMfa)
         {
-            var setupToken = jwtService.GenerateMfaToken(user);
+            return result.StatusCode switch
+            {
+                403 => this.Forbidden(result.Error!),
+                _ => Unauthorized(new { message = result.Error })
+            };
+        }
+
+        var dto = result.Data!;
+
+        // MFA 流程
+        if (dto.MfaSetupRequired || dto.MfaRequired)
+        {
             return Ok(new
             {
-                mfaRequired = false,
-                mfaSetupRequired = true,
-                message = "请先绑定 MFA",
-                mfaToken = setupToken,
+                mfaRequired = dto.MfaRequired,
+                mfaSetupRequired = dto.MfaSetupRequired,
+                message = dto.Message,
+                mfaToken = dto.MfaToken,
                 expiresIn = 300
             });
         }
 
-        var mfaToken = jwtService.GenerateMfaToken(user);
-
+        // 直接登录成功
         return Ok(new
         {
-            mfaRequired = true,
-            mfaToken,
-            expiresIn = 300
+            accessToken = dto.AccessToken,
+            refreshToken = dto.RefreshToken,
+            expiresIn = jwtService.AccessTokenExpirationSeconds,
+            role = dto.Role
         });
     }
 
@@ -77,6 +78,7 @@ public class AuthController(
             return this.Unauthorized("MFA Token 无效或已过期");
 
         var userId = Guid.Parse(principal.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var userRepo = HttpContext.RequestServices.GetRequiredService<IUserRepository>();
         var user = await userRepo.GetByIdAsync(userId, ct);
         if (user is null)
             return this.Unauthorized("用户不存在");
@@ -143,14 +145,17 @@ public class AuthController(
         if (!result.Success)
             return this.Unauthorized(result.Error ?? "Refresh token 无效或已过期");
 
-        var authResult = result.Data!;
-        var user = await userRepo.GetByIdAsync(authResult.UserId, ct);
+        var userRepo = HttpContext.RequestServices.GetRequiredService<IUserRepository>();
+        var user = await userRepo.GetByIdAsync(result.Data!.UserId, ct);
         if (user is null)
             return this.Unauthorized("用户不存在");
 
+        if (user.Status == UserStatus.Disabled)
+            return this.Forbidden("用户已被禁用");
+
         var newAccessToken = jwtService.GenerateAccessToken(user);
 
-        return Ok(new { accessToken = newAccessToken, refreshToken = authResult.RefreshToken, expiresIn = jwtService.AccessTokenExpirationSeconds });
+        return Ok(new { accessToken = newAccessToken, refreshToken = result.Data.RefreshToken, expiresIn = jwtService.AccessTokenExpirationSeconds });
     }
 
     [HttpPost("logout")]
@@ -167,6 +172,7 @@ public class AuthController(
     public async Task<IActionResult> SetupMfa(CancellationToken ct)
     {
         var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var userRepo = HttpContext.RequestServices.GetRequiredService<IUserRepository>();
         var user = await userRepo.GetByIdAsync(userId, ct);
         if (user is null)
             return NotFound();
@@ -182,7 +188,6 @@ public class AuthController(
 
         var otpauthUrl = $"otpauth://totp/TradeX:{user.Username}?secret={secret.SecretKey}&issuer=TradeX";
 
-        // 使用 QRCoder 生成二维码 PNG 并转为 base64 data URL
         using var qr = new QRCodeGenerator();
         var qrData = qr.CreateQrCode(otpauthUrl, QRCodeGenerator.ECCLevel.Q);
         var png = new PngByteQRCode(qrData);
@@ -202,6 +207,7 @@ public class AuthController(
     public async Task<IActionResult> VerifyMfaSetup([FromBody] MfaVerifyRequest request, CancellationToken ct)
     {
         var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var userRepo = HttpContext.RequestServices.GetRequiredService<IUserRepository>();
         var user = await userRepo.GetByIdAsync(userId, ct);
         if (user is null)
             return NotFound();
@@ -246,11 +252,11 @@ public class AuthController(
         var callerId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
         var callerRole = User.FindFirst(ClaimTypes.Role)?.Value;
 
-        // 仅 SuperAdmin/Admin 可为其他用户生成恢复码；普通用户只能为自己生成
         var isAdmin = callerRole is "SuperAdmin" or "Admin";
         if (!isAdmin && callerId != request.UserId)
             return this.Forbidden("无权为其他用户生成恢复码");
 
+        var userRepo = HttpContext.RequestServices.GetRequiredService<IUserRepository>();
         var user = await userRepo.GetByIdAsync(request.UserId, ct);
         if (user is null)
             return this.NotFound("用户不存在");

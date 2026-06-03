@@ -16,3 +16,5 @@ tradex.db-wal
 uploads/
 *-lock.json
 *.lock
+auxiliary.db
+config.yaml

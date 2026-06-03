@@ -9,7 +9,7 @@ using TradeX.Core.Models;
 
 namespace TradeX.Api.Services;
 
-public class JwtService(IOptions<JwtSettings> jwtSettings)
+public class JwtService(IOptions<JwtSettings> jwtSettings) : TradeX.Application.Common.IAuthTokenService
 {
     public int AccessTokenExpirationSeconds => jwtSettings.Value.AccessTokenExpirationMinutes * 60;
     public int RefreshTokenExpirationDays => jwtSettings.Value.RefreshTokenExpirationDays;
