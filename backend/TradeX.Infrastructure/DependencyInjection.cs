@@ -13,24 +13,21 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
-        string connectionString,
-        string mySqlVersion = "8.4.0")
+        string connectionString)
     {
-        var serverVersion = new MySqlServerVersion(new Version(mySqlVersion));
         services.AddSingleton<VersionInterceptor>();
         services.AddSingleton<DomainEventInterceptor>();
         services.AddDbContext<TradeXDbContext>((sp, options) =>
             options
-                .UseMySql(connectionString, serverVersion, mysql => mysql
+                .UseNpgsql(connectionString, npgsql => npgsql
                     .EnableRetryOnFailure(
                         maxRetryCount: 5,
                         maxRetryDelay: TimeSpan.FromSeconds(10),
-                        errorNumbersToAdd: null))
+                        errorCodesToAdd: null))
                 .AddInterceptors(
                     sp.GetRequiredService<VersionInterceptor>(),
                     sp.GetRequiredService<DomainEventInterceptor>())
-                // 全局默认 NoTracking — 读路径热点不再 ChangeTracker 开销；
-                // 需要修改的地方用 .AsTracking() 显式开启，或 ctx.Update/Attach
+                // 全局默认 NoTracking
                 .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking)
                 .EnableSensitiveDataLogging(false));
 

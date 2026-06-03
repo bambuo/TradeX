@@ -32,8 +32,7 @@ try
 
     // ------ Infrastructure ------
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
-    var mySqlVersion = builder.Configuration["Database:MySqlServerVersion"] ?? "8.4.0";
-    builder.Services.AddInfrastructure(connectionString, mySqlVersion);
+    builder.Services.AddInfrastructure(connectionString);
 
     var encryptionKey = builder.Configuration.GetSection("Encryption")["Key"]!;
     builder.Services.AddEncryption(encryptionKey);

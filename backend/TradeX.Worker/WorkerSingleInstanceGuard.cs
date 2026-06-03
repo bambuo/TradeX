@@ -1,5 +1,6 @@
 using System.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TradeX.Infrastructure.Data;
 
 namespace TradeX.Worker;
@@ -8,7 +9,7 @@ public sealed class WorkerSingleInstanceGuard(
     IServiceScopeFactory scopeFactory,
     ILogger<WorkerSingleInstanceGuard> logger) : IHostedService, IAsyncDisposable
 {
-    private const string LockName = "tradex-worker-single-instance";
+    private const long LockId = 0x5452414445585F01; // "TRADEX_" 的数值哈希
     private AsyncServiceScope? _scope;
     private IDbConnection? _connection;
     private bool _lockAcquired;
@@ -22,24 +23,25 @@ public sealed class WorkerSingleInstanceGuard(
         if (_connection.State != ConnectionState.Open)
             await ((System.Data.Common.DbConnection)_connection).OpenAsync(cancellationToken);
 
-        var result = await ExecuteScalarAsync("SELECT GET_LOCK(@name, 0)", cancellationToken);
-        _lockAcquired = Convert.ToInt32(result) == 1;
+        // PostgreSQL pg_try_advisory_lock 是非阻塞的，返回 true 表示获得锁
+        var result = await ExecuteScalarAsync("SELECT pg_try_advisory_lock(@id)", cancellationToken);
+        _lockAcquired = result is bool b && b;
 
         if (!_lockAcquired)
         {
-            logger.LogCritical("TradeX.Worker 单实例锁获取失败，已有 Worker 实例正在运行。LockName={LockName}", LockName);
-            throw new InvalidOperationException("已有 TradeX.Worker 实例正在运行，拒绝启动第二个交易 Worker。");
+            logger.LogCritical("Worker 单实例锁获取失败，已有 Worker 实例正在运行。LockId={LockId}", LockId);
+            throw new InvalidOperationException("已有 TradeX.Worker 实例正在运行，拒绝启动第二个。");
         }
 
-        logger.LogInformation("TradeX.Worker 单实例锁获取成功。LockName={LockName}", LockName);
+        logger.LogInformation("Worker 单实例锁获取成功。LockId={LockId}", LockId);
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         if (_lockAcquired && _connection?.State == ConnectionState.Open)
         {
-            await ExecuteScalarAsync("SELECT RELEASE_LOCK(@name)", cancellationToken);
-            logger.LogInformation("TradeX.Worker 单实例锁已释放。LockName={LockName}", LockName);
+            await ExecuteScalarAsync("SELECT pg_advisory_unlock(@id)", cancellationToken);
+            logger.LogInformation("Worker 单实例锁已释放。LockId={LockId}", LockId);
         }
 
         await DisposeAsync();
@@ -63,10 +65,10 @@ public sealed class WorkerSingleInstanceGuard(
         await using var command = connection.CreateCommand();
         command.CommandText = sql;
 
-        var name = command.CreateParameter();
-        name.ParameterName = "@name";
-        name.Value = LockName;
-        command.Parameters.Add(name);
+        var id = command.CreateParameter();
+        id.ParameterName = "@id";
+        id.Value = LockId;
+        command.Parameters.Add(id);
 
         return await command.ExecuteScalarAsync(ct);
     }
