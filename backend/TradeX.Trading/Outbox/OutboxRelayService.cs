@@ -3,24 +3,18 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using TradeX.Core.Interfaces;
-using TradeX.Core.Models;
 using TradeX.Trading.Events;
 using TradeX.Trading.Streams;
 
 namespace TradeX.Trading.Outbox;
 
 /// <summary>
-/// 后台轮询 outbox_events 表，将 Pending 事件发布到 Redis tradex:events 频道。
-/// 解决"业务写 DB 已提交但 Redis 发布失败 → 事件永远丢失"的一致性漏洞。
-///
-/// 配合 <c>OutboxTradingEventBus</c>：业务路径写 outbox 行，本 relay 异步 XADD 到
-/// tradex:events Stream，消费组（如 RedisToSignalRBridge）订阅后处理。
+/// 后台轮询 outbox_events 表，将 Pending 事件批量发布到 Redis tradex:events 频道。
 ///
 /// 设计点：
-/// - 轮询间隔 2 秒（事件延迟可接受 &lt;5s）
-/// - 失败重试最多 5 次，超过置 Failed 状态并上报 OutboxEventsFailed 指标供告警
-/// - 仅在 Worker 进程运行，而 Worker 由 <c>WorkerSingleInstanceGuard</c> 强制单实例，
-///   故不存在多 relay 重复 XADD；消费端另有 entryId 去重作二次防护
+/// - FOR UPDATE SKIP LOCKED 防止多实例竞态（配合 WorkerSingleInstanceGuard 双重防护）
+/// - 每批 50 行先全部 XADD，成功后批量 UPDATE Status=Sent，将 N+1 事务降为 1 个
+/// - 失败重试最多 5 次，超过置 Failed 状态
 /// </summary>
 public sealed class OutboxRelayService(
     IServiceScopeFactory scopeFactory,
@@ -36,19 +30,18 @@ public sealed class OutboxRelayService(
     {
         logger.LogInformation("OutboxRelayService 启动，轮询间隔 {Interval}, 目标 stream {Stream}",
             PollInterval, TradingEventChannels.Events);
-        var db = redis.GetDatabase();
+        var redisDb = redis.GetDatabase();
 
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                var processed = await DrainBatchAsync(db, stoppingToken);
+                var processed = await DrainBatchAsync(redisDb, stoppingToken);
                 if (processed == 0)
                 {
                     try { await Task.Delay(PollInterval, stoppingToken); }
                     catch (TaskCanceledException) { break; }
                 }
-                // 有数据时立即下一轮，提升吞吐
             }
             catch (OperationCanceledException) { break; }
             catch (Exception ex)
@@ -61,34 +54,48 @@ public sealed class OutboxRelayService(
         logger.LogInformation("OutboxRelayService 已停止");
     }
 
-    private async Task<int> DrainBatchAsync(IDatabase db, CancellationToken ct)
+    private async Task<int> DrainBatchAsync(IDatabase redisDb, CancellationToken ct)
     {
         using var scope = scopeFactory.CreateScope();
         var repo = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
         var batch = await repo.PickPendingAsync(BatchSize, ct);
         if (batch.Count == 0) return 0;
 
+        // 第一轮：尝试 XADD，收集成功/失败的 Id
+        var sentIds = new List<Guid>(batch.Count);
+        var failedIds = new List<(Guid Id, string Error, int Attempt)>(batch.Count);
+
         foreach (var evt in batch)
         {
             if (ct.IsCancellationRequested) break;
             try
             {
-                // outbox 里存的就是完整 envelope JSON，XADD 到 stream
-                await RedisStreamHelpers.AddAsync(db, TradingEventChannels.Events, evt.PayloadJson);
-                await repo.MarkSentAsync(evt.Id, ct);
+                await RedisStreamHelpers.AddAsync(redisDb, TradingEventChannels.Events, evt.PayloadJson);
+                sentIds.Add(evt.Id);
             }
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Outbox 事件发布失败 Id={Id} Type={Type} Attempt={Attempt}",
                     evt.Id, evt.Type, evt.AttemptCount + 1);
-                var dead = await repo.MarkFailedAsync(evt.Id, ex.Message, MaxAttempts, ct);
-                if (dead)
-                {
-                    metrics.OutboxEventsFailed.Add(1, new KeyValuePair<string, object?>("type", evt.Type));
-                    logger.LogError("Outbox 事件重试耗尽进入 Failed 终态（毒消息）Id={Id} Type={Type}", evt.Id, evt.Type);
-                }
+                failedIds.Add((evt.Id, ex.Message, evt.AttemptCount));
             }
         }
+
+        // 第二轮：批量标记已发送（1 个事务替代 N 个）
+        if (sentIds.Count > 0)
+            await repo.MarkSentBatchAsync(sentIds, ct);
+
+        // 第三轮：逐行处理失败（含重试逻辑）
+        foreach (var (id, error, attempt) in failedIds)
+        {
+            var dead = await repo.MarkFailedAsync(id, error, MaxAttempts, ct);
+            if (dead)
+            {
+                metrics.OutboxEventsFailed.Add(1);
+                logger.LogError("Outbox 事件重试耗尽进入 Failed 终态（毒消息）Id={Id}", id);
+            }
+        }
+
         return batch.Count;
     }
 }

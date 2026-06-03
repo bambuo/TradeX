@@ -16,6 +16,9 @@ public interface IOutboxRepository
     /// <summary>标记成功。</summary>
     Task MarkSentAsync(Guid id, CancellationToken ct = default);
 
+    /// <summary>批量标记成功，减少事务次数。</summary>
+    Task MarkSentBatchAsync(List<Guid> ids, CancellationToken ct = default);
+
     /// <summary>标记失败 + 增加重试次数。超过 maxAttempts 后置 Failed 状态。返回是否已进入终态 Failed。</summary>
     Task<bool> MarkFailedAsync(Guid id, string error, int maxAttempts, CancellationToken ct = default);
 }

@@ -54,8 +54,9 @@ public class OutboxRelayServiceTests
                 useApproximateMaxLength: true);
         }
 
-        await repo.Received(1).MarkSentAsync(id1, Arg.Any<CancellationToken>());
-        await repo.Received(1).MarkSentAsync(id2, Arg.Any<CancellationToken>());
+        await repo.Received(1).MarkSentBatchAsync(
+            Arg.Is<List<Guid>>(ids => ids.Count == 2 && ids.Contains(id1) && ids.Contains(id2)),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
