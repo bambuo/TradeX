@@ -2,9 +2,8 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TradeX.Api.Filters;
-using TradeX.Core.Enums;
-using TradeX.Core.Interfaces;
-using TradeX.Core.Models;
+using TradeX.Application.Common;
+using TradeX.Application.StrategyBindings;
 using TradeX.Trading.Commands;
 
 namespace TradeX.Api.Controllers;
@@ -13,9 +12,13 @@ namespace TradeX.Api.Controllers;
 [Route("api/traders/{traderId:guid}/strategies")]
 [Authorize]
 public class StrategyBindingsController(
-    ITraderRepository traderRepo,
-    IStrategyRepository strategyRepo,
-    IStrategyBindingRepository bindingRepo,
+    IUseCase<GetBindingsQuery, Result<List<BindingDto>>> getBindings,
+    IUseCase<GetBindingByIdQuery, Result<BindingDto>> getBindingById,
+    IUseCase<CreateBindingCommand, Result<BindingDto>> createBinding,
+    IUseCase<UpdateBindingCommand, Result<BindingDto>> updateBinding,
+    IUseCase<DeleteBindingCommand, Result> deleteBinding,
+    IUseCase<ActivateBindingCommand, Result<BindingDto>> activateBinding,
+    IUseCase<DeactivateBindingCommand, Result<BindingDto>> deactivateBinding,
     IWorkerCommandPublisher commandPublisher) : ControllerBase
 {
     private Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
@@ -38,71 +41,60 @@ public class StrategyBindingsController(
     [HttpGet]
     public async Task<IActionResult> GetAll(Guid traderId, CancellationToken ct)
     {
-        var trader = await traderRepo.GetByIdAsync(traderId, ct);
-        if (trader is null || trader.UserId != UserId)
-            return NotFound(new { message = "交易员不存在" });
+        var result = await getBindings.ExecuteAsync(new GetBindingsQuery(traderId, UserId), ct);
+        if (!result.Success)
+            return NotFound(new { message = result.Error });
 
-        var bindings = await bindingRepo.GetByTraderIdAsync(traderId, ct);
-        return Ok(bindings.Select(d => new
+        return Ok(result.Data!.Select(d => new
         {
-            d.Id, d.StrategyId, d.TraderId, d.ExchangeId, d.Pairs,
-            d.Timeframe, d.Status, scope = ResolveScope(d.Pairs, d.ExchangeId),
-            CreatedAt = Fmt(d.CreatedAt), UpdatedAt = Fmt(d.UpdatedAt)
+            d.Id, d.StrategyId, traderId, scope = ResolveScope(d.Pairs, Guid.Empty),
+            d.Name, d.Pairs, d.Timeframe, d.Status, d.CreatedAt
         }));
     }
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid traderId, Guid id, CancellationToken ct)
     {
-        var trader = await traderRepo.GetByIdAsync(traderId, ct);
-        if (trader is null || trader.UserId != UserId)
-            return NotFound(new { message = "交易员不存在" });
+        var result = await getBindingById.ExecuteAsync(new GetBindingByIdQuery(id, traderId, UserId), ct);
+        if (!result.Success)
+            return NotFound(new { message = result.Error });
 
-        var binding = await bindingRepo.GetByIdAsync(id, ct);
-        if (binding is null || binding.TraderId != traderId)
-            return NotFound(new { message = "绑定策略不存在" });
-
+        var d = result.Data!;
         return Ok(new
         {
-            binding.Id, binding.StrategyId, binding.Name, binding.TraderId, binding.ExchangeId,
-            binding.Pairs, binding.Timeframe, binding.Status,
-            scope = ResolveScope(binding.Pairs, binding.ExchangeId),
-            CreatedAt = Fmt(binding.CreatedAt), UpdatedAt = Fmt(binding.UpdatedAt)
-         });
-     }
+            d.Id, d.StrategyId, d.Name, traderId,
+            scope = ResolveScope(d.Pairs, Guid.Empty),
+            d.Pairs, d.Timeframe, d.Status,
+            CreatedAt = Fmt(d.CreatedAt)
+        });
+    }
 
     [HttpPost]
     [RequireMfa]
     public async Task<IActionResult> Create(Guid traderId, [FromBody] CreateBindingRequest request, CancellationToken ct)
     {
-        var trader = await traderRepo.GetByIdAsync(traderId, ct);
-        if (trader is null || trader.UserId != UserId)
-            return NotFound(new { message = "交易员不存在" });
-
-        var strategy = await strategyRepo.GetByIdAsync(request.StrategyId, ct);
-
         var exchangeId = request.ExchangeId ?? Guid.Empty;
         var pairs = request.Pairs ?? "[]";
-        var scope = ResolveScope(pairs, exchangeId);
+        var timeframe = request.Timeframe ?? "15m";
+        var name = request.Name ?? "未知策略";
 
-        var binding = new StrategyBinding
+        var result = await createBinding.ExecuteAsync(new CreateBindingCommand(
+            traderId, UserId, request.StrategyId, exchangeId, pairs, timeframe, name), ct);
+
+        if (!result.Success)
+            return result.StatusCode switch
+            {
+                404 => NotFound(new { message = result.Error }),
+                _ => BadRequest(new { message = result.Error })
+            };
+
+        var d = result.Data!;
+        return CreatedAtAction(nameof(GetById), new { traderId, id = d.Id }, new
         {
-            TraderId = traderId,
-            StrategyId = request.StrategyId,
-            Name = strategy?.Name ?? "未知策略",
-            ExchangeId = exchangeId,
-            Pairs = pairs,
-            Timeframe = request.Timeframe ?? "15m",
-            CreatedBy = UserId
-        };
-
-        await bindingRepo.AddAsync(binding, ct);
-
-        return CreatedAtAction(nameof(GetById), new { traderId, id = binding.Id }, new
-        {
-            binding.Id, binding.StrategyId, binding.TraderId, binding.ExchangeId,
-            binding.Pairs, binding.Timeframe, binding.Status, scope,
-            CreatedAt = Fmt(binding.CreatedAt)
+            d.Id, d.StrategyId, traderId,
+            scope = ResolveScope(d.Pairs, Guid.Empty),
+            d.Pairs, d.Timeframe, d.Status,
+            CreatedAt = Fmt(d.CreatedAt)
         });
     }
 
@@ -110,30 +102,23 @@ public class StrategyBindingsController(
     [RequireMfa]
     public async Task<IActionResult> Update(Guid traderId, Guid id, [FromBody] UpdateBindingRequest request, CancellationToken ct)
     {
-        var trader = await traderRepo.GetByIdAsync(traderId, ct);
-        if (trader is null || trader.UserId != UserId)
-            return NotFound(new { message = "交易员不存在" });
+        var result = await updateBinding.ExecuteAsync(new UpdateBindingCommand(
+            id, traderId, UserId, request.Pairs, request.Timeframe, request.Name), ct);
 
-        var binding = await bindingRepo.GetByIdAsync(id, ct);
-        if (binding is null || binding.TraderId != traderId)
-            return NotFound(new { message = "绑定策略不存在" });
+        if (!result.Success)
+            return result.StatusCode switch
+            {
+                404 => NotFound(new { message = result.Error }),
+                409 => Conflict(new { message = result.Error }),
+                _ => BadRequest(new { message = result.Error })
+            };
 
-        if (binding.Status == BindingStatus.Active)
-            return BadRequest(new { message = "活跃策略不可编辑，请先禁用" });
-
-        if (request.Pairs is not null)
-            binding.Pairs = request.Pairs;
-        if (request.Timeframe is not null)
-            binding.Timeframe = request.Timeframe;
-
-        await bindingRepo.UpdateAsync(binding, ct);
-
+        var d = result.Data!;
         return Ok(new
         {
-            binding.Id, binding.StrategyId, binding.TraderId, binding.ExchangeId,
-            binding.Pairs, binding.Timeframe, binding.Status,
-            scope = ResolveScope(binding.Pairs, binding.ExchangeId),
-            UpdatedAt = Fmt(binding.UpdatedAt)
+            d.Id, d.StrategyId, traderId,
+            scope = ResolveScope(d.Pairs, Guid.Empty),
+            d.Pairs, d.Timeframe, d.Status
         });
     }
 
@@ -141,18 +126,14 @@ public class StrategyBindingsController(
     [RequireMfa]
     public async Task<IActionResult> Delete(Guid traderId, Guid id, CancellationToken ct)
     {
-        var trader = await traderRepo.GetByIdAsync(traderId, ct);
-        if (trader is null || trader.UserId != UserId)
-            return NotFound(new { message = "交易员不存在" });
+        var result = await deleteBinding.ExecuteAsync(new DeleteBindingCommand(id, traderId, UserId), ct);
+        if (!result.Success)
+            return result.StatusCode switch
+            {
+                404 => NotFound(new { message = result.Error }),
+                _ => BadRequest(new { message = result.Error })
+            };
 
-        var binding = await bindingRepo.GetByIdAsync(id, ct);
-        if (binding is null || binding.TraderId != traderId)
-            return NotFound(new { message = "绑定策略不存在" });
-
-        if (binding.Status == BindingStatus.Active)
-            return BadRequest(new { message = "活跃策略不可删除，请先禁用" });
-
-        await bindingRepo.DeleteAsync(binding, ct);
         return NoContent();
     }
 
@@ -160,54 +141,31 @@ public class StrategyBindingsController(
     [RequireMfa]
     public async Task<IActionResult> Toggle(Guid traderId, Guid id, [FromBody] ToggleBindingRequest request, CancellationToken ct)
     {
-        var trader = await traderRepo.GetByIdAsync(traderId, ct);
-        if (trader is null || trader.UserId != UserId)
-            return NotFound(new { message = "交易员不存在" });
-
-        var binding = await bindingRepo.GetByIdAsync(id, ct);
-        if (binding is null || binding.TraderId != traderId)
-            return NotFound(new { message = "绑定策略不存在" });
-
+        Result<BindingDto> result;
         if (request.Enable)
         {
-            var pairs = ParsePairs(binding.Pairs);
-            foreach (var pair in pairs)
-            {
-                var hasConflict = await bindingRepo.ExistsActiveAsync(traderId, binding.ExchangeId, pair, id, ct);
-                if (hasConflict)
-                    return Conflict(new { message = $"交易对 {pair} 上已有活跃策略" });
-            }
-
-            binding.Status = BindingStatus.Active;
+            result = await activateBinding.ExecuteAsync(new ActivateBindingCommand(id, traderId, UserId), ct);
         }
         else
         {
-            binding.Status = BindingStatus.Disabled;
+            result = await deactivateBinding.ExecuteAsync(new DeactivateBindingCommand(id, traderId, UserId), ct);
         }
 
-        await bindingRepo.UpdateAsync(binding, ct);
+        if (!result.Success)
+            return result.StatusCode switch
+            {
+                404 => NotFound(new { message = result.Error }),
+                409 => Conflict(new { message = result.Error }),
+                _ => BadRequest(new { message = result.Error })
+            };
 
         // 通知 Worker 刷新 K 线订阅（仅 Redis 可用时生效）
         await commandPublisher.PublishAsync(WorkerCommandTypes.RefreshSubscriptions, ct: ct);
 
-        return Ok(new { binding.Id, binding.Status, UpdatedAt = Fmt(binding.UpdatedAt) });
+        return Ok(new { result.Data!.Id, Status = result.Data.Status, UpdatedAt = Fmt(DateTime.UtcNow) });
     }
 
-    public record CreateBindingRequest(Guid StrategyId, Guid? ExchangeId, string? Pairs = null, string? Timeframe = null);
-    public record UpdateBindingRequest(string? Pairs = null, string? Timeframe = null);
+    public record CreateBindingRequest(Guid StrategyId, Guid? ExchangeId, string? Pairs = null, string? Timeframe = null, string? Name = null);
+    public record UpdateBindingRequest(string? Pairs = null, string? Timeframe = null, string? Name = null);
     public record ToggleBindingRequest(bool Enable);
-
-    private string[] ParsePairs(string raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw) || raw == "[]") return [];
-        try
-        {
-            var parsed = System.Text.Json.JsonSerializer.Deserialize<string[]>(raw);
-            return parsed ?? [];
-        }
-        catch
-        {
-            return raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        }
-    }
 }

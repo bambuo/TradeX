@@ -40,7 +40,7 @@ public class KillSwitchTests
 
         Assert.True(ks.IsActive);
         Assert.All(actives, b => Assert.Equal(BindingStatus.Disabled, b.Status));
-        await bindings.Received(2).UpdateAsync(Arg.Any<StrategyBinding>(), Arg.Any<CancellationToken>());
+        await bindings.Received(1).UpdateRangeAsync(Arg.Is<List<StrategyBinding>>(l => l.Count == 2), Arg.Any<CancellationToken>());
         await outbox.Received(1).EnqueueAsync(
             Arg.Is<OutboxEvent>(e => e.Type == "KillSwitchActivated"),
             Arg.Any<CancellationToken>());

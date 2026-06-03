@@ -18,6 +18,11 @@ namespace TradeX.Trading.Execution;
 ///         超过陈旧阈值即标记 Failed。未来 5 家客户端补全 ClientOrderId 透传后，
 ///         可改为凭 ClientOrderId 反查交易所确认是否真的没下单。</item>
 /// </list>
+///
+/// 性能说明（N+1 SaveChanges）：
+/// ReconcileAsync 中每个 UpdateAsync 前面都依赖一次独立的交易所 API 调用
+/// （GetOrderByClientOrderIdAsync / GetOrderAsync），因此无法合并为批量 SaveChanges。
+/// 这是业务语义决定的——必须先查询外部系统再决定本地状态，而非批量更新模式。
 /// </summary>
 public class OrderReconciler(
     IExchangeRepository exchangeRepo,

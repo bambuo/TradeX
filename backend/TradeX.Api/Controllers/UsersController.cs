@@ -1,55 +1,49 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TradeX.Api.Filters;
-using TradeX.Core.Enums;
-using TradeX.Core.Interfaces;
+using TradeX.Application.Common;
+using TradeX.Application.Users;
+using TradeX.Application.Users.DTOs;
 
 namespace TradeX.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class UsersController(IUserRepository userRepo) : ControllerBase
+public class UsersController(
+    IUseCase<GetUsersQuery, Result<List<UserDto>>> getUsersUseCase,
+    IUseCase<GetUserByIdQuery, Result<UserDto>> getUserByIdUseCase,
+    IUseCase<UpdateUserRoleCommand, Result> updateUserRoleUseCase) : ControllerBase
 {
-    private static string Fmt(DateTime dt) =>
-        dt.Kind == DateTimeKind.Utc
-            ? dt.ToString("yyyy-MM-dd HH:mm:ss")
-            : DateTime.SpecifyKind(dt, DateTimeKind.Utc).ToString("yyyy-MM-dd HH:mm:ss");
-
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken ct)
     {
-        var users = await userRepo.GetAllAsync(ct);
-        var result = users.Select(u => new
-        {
-            u.Id,
-            UserName = u.Username,
-            u.Email,
-            u.Role,
-            u.Status,
-            u.IsMfaEnabled,
-            CreatedAt = Fmt(u.CreatedAt),
-            LastLoginAt = u.LastLoginAt.HasValue ? Fmt(u.LastLoginAt.Value) : null
-        });
-        return Ok(result);
+        var result = await getUsersUseCase.ExecuteAsync(new GetUsersQuery(), ct);
+        return Ok(result.Data);
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
+    {
+        var result = await getUserByIdUseCase.ExecuteAsync(new GetUserByIdQuery(id), ct);
+        if (!result.Success)
+            return NotFound(new { message = result.Error });
+
+        return Ok(result.Data);
     }
 
     [HttpPut("{id:guid}/role")]
     [RequireMfa]
     public async Task<IActionResult> UpdateRole(Guid id, [FromBody] UpdateRoleRequest request, CancellationToken ct)
     {
-        var user = await userRepo.GetByIdAsync(id, ct);
-        if (user is null)
-            return NotFound(new { message = "用户不存在" });
-
-        if (user.Role == UserRole.SuperAdmin)
-            return BadRequest(new { message = "不能修改 SuperAdmin 角色" });
-
-        if (!Enum.TryParse<UserRole>(request.Role, true, out var newRole))
-            return BadRequest(new { message = "无效角色" });
-
-        user.Role = newRole;
-        await userRepo.UpdateAsync(user, ct);
+        var result = await updateUserRoleUseCase.ExecuteAsync(new UpdateUserRoleCommand(id, request.Role), ct);
+        if (!result.Success)
+            return result.StatusCode switch
+            {
+                404 => NotFound(new { message = result.Error }),
+                400 => BadRequest(new { message = result.Error }),
+                _ => BadRequest(new { message = result.Error })
+            };
 
         return Ok(new { message = "角色已更新" });
     }

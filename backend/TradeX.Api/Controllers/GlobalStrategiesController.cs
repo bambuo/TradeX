@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TradeX.Application.Common;
+using TradeX.Application.Strategies;
 using TradeX.Core.ErrorCodes;
-using TradeX.Core.Interfaces;
-using TradeX.Core.Models;
 using TradeX.Indicators;
 using TradeX.Trading.Engine;
 
@@ -12,9 +12,13 @@ namespace TradeX.Api.Controllers;
 [Route("api/strategies")]
 [Authorize]
 public class StrategiesController(
-    IStrategyRepository strategyRepo,
     ConditionTreeValidator validator,
-    IIndicatorRegistry indicatorRegistry) : ControllerBase
+    IIndicatorRegistry indicatorRegistry,
+    IUseCase<GetStrategiesQuery, Result<List<StrategyDto>>> getStrategies,
+    IUseCase<GetStrategyByIdQuery, Result<StrategyDto>> getStrategyById,
+    IUseCase<CreateStrategyCommand, Result<StrategyDto>> createStrategy,
+    IUseCase<UpdateStrategyCommand, Result<StrategyDto>> updateStrategy,
+    IUseCase<DeleteStrategyCommand, Result> deleteStrategy) : ControllerBase
 {
     /// <summary>前端可视化编辑器拉取可用指标列表 + 合法运算符, 用于条件树节点下拉.</summary>
     [HttpGet("schema")]
@@ -57,18 +61,22 @@ public class StrategiesController(
         }
         return issues.Count == 0
             ? null
-            : StatusCode(400, new { code = BusinessErrorCode.ValidationError, message = "条件树校验失败", issues });
+            : StatusCode(400, new { code = 1000, message = "条件树校验失败", issues });
     }
+
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken ct)
     {
-        var strategies = await strategyRepo.GetAllAsync(ct);
+        var result = await getStrategies.ExecuteAsync(new GetStrategiesQuery(), ct);
+        if (!result.Success)
+            return BadRequest(new { error = result.Error });
+
         return Ok(new
         {
-            data = strategies.Select(s => new
+            data = result.Data!.Select(s => new
             {
                 s.Id, s.Name, s.EntryCondition, s.ExitCondition,
-                s.ExecutionRule, s.Version, s.CreatedAt, s.UpdatedAt
+                s.Version, s.CreatedAt, s.UpdatedAt
             })
         });
     }
@@ -76,76 +84,62 @@ public class StrategiesController(
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
-        var strategy = await strategyRepo.GetByIdAsync(id, ct);
-        if (strategy is null)
-            return this.NotFound(BusinessErrorCode.StrategyNotFound, "策略不存在");
+        var result = await getStrategyById.ExecuteAsync(new GetStrategyByIdQuery(id), ct);
+        if (!result.Success)
+            return NotFound(new { error = "策略不存在" });
 
+        var s = result.Data!;
         return Ok(new
         {
-            strategy.Id, strategy.Name, strategy.EntryCondition,
-            strategy.ExitCondition, strategy.ExecutionRule,
-            strategy.Version, strategy.CreatedAt, strategy.UpdatedAt
+            s.Id, s.Name, s.EntryCondition, s.ExitCondition,
+            s.Version, s.CreatedAt, s.UpdatedAt
         });
     }
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateStrategyRequest request, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(request.Name))
-            return this.BadRequest(BusinessErrorCode.ValidationError, "策略名称不能为空");
-
         var validationError = ValidateConditions(request.EntryCondition, request.ExitCondition);
         if (validationError is not null) return validationError;
 
-        var strategy = new Strategy
-        {
-            Name = request.Name,
-            EntryCondition = request.EntryCondition ?? "{}",
-            ExitCondition = request.ExitCondition ?? "{}",
-            ExecutionRule = request.ExecutionRule ?? "{}"
-        };
+        var cmd = new CreateStrategyCommand(
+            request.Name, request.EntryCondition, request.ExitCondition, request.ExecutionRule);
+        var result = await createStrategy.ExecuteAsync(cmd, ct);
 
-        await strategyRepo.AddAsync(strategy, ct);
+        if (!result.Success)
+            return BadRequest(new { error = result.Error });
 
-        return CreatedAtAction(nameof(GetById), new { id = strategy.Id }, new
+        var s = result.Data!;
+        return CreatedAtAction(nameof(GetById), new { id = s.Id }, new
         {
-            strategy.Id, strategy.Name, strategy.Version, strategy.CreatedAt
+            s.Id, s.Name, s.Version, s.CreatedAt
         });
     }
 
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateStrategyRequest request, CancellationToken ct)
     {
-        var strategy = await strategyRepo.GetByIdAsync(id, ct);
-        if (strategy is null)
-            return this.NotFound(BusinessErrorCode.StrategyNotFound, "策略不存在");
-
         var validationError = ValidateConditions(request.EntryCondition, request.ExitCondition);
         if (validationError is not null) return validationError;
 
-        if (request.Name is not null)
-            strategy.Name = request.Name;
-        if (request.EntryCondition is not null)
-            strategy.EntryCondition = request.EntryCondition;
-        if (request.ExitCondition is not null)
-            strategy.ExitCondition = request.ExitCondition;
-        if (request.ExecutionRule is not null)
-            strategy.ExecutionRule = request.ExecutionRule;
+        var cmd = new UpdateStrategyCommand(
+            id, request.Name, request.EntryCondition, request.ExitCondition, request.ExecutionRule);
+        var result = await updateStrategy.ExecuteAsync(cmd, ct);
 
-        strategy.Version++;
-        await strategyRepo.UpdateAsync(strategy, ct);
+        if (!result.Success)
+            return NotFound(new { error = result.Error });
 
-        return Ok(new { strategy.Id, strategy.Name, strategy.Version, strategy.UpdatedAt });
+        var s = result.Data!;
+        return Ok(new { s.Id, s.Name, s.Version, s.UpdatedAt });
     }
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
-        var strategy = await strategyRepo.GetByIdAsync(id, ct);
-        if (strategy is null)
-            return this.NotFound(BusinessErrorCode.StrategyNotFound, "策略不存在");
+        var result = await deleteStrategy.ExecuteAsync(new DeleteStrategyCommand(id), ct);
+        if (!result.Success)
+            return NotFound(new { error = result.Error });
 
-        await strategyRepo.DeleteAsync(strategy, ct);
         return NoContent();
     }
 

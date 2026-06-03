@@ -97,13 +97,8 @@ public class NotificationServiceTests
     [Fact]
     public async Task SendTestAsync_Telegram_SendsAndUpdatesLastTestedAt()
     {
-        var channel = new NotificationChannel
-        {
-            Id = Guid.NewGuid(),
-            Type = NotificationChannelType.Telegram,
-            ConfigEncrypted = "encrypted-config",
-            Status = NotificationChannelStatus.Enabled
-        };
+        var channel = NotificationChannel.Create(
+            NotificationChannelType.Telegram, "test", "encrypted-config");
 
         var channelRepo = Substitute.For<INotificationChannelRepository>();
         channelRepo.GetByIdAsync(channel.Id, Arg.Any<CancellationToken>()).Returns(channel);
@@ -133,12 +128,8 @@ public class NotificationServiceTests
     [Fact]
     public async Task SendTestAsync_Telegram_MissingBotToken_Throws()
     {
-        var channel = new NotificationChannel
-        {
-            Id = Guid.NewGuid(),
-            Type = NotificationChannelType.Telegram,
-            ConfigEncrypted = "encrypted-config"
-        };
+        var channel = NotificationChannel.Create(
+            NotificationChannelType.Telegram, "test", "encrypted-config");
 
         var channelRepo = Substitute.For<INotificationChannelRepository>();
         channelRepo.GetByIdAsync(channel.Id, Arg.Any<CancellationToken>()).Returns(channel);
@@ -156,12 +147,8 @@ public class NotificationServiceTests
     [Fact]
     public async Task SendTestAsync_Discord_SendsAndUpdatesLastTestedAt()
     {
-        var channel = new NotificationChannel
-        {
-            Id = Guid.NewGuid(),
-            Type = NotificationChannelType.Discord,
-            ConfigEncrypted = "encrypted-config"
-        };
+        var channel = NotificationChannel.Create(
+            NotificationChannelType.Discord, "test", "encrypted-config");
 
         var channelRepo = Substitute.For<INotificationChannelRepository>();
         channelRepo.GetByIdAsync(channel.Id, Arg.Any<CancellationToken>()).Returns(channel);
@@ -188,12 +175,8 @@ public class NotificationServiceTests
     [Fact]
     public async Task SendTestAsync_Email_SendsAndUpdatesLastTestedAt()
     {
-        var channel = new NotificationChannel
-        {
-            Id = Guid.NewGuid(),
-            Type = NotificationChannelType.Email,
-            ConfigEncrypted = "encrypted-config"
-        };
+        var channel = NotificationChannel.Create(
+            NotificationChannelType.Email, "test", "encrypted-config");
 
         var channelRepo = Substitute.For<INotificationChannelRepository>();
         channelRepo.GetByIdAsync(channel.Id, Arg.Any<CancellationToken>()).Returns(channel);
@@ -221,13 +204,9 @@ public class NotificationServiceTests
     [Fact]
     public async Task SendTestAsync_DisabledChannel_ThrowsInvalidOperationException()
     {
-        var channel = new NotificationChannel
-        {
-            Id = Guid.NewGuid(),
-            Type = NotificationChannelType.Telegram,
-            Status = NotificationChannelStatus.Disabled,
-            ConfigEncrypted = "encrypted-config"
-        };
+        var channel = NotificationChannel.Create(
+            NotificationChannelType.Telegram, "test", "encrypted-config");
+        channel.Disable();
 
         var channelRepo = Substitute.For<INotificationChannelRepository>();
         channelRepo.GetByIdAsync(channel.Id, Arg.Any<CancellationToken>()).Returns(channel);

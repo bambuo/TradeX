@@ -1,22 +1,22 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using TradeX.Core.ErrorCodes;
-using TradeX.Core.Interfaces;
+using TradeX.Application.Common;
+using TradeX.Application.Settings;
 
 namespace TradeX.Api.Controllers;
 
 [ApiController]
 [Route("api/settings")]
 [Authorize]
-public class SettingsController(ISystemConfigRepository configRepo) : ControllerBase
+public class SettingsController(
+    IUseCase<GetSettingsQuery, Result<Dictionary<string, string>>> getSettingsUseCase,
+    IUseCase<UpdateSettingCommand, Result> updateSettingUseCase) : ControllerBase
 {
-    private static readonly string[] ReadOnlyKeys = ["jwt.secret"];
-
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken ct)
     {
-        var settings = await configRepo.GetAllAsync(ct);
-        return Ok(new { data = settings.Select(s => new { s.Key, s.Value }) });
+        var result = await getSettingsUseCase.ExecuteAsync(new GetSettingsQuery(), ct);
+        return Ok(new { data = result.Data?.Select(kv => new { Key = kv.Key, Value = kv.Value }) });
     }
 
     [HttpPut]
@@ -24,10 +24,10 @@ public class SettingsController(ISystemConfigRepository configRepo) : Controller
     {
         foreach (var setting in request.Settings)
         {
-            if (ReadOnlyKeys.Contains(setting.Key))
-                return this.BadRequest(BusinessErrorCode.ValidationError, $"key {setting.Key} is read-only");
-
-            await configRepo.UpsertAsync(setting.Key, setting.Value, ct);
+            var result = await updateSettingUseCase.ExecuteAsync(
+                new UpdateSettingCommand(setting.Key, setting.Value), ct);
+            if (!result.Success)
+                return this.BadRequest(result.Error!);
         }
 
         return Ok();

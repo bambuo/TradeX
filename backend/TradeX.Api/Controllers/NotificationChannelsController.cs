@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using TradeX.Core.ErrorCodes;
-using TradeX.Core.Interfaces;
-using TradeX.Core.Models;
+using TradeX.Application.Common;
+using TradeX.Application.Notifications;
 
 namespace TradeX.Api.Controllers;
 
@@ -10,88 +9,50 @@ namespace TradeX.Api.Controllers;
 [Authorize]
 [Route("api/notifications/channels")]
 public class NotificationChannelsController(
-    INotificationChannelRepository channelRepo,
-    IEncryptionService encryption,
-    INotificationService notificationService,
-    ILogger<NotificationChannelsController> logger) : ControllerBase
+    IUseCase<GetNotificationChannelsQuery, Result<List<NotificationChannelDto>>> getChannelsUseCase,
+    IUseCase<CreateNotificationChannelCommand, Result<NotificationChannelDto>> createChannelUseCase,
+    IUseCase<UpdateChannelStatusCommand, Result> updateChannelStatusUseCase,
+    IUseCase<TestNotificationChannelCommand, Result> testChannelUseCase) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken ct)
     {
-        var channels = await channelRepo.GetAllAsync(ct);
-        return Ok(new
-        {
-            data = channels.Select(c => new
-            {
-                c.Id, c.Name, type = c.Type.ToString(),
-                status = c.Status.ToString(), c.IsDefault,
-                c.LastTestedAt, c.CreatedAt
-            })
-        });
+        var result = await getChannelsUseCase.ExecuteAsync(new GetNotificationChannelsQuery(), ct);
+        return Ok(new { data = result.Data });
     }
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateChannelRequest request, CancellationToken ct)
     {
-        var configJson = System.Text.Json.JsonSerializer.Serialize(request.Config);
-        var channel = new NotificationChannel
-        {
-            Name = request.Name,
-            Type = Enum.Parse<NotificationChannelType>(request.Type, true),
-            ConfigEncrypted = encryption.Encrypt(configJson),
-            IsDefault = request.IsDefault
-        };
+        var result = await createChannelUseCase.ExecuteAsync(
+            new CreateNotificationChannelCommand(request.Name, request.Type, request.Config, request.IsDefault), ct);
+        if (!result.Success)
+            return this.BadRequest(result.Error!);
 
-        await channelRepo.AddAsync(channel, ct);
-        return CreatedAtAction(nameof(GetAll), new { id = channel.Id }, new
-        {
-            channel.Id, channel.Name, type = channel.Type.ToString(),
-            status = channel.Status.ToString(), channel.IsDefault,
-            channel.CreatedAt
-        });
+        return CreatedAtAction(nameof(GetAll), new { id = result.Data!.Id }, result.Data);
     }
 
     [HttpPut("{id:guid}/status")]
-    public async Task<IActionResult> ToggleStatus(Guid id, CancellationToken ct)
+    public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateStatusRequest request, CancellationToken ct)
     {
-        var channel = await channelRepo.GetByIdAsync(id, ct);
-        if (channel is null)
-            return this.NotFound(BusinessErrorCode.NotificationNotFound, "通知渠道不存在");
+        var result = await updateChannelStatusUseCase.ExecuteAsync(
+            new UpdateChannelStatusCommand(id, request.Enabled), ct);
+        if (!result.Success)
+            return this.BadRequest(result.Error!);
 
-        channel.Status = channel.Status switch
-        {
-            NotificationChannelStatus.Enabled => NotificationChannelStatus.Disabled,
-            _ => NotificationChannelStatus.Enabled
-        };
-
-        await channelRepo.UpdateAsync(channel, ct);
-        return Ok(new { status = channel.Status.ToString() });
-    }
-
-    [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
-    {
-        var channel = await channelRepo.GetByIdAsync(id, ct);
-        if (channel is null) return this.NotFound(BusinessErrorCode.NotificationNotFound, "通知渠道不存在");
-
-        await channelRepo.DeleteAsync(channel, ct);
-        return NoContent();
+        return Ok(new { message = result.Success ? "状态已更新" : result.Error });
     }
 
     [HttpPost("{id:guid}/test")]
     public async Task<IActionResult> Test(Guid id, CancellationToken ct)
     {
-        try
-        {
-            await notificationService.SendTestAsync(id, ct);
-            return Ok(new { success = true, message = "测试消息已发送" });
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "通知测试失败, ChannelId={ChannelId}", id);
-            return this.BadRequest(BusinessErrorCode.NotificationTestFailed, ex.Message);
-        }
+        var result = await testChannelUseCase.ExecuteAsync(new TestNotificationChannelCommand(id), ct);
+        if (!result.Success)
+            return this.BadRequest(result.Error!);
+
+        return Ok(new { success = true, message = "测试消息已发送" });
     }
 
     public record CreateChannelRequest(string Name, string Type, Dictionary<string, string> Config, bool IsDefault = false);
+    public record UpdateStatusRequest(bool Enabled);
 }

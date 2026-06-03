@@ -79,6 +79,16 @@ public class StrategyBindingRepository(TradeXDbContext context, ILogger<Strategy
         await context.SaveChangesAsync(ct);
     }
 
+    public async Task UpdateRangeAsync(List<StrategyBinding> bindings, CancellationToken ct = default)
+    {
+        foreach (var binding in bindings)
+        {
+            binding.UpdatedAt = DateTime.UtcNow;
+            context.StrategyBindings.Update(binding);
+        }
+        await context.SaveChangesAsync(ct);
+    }
+
     public async Task DeleteAsync(StrategyBinding deployment, CancellationToken ct = default)
     {
         context.StrategyBindings.Remove(deployment);

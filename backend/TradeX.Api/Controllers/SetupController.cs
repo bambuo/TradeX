@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using TradeX.Application.Common;
-using TradeX.Core.ErrorCodes;
 
 namespace TradeX.Api.Controllers;
 
@@ -26,8 +25,8 @@ public class SetupController(ISetupService setup) : ControllerBase
 
         return result.StatusCode switch
         {
-            409 => this.Conflict(BusinessErrorCode.SetupAlreadyInitialized, result.Error!),
-            _ => this.BadRequest(BusinessErrorCode.SetupInvalidInput, result.Error!)
+            409 => this.Conflict(result.Error!),
+            _ => this.BadRequest(result.Error!)
         };
     }
 

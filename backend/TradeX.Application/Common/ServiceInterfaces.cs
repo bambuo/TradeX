@@ -32,3 +32,12 @@ public interface ISetupService
     Task<bool> GetStatusAsync(CancellationToken ct = default);
     Task<Result> InitializeAsync(string userName, string password, string? jwtSecret, CancellationToken ct = default);
 }
+
+/// <summary>系统服务 — 封装紧急停止等涉及多个基础设施服务的操作。</summary>
+public interface ISystemService
+{
+    Task<EmergencyStopResultDto> EmergencyStopAsync(Guid currentUserId, CancellationToken ct = default);
+}
+
+public sealed record EmergencyStopResultDto(
+    bool Success, int DisabledExchanges, int CancelledOrders, string Message);

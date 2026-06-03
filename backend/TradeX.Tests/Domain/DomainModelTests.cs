@@ -220,6 +220,42 @@ public sealed class DomainModelTests
     }
 
     [Fact]
+    public void BacktestTask_Fail_ShouldEmitEvent()
+    {
+        var task = BacktestTask.Create(
+            Guid.NewGuid(), Guid.NewGuid(), "测试策略",
+            "BTCUSDT", "1h", 10000m,
+            DateTime.UtcNow.AddDays(-7), DateTime.UtcNow, Guid.NewGuid());
+
+        task.Start();
+        task.Fail("数据下载失败");
+
+        Assert.Equal(BacktestTaskStatus.Failed, task.Status);
+        Assert.NotNull(task.CompletedAt);
+        Assert.Equal(2, task.DomainEvents.Count); // Started + Failed
+        Assert.IsType<BacktestFailedEvent>(task.DomainEvents[1]);
+        var failedEvent = Assert.IsType<BacktestFailedEvent>(task.DomainEvents[1]);
+        Assert.Equal("数据下载失败", failedEvent.Reason);
+    }
+
+    [Fact]
+    public void BacktestTask_Cancel_ShouldEmitEvent()
+    {
+        var task = BacktestTask.Create(
+            Guid.NewGuid(), Guid.NewGuid(), "测试策略",
+            "BTCUSDT", "1h", 10000m,
+            DateTime.UtcNow.AddDays(-7), DateTime.UtcNow, Guid.NewGuid());
+
+        task.Start();
+        task.Cancel();
+
+        Assert.Equal(BacktestTaskStatus.Cancelled, task.Status);
+        Assert.NotNull(task.CompletedAt);
+        Assert.Equal(2, task.DomainEvents.Count); // Started + Cancelled
+        Assert.IsType<BacktestCancelledEvent>(task.DomainEvents[1]);
+    }
+
+    [Fact]
     public void BacktestTask_Cancel_ShouldIgnoreCompleted()
     {
         var task = BacktestTask.Create(
@@ -271,6 +307,86 @@ public sealed class DomainModelTests
         Assert.False(tree.Evaluate(
             new() { ["EMA"] = 65, ["50"] = 60 },
             new() { ["EMA"] = 65, ["50"] = 60 })); // 前值 == 基准，不触发
+    }
+
+    // ─────────────── Strategy 工厂方法与领域事件 ───────────────
+
+    [Fact]
+    public void Strategy_Create_ShouldSetProperties()
+    {
+        var userId = Guid.NewGuid();
+        var strategy = Strategy.Create("测试策略", userId);
+
+        Assert.NotEqual(Guid.Empty, strategy.Id);
+        Assert.Equal("测试策略", strategy.Name);
+        Assert.Equal(userId, strategy.CreatedBy);
+        Assert.Equal(1, strategy.Version);
+        Assert.Equal("{}", strategy.EntryCondition);
+        Assert.Equal("{}", strategy.ExitCondition);
+        Assert.Empty(strategy.DomainEvents);
+    }
+
+    [Fact]
+    public void Strategy_UpdateConditions_ShouldEmitEvent()
+    {
+        var strategy = Strategy.Create("测试策略", Guid.NewGuid());
+
+        strategy.UpdateConditions("RSI > 70", "RSI < 30");
+
+        Assert.Equal("RSI > 70", strategy.EntryCondition);
+        Assert.Equal("RSI < 30", strategy.ExitCondition);
+        Assert.Single(strategy.DomainEvents);
+        var evt = Assert.IsType<StrategyConditionsUpdatedEvent>(strategy.DomainEvents[0]);
+        Assert.Equal(strategy.Id, evt.StrategyId);
+        Assert.Equal("RSI > 70", evt.EntryCondition);
+        Assert.Equal("RSI < 30", evt.ExitCondition);
+    }
+
+    [Fact]
+    public void Strategy_NewVersion_ShouldEmitEvent()
+    {
+        var strategy = Strategy.Create("测试策略", Guid.NewGuid());
+        Assert.Equal(1, strategy.Version);
+
+        strategy.NewVersion();
+
+        Assert.Equal(2, strategy.Version);
+        Assert.Single(strategy.DomainEvents);
+        var evt = Assert.IsType<StrategyVersionCreatedEvent>(strategy.DomainEvents[0]);
+        Assert.Equal(strategy.Id, evt.StrategyId);
+        Assert.Equal(2, evt.NewVersion);
+    }
+
+    // ─────────────── NotificationChannel 领域方法 ───────────────
+
+    [Fact]
+    public void NotificationChannel_Create_ShouldSetProperties()
+    {
+        var channel = NotificationChannel.Create(
+            NotificationChannelType.Telegram, "交易告警", "encrypted_config");
+
+        Assert.NotEqual(Guid.Empty, channel.Id);
+        Assert.Equal(NotificationChannelType.Telegram, channel.Type);
+        Assert.Equal("交易告警", channel.Name);
+        Assert.Equal("encrypted_config", channel.ConfigEncrypted);
+        Assert.Equal(NotificationChannelStatus.Enabled, channel.Status);
+    }
+
+    [Fact]
+    public void NotificationChannel_Disable_ShouldEmitEvent()
+    {
+        var channel = NotificationChannel.Create(
+            NotificationChannelType.Discord, "风控通知", "config_enc");
+        Assert.Equal(NotificationChannelStatus.Enabled, channel.Status);
+
+        channel.Disable();
+
+        Assert.Equal(NotificationChannelStatus.Disabled, channel.Status);
+        Assert.Single(channel.DomainEvents);
+        var evt = Assert.IsType<NotificationChannelStatusChangedEvent>(channel.DomainEvents[0]);
+        Assert.Equal(channel.Id, evt.ChannelId);
+        Assert.Equal("Enabled", evt.OldStatus);
+        Assert.Equal("Disabled", evt.NewStatus);
     }
 
     // ─────────────── AggregateRoot 领域事件集合 ───────────────

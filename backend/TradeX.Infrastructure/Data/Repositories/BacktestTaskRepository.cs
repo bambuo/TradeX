@@ -7,6 +7,28 @@ namespace TradeX.Infrastructure.Data.Repositories;
 
 public class BacktestTaskRepository(TradeXDbContext context) : IBacktestTaskRepository
 {
+    public async Task<bool> ExecuteInTransactionAsync(Func<IBacktestTaskRepository, CancellationToken, Task<bool>> action, CancellationToken ct = default)
+    {
+        await using var transaction = await context.Database.BeginTransactionAsync(ct);
+        try
+        {
+            var commit = await action(this, ct);
+            if (commit)
+            {
+                await transaction.CommitAsync(ct);
+                return true;
+            }
+
+            await transaction.RollbackAsync(ct);
+            return false;
+        }
+        catch
+        {
+            await transaction.RollbackAsync(ct);
+            throw;
+        }
+    }
+
     public async Task<BacktestTask?> GetByIdAsync(Guid id, CancellationToken ct = default)
         => await context.BacktestTasks.FirstOrDefaultAsync(t => t.Id == id, ct);
 

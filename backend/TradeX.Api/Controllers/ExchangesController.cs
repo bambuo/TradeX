@@ -2,10 +2,9 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TradeX.Api.Filters;
-using TradeX.Core.Enums;
-using TradeX.Core.ErrorCodes;
+using TradeX.Application.Common;
+using TradeX.Application.Exchanges;
 using TradeX.Core.Interfaces;
-using TradeX.Core.Models;
 
 namespace TradeX.Api.Controllers;
 
@@ -13,73 +12,58 @@ namespace TradeX.Api.Controllers;
 [Route("api/exchanges")]
 [Authorize]
 public class ExchangesController(
-    ITraderRepository traderRepo,
-    IExchangeRepository exchangeRepo,
-    IExchangeClientFactory clientFactory,
-    IEncryptionService encryption) : ControllerBase
+    IUseCase<GetExchangesQuery, Result<List<ExchangeDto>>> getExchanges,
+    IUseCase<GetExchangeByIdQuery, Result<ExchangeDto>> getExchangeById,
+    IUseCase<CreateExchangeCommand, Result<ExchangeDto>> createExchange,
+    IUseCase<UpdateExchangeCommand, Result<ExchangeDto>> updateExchange,
+    IUseCase<DeleteExchangeCommand, Result> deleteExchange,
+    IUseCase<TestExchangeCommand, Result<ExchangeTestResultDto>> testExchange,
+    IUseCase<GetExchangeAssetsCommand, Result<List<ExchangeAssetDto>>> getExchangeAssets,
+    IUseCase<GetExchangePairsCommand, Result<List<ExchangePairDto>>> getExchangePairs,
+    IUseCase<GetExchangeOrdersQuery, Result<List<ExchangeOrderDto>>> getExchangeOrders,
+    IUseCase<ToggleExchangeCommand, Result> toggleExchange) : ControllerBase
 {
     private Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken ct)
     {
-        var traders = await traderRepo.GetByUserIdAsync(UserId, ct);
-        var traderMap = traders.ToDictionary(t => t.Id, t => t.Name);
+        var result = await getExchanges.ExecuteAsync(new GetExchangesQuery(UserId), ct);
+        return Ok(new { data = result.Data });
+    }
 
-        var exchanges = await exchangeRepo.GetAllByUserIdAsync(UserId, ct);
-
-        var result = exchanges.Select(e => new
-        {
-            e.Id,
-            e.TraderId,
-            traderName = e.TraderId.HasValue ? traderMap.GetValueOrDefault(e.TraderId.Value, "未知") : "全局",
-            label = e.Name,
-            exchangeType = e.Type.ToString(),
-            isEnabled = e.Status == ExchangeStatus.Enabled,
-            e.LastTestedAt,
-            testResult = e.TestResult,
-            createdAt = e.CreatedAt,
-            updatedAt = e.UpdatedAt
-        });
-
-        return Ok(new { data = result });
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
+    {
+        var result = await getExchangeById.ExecuteAsync(new GetExchangeByIdQuery(id, UserId), ct);
+        if (!result.Success)
+            return NotFound(new { message = result.Error });
+        return Ok(result.Data);
     }
 
     [HttpPost]
     [RequireMfa]
     public async Task<IActionResult> Create([FromBody] CreateExchangeRequest request, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.ApiKey) || string.IsNullOrWhiteSpace(request.SecretKey))
-            return this.BadRequest(BusinessErrorCode.ValidationError, "名称、API Key 和 Secret Key 不能为空");
+        var result = await createExchange.ExecuteAsync(
+            new CreateExchangeCommand(UserId, null, request.Name, request.ExchangeType,
+                request.ApiKey, request.SecretKey, request.Passphrase, null), ct);
 
-        if (!Enum.TryParse<ExchangeType>(request.ExchangeType, true, out var exchangeType))
-            return this.BadRequest(BusinessErrorCode.ValidationError, $"不支持的交易所类型: {request.ExchangeType}");
-
-        if (!await exchangeRepo.IsNameUniqueAsync(request.Name, ct))
-            return this.Conflict(BusinessErrorCode.ValidationError, "交易所名称已存在");
-
-        var exchange = new TradeX.Core.Models.Exchange
-        {
-            TraderId = null,
-            Name = request.Name,
-            Type = exchangeType,
-            ApiKeyEncrypted = encryption.Encrypt(request.ApiKey),
-            SecretKeyEncrypted = encryption.Encrypt(request.SecretKey),
-            PassphraseEncrypted = request.Passphrase is not null ? encryption.Encrypt(request.Passphrase) : null,
-            CreatedBy = UserId
-        };
-
-        await exchangeRepo.AddAsync(exchange, ct);
+        if (!result.Success)
+            return result.StatusCode switch
+            {
+                409 => Conflict(new { message = result.Error }),
+                _ => BadRequest(new { message = result.Error })
+            };
 
         return CreatedAtAction(nameof(GetAll), null, new
         {
-            exchange.Id,
-            traderName = "全局",
-            label = exchange.Name,
-            exchangeType = exchange.Type.ToString(),
-            isEnabled = exchange.Status == ExchangeStatus.Enabled,
-            createdAt = exchange.CreatedAt,
-            updatedAt = exchange.UpdatedAt
+            result.Data!.Id,
+            label = result.Data.Name,
+            exchangeType = result.Data.Type,
+            isEnabled = result.Data.Status == "Enabled",
+            createdAt = result.Data.CreatedAt,
+            updatedAt = result.Data.UpdatedAt
         });
     }
 
@@ -87,207 +71,105 @@ public class ExchangesController(
     [RequireMfa]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateExchangeRequest request, CancellationToken ct)
     {
-        var exchange = await exchangeRepo.GetByIdAsync(id, ct);
-        if (exchange is null)
-            return this.NotFound(BusinessErrorCode.ExchangeNotFound, "交易所不存在");
+        var result = await updateExchange.ExecuteAsync(
+            new UpdateExchangeCommand(id, UserId, request.Name, request.ApiKey,
+                request.SecretKey, request.Passphrase, null), ct);
 
-        if (!string.IsNullOrWhiteSpace(request.Name))
-        {
-            if (exchange.Name != request.Name && !await exchangeRepo.IsNameUniqueAsync(request.Name, ct))
-                return this.Conflict(BusinessErrorCode.ValidationError, "交易所名称已存在");
-            exchange.Name = request.Name;
-        }
-        if (!string.IsNullOrWhiteSpace(request.ApiKey))
-            exchange.ApiKeyEncrypted = encryption.Encrypt(request.ApiKey);
-        if (!string.IsNullOrWhiteSpace(request.SecretKey))
-            exchange.SecretKeyEncrypted = encryption.Encrypt(request.SecretKey);
-        if (request.Passphrase is not null)
-            exchange.PassphraseEncrypted = encryption.Encrypt(request.Passphrase);
+        if (!result.Success)
+            return result.StatusCode switch
+            {
+                404 => NotFound(new { message = result.Error }),
+                409 => Conflict(new { message = result.Error }),
+                _ => BadRequest(new { message = result.Error })
+            };
 
-        await exchangeRepo.UpdateAsync(exchange, ct);
-        return Ok(new { exchange.Id, exchange.Name, exchange.UpdatedAt });
+        return Ok(new { result.Data!.Id, result.Data.Name, result.Data.UpdatedAt });
     }
 
     [HttpPost("{id:guid}/test")]
     public async Task<IActionResult> TestConnection(Guid id, CancellationToken ct)
     {
-        var exchange = await exchangeRepo.GetByIdAsync(id, ct);
-        if (exchange is null)
-            return this.NotFound(BusinessErrorCode.ExchangeNotFound, "交易所不存在");
-
-        if (exchange.Status == ExchangeStatus.Disabled)
-            return this.BadRequest(BusinessErrorCode.ValidationError, "交易所已禁用");
-
-        try
-        {
-            var apiKey = encryption.Decrypt(exchange.ApiKeyEncrypted);
-            var secretKey = encryption.Decrypt(exchange.SecretKeyEncrypted);
-            var passphrase = exchange.PassphraseEncrypted is not null ? encryption.Decrypt(exchange.PassphraseEncrypted) : null;
-
-            var client = clientFactory.CreateClient(exchange.Type, apiKey, secretKey, passphrase);
-            var result = await client.TestConnectionAsync(ct);
-
-            exchange.LastTestedAt = DateTime.UtcNow;
-            exchange.TestResult = result.Message;
-            await exchangeRepo.UpdateAsync(exchange, ct);
-
-            // 提现权限开启或缺少 IP 白名单视为 hasWarning, 前端据此渲染红色横幅 + 阻止启用按钮
-            var perms = result.Permissions ?? [];
-            var hasWarning = perms.GetValueOrDefault("withdraw") || (perms.ContainsKey("ipRestrict") && !perms["ipRestrict"]);
-            return Ok(new
+        var result = await testExchange.ExecuteAsync(new TestExchangeCommand(id, UserId), ct);
+        if (!result.Success)
+            return result.StatusCode switch
             {
-                connected = result.Success,
-                error = result.Success ? null : result.Message,
-                message = result.Message,
-                permissions = perms,
-                hasWarning
-            });
-        }
-        catch (Exception ex)
+                404 => NotFound(new { message = result.Error }),
+                _ => BadRequest(new { message = result.Error })
+            };
+
+        var dto = result.Data!;
+        return Ok(new
         {
-            return Ok(new { connected = false, error = ex.Message });
-        }
+            connected = dto.Connected,
+            error = dto.Error,
+            message = dto.Message,
+            permissions = dto.Permissions,
+            hasWarning = dto.HasWarning
+        });
     }
 
     [HttpGet("{id:guid}/orders")]
     public async Task<IActionResult> GetOrders(Guid id, [FromQuery] string type = "open", CancellationToken ct = default)
     {
-        var exchange = await exchangeRepo.GetByIdAsync(id, ct);
-        if (exchange is null)
-            return this.NotFound(BusinessErrorCode.ExchangeNotFound, "交易所不存在");
+        var result = await getExchangeOrders.ExecuteAsync(new GetExchangeOrdersQuery(id, UserId, type), ct);
+        if (!result.Success)
+            return result.StatusCode switch
+            {
+                404 => NotFound(new { message = result.Error }),
+                _ => StatusCode(502, new { message = result.Error, HttpContext.TraceIdentifier })
+            };
 
-        if (exchange.Status == ExchangeStatus.Disabled)
-            return this.BadRequest(BusinessErrorCode.ValidationError, "交易所已禁用");
-
-        try
-        {
-            var apiKey = encryption.Decrypt(exchange.ApiKeyEncrypted);
-            var secretKey = encryption.Decrypt(exchange.SecretKeyEncrypted);
-            var passphrase = exchange.PassphraseEncrypted is not null ? encryption.Decrypt(exchange.PassphraseEncrypted) : null;
-
-            var client = clientFactory.CreateClient(exchange.Type, apiKey, secretKey, passphrase);
-
-            var orders = type == "history"
-                ? await client.GetOrderHistoryAsync(ct)
-                : await client.GetOpenOrdersAsync(ct);
-
-            return Ok(new { data = orders });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(502, new ErrorResponse(BusinessErrorCode.ExchangeTestFailed, $"获取订单失败: {ex.Message}", HttpContext.TraceIdentifier));
-        }
+        return Ok(new { data = result.Data });
     }
 
     [HttpPost("{id:guid}/toggle")]
     [RequireMfa]
     public async Task<IActionResult> ToggleStatus(Guid id, [FromBody] ToggleExchangeRequest request, CancellationToken ct)
     {
-        var exchange = await exchangeRepo.GetByIdAsync(id, ct);
-        if (exchange is null)
-            return this.NotFound(BusinessErrorCode.ExchangeNotFound, "交易所不存在");
+        var result = await toggleExchange.ExecuteAsync(new ToggleExchangeCommand(id, UserId, request.Enable), ct);
+        if (!result.Success)
+            return NotFound(new { message = result.Error });
 
-        exchange.Status = request.Enable ? ExchangeStatus.Enabled : ExchangeStatus.Disabled;
-        await exchangeRepo.UpdateAsync(exchange, ct);
-
-        return Ok(new { exchange.Id, isEnabled = exchange.Status == ExchangeStatus.Enabled });
+        return Ok(new { id, isEnabled = request.Enable });
     }
 
     [HttpDelete("{id:guid}")]
     [RequireMfa]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
-        var exchange = await exchangeRepo.GetByIdAsync(id, ct);
-        if (exchange is null)
-            return this.NotFound(BusinessErrorCode.ExchangeNotFound, "交易所不存在");
+        var result = await deleteExchange.ExecuteAsync(new DeleteExchangeCommand(id, UserId), ct);
+        if (!result.Success)
+            return NotFound(new { message = result.Error });
 
-        await exchangeRepo.DeleteAsync(exchange, ct);
         return NoContent();
     }
 
     [HttpGet("{id:guid}/assets")]
     public async Task<IActionResult> GetAssets(Guid id, CancellationToken ct)
     {
-        var exchange = await exchangeRepo.GetByIdAsync(id, ct);
-        if (exchange is null)
-            return this.NotFound(BusinessErrorCode.ExchangeNotFound, "交易所不存在");
+        var result = await getExchangeAssets.ExecuteAsync(new GetExchangeAssetsCommand(id, UserId), ct);
+        if (!result.Success)
+            return result.StatusCode switch
+            {
+                404 => NotFound(new { message = result.Error }),
+                _ => StatusCode(502, new { message = result.Error, HttpContext.TraceIdentifier })
+            };
 
-        if (exchange.Status == ExchangeStatus.Disabled)
-            return this.BadRequest(BusinessErrorCode.ValidationError, "交易所已禁用");
-
-        try
-        {
-            var apiKey = encryption.Decrypt(exchange.ApiKeyEncrypted);
-            var secretKey = encryption.Decrypt(exchange.SecretKeyEncrypted);
-            var passphrase = exchange.PassphraseEncrypted is not null ? encryption.Decrypt(exchange.PassphraseEncrypted) : null;
-
-            var client = clientFactory.CreateClient(exchange.Type, apiKey, secretKey, passphrase);
-
-            var assets = await client.GetAssetBalancesAsync(ct);
-            var list = assets.Select(a => new { currency = a.Key, balance = a.Value }).OrderByDescending(a => a.balance).ToArray();
-            return Ok(new { data = list });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(502, new ErrorResponse(BusinessErrorCode.ExchangeTestFailed, $"获取资产失败: {ex.Message}", HttpContext.TraceIdentifier));
-        }
+        return Ok(new { data = result.Data });
     }
 
     [HttpGet("{id:guid}/pairs")]
     public async Task<IActionResult> GetPairs(Guid id, CancellationToken ct, [FromQuery] string? quoteCurrency = "USDT")
     {
-        var exchange = await exchangeRepo.GetByIdAsync(id, ct);
-        if (exchange is null)
-            return this.NotFound(BusinessErrorCode.ExchangeNotFound, "交易所不存在");
+        var result = await getExchangePairs.ExecuteAsync(new GetExchangePairsCommand(id, UserId, quoteCurrency), ct);
+        if (!result.Success)
+            return result.StatusCode switch
+            {
+                404 => NotFound(new { message = result.Error }),
+                _ => StatusCode(502, new { message = result.Error, HttpContext.TraceIdentifier })
+            };
 
-        if (exchange.Status == ExchangeStatus.Disabled)
-            return this.BadRequest(BusinessErrorCode.ValidationError, "交易所已禁用");
-
-        try
-        {
-            var apiKey = encryption.Decrypt(exchange.ApiKeyEncrypted);
-            var secretKey = encryption.Decrypt(exchange.SecretKeyEncrypted);
-            var passphrase = exchange.PassphraseEncrypted is not null ? encryption.Decrypt(exchange.PassphraseEncrypted) : null;
-
-            var client = clientFactory.CreateClient(exchange.Type, apiKey, secretKey, passphrase);
-
-            var rulesTask = client.GetPairRulesAsync(ct);
-            var tickerTask = client.GetTickerPricesAsync(ct);
-
-            await Task.WhenAll(rulesTask, tickerTask);
-
-            var rules = await rulesTask;
-            var tickers = await tickerTask;
-            var tickerMap = tickers.ToDictionary(t => t.Pair, t => t);
-
-            var Pairs = rules
-                .Where(r => quoteCurrency is null ||
-                    r.Pair.EndsWith(quoteCurrency, StringComparison.OrdinalIgnoreCase))
-                .Select(r =>
-                {
-                    var t = tickerMap.GetValueOrDefault(r.Pair);
-                    return new
-                    {
-                        pair = r.Pair,
-                        pricePrecision = r.PricePrecision,
-                        quantityPrecision = r.QuantityPrecision,
-                        minNotional = r.MinNotional,
-                        price = t?.Price ?? 0,
-                        priceChangePercent = t?.PriceChangePercent ?? 0,
-                        volume = t?.Volume ?? 0,
-                        highPrice = t?.HighPrice ?? 0,
-                        lowPrice = t?.LowPrice ?? 0
-                    };
-                })
-                .OrderBy(r => r.pair)
-                .ToList();
-
-            return Ok(new { data = Pairs });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(502, new ErrorResponse(BusinessErrorCode.ExchangeTestFailed, $"获取交易对数据失败: {ex.Message}", HttpContext.TraceIdentifier));
-        }
+        return Ok(new { data = result.Data });
     }
 
     public record CreateExchangeRequest(string Name, string ExchangeType, string ApiKey, string SecretKey, string? Passphrase = null);

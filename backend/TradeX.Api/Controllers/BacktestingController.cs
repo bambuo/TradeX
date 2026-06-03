@@ -1,7 +1,8 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using TradeX.Core.Interfaces;
+using TradeX.Application.Backtesting;
+using TradeX.Application.Common;
 using TradeX.Core.Models;
 using TradeX.Trading;
 using TradeX.Trading.Backtest;
@@ -13,7 +14,12 @@ namespace TradeX.Api.Controllers;
 [Route("api/backtests")]
 public class BacktestingController(
     IBacktestService backtestService,
-    IBacktestTaskRepository taskRepo) : ControllerBase
+    IUseCase<GetBacktestTasksQuery, Result<List<BacktestTaskDto>>> getBacktestTasks,
+    IUseCase<GetBacktestTaskByIdQuery, Result<BacktestTaskDto>> getBacktestTaskById,
+    IUseCase<CancelBacktestCommand, Result> cancelBacktest,
+    IUseCase<GetBacktestAnalysisPageQuery, Result<BacktestAnalysisPageDto>> getBacktestAnalysisPage,
+    IUseCase<GetBacktestAnalysisAllQuery, Result<BacktestKlineAnalysis[]>> getBacktestAnalysisAll,
+    IUseCase<GetBacktestAnalysisCountQuery, Result<int>> getBacktestAnalysisCount) : ControllerBase
 {
     public record StartBacktestRequest(
         Guid StrategyId,
@@ -52,30 +58,36 @@ public class BacktestingController(
     [HttpGet("tasks")]
     public async Task<IActionResult> GetTasks([FromQuery] Guid? strategyId, CancellationToken ct)
     {
-        var tasks = await backtestService.GetTasksAsync(strategyId, ct);
-        return Ok(tasks.Select(t => new
+        var query = new GetBacktestTasksQuery(strategyId, Guid.Empty);
+        var result = await getBacktestTasks.ExecuteAsync(query, ct);
+        if (!result.Success)
+            return BadRequest(new { error = result.Error });
+
+        return Ok(result.Data!.Select(t => new
         {
-            t.Id, t.StrategyId, t.ExchangeId, t.StrategyName, t.Pair, t.Timeframe, t.InitialCapital,
-            t.PositionSize,
-            status = t.Status.ToString(),
-            phase = t.Phase?.ToString(),
-            t.StartAt, t.EndAt,
-            t.CreatedAt, t.CompletedAt
+            t.Id, t.StrategyName, t.Pair,
+            status = t.Status,
+            phase = t.Phase,
+            t.InitialCapital, t.CreatedAt, t.CompletedAt
         }));
     }
 
     [HttpGet("tasks/{taskId:guid}")]
     public async Task<IActionResult> GetTask(Guid taskId, CancellationToken ct)
     {
-        var task = await backtestService.GetTaskAsync(taskId, ct);
-        if (task is null) return NotFound(new { error = "回测任务不存在" });
+        var query = new GetBacktestTaskByIdQuery(taskId, Guid.Empty);
+        var result = await getBacktestTaskById.ExecuteAsync(query, ct);
+        if (!result.Success)
+            return NotFound(new { error = "回测任务不存在" });
+
+        var t = result.Data!;
         return Ok(new
         {
-            task.Id, task.StrategyId,
-            status = task.Status.ToString(),
-            phase = task.Phase?.ToString(),
-            task.StartAt, task.EndAt,
-            task.CreatedAt, task.CompletedAt
+            t.Id, strategyId = t.Id,
+            status = t.Status,
+            phase = t.Phase,
+            createdAt = t.CreatedAt,
+            completedAt = t.CompletedAt
         });
     }
 
@@ -85,11 +97,13 @@ public class BacktestingController(
         var task = await backtestService.GetTaskAsync(taskId, ct);
         if (task is null) return NotFound(new { error = "回测任务不存在" });
 
-        if (task.Status != BacktestTaskStatus.Completed)
+        if (task.Status != Core.Models.BacktestTaskStatus.Completed)
             return BadRequest(new { error = "回测尚未完成", status = task.Status.ToString() });
 
         var result = await backtestService.GetResultAsync(taskId, ct);
         if (result is null) return NotFound(new { error = "回测结果不存在" });
+
+        var countResult = await getBacktestAnalysisCount.ExecuteAsync(new GetBacktestAnalysisCountQuery(taskId), ct);
 
         return Ok(new
         {
@@ -100,7 +114,7 @@ public class BacktestingController(
             result.TotalTrades,
             result.SharpeRatio,
             result.ProfitLossRatio,
-            analysisCount = await taskRepo.GetKlineAnalysesCountAsync(taskId, null, ct),
+            analysisCount = countResult.Success ? countResult.Data : 0,
             trades = JsonSerializer.Deserialize<object>(result.Details)
         });
     }
@@ -108,9 +122,10 @@ public class BacktestingController(
     [HttpDelete("tasks/{taskId:guid}")]
     public async Task<IActionResult> CancelBacktest(Guid taskId, CancellationToken ct)
     {
-        var cancelled = await backtestService.CancelBacktestAsync(taskId, ct);
-        if (!cancelled)
-            return BadRequest(new { error = "任务不存在或已处于终态，无法取消" });
+        var query = new CancelBacktestCommand(taskId, Guid.Empty);
+        var result = await cancelBacktest.ExecuteAsync(query, ct);
+        if (!result.Success)
+            return BadRequest(new { error = result.Error ?? "任务不存在或已处于终态，无法取消" });
         return Ok(new { taskId, status = "Cancelled" });
     }
 
@@ -128,7 +143,7 @@ public class BacktestingController(
         if (task is null)
             return NotFound(new { error = "回测任务不存在" });
 
-        if (task.Status != BacktestTaskStatus.Completed)
+        if (task.Status != Core.Models.BacktestTaskStatus.Completed)
             return Accepted(new
             {
                 taskId,
@@ -142,16 +157,20 @@ public class BacktestingController(
                 message = "回测分析数据将在任务完成后从数据库读取"
             });
 
-        var dbItems = await taskRepo.GetKlineAnalysesPageAsync(taskId, page, pageSize, action, ct);
-        var dbTotal = await taskRepo.GetKlineAnalysesCountAsync(taskId, action, ct);
+        var result = await getBacktestAnalysisPage.ExecuteAsync(
+            new GetBacktestAnalysisPageQuery(taskId, page, pageSize, action), ct);
 
+        if (!result.Success)
+            return BadRequest(new { error = result.Error });
+
+        var data = result.Data!;
         return Ok(new
         {
-            total = dbTotal,
-            page,
-            pageSize,
-            totalPages = (int)Math.Ceiling((double)dbTotal / pageSize),
-            items = dbItems.Select(FormatItem).ToList()
+            data.Total,
+            data.Page,
+            data.PageSize,
+            data.TotalPages,
+            items = data.Items.Select(FormatItem).ToList()
         });
     }
 
@@ -183,7 +202,7 @@ public class BacktestingController(
         speed = Math.Clamp(speed, 1, 50);
 
         var task = await backtestService.GetTaskAsync(taskId, ct);
-        if (task?.Status != BacktestTaskStatus.Completed)
+        if (task?.Status != Core.Models.BacktestTaskStatus.Completed)
         {
             var statusPayload = JsonSerializer.Serialize(new
             {
@@ -197,7 +216,9 @@ public class BacktestingController(
             return;
         }
 
-        var allData = await taskRepo.GetKlineAnalysesAllAsync(taskId, ct);
+        var allResult = await getBacktestAnalysisAll.ExecuteAsync(new GetBacktestAnalysisAllQuery(taskId), ct);
+        var allData = allResult.Success ? allResult.Data! : [];
+
         if (allData.Length == 0)
         {
             await WriteCompleteAsync(Response, ss, ct);

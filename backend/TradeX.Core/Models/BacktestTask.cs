@@ -89,6 +89,7 @@ public class BacktestTask : AggregateRoot
         Status = BacktestTaskStatus.Failed;
         Phase = null;
         CompletedAt = DateTime.UtcNow;
+        AddDomainEvent(new BacktestFailedEvent(Id, reason ?? "unknown"));
     }
 
     public void Cancel()
@@ -98,5 +99,6 @@ public class BacktestTask : AggregateRoot
         Status = BacktestTaskStatus.Cancelled;
         Phase = null;
         CompletedAt = DateTime.UtcNow;
+        AddDomainEvent(new BacktestCancelledEvent(Id));
     }
 }

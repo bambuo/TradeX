@@ -13,5 +13,6 @@ public interface IStrategyBindingRepository
     Task<bool> ExistsActiveAsync(Guid traderId, Guid exchangeId, string pair, Guid? excludeId = null, CancellationToken ct = default);
     Task AddAsync(StrategyBinding deployment, CancellationToken ct = default);
     Task UpdateAsync(StrategyBinding deployment, CancellationToken ct = default);
+    Task UpdateRangeAsync(List<StrategyBinding> bindings, CancellationToken ct = default);
     Task DeleteAsync(StrategyBinding deployment, CancellationToken ct = default);
 }

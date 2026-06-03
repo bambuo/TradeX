@@ -41,10 +41,8 @@ public sealed class KillSwitch(IServiceScopeFactory scopeFactory, TradeXMetrics 
 
         var actives = await bindingRepo.GetAllActiveAsync(ct);
         foreach (var binding in actives)
-        {
             binding.Status = BindingStatus.Disabled;
-            await bindingRepo.UpdateAsync(binding, ct);
-        }
+        await bindingRepo.UpdateRangeAsync(actives, ct);
 
         await outbox.EnqueueAsync(new OutboxEvent
         {

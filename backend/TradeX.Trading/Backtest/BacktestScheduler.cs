@@ -172,42 +172,50 @@ public class BacktestScheduler(
             return;
         }
 
-        await taskRepo.AddKlineAnalysesAsync(task.Id, analysis, ct);
-        logger.LogInformation("回测分析数据已写入数据库: TaskId={TaskId}, Count={Count}", task.Id, analysis.Count);
-
-        var resultWithTask = new BacktestResult
+        var committed = await taskRepo.ExecuteInTransactionAsync(async (repo, innerCt) =>
         {
-            TaskId = task.Id,
-            StrategyName = task.StrategyName,
-            Pair = task.Pair,
-            Timeframe = task.Timeframe,
-            StartAt = task.StartAt,
-            EndAt = task.EndAt,
-            InitialCapital = task.InitialCapital,
-            FinalValue = result.FinalValue,
-            TotalReturnPercent = result.TotalReturnPercent,
-            AnnualizedReturnPercent = result.AnnualizedReturnPercent,
-            MaxDrawdownPercent = result.MaxDrawdownPercent,
-            WinRate = result.WinRate,
-            TotalTrades = result.TotalTrades,
-            SharpeRatio = result.SharpeRatio,
-            ProfitLossRatio = result.ProfitLossRatio,
-            Details = result.Details
-        };
-        await taskRepo.AddResultAsync(resultWithTask, ct);
+            await repo.AddKlineAnalysesAsync(task.Id, analysis, innerCt);
 
-        // 在写入最终 Completed 之前再次校验, 避免覆盖 Cancelled
-        var finalTask = await taskRepo.GetByIdAsync(task.Id, ct);
-        if (finalTask is null || finalTask.Status == BacktestTaskStatus.Cancelled)
+            var resultWithTask = new BacktestResult
+            {
+                TaskId = task.Id,
+                StrategyName = task.StrategyName,
+                Pair = task.Pair,
+                Timeframe = task.Timeframe,
+                StartAt = task.StartAt,
+                EndAt = task.EndAt,
+                InitialCapital = task.InitialCapital,
+                FinalValue = result.FinalValue,
+                TotalReturnPercent = result.TotalReturnPercent,
+                AnnualizedReturnPercent = result.AnnualizedReturnPercent,
+                MaxDrawdownPercent = result.MaxDrawdownPercent,
+                WinRate = result.WinRate,
+                TotalTrades = result.TotalTrades,
+                SharpeRatio = result.SharpeRatio,
+                ProfitLossRatio = result.ProfitLossRatio,
+                Details = result.Details
+            };
+            await repo.AddResultAsync(resultWithTask, innerCt);
+
+            // 在写入最终 Completed 之前再次校验, 避免覆盖 Cancelled
+            var finalTask = await repo.GetByIdAsync(task.Id, innerCt);
+            if (finalTask is null || finalTask.Status == BacktestTaskStatus.Cancelled)
+            {
+                logger.LogInformation("回测任务在收尾阶段被取消, 事务回滚: TaskId={TaskId}", task.Id);
+                return false;
+            }
+            finalTask.Status = BacktestTaskStatus.Completed;
+            finalTask.Phase = null;
+            finalTask.CompletedAt = DateTime.UtcNow;
+            await repo.UpdateAsync(finalTask, innerCt);
+            return true;
+        }, ct);
+
+        if (!committed)
         {
-            logger.LogInformation("回测任务在收尾阶段被取消, 跳过最终状态写入: TaskId={TaskId}", task.Id);
             analysisStore.Remove(task.Id);
             return;
         }
-        finalTask.Status = BacktestTaskStatus.Completed;
-        finalTask.Phase = null;
-        finalTask.CompletedAt = DateTime.UtcNow;
-        await taskRepo.UpdateAsync(finalTask, ct);
 
         analysisStore.Remove(task.Id);
 

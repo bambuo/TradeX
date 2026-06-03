@@ -91,6 +91,20 @@ public sealed record BacktestCompletedEvent(
     public DateTime OccurredAt { get; } = DateTime.UtcNow;
 }
 
+public sealed record BacktestFailedEvent(
+    Guid TaskId, string Reason) : IDomainEvent
+{
+    public Guid EventId { get; } = Guid.NewGuid();
+    public DateTime OccurredAt { get; } = DateTime.UtcNow;
+}
+
+public sealed record BacktestCancelledEvent(
+    Guid TaskId) : IDomainEvent
+{
+    public Guid EventId { get; } = Guid.NewGuid();
+    public DateTime OccurredAt { get; } = DateTime.UtcNow;
+}
+
 // ─────────────── StrategyBinding 领域事件 ───────────────
 
 public sealed record BindingStatusChangedEvent(
@@ -100,10 +114,35 @@ public sealed record BindingStatusChangedEvent(
     public DateTime OccurredAt { get; } = DateTime.UtcNow;
 }
 
+// ─────────────── Strategy 领域事件 ───────────────
+
+public sealed record StrategyConditionsUpdatedEvent(
+    Guid StrategyId, string EntryCondition, string ExitCondition) : IDomainEvent
+{
+    public Guid EventId { get; } = Guid.NewGuid();
+    public DateTime OccurredAt { get; } = DateTime.UtcNow;
+}
+
+public sealed record StrategyVersionCreatedEvent(
+    Guid StrategyId, int NewVersion) : IDomainEvent
+{
+    public Guid EventId { get; } = Guid.NewGuid();
+    public DateTime OccurredAt { get; } = DateTime.UtcNow;
+}
+
 // ─────────────── Exchange 领域事件 ───────────────
 
 public sealed record ExchangeConnectionChangedEvent(
     Guid ExchangeId, Guid? TraderId, string OldStatus, string NewStatus) : IDomainEvent
+{
+    public Guid EventId { get; } = Guid.NewGuid();
+    public DateTime OccurredAt { get; } = DateTime.UtcNow;
+}
+
+// ─────────────── NotificationChannel 领域事件 ───────────────
+
+public sealed record NotificationChannelStatusChangedEvent(
+    Guid ChannelId, string Name, string OldStatus, string NewStatus) : IDomainEvent
 {
     public Guid EventId { get; } = Guid.NewGuid();
     public DateTime OccurredAt { get; } = DateTime.UtcNow;
