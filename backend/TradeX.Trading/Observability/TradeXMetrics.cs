@@ -21,6 +21,7 @@ public sealed class TradeXMetrics : IDisposable
     public Counter<long> KillSwitchActivations { get; }
     public Counter<long> NotificationsFailed { get; }
     public Counter<long> OutboxEventsFailed { get; }
+    public Counter<long> PositionDriftDetected { get; }
     public Histogram<double> StrategyEvalDurationMs { get; }
     public Histogram<double> BacktestRunDurationMs { get; }
 
@@ -48,6 +49,8 @@ public sealed class TradeXMetrics : IDisposable
             description: "通知最终失败 (重试耗尽进 DLQ) 计数（按 channel 打标签）");
         OutboxEventsFailed = _meter.CreateCounter<long>("tradex.outbox.events_failed", unit: "{event}",
             description: "Outbox 事件重试耗尽进入 Failed 终态计数（毒消息，需人工排查；按 type 打标签）");
+        PositionDriftDetected = _meter.CreateCounter<long>("tradex.position.drift_detected", unit: "{event}",
+            description: "持仓级对账发现漂移超阈值计数（按 exchange/severity 打标签）");
 
         StrategyEvalDurationMs = _meter.CreateHistogram<double>("tradex.strategy.eval_duration", unit: "ms",
             description: "单个策略评估耗时 (ms)");

@@ -3,6 +3,7 @@ import { ref, computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import client from '../api/client'
+import type { ApiError } from '../api/client'
 import TotpInputDigits from '../components/login/TotpInputDigits.vue'
 
 const router = useRouter()
@@ -60,8 +61,8 @@ async function handleLogin() {
     } else {
       router.push('/')
     }
-  } catch (err: any) {
-    error.value = err?.response?.data?.message || '登录失败，请检查用户名和密码'
+  } catch (err: unknown) {
+    error.value = (err as ApiError).response?.data?.message || '登录失败，请检查用户名和密码'
   } finally {
     loading.value = false
   }
@@ -72,8 +73,8 @@ async function loadMfaSetup() {
     const { data } = await client.post('/auth/mfa/setup')
     mfaSetupSecret.value = data.secretKey
     mfaSetupQrUrl.value = data.qrCodeImage
-  } catch (err: any) {
-    error.value = err?.response?.data?.message || '无法获取 MFA 配置'
+  } catch (err: unknown) {
+    error.value = (err as ApiError).response?.data?.message || '无法获取 MFA 配置'
   }
 }
 
@@ -86,8 +87,8 @@ async function handleVerifyMfaSetup() {
     localStorage.setItem('refreshToken', data.refreshToken)
     auth.loadFromStorage()
     router.push('/')
-  } catch (err: any) {
-    error.value = err?.response?.data?.message || 'MFA 验证码错误'
+  } catch (err: unknown) {
+    error.value = (err as ApiError).response?.data?.message || 'MFA 验证码错误'
   } finally {
     loading.value = false
   }
@@ -100,8 +101,8 @@ async function handleVerifyMfa() {
     await auth.verifyMfa(totpCode.value)
     auth.loadFromStorage()
     router.push('/')
-  } catch (err: any) {
-    error.value = err?.response?.data?.message || 'MFA 验证失败'
+  } catch (err: unknown) {
+    error.value = (err as ApiError).response?.data?.message || 'MFA 验证失败'
   } finally {
     loading.value = false
   }
@@ -114,8 +115,8 @@ async function handleRecoveryCode() {
     await auth.verifyMfaWithRecoveryCode(recoveryCode.value)
     auth.loadFromStorage()
     router.push('/')
-  } catch (err: any) {
-    error.value = err?.response?.data?.message || '恢复码无效'
+  } catch (err: unknown) {
+    error.value = (err as ApiError).response?.data?.message || '恢复码无效'
   } finally {
     loading.value = false
   }

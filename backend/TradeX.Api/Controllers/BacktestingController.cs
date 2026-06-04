@@ -19,7 +19,8 @@ public class BacktestingController(
     IUseCase<CancelBacktestCommand, Result> cancelBacktest,
     IUseCase<GetBacktestAnalysisPageQuery, Result<BacktestAnalysisPageDto>> getBacktestAnalysisPage,
     IUseCase<GetBacktestAnalysisAllQuery, Result<BacktestKlineAnalysis[]>> getBacktestAnalysisAll,
-    IUseCase<GetBacktestAnalysisCountQuery, Result<int>> getBacktestAnalysisCount) : ControllerBase
+    IUseCase<GetBacktestAnalysisCountQuery, Result<int>> getBacktestAnalysisCount,
+    IBacktestCancellationNotifier cancellationNotifier) : ControllerBase
 {
     public record StartBacktestRequest(
         Guid StrategyId,
@@ -126,6 +127,10 @@ public class BacktestingController(
         var result = await cancelBacktest.ExecuteAsync(query, ct);
         if (!result.Success)
             return BadRequest(new { error = result.Error ?? "任务不存在或已处于终态，无法取消" });
+
+        // 事件驱动：发布取消事件到 Redis Stream，Worker 端 BacktestCancellationConsumer 立即响应
+        await cancellationNotifier.NotifyCancellationAsync(taskId, ct);
+
         return Ok(new { taskId, status = "Cancelled" });
     }
 

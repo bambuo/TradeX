@@ -25,10 +25,13 @@ public static class DependencyInjection
         services.TryAddSingleton<IClock, SystemClock>();
         services.AddScoped<IConditionEvaluator, ConditionEvaluator>();
         services.AddScoped<IConditionTreeEvaluator, ConditionTreeEvaluator>();
+        services.AddScoped<IStrategyDecisionEngine, StrategyDecisionEngine>();
         services.AddScoped<ConditionTreeValidator>();
         services.AddScoped<IPortfolioRiskManager, PortfolioRiskManager>();
+        services.AddScoped<IFillProjector, FillProjector>();
         services.AddScoped<ITradeExecutor, TradeExecutor>();
         services.AddScoped<IOrderReconciler, OrderReconciler>();
+        services.AddScoped<IPositionReconciler, PositionReconciler>();
         services.AddScoped<IBacktestService, BacktestService>();
         services.AddScoped<BacktestEngine>();
         services.AddScoped<LegacyStrategyScanner>();
@@ -53,16 +56,15 @@ public static class DependencyInjection
     }
 
     /// <summary>
-    /// Worker 进程独占：启动 TradingEngine 评估循环 / BacktestScheduler 回测调度 / ResourceMonitor 资源采样。
-    /// 同时注册 Worker 内存缓存 <see cref="MarketDataCache"/>。
+    /// Worker 进程独占：启动 StrategyEvaluationConsumer 策略评估循环 / ResourceMonitor 资源采样。
+    /// 同时注册 Trade 和 Kline 事件流通道及 StreamManager。
+    /// 注意：回测相关服务已移至 <see cref="AddTradingBacktestWorker"/>，请勿在此重复注册。
     /// </summary>
     private const int TradeEventChannelCapacity = 1000;
     private const int KlineEventChannelCapacity = 100;
 
     public static IServiceCollection AddTradingWorker(this IServiceCollection services)
     {
-        services.AddSingleton<IBacktestTaskQueue, BacktestTaskQueue>();
-        services.AddSingleton<TaskAnalysisStore>();
         services.AddSingleton<IResourceProvider, SystemResourceProvider>();
         services.AddSingleton<ResourceMonitor>();
 
@@ -86,9 +88,32 @@ public static class DependencyInjection
 
         services.AddSingleton<StrategyEvaluationConsumer>();
         services.AddHostedService<ResourceMonitor>(sp => sp.GetRequiredService<ResourceMonitor>());
-        services.AddHostedService<BacktestScheduler>();
         services.AddHostedService<OrderReconcilerService>();
         services.AddHostedService(sp => sp.GetRequiredService<StrategyEvaluationConsumer>());
+        return services;
+    }
+
+    /// <summary>
+    /// 回测 Worker（TradeX.BacktestWorker）独占：注册回测调度引擎、取消事件消费者、任务监听器。
+    /// 与 <see cref="AddTradingWorker"/> 分开注册，确保回测（CPU 密集）与实盘交易引擎进程隔离。
+    /// </summary>
+    public static IServiceCollection AddTradingBacktestWorker(this IServiceCollection services, bool redisAvailable = true)
+    {
+        services.AddSingleton<IResourceProvider, SystemResourceProvider>();
+        services.AddSingleton<ResourceMonitor>();
+
+        services.AddSingleton<IBacktestTaskQueue, BacktestTaskQueue>();
+        services.AddSingleton<TaskAnalysisStore>();
+        services.AddSingleton<RunningBacktestTracker>();
+
+        services.AddHostedService<BacktestScheduler>();
+
+        if (redisAvailable)
+        {
+            services.AddHostedService<BacktestTaskListener>();
+            services.AddHostedService<BacktestCancellationConsumer>();
+        }
+
         return services;
     }
 
@@ -114,13 +139,29 @@ public static class DependencyInjection
         return services;
     }
 
-    /// <summary>注册回测任务跨进程通知发布者；Redis 配置存在用 RedisBacktestTaskNotifier，否则降级 Null。</summary>
+    /// <summary>
+    /// 注册回测任务跨进程通知发布者（API 端使用）；Redis 配置存在用 RedisBacktestTaskNotifier，否则降级 Null。
+    /// 注意：消费端 <see cref="BacktestTaskListener"/> 已移至 <c>TradeX.BacktestWorker</c> 进程。
+    /// </summary>
     public static IServiceCollection AddBacktestTaskNotifier(this IServiceCollection services, bool redisAvailable)
     {
         if (redisAvailable)
             services.AddSingleton<IBacktestTaskNotifier, RedisBacktestTaskNotifier>();
         else
             services.AddSingleton<IBacktestTaskNotifier, NullBacktestTaskNotifier>();
+        return services;
+    }
+
+    /// <summary>
+    /// 注册回测取消事件发布者（API 端使用）；与任务通知同条件。
+    /// 注意：消费端 <see cref="BacktestCancellationConsumer"/> 已移至 <c>TradeX.BacktestWorker</c> 进程。
+    /// </summary>
+    public static IServiceCollection AddBacktestCancellationNotifier(this IServiceCollection services, bool redisAvailable)
+    {
+        if (redisAvailable)
+            services.AddSingleton<IBacktestCancellationNotifier, RedisBacktestCancellationNotifier>();
+        else
+            services.AddSingleton<IBacktestCancellationNotifier, NullBacktestCancellationNotifier>();
         return services;
     }
 

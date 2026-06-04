@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { usersApi, type User } from '../api/users'
+import type { ApiError } from '../api/client'
 
 const users = ref<User[]>([])
 const loading = ref(true)
@@ -53,8 +54,8 @@ async function changeRole(id: string, role: string) {
   try {
     await usersApi.updateRole(id, role)
     await load()
-  } catch (e: any) {
-    if (e._mfaCancelled) return
+  } catch (e: unknown) {
+    if ((e as ApiError)._mfaCancelled) return
     throw e
   }
 }

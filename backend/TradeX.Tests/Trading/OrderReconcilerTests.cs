@@ -24,7 +24,8 @@ public class OrderReconcilerTests
         var outbox = Substitute.For<IOutboxRepository>();
         var settings = Options.Create(new RiskSettings { StalePendingMinutes = stalePendingMinutes });
         var logger = Substitute.For<ILogger<OrderReconciler>>();
-        var reconciler = new OrderReconciler(exchangeRepo, orderRepo, clientFactory, encryption, outbox, settings, logger);
+        var reconciler = new OrderReconciler(exchangeRepo, orderRepo, clientFactory, encryption, outbox,
+            Substitute.For<TradeX.Trading.Execution.IFillProjector>(), settings, logger);
         return (reconciler, exchangeRepo, orderRepo, exchangeClient, clientFactory, outbox);
     }
 

@@ -30,6 +30,7 @@ public class OrderReconciler(
     IExchangeClientFactory clientFactory,
     IEncryptionService encryption,
     IOutboxRepository outbox,
+    IFillProjector fillProjector,
     IOptions<RiskSettings> riskSettings,
     ILogger<OrderReconciler> logger) : IOrderReconciler
 {
@@ -79,6 +80,7 @@ public class OrderReconciler(
                                 order.ExchangeOrderId = lookup.ExchangeOrderId;
                                 var changed = ApplyResultToOrder(order, lookup);
                                 await orderRepo.UpdateAsync(order, ct);
+                                await MaybeProjectFillAsync(order, lookup, ct);
                                 totalFixed++;
                                 logger.LogInformation("Reconciliation 凭 ClientOrderId 恢复订单: OrderId={OrderId}, ClientOrderId={Cli}, ExchangeOrderId={Exch}, Status={Status}",
                                     order.Id, order.ClientOrderId, order.ExchangeOrderId, order.Status);
@@ -127,6 +129,7 @@ public class OrderReconciler(
                         if (updated)
                         {
                             await orderRepo.UpdateAsync(order, ct);
+                            await MaybeProjectFillAsync(order, result, ct);
                             totalFixed++;
                             logger.LogInformation("Reconciliation 修复订单: OrderId={OrderId}, ExchangeOrderId={Exch}, Status={Status}",
                                 order.Id, order.ExchangeOrderId, order.Status);
@@ -225,6 +228,20 @@ public class OrderReconciler(
         {
             logger.LogWarning(ex, "Reconciliation 创建交易所客户端失败, ExchangeId={ExchangeId}", exchange.Id);
             return null;
+        }
+    }
+
+    /// <summary>对账中订单转为 Filled 时，触发幂等的"成交→持仓"投影（崩溃恢复路径）。</summary>
+    private async Task MaybeProjectFillAsync(Order order, OrderResult result, CancellationToken ct)
+    {
+        if (order.Status != OrderStatus.Filled) return;
+        try
+        {
+            await fillProjector.ProjectFilledAsync(order, result.AvgPrice, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "对账：成交→持仓投影失败，OrderId={OrderId}", order.Id);
         }
     }
 

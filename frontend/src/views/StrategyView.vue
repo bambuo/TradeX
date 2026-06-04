@@ -3,6 +3,7 @@ import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { strategiesApi, type Strategy, type StrategyBinding } from '../api/strategies'
 import { exchangesApi, type Exchange } from '../api/exchanges'
+import type { ApiError } from '../api/client'
 import { formatSmallNumber } from '../utils/format'
 
 
@@ -291,8 +292,8 @@ async function save() {
     }
     showForm.value = false
     await load()
-  } catch (e: any) {
-    if (e._mfaCancelled) return
+  } catch (e: unknown) {
+    if ((e as ApiError)._mfaCancelled) return
     throw e
   }
 }
@@ -301,8 +302,8 @@ async function remove(id: string) {
   try {
     await strategiesApi.delete(traderId, id)
     await load()
-  } catch (e: any) {
-    if (e._mfaCancelled) return
+  } catch (e: unknown) {
+    if ((e as ApiError)._mfaCancelled) return
     throw e
   }
 }
@@ -315,8 +316,8 @@ async function toggle(d: StrategyBinding) {
   try {
     await strategiesApi.toggle(traderId, d.id, !isActive(d.status))
     await load()
-  } catch (e: any) {
-    errorMsg.value = e.response?.data?.message || '操作失败'
+  } catch (e: unknown) {
+    errorMsg.value = (e as ApiError).response?.data?.message || '操作失败'
   } finally {
     toggleLoading.value = null
   }

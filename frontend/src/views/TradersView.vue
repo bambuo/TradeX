@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { tradersApi, type Trader, type TraderStats } from '../api/traders'
+import type { ApiError } from '../api/client'
 
 const router = useRouter()
 
@@ -89,8 +90,8 @@ async function save() {
     }
     showForm.value = false
     await loadTraders()
-  } catch (e: any) {
-    formError.value = e.response?.data?.message || '保存失败'
+  } catch (e: unknown) {
+    formError.value = (e as ApiError).response?.data?.message || '保存失败'
   }
 }
 
@@ -144,8 +145,8 @@ async function toggleStatus(trader: Trader) {
     const newStatus = normalizeStatus(trader.status) === 'Active' ? 'Disabled' : 'Active'
     await tradersApi.update(trader.id, { status: newStatus })
     await loadTraders()
-  } catch (e: any) {
-    if (e._mfaCancelled) return
+  } catch (e: unknown) {
+    if ((e as ApiError)._mfaCancelled) return
     throw e
   }
 }

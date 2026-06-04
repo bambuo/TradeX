@@ -11,6 +11,8 @@ public interface IOrderRepository
     Task<List<Order>> GetPendingByExchangeAsync(Guid exchangeId, CancellationToken ct = default);
     Task<List<Order>> GetByStrategyIdAsync(Guid strategyId, CancellationToken ct = default);
     Task<List<Order>> GetByPositionIdAsync(Guid positionId, CancellationToken ct = default);
+    /// <summary>某策略某交易对是否存在在途买单（Pending / PartiallyFilled），用于入场幂等闸跨重启兜底。</summary>
+    Task<bool> HasActiveBuyAsync(Guid strategyId, string pair, CancellationToken ct = default);
     Task AddAsync(Order order, CancellationToken ct = default);
     Task UpdateAsync(Order order, CancellationToken ct = default);
 }

@@ -50,7 +50,7 @@ public static class DependencyInjection
         services.AddSingleton<CasbinEnforcer>();
 
         // 应用层服务的 Infrastructure 实现（接口定义在 Core）
-        services.AddSingleton<Core.Interfaces.IHealthCheckService, Services.HealthCheckService>();
+        services.AddScoped<Core.Interfaces.IHealthCheckService, Services.HealthCheckService>();
 
         return services;
     }

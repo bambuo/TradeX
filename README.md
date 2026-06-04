@@ -19,13 +19,13 @@ flowchart TB
     end
 
     subgraph Services["基础设施"]
-        F["MySQL 8.4"]
+        F["PostgreSQL 16"]
         R["Redis 7.4"]
     end
 
-    API -->|EF Core Pomelo| F
+    API -->|EF Core Npgsql| F
     API -.->|Redis Stream + SignalR Backplane| R
-    Worker -->|EF Core Pomelo| F
+    Worker -->|EF Core Npgsql| F
     Worker -.->|Outbox + Redis Stream 事件/命令| R
 ```
 
@@ -35,7 +35,7 @@ flowchart TB
 |---|------|
 | 后端 | ASP.NET Core 10 + C# 14（主构造函数、集合表达式 `[]`、`field` 关键字）|
 | 前端 | Vue 3 + TypeScript + Pinia |
-| 数据库 | MySQL + Redis |
+| 数据库 | PostgreSQL + Redis |
 | 鉴权 | Casbin.NET RBAC + JWT + MFA TOTP |
 | 实时通信 | SignalR |
 | 通知 | Telegram / Discord / Email |
@@ -47,8 +47,8 @@ flowchart TB
 git clone <repo>
 cd TradeX
 
-# 设置 JWT Secret 并启动
-JWT_SECRET=your-secret-key docker compose up --build
+# 设置数据库密码与 JWT Secret 并启动
+POSTGRES_PASSWORD=your-db-password JWT_SECRET=your-secret-key docker compose up --build
 ```
 
 访问 `http://localhost` 即可打开 TradeX 管理界面。
@@ -110,10 +110,10 @@ cd backend && dotnet test
 
 ```bash
 # 构建并启动
-JWT_SECRET=your-secret-key docker compose up --build
+POSTGRES_PASSWORD=your-db-password JWT_SECRET=your-secret-key docker compose up --build
 
 # 后台运行
-JWT_SECRET=your-secret-key docker compose up --build -d
+POSTGRES_PASSWORD=your-db-password JWT_SECRET=your-secret-key docker compose up --build -d
 
 # 查看日志
 docker compose logs -f

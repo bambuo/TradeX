@@ -6,17 +6,13 @@ using TradeX.Exchange;
 using TradeX.Indicators;
 using TradeX.Infrastructure;
 using TradeX.Infrastructure.Data;
-using TradeX.Notifications;
 using TradeX.Trading;
-using TradeX.Trading.Events;
-using TradeX.Trading.Messaging;
-using TradeX.Trading.Observability;
-using TradeX.Worker;
+using TradeX.BacktestWorker;
 
 // Serilog bootstrap logger（DI 启动前用）
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
-    .WriteTo.File("logs/worker-.log", rollingInterval: RollingInterval.Day)
+    .WriteTo.File("logs/backtest-worker-.log", rollingInterval: RollingInterval.Day)
     .Enrich.FromLogContext()
     .CreateBootstrapLogger();
 
@@ -29,7 +25,7 @@ try
         .ReadFrom.Services(services)
         .Enrich.FromLogContext()
         .WriteTo.Console()
-        .WriteTo.File("logs/worker-.log", rollingInterval: RollingInterval.Day));
+        .WriteTo.File("logs/backtest-worker-.log", rollingInterval: RollingInterval.Day));
 
     // ------ Infrastructure ------
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
@@ -38,48 +34,41 @@ try
     var encryptionKey = builder.Configuration.GetSection("Encryption")["Key"]!;
     builder.Services.AddEncryption(encryptionKey);
 
-    // ------ Trading 业务（共享 + Worker 独占的 HostedService） ------
+    // ------ Trading 共享服务 ------
     builder.Services.AddExchange();
     builder.Services.AddIndicators();
-    builder.Services.AddNotifications();
     builder.Services.AddTradingShared();
-    builder.Services.AddHostedService<WorkerSingleInstanceGuard>();
-    builder.Services.AddTradingWorker();
 
-    // 事件总线：Redis 配置存在 → Outbox 模式（OutboxTradingEventBus + relay XADD 到 tradex:events，API bridge 转发 SignalR）；
-    //           否则 → LoggingEventBus 降级（前端实时事件丢失但不阻塞业务）
+    // ------ 单实例锁 ------
+    builder.Services.AddHostedService<BacktestWorkerSingleInstanceGuard>();
+
+    // ------ 回测 Worker 独占服务 ------
     var redisConn = builder.Configuration["Redis:ConnectionString"];
     if (!string.IsNullOrWhiteSpace(redisConn))
     {
         builder.Services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(
             _ => StackExchange.Redis.ConnectionMultiplexer.Connect(redisConn));
-        // Outbox 模式：业务路径写 outbox 表（与业务事务原子），后台 relay 推到 Redis Stream
-        // 解决"业务已提交但事件发布失败 → 事件丢失"的一致性漏洞
-        builder.Services.AddScoped<ITradingEventBus, TradeX.Trading.Outbox.OutboxTradingEventBus>();
-        builder.Services.AddOutboxRelay();
-        builder.Services.AddTradingWorkerCommandBus();
-        Log.Information("Worker 事件总线(Outbox) + 命令总线: Redis → {Events} / {Commands}",
-            TradingEventChannels.Events,
-            TradeX.Trading.Commands.WorkerCommandChannels.Commands);
+
+        builder.Services.AddTradingBacktestWorker();
+        Log.Information("回测 Worker 事件驱动: Redis Streams → {Tasks} / {Cancellations}",
+            TradeX.Trading.Backtest.BacktestChannels.Tasks,
+            TradeX.Trading.Backtest.BacktestChannels.Cancellations);
     }
     else
     {
-        builder.Services.AddSingleton<ITradingEventBus, LoggingEventBus>();
-        Log.Warning("Worker 事件总线/命令通道: 未配置 Redis:ConnectionString，全部降级（仅本地进程内有效）");
+        Log.Warning("回测 Worker: 未配置 Redis:ConnectionString，回测调度降级为 DB 轮询模式");
+        builder.Services.AddTradingBacktestWorker(redisAvailable: false);
     }
 
     // ------ Observability ------
-    builder.Services.AddSingleton<TradeXMetrics>();
     builder.Services.AddOpenTelemetry()
-        .ConfigureResource(r => r.AddService("tradex-worker", serviceVersion: "1.0.0"))
+        .ConfigureResource(r => r.AddService("tradex-backtest-worker", serviceVersion: "1.0.0"))
         .WithMetrics(m =>
         {
             m.AddHttpClientInstrumentation()
                 .AddRuntimeInstrumentation()
-                .AddMeter(TradeXMetrics.MeterName)
-                .AddMeter("Polly")
                 .AddPrometheusHttpListener(opts =>
-                    opts.UriPrefixes = [builder.Configuration["Otel:PrometheusListener"] ?? "http://*:9464/"]);
+                    opts.UriPrefixes = [builder.Configuration["Otel:PrometheusListener"] ?? "http://*:9465/"]);
         })
         .WithTracing(t =>
         {
@@ -97,13 +86,13 @@ try
         await DbInitializer.InitializeAsync(db);
     }
 
-    Log.Information("TradeX.Worker 启动: Environment={Env} — 已装载 TradingEngine / ResourceMonitor / OrderReconciler",
+    Log.Information("TradeX.BacktestWorker 启动: Environment={Env} — BacktestScheduler / BacktestCancellationConsumer 已注册",
         builder.Environment.EnvironmentName);
     await host.RunAsync();
 }
 catch (Exception ex)
 {
-    Log.Fatal(ex, "Worker 启动失败");
+    Log.Fatal(ex, "回测 Worker 启动失败");
     throw;
 }
 finally

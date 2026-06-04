@@ -14,7 +14,8 @@ public class BacktestScheduler(
     ResourceMonitor resourceMonitor,
     IOptions<BacktestSchedulerSettings> settings,
     ILogger<BacktestScheduler> logger,
-    TaskAnalysisStore analysisStore) : BackgroundService
+    TaskAnalysisStore analysisStore,
+    RunningBacktestTracker tracker) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -136,10 +137,9 @@ public class BacktestScheduler(
 
         analysisStore.Init(task.Id);
 
-        // 用户取消可能在引擎运行期间发生; 由独立的 poller 周期性查 DB, 检测到 Cancelled 即触发 engineCts.
-        // 引擎在每根 K 线开头调用 ct.ThrowIfCancellationRequested, 因此最大延迟约 = pollInterval + 单根 K 线处理时间.
+        // 注册到事件驱动跟踪器，BacktestCancellationConsumer 收到取消事件后直接 Cancel 此 CTS
         using var engineCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var pollerTask = PollForCancellationAsync(scopeFactory, task.Id, engineCts, ct);
+        tracker.RunningTasks[task.Id] = engineCts;
 
         BacktestResult result;
         List<BacktestTrade> trades;
@@ -160,7 +160,7 @@ public class BacktestScheduler(
         finally
         {
             engineCts.Cancel();
-            try { await pollerTask; } catch { /* poller 自身异常忽略 */ }
+            tracker.RunningTasks.TryRemove(task.Id, out _);
         }
 
         // 二次保险: 引擎跑完后再读一次, 防御 poll 间隙的取消
@@ -223,27 +223,9 @@ public class BacktestScheduler(
             task.Id, result.TotalTrades, result.TotalReturnPercent);
     }
 
-    // 在独立 scope 内周期性查 DB, 若任务转为 Cancelled 则触发 engineCts.
-    private static async Task PollForCancellationAsync(IServiceScopeFactory scopeFactory, Guid taskId, CancellationTokenSource engineCts, CancellationToken stoppingToken)
-    {
-        var pollInterval = TimeSpan.FromSeconds(1);
-        try
-        {
-            while (!engineCts.IsCancellationRequested)
-            {
-                await Task.Delay(pollInterval, stoppingToken);
-                using var scope = scopeFactory.CreateScope();
-                var repo = scope.ServiceProvider.GetRequiredService<IBacktestTaskRepository>();
-                var current = await repo.GetByIdAsync(taskId, stoppingToken);
-                if (current?.Status == BacktestTaskStatus.Cancelled)
-                {
-                    engineCts.Cancel();
-                    return;
-                }
-            }
-        }
-        catch (OperationCanceledException) { /* stoppingToken 触发, 正常退出 */ }
-    }
+    // 取消事件由 BacktestCancellationConsumer 从 Redis Stream 消费并触发 tracker,
+    // 不再需要 PollForCancellationAsync 的 DB 轮询。
+    // 保留此注释以表明设计意图 —— 回滚时不要重新引入轮询。
 
     // 写入前重读, 若任务已被取消则放弃此次写入, 防止脏写覆盖 CancelBacktestAsync 写入的 Cancelled 状态.
     // 返回 true 表示已成功推进; false 表示任务被取消或不存在, 调用方应直接 return.

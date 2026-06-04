@@ -22,6 +22,7 @@ public class TradeExecutor(
     IEncryptionService encryptionService,
     OrderBookSlippageGuard slippageGuard,
     PairRuleCache pairRuleCache,
+    IFillProjector fillProjector,
     IOptions<RiskSettings> riskSettings,
     ILogger<TradeExecutor> logger) : ITradeExecutor
 {
@@ -203,6 +204,20 @@ public class TradeExecutor(
         else
             order.MarkFailed(result.Error);
         await orderRepo.UpdateAsync(order, ct);
+
+        // 成交 → 持仓投影（买开 / 卖平），幂等。投影失败不影响订单已落库的结果，
+        // 后续对账器再次发现 Filled 时会重试投影。
+        if (order.Status == OrderStatus.Filled)
+        {
+            try
+            {
+                await fillProjector.ProjectFilledAsync(order, result.AvgPrice, ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "成交→持仓投影失败（订单已成交），OrderId={OrderId}", order.Id);
+            }
+        }
     }
 
     private async Task MarkFailedAsync(Order order, string reason, CancellationToken ct)

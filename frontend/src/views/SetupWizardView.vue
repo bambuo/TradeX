@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import client from '../api/client'
+import type { ApiError } from '../api/client'
 import { resetInitCheck } from '../router'
 
 const router = useRouter()
@@ -51,8 +52,8 @@ async function initialize() {
     })
     resetInitCheck()
     step.value = 'success'
-  } catch (err: any) {
-    error.value = err?.response?.data?.message || '初始化失败'
+  } catch (err: unknown) {
+    error.value = (err as ApiError).response?.data?.message || '初始化失败'
   } finally {
     loading.value = false
   }

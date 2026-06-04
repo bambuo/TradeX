@@ -17,8 +17,10 @@ COPY backend/TradeX.Trading/TradeX.Trading.csproj TradeX.Trading/
 COPY backend/TradeX.Notifications/TradeX.Notifications.csproj TradeX.Notifications/
 COPY backend/TradeX.Api/TradeX.Api.csproj TradeX.Api/
 COPY backend/TradeX.Worker/TradeX.Worker.csproj TradeX.Worker/
+COPY backend/TradeX.BacktestWorker/TradeX.BacktestWorker.csproj TradeX.BacktestWorker/
 RUN dotnet restore TradeX.Api/TradeX.Api.csproj && \
-    dotnet restore TradeX.Worker/TradeX.Worker.csproj
+    dotnet restore TradeX.Worker/TradeX.Worker.csproj && \
+    dotnet restore TradeX.BacktestWorker/TradeX.BacktestWorker.csproj
 COPY backend/ .
 
 # Stage 3a: Publish API (includes SPA static files)
@@ -29,6 +31,11 @@ RUN dotnet publish -c Release -o /app
 # Stage 3b: Publish Worker
 FROM backend-build AS worker-publish
 WORKDIR /src/TradeX.Worker
+RUN dotnet publish -c Release -o /app
+
+# Stage 3c: Publish Backtest Worker
+FROM backend-build AS backtest-worker-publish
+WORKDIR /src/TradeX.BacktestWorker
 RUN dotnet publish -c Release -o /app
 
 # Stage 4a: Runtime — API (default target)
@@ -52,3 +59,14 @@ COPY --from=worker-publish /app .
 RUN chown -R app:app /app
 USER app
 ENTRYPOINT ["dotnet", "TradeX.Worker.dll"]
+
+# Stage 4c: Runtime — Backtest Worker
+FROM mcr.microsoft.com/dotnet/runtime:10.0-preview AS backtest-worker
+RUN groupadd --system app && useradd --system --gid app -d /app -s /bin/false app
+WORKDIR /app
+# Prometheus metrics endpoint
+EXPOSE 9465
+COPY --from=backtest-worker-publish /app .
+RUN chown -R app:app /app
+USER app
+ENTRYPOINT ["dotnet", "TradeX.BacktestWorker.dll"]

@@ -83,7 +83,7 @@ public class TradeExecutorTests
             exchangeRepo,
             Substitute.For<IOrderRepository>(),
             Substitute.For<IEncryptionService>(),
-            new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
+            new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Substitute.For<TradeX.Trading.Execution.IFillProjector>(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
 
         var result = await executor.ExecuteMarketOrderAsync(new Order { ExchangeId = Guid.NewGuid() });
 
@@ -99,7 +99,7 @@ public class TradeExecutorTests
             Substitute.For<IExchangeRepository>(),
             Substitute.For<IOrderRepository>(),
             Substitute.For<IEncryptionService>(),
-            new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
+            new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Substitute.For<TradeX.Trading.Execution.IFillProjector>(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
 
         var result = await executor.ExecuteLimitOrderAsync(new Order { ExchangeId = Guid.NewGuid() });
 
@@ -115,7 +115,7 @@ public class TradeExecutorTests
             Substitute.For<IExchangeRepository>(),
             Substitute.For<IOrderRepository>(),
             Substitute.For<IEncryptionService>(),
-            new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
+            new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Substitute.For<TradeX.Trading.Execution.IFillProjector>(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
 
         var result = await executor.ExecuteStopLimitOrderAsync(new Order { ExchangeId = Guid.NewGuid() }, 100);
 
@@ -154,7 +154,7 @@ public class TradeExecutorTests
 
         var executor = new TradeExecutor(
             clientFactory, exchangeRepo, Substitute.For<IOrderRepository>(), encryption,
-            new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
+            new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Substitute.For<TradeX.Trading.Execution.IFillProjector>(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
 
         var order = new Order
         {
@@ -202,7 +202,7 @@ public class TradeExecutorTests
             .Returns(exchangeClient);
 
         var executor = new TradeExecutor(clientFactory, exchangeRepo, orderRepo, encryption,
-            new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
+            new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Substitute.For<TradeX.Trading.Execution.IFillProjector>(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
 
         var order = new Order
         {
@@ -251,7 +251,7 @@ public class TradeExecutorTests
             .Returns(exchangeClient);
 
         var executor = new TradeExecutor(clientFactory, exchangeRepo, Substitute.For<IOrderRepository>(),
-            encryption, new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
+            encryption, new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Substitute.For<TradeX.Trading.Execution.IFillProjector>(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
 
         var clientOrderId = Guid.NewGuid();
         var order = new Order
@@ -294,7 +294,7 @@ public class TradeExecutorTests
 
         var orderRepo = Substitute.For<IOrderRepository>();
         var executor = new TradeExecutor(clientFactory, exchangeRepo, orderRepo, encryption,
-            new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
+            new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Substitute.For<TradeX.Trading.Execution.IFillProjector>(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
 
         var order = new Order
         {
@@ -335,7 +335,7 @@ public class TradeExecutorTests
 
         var orderRepo = Substitute.For<IOrderRepository>();
         var executor = new TradeExecutor(clientFactory, exchangeRepo, orderRepo, encryption,
-            new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
+            new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Substitute.For<TradeX.Trading.Execution.IFillProjector>(), Options.Create(new RiskSettings()), Substitute.For<ILogger<TradeExecutor>>());
 
         var order = new Order
         {
@@ -377,7 +377,7 @@ public class TradeExecutorTests
             .Returns(client);
 
         var executor = new TradeExecutor(clientFactory, exchangeRepo, Substitute.For<IOrderRepository>(), encryption,
-            new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Options.Create(new RiskSettings()),
+            new OrderBookSlippageGuard(), new TradeX.Trading.Execution.PairRuleCache(), Substitute.For<TradeX.Trading.Execution.IFillProjector>(), Options.Create(new RiskSettings()),
             Substitute.For<ILogger<TradeExecutor>>());
         return (executor, client);
     }

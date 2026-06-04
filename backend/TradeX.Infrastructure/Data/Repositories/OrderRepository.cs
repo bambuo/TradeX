@@ -29,6 +29,13 @@ public class OrderRepository(TradeXDbContext context) : IOrderRepository
     public async Task<List<Order>> GetByPositionIdAsync(Guid positionId, CancellationToken ct = default)
         => await context.Orders.Where(o => o.PositionId == positionId).OrderByDescending(o => o.PlacedAtUtc).ToListAsync(ct);
 
+    public async Task<bool> HasActiveBuyAsync(Guid strategyId, string pair, CancellationToken ct = default)
+        => await context.Orders.AnyAsync(o =>
+            o.StrategyId == strategyId
+            && o.Pair == pair
+            && o.Side == Core.Enums.OrderSide.Buy
+            && (o.Status == Core.Enums.OrderStatus.Pending || o.Status == Core.Enums.OrderStatus.PartiallyFilled), ct);
+
     public async Task AddAsync(Order order, CancellationToken ct = default)
     {
         await context.Orders.AddAsync(order, ct);

@@ -53,6 +53,10 @@ public sealed class StrategyEvaluationConsumer(
     private volatile IReadOnlyList<StrategyBinding> _activeStrategies = [];
     private readonly object _refreshLock = new();
 
+    // 入场幂等闸：进程内"在途买单"锁，键 "{bindingId}|{pair}"。
+    // 挡住持仓落库前同一 (binding,pair) 被 Trade/Kline 多路并发或连续 tick 重复下单。
+    private readonly ConcurrentDictionary<string, byte> _inFlightEntry = new();
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         // 启动 Trade 流管理器
@@ -233,7 +237,8 @@ public sealed class StrategyEvaluationConsumer(
                 if (token.IsCancellationRequested) break;
                 try
                 {
-                    await EvaluateBindingCoreAsync(binding, pair, currentPrice, currentWindow, prevWindow, cycle, token);
+                    await EvaluateBindingCoreAsync(binding, pair, currentPrice, currentWindow, prevWindow, cycle, token,
+                        refreshPositionPrice: true);
                 }
                 catch (Exception ex)
                 {
@@ -255,7 +260,8 @@ public sealed class StrategyEvaluationConsumer(
         KlineWindow currentWindow,
         KlineWindow prevWindow,
         TradingCycleScope cycle,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool refreshPositionPrice = false)
     {
         var indicatorValues = indicatorRegistry.ComputeAll(currentWindow);
         var previousValues = indicatorRegistry.ComputeAll(prevWindow);
@@ -277,6 +283,17 @@ public sealed class StrategyEvaluationConsumer(
             .OrderBy(p => p.OpenedAtUtc)
             .ToList();
         var hasOpenPosition = openPairPositions.Count > 0;
+
+        // 仅 K 线收盘路径刷新持仓市价（限频到 K 线周期），使风控的未实现盈亏/敞口接近真实。
+        // Trade 逐笔路径不落库，避免高频写放大。
+        if (refreshPositionPrice && currentPrice > 0)
+        {
+            foreach (var position in openPairPositions)
+            {
+                position.UpdateMarketPrice(currentPrice);
+                await cycle.PositionRepo.UpdateAsync(position, ct);
+            }
+        }
 
         var volatilityRule = VolatilityGridExecutionRuleParser.TryParse(executionRuleJson, logger);
 
@@ -371,8 +388,39 @@ public sealed class StrategyEvaluationConsumer(
         return true;
     }
 
-    /// <summary>按 quote 金额下市价买单，并发布成交/拒单事件与指标。</summary>
+    /// <summary>
+    /// 按 quote 金额下市价买单，并发布成交/拒单事件与指标。
+    /// 入场幂等闸：进程内在途锁 + DB 在途买单检查，避免持仓落库前重复下单。
+    /// </summary>
     private async Task PlaceMarketBuyAsync(
+        StrategyBinding binding, string pair, decimal quoteSize,
+        TradingCycleScope cycle, CancellationToken ct)
+    {
+        var gateKey = $"{binding.Id}|{pair}";
+        if (!_inFlightEntry.TryAdd(gateKey, 0))
+        {
+            logger.LogDebug("策略 {BindingId}: {Pair} 已有在途买单，跳过本次入场", binding.Id, pair);
+            return;
+        }
+
+        try
+        {
+            // 跨重启兜底：DB 中已有 Pending/PartiallyFilled 买单则跳过
+            if (await cycle.OrderRepo.HasActiveBuyAsync(binding.Id, pair, ct))
+            {
+                logger.LogDebug("策略 {BindingId}: {Pair} DB 存在在途买单，跳过本次入场", binding.Id, pair);
+                return;
+            }
+
+            await PlaceMarketBuyCoreAsync(binding, pair, quoteSize, cycle, ct);
+        }
+        finally
+        {
+            _inFlightEntry.TryRemove(gateKey, out _);
+        }
+    }
+
+    private async Task PlaceMarketBuyCoreAsync(
         StrategyBinding binding, string pair, decimal quoteSize,
         TradingCycleScope cycle, CancellationToken ct)
     {
@@ -410,7 +458,11 @@ public sealed class StrategyEvaluationConsumer(
         }
     }
 
-    /// <summary>对单笔持仓下市价卖单平仓，成交后落库并发布持仓/订单事件与指标。</summary>
+    /// <summary>
+    /// 对单笔持仓下市价卖单平仓。卖单携带 PositionId，持仓的关闭与持仓事件由
+    /// <see cref="FillProjector"/> 在成交时统一负责（覆盖实盘与对账恢复两条路径），
+    /// 此处只负责下单与订单级事件/指标。
+    /// </summary>
     private async Task CloseGridPositionAsync(
         StrategyBinding binding, string pair, Position position, decimal currentPrice,
         TradingCycleScope cycle, CancellationToken ct)
@@ -431,16 +483,8 @@ public sealed class StrategyEvaluationConsumer(
         var result = await cycle.TradeExecutor.ExecuteMarketOrderAsync(sellOrder, ct);
         if (result.Success)
         {
-            position.Close(currentPrice);
-            await cycle.PositionRepo.UpdateAsync(position, ct);
-
-            logger.LogInformation("策略 {BindingId}: 卖出平仓 {Pair} {Quantity}, PnL={PnL}",
-                binding.Id, pair, position.Quantity, position.RealizedPnl);
-
-            await eventBus.PositionUpdatedAsync(binding.TraderId, position.Id, position.ExchangeId,
-                position.StrategyId, position.Pair, position.Quantity, position.EntryPrice,
-                position.UnrealizedPnl, position.RealizedPnl, position.Status.ToString(),
-                position.UpdatedAt, ct);
+            logger.LogInformation("策略 {BindingId}: 卖出平仓下单成交 {Pair} {Quantity}（持仓由投影器关闭）",
+                binding.Id, pair, position.Quantity);
 
             await eventBus.OrderPlacedAsync(binding.TraderId, sellOrder.Id, sellOrder.ExchangeId,
                 sellOrder.StrategyId, sellOrder.Pair, sellOrder.Side.ToString(),

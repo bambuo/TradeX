@@ -9,14 +9,13 @@
 ```bash
 # 必填的环境变量
 cat > .env <<EOF
-MYSQL_ROOT_PASSWORD=$(openssl rand -base64 32)
-MYSQL_PASSWORD=$(openssl rand -base64 32)
+POSTGRES_PASSWORD=$(openssl rand -base64 32)
 JWT_SECRET=$(openssl rand -base64 64)
 EOF
 chmod 600 .env
 
-# 检查端口冲突（80 / 3306 / 6379 / 9464 / 9090 / 3000）
-for port in 80 3306 6379 9464 9090 3000; do
+# 检查端口冲突（80 / 5432 / 6379 / 9464 / 9090 / 3000）
+for port in 80 5432 6379 9464 9090 3000; do
   lsof -i :$port -sTCP:LISTEN && echo "⚠️ port $port busy" || echo "✓ port $port free"
 done
 
@@ -30,14 +29,14 @@ df -h .
 # 拉镜像 + 编译
 docker compose --env-file .env build
 
-# 启动栈（mysql 健康检查就绪后再起 api/worker）
+# 启动栈（postgres 健康检查就绪后再起 api/worker）
 docker compose --env-file .env up -d
 docker compose ps  # 全部 healthy 才继续
 
 # 应用 EF 迁移（首次必跑，之后随 PR）
 docker compose exec backend dotnet TradeX.Api.dll migrate \
   || docker run --rm --network host \
-       -e ConnectionStrings__DefaultConnection="Server=localhost;Port=3306;Database=tradex;User Id=tradex;Password=${MYSQL_PASSWORD}" \
+       -e ConnectionStrings__DefaultConnection="Host=localhost;Port=5432;Database=tradex;Username=tradex;Password=${POSTGRES_PASSWORD}" \
        mcr.microsoft.com/dotnet/sdk:10.0 \
        sh -c "cd /src && dotnet ef database update --project TradeX.Infrastructure --startup-project TradeX.Api"
 
@@ -89,7 +88,7 @@ docker compose exec redis redis-cli PUBSUB CHANNELS 'tradex:*'
 # 期望看到: tradex:events, tradex:cmd, tradex:backtest, tradex.signalr.*
 
 # === DB 连通 ===
-docker compose exec mysql mysql -uroot -p${MYSQL_ROOT_PASSWORD} -e "USE tradex; SHOW TABLES;"
+docker compose exec postgres psql -U tradex -d tradex -c "\dt"
 
 # === 手动触发对账（验证命令通道）===
 curl -fsX POST $API/api/admin/reconcile-now \
@@ -151,15 +150,15 @@ curl -s $API/api/traders/$TRADER_ID/orders/$ORDER_ID \
 
 每个演练**有期望的恢复行为**。实际行为偏离即为生产风险。
 
-### 5.1 MySQL 断电
+### 5.1 PostgreSQL 断电
 
 ```bash
 # 演练前：策略已运行，有 Pending 订单（手动构造或等自然产生）
-ORDER_BEFORE=$(docker compose exec mysql mysql -uroot -p${MYSQL_ROOT_PASSWORD} -sNe \
-  "SELECT COUNT(*) FROM tradex.Orders WHERE Status='Pending'")
+ORDER_BEFORE=$(docker compose exec postgres psql -U tradex -d tradex -tAc \
+  "SELECT COUNT(*) FROM \"Orders\" WHERE \"Status\"='Pending'")
 
 # 注入故障
-docker compose stop mysql
+docker compose stop postgres
 
 # 观察 30s：API/Worker 应该
 # - Polly EnableRetryOnFailure 应该疯狂重试
@@ -168,7 +167,7 @@ docker compose stop mysql
 docker compose logs --tail 100 backend worker | grep -iE "error|exception|retry" | head -30
 
 # 恢复
-docker compose start mysql
+docker compose start postgres
 sleep 20
 
 # 验证
@@ -177,12 +176,12 @@ curl -fs $API/health
 # 2. Worker 自动恢复（Polly 重连）
 docker compose logs --since 1m worker | grep -i "successfully connected" || echo "⚠️ 检查连接重试日志"
 # 3. 没丢单（Pending 数量没变化或仅由 Reconciler 推进）
-ORDER_AFTER=$(docker compose exec mysql mysql -uroot -p${MYSQL_ROOT_PASSWORD} -sNe \
-  "SELECT COUNT(*) FROM tradex.Orders WHERE Status='Pending'")
+ORDER_AFTER=$(docker compose exec postgres psql -U tradex -d tradex -tAc \
+  "SELECT COUNT(*) FROM \"Orders\" WHERE \"Status\"='Pending'")
 echo "Pending: $ORDER_BEFORE → $ORDER_AFTER"
 ```
 
-**期望**：进程不崩；MySQL 起来后自动恢复；订单数量一致；Reconciler 60s 内推进 Pending → Filled/Failed。
+**期望**：进程不崩；PostgreSQL 起来后自动恢复；订单数量一致；Reconciler 60s 内推进 Pending → Filled/Failed。
 
 ### 5.2 Redis 断电
 
@@ -291,20 +290,20 @@ docker run --rm -i --network host grafana/k6 run - < mfa-ops-load.js
 
 ```bash
 # 备份
-docker compose exec mysql mysqldump -uroot -p${MYSQL_ROOT_PASSWORD} \
-  --single-transaction --routines --triggers tradex > backup-$(date +%F).sql
+docker compose exec postgres pg_dump -U tradex -d tradex \
+  --format=plain --no-owner > backup-$(date +%F).sql
 
 # 上传异地（示例 S3）
 aws s3 cp backup-$(date +%F).sql s3://tradex-backups/
 
 # 恢复演练（在隔离环境）
-docker run --rm -d --name mysql-test -e MYSQL_ROOT_PASSWORD=test mysql:8.4
+docker run --rm -d --name pg-test -e POSTGRES_PASSWORD=test -e POSTGRES_USER=tradex -e POSTGRES_DB=tradex postgres:16-alpine
 sleep 30
-docker exec -i mysql-test mysql -uroot -ptest < backup-2026-05-16.sql
-docker exec mysql-test mysql -uroot -ptest -e "USE tradex; SELECT COUNT(*) FROM Orders;"
+docker exec -i pg-test psql -U tradex -d tradex < backup-2026-05-16.sql
+docker exec pg-test psql -U tradex -d tradex -c 'SELECT COUNT(*) FROM "Orders";'
 ```
 
-**最低要求**：每日自动 mysqldump + 7 天保留；每月一次恢复演练，验证 `Orders/Positions/Strategies` 计数与生产一致。
+**最低要求**：每日自动 pg_dump + 7 天保留；每月一次恢复演练，验证 `Orders/Positions/Strategies` 计数与生产一致。
 
 ## 8. 回滚
 
@@ -336,7 +335,7 @@ Grafana / Prometheus 应配的告警 rules：
 | `resilience_polly_strategy_events_total{event_name="OnOpen"}` 出现 | P1 (交易所熔断) |
 | `http_server_request_duration_seconds{quantile=0.99}` > 1s | P2 |
 | `process_runtime_dotnet_gc_heap_size_bytes` > 1GB 持续 5 min | P3 |
-| DB connection pool exhaustion (`mysql` slow log 或 EF retries) | P1 |
+| DB connection pool exhaustion (`postgres` 慢查询日志 或 EF retries) | P1 |
 
 ---
 
@@ -345,6 +344,6 @@ Grafana / Prometheus 应配的告警 rules：
 1. 严重故障 (P1) → 立即触发 `/api/admin/reconcile-now` + 紧急 `RiskSettings.CircuitBreakerActive=true`
 2. 收集 last 1h 全部日志：`docker compose logs --since 1h > incident-$(date +%FT%H%M).log`
 3. 通过 RBAC 暂停可疑用户（直接 SQL 改 `Users.Status=Disabled`，立即生效）
-4. 数据库快照：`mysqldump ... > pre-rollback.sql`
+4. 数据库快照：`pg_dump ... > pre-rollback.sql`
 
 事故复盘 24h 内输出，至少包含：触发条件 / 影响范围 / 检测延迟 / 恢复时间 / 改进项。

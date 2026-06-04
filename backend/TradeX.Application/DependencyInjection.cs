@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using TradeX.Application.AuditLogs;
 using TradeX.Application.Auth;
 using TradeX.Application.Backtesting;
 using TradeX.Application.Common;
@@ -6,9 +7,11 @@ using TradeX.Application.Dashboard;
 using TradeX.Application.Orders;
 using TradeX.Application.Positions;
 using TradeX.Application.Setup;
+using TradeX.Application.Settings;
 using TradeX.Application.Strategies;
 using TradeX.Application.StrategyBindings;
 using TradeX.Application.Exchanges;
+using TradeX.Application.Notifications;
 using TradeX.Application.System;
 using TradeX.Application.Traders;
 using TradeX.Application.Users;
@@ -23,74 +26,88 @@ public static class DependencyInjection
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         // ═══ Use Cases（命令模式）═══
-        services.AddSingleton<IUseCase<GetTradersQuery, Result<List<Traders.DTOs.TraderDto>>>, GetTradersUseCase>();
-        services.AddSingleton<IUseCase<CreateTraderCommand, Result<Traders.DTOs.TraderDto>>, CreateTraderUseCase>();
-        services.AddSingleton<IUseCase<GetTraderStatsQuery, Result<Traders.DTOs.TraderStatsDto>>, GetTraderStatsUseCase>();
-        services.AddSingleton<IUseCase<GetTraderByIdQuery, Result<Traders.TraderDetailDto>>, GetTraderByIdUseCase>();
-        services.AddSingleton<IUseCase<UpdateTraderCommand, Result<Traders.TraderDetailDto>>, UpdateTraderUseCase>();
-        services.AddSingleton<IUseCase<DeleteTraderCommand, Result>, DeleteTraderUseCase>();
-        services.AddSingleton<IUseCase<GetTraderOrdersQuery, Result<List<Orders.DTOs.OrderDto>>>, GetTraderOrdersUseCase>();
-        services.AddSingleton<IUseCase<CreateManualOrderCommand, Result<Orders.DTOs.OrderDto>>, CreateManualOrderUseCase>();
+        services.AddScoped<IUseCase<GetTradersQuery, Result<List<Traders.DTOs.TraderDto>>>, GetTradersUseCase>();
+        services.AddScoped<IUseCase<CreateTraderCommand, Result<Traders.DTOs.TraderDto>>, CreateTraderUseCase>();
+        services.AddScoped<IUseCase<GetTraderStatsQuery, Result<Traders.DTOs.TraderStatsDto>>, GetTraderStatsUseCase>();
+        services.AddScoped<IUseCase<GetTraderByIdQuery, Result<Traders.TraderDetailDto>>, GetTraderByIdUseCase>();
+        services.AddScoped<IUseCase<UpdateTraderCommand, Result<Traders.TraderDetailDto>>, UpdateTraderUseCase>();
+        services.AddScoped<IUseCase<DeleteTraderCommand, Result>, DeleteTraderUseCase>();
+        services.AddScoped<IUseCase<GetTraderOrdersQuery, Result<List<Orders.DTOs.OrderDto>>>, GetTraderOrdersUseCase>();
+        services.AddScoped<IUseCase<CreateManualOrderCommand, Result<Orders.DTOs.OrderDto>>, CreateManualOrderUseCase>();
 
         // ── Positions ──
-        services.AddSingleton<IUseCase<GetOpenPositionsQuery, Result<List<PositionDto>>>, GetOpenPositionsUseCase>();
-        services.AddSingleton<IUseCase<GetPositionByIdQuery, Result<PositionDto>>, GetPositionByIdUseCase>();
+        services.AddScoped<IUseCase<GetOpenPositionsQuery, Result<List<PositionDto>>>, GetOpenPositionsUseCase>();
+        services.AddScoped<IUseCase<GetPositionByIdQuery, Result<PositionDto>>, GetPositionByIdUseCase>();
 
         // ── Backtesting ──
-        services.AddSingleton<IUseCase<GetBacktestTasksQuery, Result<List<BacktestTaskDto>>>, GetBacktestTasksUseCase>();
-        services.AddSingleton<IUseCase<GetBacktestTaskByIdQuery, Result<BacktestTaskDto>>, GetBacktestTaskByIdUseCase>();
-        services.AddSingleton<IUseCase<CancelBacktestCommand, Result>, CancelBacktestUseCase>();
-        services.AddSingleton<IUseCase<GetBacktestAnalysisPageQuery, Result<BacktestAnalysisPageDto>>, GetBacktestAnalysisPageUseCase>();
-        services.AddSingleton<IUseCase<GetBacktestAnalysisAllQuery, Result<BacktestKlineAnalysis[]>>, GetBacktestAnalysisAllUseCase>();
-        services.AddSingleton<IUseCase<GetBacktestAnalysisCountQuery, Result<int>>, GetBacktestAnalysisCountUseCase>();
+        services.AddScoped<IUseCase<GetBacktestTasksQuery, Result<List<BacktestTaskDto>>>, GetBacktestTasksUseCase>();
+        services.AddScoped<IUseCase<GetBacktestTaskByIdQuery, Result<BacktestTaskDto>>, GetBacktestTaskByIdUseCase>();
+        services.AddScoped<IUseCase<CancelBacktestCommand, Result>, CancelBacktestUseCase>();
+        services.AddScoped<IUseCase<GetBacktestAnalysisPageQuery, Result<BacktestAnalysisPageDto>>, GetBacktestAnalysisPageUseCase>();
+        services.AddScoped<IUseCase<GetBacktestAnalysisAllQuery, Result<BacktestKlineAnalysis[]>>, GetBacktestAnalysisAllUseCase>();
+        services.AddScoped<IUseCase<GetBacktestAnalysisCountQuery, Result<int>>, GetBacktestAnalysisCountUseCase>();
 
         // ── System ──
-        services.AddSingleton<IUseCase<GetExchangeStatusQuery, Result<List<ExchangeStatusDto>>>, GetExchangeStatusUseCase>();
-        services.AddSingleton<IUseCase<EmergencyStopCommand, Result<EmergencyStopResultDto>>, EmergencyStopUseCase>();
-        services.AddSingleton<IUseCase<GetSystemLogsQuery, Result<List<SystemLogEntryDto>>>, GetSystemLogsUseCase>();
+        services.AddScoped<IUseCase<GetExchangeStatusQuery, Result<List<ExchangeStatusDto>>>, GetExchangeStatusUseCase>();
+        services.AddScoped<IUseCase<EmergencyStopCommand, Result<EmergencyStopResultDto>>, EmergencyStopUseCase>();
+        services.AddScoped<IUseCase<GetSystemLogsQuery, Result<List<SystemLogEntryDto>>>, GetSystemLogsUseCase>();
 
         // ── Strategies ──
-        services.AddSingleton<IUseCase<GetStrategiesQuery, Result<List<StrategyDto>>>, GetStrategiesUseCase>();
-        services.AddSingleton<IUseCase<GetStrategyByIdQuery, Result<StrategyDto>>, GetStrategyByIdUseCase>();
-        services.AddSingleton<IUseCase<CreateStrategyCommand, Result<StrategyDto>>, CreateStrategyUseCase>();
-        services.AddSingleton<IUseCase<UpdateStrategyCommand, Result<StrategyDto>>, UpdateStrategyUseCase>();
-        services.AddSingleton<IUseCase<DeleteStrategyCommand, Result>, DeleteStrategyUseCase>();
+        services.AddScoped<IUseCase<GetStrategiesQuery, Result<List<StrategyDto>>>, GetStrategiesUseCase>();
+        services.AddScoped<IUseCase<GetStrategyByIdQuery, Result<StrategyDto>>, GetStrategyByIdUseCase>();
+        services.AddScoped<IUseCase<CreateStrategyCommand, Result<StrategyDto>>, CreateStrategyUseCase>();
+        services.AddScoped<IUseCase<UpdateStrategyCommand, Result<StrategyDto>>, UpdateStrategyUseCase>();
+        services.AddScoped<IUseCase<DeleteStrategyCommand, Result>, DeleteStrategyUseCase>();
 
         // ── StrategyBindings ──
-        services.AddSingleton<IUseCase<GetBindingsQuery, Result<List<BindingDto>>>, GetBindingsUseCase>();
-        services.AddSingleton<IUseCase<GetBindingByIdQuery, Result<BindingDto>>, GetBindingByIdUseCase>();
-        services.AddSingleton<IUseCase<CreateBindingCommand, Result<BindingDto>>, CreateBindingUseCase>();
-        services.AddSingleton<IUseCase<UpdateBindingCommand, Result<BindingDto>>, UpdateBindingUseCase>();
-        services.AddSingleton<IUseCase<DeleteBindingCommand, Result>, DeleteBindingUseCase>();
-        services.AddSingleton<IUseCase<ActivateBindingCommand, Result<BindingDto>>, ActivateBindingUseCase>();
-        services.AddSingleton<IUseCase<DeactivateBindingCommand, Result<BindingDto>>, DeactivateBindingUseCase>();
+        services.AddScoped<IUseCase<GetBindingsQuery, Result<List<BindingDto>>>, GetBindingsUseCase>();
+        services.AddScoped<IUseCase<GetBindingByIdQuery, Result<BindingDto>>, GetBindingByIdUseCase>();
+        services.AddScoped<IUseCase<CreateBindingCommand, Result<BindingDto>>, CreateBindingUseCase>();
+        services.AddScoped<IUseCase<UpdateBindingCommand, Result<BindingDto>>, UpdateBindingUseCase>();
+        services.AddScoped<IUseCase<DeleteBindingCommand, Result>, DeleteBindingUseCase>();
+        services.AddScoped<IUseCase<ActivateBindingCommand, Result<BindingDto>>, ActivateBindingUseCase>();
+        services.AddScoped<IUseCase<DeactivateBindingCommand, Result<BindingDto>>, DeactivateBindingUseCase>();
 
         // ── Exchanges ──
-        services.AddSingleton<IUseCase<GetExchangesQuery, Result<List<ExchangeDto>>>, GetExchangesUseCase>();
-        services.AddSingleton<IUseCase<GetExchangeByIdQuery, Result<ExchangeDto>>, GetExchangeByIdUseCase>();
-        services.AddSingleton<IUseCase<CreateExchangeCommand, Result<ExchangeDto>>, CreateExchangeUseCase>();
-        services.AddSingleton<IUseCase<UpdateExchangeCommand, Result<ExchangeDto>>, UpdateExchangeUseCase>();
-        services.AddSingleton<IUseCase<DeleteExchangeCommand, Result>, DeleteExchangeUseCase>();
-        services.AddSingleton<IUseCase<TestExchangeCommand, Result<ExchangeTestResultDto>>, TestExchangeUseCase>();
-        services.AddSingleton<IUseCase<GetExchangeAssetsCommand, Result<List<ExchangeAssetDto>>>, GetExchangeAssetsUseCase>();
-        services.AddSingleton<IUseCase<GetExchangePairsCommand, Result<List<ExchangePairDto>>>, GetExchangePairsUseCase>();
-        services.AddSingleton<IUseCase<GetExchangeOrdersQuery, Result<List<ExchangeOrderDto>>>, GetExchangeOrdersUseCase>();
-        services.AddSingleton<IUseCase<ToggleExchangeCommand, Result>, ToggleExchangeUseCase>();
+        services.AddScoped<IUseCase<GetExchangesQuery, Result<List<ExchangeDto>>>, GetExchangesUseCase>();
+        services.AddScoped<IUseCase<GetExchangeByIdQuery, Result<ExchangeDto>>, GetExchangeByIdUseCase>();
+        services.AddScoped<IUseCase<CreateExchangeCommand, Result<ExchangeDto>>, CreateExchangeUseCase>();
+        services.AddScoped<IUseCase<UpdateExchangeCommand, Result<ExchangeDto>>, UpdateExchangeUseCase>();
+        services.AddScoped<IUseCase<DeleteExchangeCommand, Result>, DeleteExchangeUseCase>();
+        services.AddScoped<IUseCase<TestExchangeCommand, Result<ExchangeTestResultDto>>, TestExchangeUseCase>();
+        services.AddScoped<IUseCase<GetExchangeAssetsCommand, Result<List<ExchangeAssetDto>>>, GetExchangeAssetsUseCase>();
+        services.AddScoped<IUseCase<GetExchangePairsCommand, Result<List<ExchangePairDto>>>, GetExchangePairsUseCase>();
+        services.AddScoped<IUseCase<GetExchangeOrdersQuery, Result<List<ExchangeOrderDto>>>, GetExchangeOrdersUseCase>();
+        services.AddScoped<IUseCase<ToggleExchangeCommand, Result>, ToggleExchangeUseCase>();
 
         // ── Users ──
-        services.AddSingleton<IUseCase<GetUsersQuery, Result<List<UserDto>>>, GetUsersUseCase>();
-        services.AddSingleton<IUseCase<GetUserByIdQuery, Result<UserDto>>, GetUserByIdUseCase>();
-        services.AddSingleton<IUseCase<UpdateUserRoleCommand, Result>, UpdateUserRoleUseCase>();
+        services.AddScoped<IUseCase<GetUsersQuery, Result<List<UserDto>>>, GetUsersUseCase>();
+        services.AddScoped<IUseCase<GetUserByIdQuery, Result<UserDto>>, GetUserByIdUseCase>();
+        services.AddScoped<IUseCase<UpdateUserRoleCommand, Result>, UpdateUserRoleUseCase>();
 
         // ── Auth ──
-        services.AddSingleton<IUseCase<LoginCommand, Result<AuthResultDto>>, LoginUseCase>();
-        services.AddSingleton<IUseCase<RefreshTokenCommand, Result<AuthResultDto>>, RefreshTokenUseCase>();
-        services.AddSingleton<IUseCase<GetCurrentUserQuery, Result<AuthResultDto>>, GetCurrentUserUseCase>();
+        services.AddScoped<IUseCase<LoginCommand, Result<AuthResultDto>>, LoginUseCase>();
+        services.AddScoped<IUseCase<RefreshTokenCommand, Result<AuthResultDto>>, RefreshTokenUseCase>();
+        services.AddScoped<IUseCase<GetCurrentUserQuery, Result<AuthResultDto>>, GetCurrentUserUseCase>();
+
+        // ── AuditLogs ──
+        services.AddScoped<IUseCase<GetAuditLogsQuery, Result<List<AuditLogDto>>>, GetAuditLogsUseCase>();
+        services.AddScoped<IUseCase<GetAuditLogsCountQuery, Result<int>>, GetAuditLogsCountUseCase>();
+
+        // ── Settings ──
+        services.AddScoped<IUseCase<GetSettingsQuery, Result<Dictionary<string, string>>>, GetSettingsUseCase>();
+        services.AddScoped<IUseCase<UpdateSettingCommand, Result>, UpdateSettingUseCase>();
+
+        // ── Notifications ──
+        services.AddScoped<IUseCase<GetNotificationChannelsQuery, Result<List<NotificationChannelDto>>>, GetChannelsUseCase>();
+        services.AddScoped<IUseCase<CreateNotificationChannelCommand, Result<NotificationChannelDto>>, CreateChannelUseCase>();
+        services.AddScoped<IUseCase<UpdateChannelStatusCommand, Result>, UpdateChannelStatusUseCase>();
+        services.AddScoped<IUseCase<TestNotificationChannelCommand, Result>, TestChannelUseCase>();
 
         // ═══ 应用服务 ═══
-        services.AddSingleton<IDashboardService, DashboardService>();
-        services.AddSingleton<ISetupService, SetupService>();
-        services.AddSingleton<ISystemService, SystemService>();
+        services.AddScoped<IDashboardService, DashboardService>();
+        services.AddScoped<ISetupService, SetupService>();
+        services.AddScoped<ISystemService, SystemService>();
 
         return services;
     }

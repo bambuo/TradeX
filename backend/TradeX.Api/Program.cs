@@ -94,6 +94,7 @@ try
     }
     builder.Services.AddTradingCommandPublisher(redisAvailable: redisEnabled);
     builder.Services.AddBacktestTaskNotifier(redisAvailable: redisEnabled);
+    builder.Services.AddBacktestCancellationNotifier(redisAvailable: redisEnabled);
 
     // 限流：保护 /api/auth/* 端点防暴破
     builder.Services.AddRateLimiter(options =>

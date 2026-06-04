@@ -18,6 +18,8 @@ internal sealed class TradingCycleScope(IServiceScopeFactory scopeFactory) : IDi
     public IConditionEvaluator ConditionEvaluator => _scope.ServiceProvider.GetRequiredService<IConditionEvaluator>();
     public IPortfolioRiskManager RiskManager => _scope.ServiceProvider.GetRequiredService<IPortfolioRiskManager>();
     public ITradeExecutor TradeExecutor => _scope.ServiceProvider.GetRequiredService<ITradeExecutor>();
+    public IOrderRepository OrderRepo => _scope.ServiceProvider.GetRequiredService<IOrderRepository>();
+    public IStrategyDecisionEngine DecisionEngine => _scope.ServiceProvider.GetRequiredService<IStrategyDecisionEngine>();
 
     public void Dispose() => _scope.Dispose();
 }

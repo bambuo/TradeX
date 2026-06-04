@@ -69,8 +69,7 @@ function fmt(v: number | null | undefined, decimals = 2): string {
  */
 function fmtTrades(raw: unknown): Array<Record<string, unknown>> {
   if (!Array.isArray(raw)) return []
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return raw.map((t: any, idx: number) => {
+  return raw.map((t: Record<string, unknown>, idx: number) => {
     const pnl: number = Number(t.pnl ?? t.pnL ?? 0)
     const pnlPct: number = Number(t.pnlPercent ?? t.pnLPercent ?? 0)
     return {

@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { authApi } from '../api/auth'
+import type { ApiError } from '../api/client'
 import TotpInputDigits from '../components/login/TotpInputDigits.vue'
 
 const router = useRouter()
@@ -30,8 +31,8 @@ async function handleVerify() {
   try {
     await authApi.verifyMfaSetup(totpCode.value)
     step.value = 'done'
-  } catch (err: any) {
-    error.value = err?.response?.data?.message || '验证码错误'
+  } catch (err: unknown) {
+    error.value = (err as ApiError).response?.data?.message || '验证码错误'
   } finally {
     loading.value = false
   }

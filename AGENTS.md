@@ -49,7 +49,7 @@ AI 代理唯一编码准则。不遵守 = 拒收 PR。
 | 测试 | xUnit + NSubstitute |
 | 前端 | Vue 3 + TypeScript + Vite |
 | 前端组件库 | Arco Design Vue (`@arco-design/web-vue`) |
-| 后端 ORM | EF Core + MySQL (Pomelo) |
+| 后端 ORM | EF Core + PostgreSQL (Npgsql) |
 
 所有代码必须使用以下 C# 14 语法：
 - **主构造函数** — 消除所有简单 DI 字段注入。例外：`IOptions<T>.Value` 延迟访问、循环依赖
@@ -68,7 +68,7 @@ backend/
 ├── TradeX.Exchange/       # IExchangeClient + 各交易所实现
 ├── TradeX.Indicators/     # Skender.Stock.Indicators 封装
 ├── TradeX.Trading/        # 策略引擎 + 风控 + 回测 + 订单 reconciliation
-├── TradeX.Infrastructure/ # EF Core + MySQL + Casbin + Encryption
+├── TradeX.Infrastructure/ # EF Core + PostgreSQL + Casbin + Encryption
 ├── TradeX.Notifications/  # Telegram / Discord / Email
 ├── TradeX.Worker/         # 策略/回测 Worker 进程
 └── TradeX.Tests/

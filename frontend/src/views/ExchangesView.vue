@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import { exchangesApi, type Exchange, type ExchangeOrder } from '../api/exchanges'
 import { getExchangeInfo } from '../api/exchangeInfo'
+import type { ApiError } from '../api/client'
 import ExchangeTypeSelect from '../components/ExchangeTypeSelect.vue'
 
 const accounts = ref<Exchange[]>([])
@@ -144,8 +145,8 @@ async function save() {
     }
     showForm.value = false
     await loadAll()
-  } catch (e: any) {
-    if (e._mfaCancelled) return
+  } catch (e: unknown) {
+    if ((e as ApiError)._mfaCancelled) return
     throw e
   }
 }

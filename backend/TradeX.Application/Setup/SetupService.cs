@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
-using System.Text;
 using TradeX.Application.Common;
+using static BCrypt.Net.BCrypt;
 using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
@@ -37,7 +37,7 @@ public sealed class SetupService(
             ? Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
             : jwtSecret;
 
-        var superAdmin = User.Create(userName, "superadmin@tradex.local", HashPassword(password), UserRole.SuperAdmin);
+        var superAdmin = User.Create(userName, "superadmin@tradex.local", BCrypt.Net.BCrypt.HashPassword(password), UserRole.SuperAdmin);
         superAdmin.Status = UserStatus.PendingMfa;
         await userRepo.AddAsync(superAdmin, ct);
 
@@ -62,14 +62,5 @@ public sealed class SetupService(
         return Result.NoContent();
     }
 
-    private static string HashPassword(string password)
-    {
-        var salt = RandomNumberGenerator.GetBytes(16);
-        var hash = Rfc2898DeriveBytes.Pbkdf2(
-            Encoding.UTF8.GetBytes(password), salt, 100000, HashAlgorithmName.SHA256, 32);
-        var result = new byte[48];
-        Buffer.BlockCopy(salt, 0, result, 0, 16);
-        Buffer.BlockCopy(hash, 0, result, 16, 32);
-        return Convert.ToBase64String(result);
-    }
+
 }

@@ -32,6 +32,15 @@ public class PositionRepository(TradeXDbContext context) : IPositionRepository
             .OrderByDescending(p => p.OpenedAtUtc)
             .ToListAsync(ct);
 
+    public async Task<Position?> GetByOpeningOrderIdAsync(Guid openingOrderId, CancellationToken ct = default)
+        => await context.Positions.FirstOrDefaultAsync(p => p.OpeningOrderId == openingOrderId, ct);
+
+    public async Task<List<Position>> GetOpenByStrategyAndPairAsync(Guid strategyId, string pair, CancellationToken ct = default)
+        => await context.Positions
+            .Where(p => p.StrategyId == strategyId && p.Pair == pair && p.Status == Core.Enums.PositionStatus.Open)
+            .OrderBy(p => p.OpenedAtUtc)
+            .ToListAsync(ct);
+
     public async Task<List<Position>> GetClosedByTraderIdSinceAsync(Guid traderId, DateTime since, CancellationToken ct = default)
         => await context.Positions
             .Where(p => p.TraderId == traderId && p.Status == Core.Enums.PositionStatus.Closed && p.ClosedAtUtc >= since)

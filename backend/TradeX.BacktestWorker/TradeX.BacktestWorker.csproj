@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>14.0</LangVersion>
+    <UserSecretsId>tradex-backtest-worker-dev</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TradeX.Core\TradeX.Core.csproj" />
+    <ProjectReference Include="..\TradeX.Exchange\TradeX.Exchange.csproj" />
+    <ProjectReference Include="..\TradeX.Indicators\TradeX.Indicators.csproj" />
+    <ProjectReference Include="..\TradeX.Infrastructure\TradeX.Infrastructure.csproj" />
+    <ProjectReference Include="..\TradeX.Trading\TradeX.Trading.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.1" />
+    <PackageReference Include="Serilog.Extensions.Hosting" Version="9.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
+    <PackageReference Include="Serilog.Settings.Configuration" Version="9.0.0" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.15.3" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.EntityFrameworkCore" Version="1.15.0-beta.1" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
+    <PackageReference Include="OpenTelemetry.Exporter.Prometheus.HttpListener" Version="1.15.3-beta.1" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
+  </ItemGroup>
+
+</Project>

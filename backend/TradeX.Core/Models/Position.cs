@@ -43,6 +43,11 @@ public class Position : AggregateRoot, IVersioned
     public Guid TraderId { get; init; }
     public Guid ExchangeId { get; init; }
     public Guid StrategyId { get; init; }
+    /// <summary>
+    /// 开仓买单的订单 Id。作为"成交→持仓"投影的幂等键：同一笔成交无论被实盘同步路径
+    /// 还是对账器恢复路径重复处理，凭此唯一约束保证只开一条持仓。
+    /// </summary>
+    public Guid? OpeningOrderId { get; set; }
     public string Pair { get; set; } = string.Empty;
     public decimal Quantity { get; set; }
     public decimal EntryPrice { get; set; }

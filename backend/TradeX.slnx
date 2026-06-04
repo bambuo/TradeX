@@ -9,4 +9,5 @@
   <Project Path="TradeX.Tests/TradeX.Tests.csproj" />
   <Project Path="TradeX.Trading/TradeX.Trading.csproj" />
   <Project Path="TradeX.Worker/TradeX.Worker.csproj" />
+  <Project Path="TradeX.BacktestWorker/TradeX.BacktestWorker.csproj" />
 </Solution>

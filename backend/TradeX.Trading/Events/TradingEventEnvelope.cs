@@ -20,6 +20,8 @@ public static class TradingEventTypes
     public const string ExchangeConnectionChanged = "ExchangeConnectionChanged";
     /// <summary>系统级告警：对账发现交易所有、本地无记录的孤儿订单。无 trader 归属，推送至管理员组。</summary>
     public const string OrphanOrderDetected = "OrphanOrderDetected";
+    /// <summary>系统级告警：持仓级对账发现本地开仓量与交易所余额漂移超阈值。推送至管理员组。</summary>
+    public const string PositionDriftDetected = "PositionDriftDetected";
 }
 
 public static class TradingEventChannels
@@ -58,3 +60,12 @@ public sealed record ExchangeConnectionChangedPayload(
 public sealed record OrphanOrderDetectedPayload(
     Guid ExchangeId, string ExchangeType, string Pair, string ExchangeOrderId,
     string Side, string Type, decimal Price, decimal Quantity, DateTime DetectedAt);
+
+/// <summary>
+/// 持仓漂移告警载荷。<c>Drift = LocalQuantity - ExchangeQuantity</c>：
+/// 正值=本地多于实际（高危，可能卖空头寸），负值=交易所盈余（多为人工存入/未跟踪持仓）。
+/// </summary>
+public sealed record PositionDriftDetectedPayload(
+    Guid ExchangeId, string ExchangeType, Guid? TraderId, string Asset,
+    decimal LocalQuantity, decimal ExchangeQuantity, decimal Drift, decimal DriftPercent,
+    string Severity, DateTime DetectedAt);

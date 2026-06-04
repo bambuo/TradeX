@@ -290,6 +290,12 @@ public class StrategyEvaluationConsumerTests
             .Returns(true); // Default: entry condition met
 
         var conditionTreeEvaluator = Substitute.For<IConditionTreeEvaluator>();
+
+        // 入场幂等闸依赖 OrderRepo.HasActiveBuyAsync —— 默认无在途买单，不阻断下单。
+        var orderRepo = Substitute.For<IOrderRepository>();
+        orderRepo.HasActiveBuyAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(false);
+
         var positionRepo = Substitute.For<IPositionRepository>();
         positionRepo.GetByStrategyIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns([]);
@@ -306,6 +312,7 @@ public class StrategyEvaluationConsumerTests
         services.AddSingleton(clientFactory);
         services.AddSingleton(conditionEvaluator);
         services.AddSingleton(conditionTreeEvaluator);
+        services.AddSingleton(orderRepo);
         services.AddSingleton(positionRepo);
         services.AddSingleton(eventBus);
         services.AddSingleton(tradeExecutor);

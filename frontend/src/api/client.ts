@@ -24,6 +24,12 @@ interface InterceptorError {
   message?: string
 }
 
+/** 视图层 API 错误形状，用于替代 catch(err: any) */
+export interface ApiError {
+  _mfaCancelled?: boolean
+  response?: { data?: { message?: string } }
+}
+
 const client = axios.create({
   baseURL: '/api',
   headers: { 'Content-Type': 'application/json' }
