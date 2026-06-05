@@ -1,0 +1,71 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: tradex
+      POSTGRES_USER: tradex
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tradex_dev}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tradex"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      target: api
+    ports:
+      - "8080:8080"
+    environment:
+      LISTEN: ":8080"
+      DATABASE_DSN: "postgres://tradex:${POSTGRES_PASSWORD:-tradex_dev}@postgres:5432/tradex?sslmode=disable"
+      OTLP_ENDPOINT: "otel-collector:4318"
+      ENVIRONMENT: "development"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      target: worker
+    environment:
+      MAX_CONCURRENCY: "2"
+      TASK_TIMEOUT_MINUTES: "30"
+      DATABASE_DSN: "postgres://tradex:${POSTGRES_PASSWORD:-tradex_dev}@postgres:5432/tradex?sslmode=disable"
+      OTLP_ENDPOINT: "otel-collector:4318"
+      ENVIRONMENT: "development"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    ports:
+      - "4318:4318"
+      - "55679:55679"
+    volumes:
+      - ./otel-collector.yml:/etc/otelcol-contrib/config.yml
+    restart: unless-stopped
+
+volumes:
+  pgdata:
