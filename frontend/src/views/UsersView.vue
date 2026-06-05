@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { Message, Modal } from '@arco-design/web-vue'
 import { usersApi, type User } from '../api/users'
-import type { ApiError } from '../api/client'
 
 const users = ref<User[]>([])
 const loading = ref(true)
@@ -9,6 +9,11 @@ const showForm = ref(false)
 const formUsername = ref('')
 const formPassword = ref('')
 const formRole = ref('Operator')
+
+const showEdit = ref(false)
+const editingUser = ref<User | null>(null)
+const editUsername = ref('')
+const editRole = ref('Operator')
 
 const page = ref(1)
 const pageSize = ref(15)
@@ -19,11 +24,11 @@ const displayUsers = computed(() => {
 })
 
 const columns = [
-  { title: '用户名', dataIndex: 'userName' },
+  { title: '用户名', dataIndex: 'username' },
   { title: '角色', dataIndex: 'role', width: 120 },
   { title: '状态', dataIndex: 'status', width: 100 },
   { title: '创建时间', dataIndex: 'createdAt', width: 200 },
-  { title: '操作', dataIndex: 'actions', width: 140 }
+  { title: '操作', slotName: 'actions', width: 200 }
 ]
 
 async function load() {
@@ -47,17 +52,39 @@ function openCreate() {
 async function create() {
   await usersApi.create({ userName: formUsername.value, password: formPassword.value, role: formRole.value })
   showForm.value = false
+  Message.success('用户已创建')
   await load()
 }
 
-async function changeRole(id: string, role: string) {
-  try {
-    await usersApi.updateRole(id, role)
-    await load()
-  } catch (e: unknown) {
-    if ((e as ApiError)._mfaCancelled) return
-    throw e
-  }
+function openEdit(record: User) {
+  editingUser.value = record
+  editUsername.value = record.username
+  editRole.value = record.role === 'SuperAdmin' ? 'Admin' : record.role
+  showEdit.value = true
+}
+
+async function saveEdit() {
+  if (!editingUser.value) return
+  await usersApi.update(editingUser.value.id, { username: editUsername.value, role: editRole.value })
+  showEdit.value = false
+  editingUser.value = null
+  Message.success('用户已更新')
+  await load()
+}
+
+function confirmDelete(record: User) {
+  Modal.confirm({
+    title: '确认删除',
+    content: `确定要删除用户「${record.username}」吗？此操作不可撤销。`,
+    okText: '删除',
+    cancelText: '取消',
+    okButtonProps: { status: 'danger' },
+    onOk: async () => {
+      await usersApi.delete(record.id)
+      Message.success('用户已删除')
+      await load()
+    }
+  })
 }
 
 const tagRoleColors: Record<string, string> = {
@@ -105,6 +132,27 @@ onMounted(load)
       </template>
     </a-modal>
 
+    <a-modal v-model:visible="showEdit" title="编辑用户" width="sm" :mask-closable="false">
+      <div class="form-body">
+        <a-input v-model="editUsername" placeholder="用户名" />
+        <a-select
+          :model-value="editRole"
+          style="width: 100%"
+          @change="(v) => editRole = String(v) as 'Admin' | 'Operator' | 'Viewer'"
+        >
+          <a-option value="Admin" label="Admin" />
+          <a-option value="Operator" label="Operator" />
+          <a-option value="Viewer" label="Viewer" />
+        </a-select>
+      </div>
+      <template #footer>
+        <a-button type="primary" @click="saveEdit">
+          <template #icon><icon-save /></template>
+          保存
+        </a-button>
+      </template>
+    </a-modal>
+
     <a-table
       :columns="columns"
       :data="displayUsers"
@@ -132,16 +180,9 @@ onMounted(load)
       <template #cell-createdAt="{ record }">
         {{ record.createdAt }}
       </template>
-      <template #cell-actions="{ record }">
-        <a-select
-          :model-value="record.role"
-          style="width: 120px"
-          @change="(v) => changeRole(record.id, String(v))"
-        >
-          <a-option value="Admin" label="Admin" />
-          <a-option value="Operator" label="Operator" />
-          <a-option value="Viewer" label="Viewer" />
-        </a-select>
+      <template #actions="{ record }">
+        <a-button type="text" size="small" @click="openEdit(record)">编辑</a-button>
+        <a-button type="text" size="small" status="danger" @click="confirmDelete(record)">删除</a-button>
       </template>
     </a-table>
   </div>

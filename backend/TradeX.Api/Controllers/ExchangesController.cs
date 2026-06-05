@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using TradeX.Api.Filters;
 using TradeX.Application.Common;
 using TradeX.Application.Exchanges;
 using TradeX.Core.Interfaces;
@@ -20,7 +19,7 @@ public class ExchangesController(
     IUseCase<TestExchangeCommand, Result<ExchangeTestResultDto>> testExchange,
     IUseCase<GetExchangeAssetsCommand, Result<List<ExchangeAssetDto>>> getExchangeAssets,
     IUseCase<GetExchangePairsCommand, Result<List<ExchangePairDto>>> getExchangePairs,
-    IUseCase<GetExchangeOrdersQuery, Result<List<ExchangeOrderDto>>> getExchangeOrders,
+    IUseCase<GetExchangeOrdersQuery, Result<PagedExchangeOrderDto>> getExchangeOrders,
     IUseCase<ToggleExchangeCommand, Result> toggleExchange) : ControllerBase
 {
     private Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
@@ -42,7 +41,6 @@ public class ExchangesController(
     }
 
     [HttpPost]
-    [RequireMfa]
     public async Task<IActionResult> Create([FromBody] CreateExchangeRequest request, CancellationToken ct)
     {
         var result = await createExchange.ExecuteAsync(
@@ -68,7 +66,6 @@ public class ExchangesController(
     }
 
     [HttpPut("{id:guid}")]
-    [RequireMfa]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateExchangeRequest request, CancellationToken ct)
     {
         var result = await updateExchange.ExecuteAsync(
@@ -109,9 +106,18 @@ public class ExchangesController(
     }
 
     [HttpGet("{id:guid}/orders")]
-    public async Task<IActionResult> GetOrders(Guid id, [FromQuery] string type = "open", CancellationToken ct = default)
+    public async Task<IActionResult> GetOrders(Guid id,
+        [FromQuery] string type = "open",
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? pair = null,
+        [FromQuery] string? side = null,
+        [FromQuery] string? orderType = null,
+        [FromQuery] string? status = null,
+        CancellationToken ct = default)
     {
-        var result = await getExchangeOrders.ExecuteAsync(new GetExchangeOrdersQuery(id, UserId, type), ct);
+        var result = await getExchangeOrders.ExecuteAsync(
+            new GetExchangeOrdersQuery(id, UserId, type, page, pageSize, pair, side, orderType, status), ct);
         if (!result.Success)
             return result.StatusCode switch
             {
@@ -119,11 +125,11 @@ public class ExchangesController(
                 _ => StatusCode(502, new { message = result.Error, HttpContext.TraceIdentifier })
             };
 
-        return Ok(new { data = result.Data });
+        var dto = result.Data!;
+        return Ok(new { data = dto.Data, total = dto.Total, page = dto.Page, pageSize = dto.PageSize });
     }
 
     [HttpPost("{id:guid}/toggle")]
-    [RequireMfa]
     public async Task<IActionResult> ToggleStatus(Guid id, [FromBody] ToggleExchangeRequest request, CancellationToken ct)
     {
         var result = await toggleExchange.ExecuteAsync(new ToggleExchangeCommand(id, UserId, request.Enable), ct);
@@ -134,7 +140,6 @@ public class ExchangesController(
     }
 
     [HttpDelete("{id:guid}")]
-    [RequireMfa]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
         var result = await deleteExchange.ExecuteAsync(new DeleteExchangeCommand(id, UserId), ct);

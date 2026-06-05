@@ -193,7 +193,7 @@ onMounted(load)
   display: flex; align-items: center; justify-content: space-between;
   padding: 0.625rem 0; gap: 1rem;
 }
-.setting-item + .setting-item { border-top: 1px solid #1e293b; }
+
 .setting-info { flex: 1; min-width: 0; }
 .setting-label { display: block; color: var(--text-primary); font-size: 0.875rem; }
 .setting-key { display: block; color: var(--text-muted); font-size: 0.75rem; margin-top: 0.125rem; }

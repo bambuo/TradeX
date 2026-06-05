@@ -175,7 +175,7 @@ public class BybitClientAdapter : IExchangeClient
         return r.Data.List.Select(MapOrder).ToArray();
     }
 
-    public async Task<ExchangeOrderDto[]> GetOrderHistoryAsync(CancellationToken ct = default)
+    public async Task<ExchangeOrderDto[]> GetOrderHistoryAsync(int limit = 100, CancellationToken ct = default)
     {
         if (!_hasCredentials) return [];
         var bals = await GetAssetBalancesAsync(ct);
@@ -183,10 +183,18 @@ public class BybitClientAdapter : IExchangeClient
         foreach (var asset in bals.Keys.Where(a => a != "USDT").Select(a => $"{a}USDT"))
         {
             if (ct.IsCancellationRequested) break;
-            var r = await _client.V5Api.Trading.GetOrderHistoryAsync(Category.Spot, symbol: asset, ct: ct);
+            var r = await _client.V5Api.Trading.GetOrderHistoryAsync(Category.Spot, symbol: asset, limit: Math.Min(limit, 50), ct: ct);
             if (r.Success) all.AddRange(r.Data.List.Select(MapOrder));
         }
-        return all.OrderByDescending(o => o.PlacedAt).ToArray();
+        return [.. all.OrderByDescending(o => o.PlacedAt).Take(limit)];
+    }
+
+    public async Task<ExchangeOrderDto[]> GetOrderHistoryByPairAsync(string pair, int limit = 100, CancellationToken ct = default)
+    {
+        if (!_hasCredentials) return [];
+        var r = await _client.V5Api.Trading.GetOrderHistoryAsync(Category.Spot, symbol: pair, limit: Math.Min(limit, 50), ct: ct);
+        if (!r.Success) return [];
+        return r.Data.List.Select(MapOrder).ToArray();
     }
 
     public async Task<OrderResult> PlaceOrderAsync(OrderRequest request, CancellationToken ct = default)

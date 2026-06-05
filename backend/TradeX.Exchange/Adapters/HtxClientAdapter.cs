@@ -175,7 +175,7 @@ public class HtxClientAdapter : IExchangeClient
         o.Status switch { HTX.Net.Enums.OrderStatus.Submitted => "New", HTX.Net.Enums.OrderStatus.PartiallyFilled => "PartiallyFilled", HTX.Net.Enums.OrderStatus.Filled => "Filled", HTX.Net.Enums.OrderStatus.Canceled => "Cancelled", _ => o.Status.ToString() },
         o.Price, o.Quantity, o.QuantityFilled, o.Id.ToString(), o.CreateTime);
 
-    public async Task<ExchangeOrderDto[]> GetOrderHistoryAsync(CancellationToken ct = default)
+    public async Task<ExchangeOrderDto[]> GetOrderHistoryAsync(int limit = 100, CancellationToken ct = default)
     {
         if (!_hasCredentials) return [];
         var bals = await GetAssetBalancesAsync(ct);
@@ -183,10 +183,18 @@ public class HtxClientAdapter : IExchangeClient
         foreach (var asset in bals.Keys.Where(a => a != "USDT").Select(a => $"{a}USDT"))
         {
             if (ct.IsCancellationRequested) break;
-            var r = await _client.SpotApi.Trading.GetClosedOrdersAsync(asset, ct: ct);
+            var r = await _client.SpotApi.Trading.GetClosedOrdersAsync(asset, limit: limit, ct: ct);
             if (r.Success) all.AddRange(r.Data.Select(MapOrder));
         }
-        return all.OrderByDescending(o => o.PlacedAt).ToArray();
+        return [.. all.OrderByDescending(o => o.PlacedAt).Take(limit)];
+    }
+
+    public async Task<ExchangeOrderDto[]> GetOrderHistoryByPairAsync(string pair, int limit = 100, CancellationToken ct = default)
+    {
+        if (!_hasCredentials) return [];
+        var r = await _client.SpotApi.Trading.GetClosedOrdersAsync(pair, limit: limit, ct: ct);
+        if (!r.Success) return [];
+        return r.Data.Select(MapOrder).ToArray();
     }
 
     public async Task<OrderResult> PlaceOrderAsync(OrderRequest request, CancellationToken ct = default)

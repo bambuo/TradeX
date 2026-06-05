@@ -39,6 +39,13 @@ export interface UpdateExchangeRequest {
   passphrase?: string
 }
 
+export interface PagedResult<T> {
+  data: T[]
+  total: number
+  page: number
+  pageSize: number
+}
+
 export const exchangesApi = {
   getAll() {
     return client.get<{ data: Exchange[] }>('/exchanges')
@@ -64,7 +71,12 @@ export const exchangesApi = {
   getAssets(id: string) {
     return client.get<{ data: { currency: string; balance: number }[] }>(`/exchanges/${id}/assets`)
   },
-  getOrders(id: string, type: 'open' | 'history' = 'open') {
-    return client.get<{ data: ExchangeOrder[] }>(`/exchanges/${id}/orders?type=${type}`)
+  getOrders(id: string, type: 'open' | 'history' = 'open', page = 1, pageSize = 10, pair?: string, side?: string, orderType?: string, status?: string) {
+    let url = `/exchanges/${id}/orders?type=${type}&page=${page}&pageSize=${pageSize}`
+    if (pair) url += `&pair=${encodeURIComponent(pair)}`
+    if (side) url += `&side=${encodeURIComponent(side)}`
+    if (orderType) url += `&orderType=${encodeURIComponent(orderType)}`
+    if (status) url += `&status=${encodeURIComponent(status)}`
+    return client.get<PagedResult<ExchangeOrder>>(url)
   }
 }

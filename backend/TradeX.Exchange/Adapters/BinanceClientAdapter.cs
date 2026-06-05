@@ -166,16 +166,23 @@ public class BinanceClientAdapter : IExchangeClient
         return r.Data.Select(MapOrder).ToArray();
     }
 
-    public async Task<ExchangeOrderDto[]> GetOrderHistoryAsync(CancellationToken ct = default)
+    public async Task<ExchangeOrderDto[]> GetOrderHistoryAsync(int limit = 100, CancellationToken ct = default)
     {
         var bals = await GetAssetBalancesAsync(ct);
         var all = new List<ExchangeOrderDto>();
         foreach (var pair in bals.Keys.Where(a => a != "USDT").Select(a => $"{a}USDT"))
         {
-            var r = await _client.SpotApi.Trading.GetOrdersAsync(pair, ct: ct);
+            var r = await _client.SpotApi.Trading.GetOrdersAsync(pair, limit: limit, ct: ct);
             if (r.Success) all.AddRange(r.Data.Select(MapOrder));
         }
-        return all.OrderByDescending(o => o.PlacedAt).ToArray();
+        return [.. all.OrderByDescending(o => o.PlacedAt).Take(limit)];
+    }
+
+    public async Task<ExchangeOrderDto[]> GetOrderHistoryByPairAsync(string pair, int limit = 100, CancellationToken ct = default)
+    {
+        var r = await _client.SpotApi.Trading.GetOrdersAsync(pair, limit: limit, ct: ct);
+        if (!r.Success) return [];
+        return r.Data.Select(MapOrder).ToArray();
     }
 
     public async Task<OrderResult> PlaceOrderAsync(OrderRequest request, CancellationToken ct = default)

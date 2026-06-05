@@ -17,9 +17,11 @@ public sealed record AuditLogDto(
     string Resource,
     string? Detail,
     string IpAddress,
-    DateTime Timestamp);
+    string Timestamp);
 
-public sealed class GetAuditLogsUseCase(IAuditLogRepository auditLogRepo)
+public sealed class GetAuditLogsUseCase(
+    IAuditLogRepository auditLogRepo,
+    IUserRepository userRepo)
     : IUseCase<GetAuditLogsQuery, Result<List<AuditLogDto>>>
 {
     public async Task<Result<List<AuditLogDto>>> ExecuteAsync(GetAuditLogsQuery query, CancellationToken ct = default)
@@ -29,9 +31,20 @@ public sealed class GetAuditLogsUseCase(IAuditLogRepository auditLogRepo)
             query.UserId?.ToString(), query.Action,
             null, null, null, ct);
 
+        var userIds = items.Where(x => x.UserId.HasValue).Select(x => x.UserId!.Value).Distinct().ToList();
+        var usernameMap = new Dictionary<Guid, string>();
+        foreach (var uid in userIds)
+        {
+            var user = await userRepo.GetByIdAsync(uid, ct);
+            if (user is not null)
+                usernameMap[uid] = user.Username;
+        }
+
         var dtos = items.Select(a => new AuditLogDto(
-            a.Id, a.UserId, null, a.Action, a.Resource,
-            a.Detail, a.IpAddress, a.Timestamp)).ToList();
+            a.Id, a.UserId,
+            a.UserId.HasValue && usernameMap.TryGetValue(a.UserId.Value, out var un) ? un : null,
+            a.Action, a.Resource,
+            a.Detail, a.IpAddress, a.Timestamp.ToString("yyyy-MM-dd HH:mm:ss"))).ToList();
 
         return Result<List<AuditLogDto>>.Ok(dtos);
     }

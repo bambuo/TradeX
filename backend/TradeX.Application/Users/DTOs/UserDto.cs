@@ -6,5 +6,5 @@ public sealed record UserDto(
     string Email,
     string Role,
     string Status,
-    DateTime CreatedAt,
+    string CreatedAt,
     DateTime? LastLoginAt);

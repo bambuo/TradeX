@@ -24,6 +24,8 @@ public class TradeXDbContext(DbContextOptions<TradeXDbContext> options) : DbCont
     public DbSet<Pair> Pairs => Set<Pair>();
     public DbSet<ExchangePairRuleSnapshot> ExchangePairRules => Set<ExchangePairRuleSnapshot>();
     public DbSet<NotificationChannel> NotificationChannels => Set<NotificationChannel>();
+    public DbSet<ExchangeOrderHistory> ExchangeOrderHistories => Set<ExchangeOrderHistory>();
+    public DbSet<KlineCacheEntity> KlineCache => Set<KlineCacheEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

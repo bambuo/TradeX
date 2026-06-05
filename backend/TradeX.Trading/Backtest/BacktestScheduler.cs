@@ -98,6 +98,7 @@ public class BacktestScheduler(
         var exchangeRepo = scope.ServiceProvider.GetRequiredService<IExchangeRepository>();
         var clientFactory = scope.ServiceProvider.GetRequiredService<IExchangeClientFactory>();
         var engine = scope.ServiceProvider.GetRequiredService<BacktestEngine>();
+        var klineCache = scope.ServiceProvider.GetRequiredService<IKlineCacheRepository>();
 
         var task = await taskRepo.GetByIdAsync(taskId, ct);
         if (task is null)
@@ -120,17 +121,7 @@ public class BacktestScheduler(
         if (!await TryAdvancePhaseAsync(taskRepo, task.Id, BacktestTaskStatus.Running, BacktestPhase.FetchingData, ct))
             return;
 
-        // Public kline API — no API key needed
-        var klineReader = clientFactory.CreateClient(exchange.Type, "", "");
-        List<Candle> candles;
-        try
-        {
-            candles = await FetchAllKlinesAsync(klineReader, task.Pair, task.Timeframe, task.StartAt, task.EndAt, ct);
-        }
-        finally
-        {
-            if (klineReader is IDisposable d) d.Dispose();
-        }
+        var candles = await FetchKlinesWithCacheAsync(klineCache, clientFactory, exchange, task.Pair, task.Timeframe, task.StartAt, task.EndAt, ct);
 
         if (!await TryAdvancePhaseAsync(taskRepo, task.Id, BacktestTaskStatus.Running, BacktestPhase.Running, ct))
             return;
@@ -140,6 +131,37 @@ public class BacktestScheduler(
         // 注册到事件驱动跟踪器，BacktestCancellationConsumer 收到取消事件后直接 Cancel 此 CTS
         using var engineCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         tracker.RunningTasks[task.Id] = engineCts;
+
+        // 分批刷盘：引擎运行期间每 100 根 K 线将分析数据写入 DB
+        // 如果是恢复的任务,从上次已保存的记录数之后开始刷,避免重复写入
+        var existingCount = await taskRepo.GetKlineAnalysesCountAsync(task.Id, null, ct);
+        var lastFlushed = existingCount;
+        async Task BatchFlushLoop(CancellationToken localCt)
+        {
+            while (!localCt.IsCancellationRequested)
+            {
+                try { await Task.Delay(1000, localCt); } catch (OperationCanceledException) { break; }
+
+                var items = analysisStore.Get(task.Id);
+                if (items is null) return;
+
+                List<BacktestKlineAnalysis> batch;
+                lock (items)
+                {
+                    if (items.Count - lastFlushed < 100) continue;
+                    batch = items.GetRange(lastFlushed, items.Count - lastFlushed);
+                    lastFlushed = items.Count;
+                }
+
+                using var flushScope = scopeFactory.CreateScope();
+                var flushRepo = flushScope.ServiceProvider.GetRequiredService<IBacktestTaskRepository>();
+                await flushRepo.AddKlineAnalysesAsync(task.Id, batch, localCt);
+                logger.LogDebug("批刷 {Count} 根 K 线分析数据: TaskId={TaskId}, TotalFlushed={Total}", batch.Count, task.Id, lastFlushed);
+            }
+        }
+
+        using var batchFlushCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var batchFlushTask = BatchFlushLoop(batchFlushCts.Token);
 
         BacktestResult result;
         List<BacktestTrade> trades;
@@ -160,7 +182,30 @@ public class BacktestScheduler(
         finally
         {
             engineCts.Cancel();
+            batchFlushCts.Cancel();
             tracker.RunningTasks.TryRemove(task.Id, out _);
+        }
+
+        // 等待刷盘循环结束
+        try { await batchFlushTask; } catch (OperationCanceledException) { }
+
+        // 刷入剩余不足 100 根的 K 线
+        var allItems = analysisStore.Get(task.Id);
+        if (allItems is not null)
+        {
+            List<BacktestKlineAnalysis> remaining;
+            lock (allItems)
+            {
+                remaining = allItems.Count > lastFlushed
+                    ? allItems.GetRange(lastFlushed, allItems.Count - lastFlushed)
+                    : [];
+                lastFlushed = allItems.Count;
+            }
+            if (remaining.Count > 0)
+            {
+                await taskRepo.AddKlineAnalysesAsync(task.Id, remaining, ct);
+                logger.LogDebug("刷入剩余 {Count} 根 K 线分析数据: TaskId={TaskId}", remaining.Count, task.Id);
+            }
         }
 
         // 二次保险: 引擎跑完后再读一次, 防御 poll 间隙的取消
@@ -174,8 +219,6 @@ public class BacktestScheduler(
 
         var committed = await taskRepo.ExecuteInTransactionAsync(async (repo, innerCt) =>
         {
-            await repo.AddKlineAnalysesAsync(task.Id, analysis, innerCt);
-
             var resultWithTask = new BacktestResult
             {
                 TaskId = task.Id,
@@ -257,6 +300,7 @@ public class BacktestScheduler(
             foreach (var task in stuckTasks)
             {
                 logger.LogWarning("恢复卡死的回测任务: TaskId={TaskId}, Strategy={Strategy}", task.Id, task.StrategyName);
+
                 task.Status = BacktestTaskStatus.Pending;
                 await taskRepo.UpdateAsync(task, ct);
             }
@@ -297,8 +341,6 @@ public class BacktestScheduler(
         }
     }
 
-    // Adapter 内部已按各家 SDK 语义（Binance 升序、Bybit/OKX 降序、HTX 仅支持 last-N）
-    // 翻页拉齐 [startAt, endAt] 区间数据。此处只做防御性 dedup/sort/clip。
     private static async Task<List<Candle>> FetchAllKlinesAsync(IExchangeClient client, string pair, string timeframe, DateTime startAt, DateTime endAt, CancellationToken ct)
     {
         var chunk = await client.GetKlinesAsync(pair, timeframe, startAt, endAt, ct);
@@ -314,5 +356,43 @@ public class BacktestScheduler(
             throw new InvalidOperationException($"未获取到回测 K 线: Pair={pair}, Timeframe={timeframe}, Start={startAt:O}, End={endAt:O}");
 
         return result;
+    }
+
+    private async Task<List<Candle>> FetchKlinesWithCacheAsync(
+        IKlineCacheRepository klineCache,
+        IExchangeClientFactory clientFactory,
+        TradeX.Core.Models.Exchange exchange,
+        string pair, string timeframe, DateTime startAt, DateTime endAt,
+        CancellationToken ct)
+    {
+        // 尝试从缓存读取：只要缓存的最后一条 ≥ endAt 即视为命中
+        var cached = await klineCache.GetKlinesAsync(exchange.Id, pair, timeframe, startAt, endAt, ct);
+        if (cached.Length > 0 && cached[^1].Timestamp >= endAt)
+        {
+            logger.LogDebug("命中 K 线缓存: Exchange={Name}, Pair={Pair}, Timeframe={Timeframe}, Count={Count}",
+                exchange.Name, pair, timeframe, cached.Length);
+            return [.. cached];
+        }
+
+        logger.LogInformation("K 线缓存未命中，从交易所拉取: Exchange={Name}, Pair={Pair}, Timeframe={Timeframe}, Range={Start:O}~{End:O}",
+            exchange.Name, pair, timeframe, startAt, endAt);
+
+        // Public kline API — no API key needed
+        var klineReader = clientFactory.CreateClient(exchange.Type, "", "");
+        List<Candle> candles;
+        try
+        {
+            candles = await FetchAllKlinesAsync(klineReader, pair, timeframe, startAt, endAt, ct);
+        }
+        finally
+        {
+            if (klineReader is IDisposable d) d.Dispose();
+        }
+
+        // 同步写入缓存（EF Core DbContext 非线程安全，不能 fire-and-forget）
+        await klineCache.SaveKlinesAsync(exchange.Id, pair, timeframe, candles.ToArray(), ct);
+        logger.LogDebug("K 线已写入缓存: Count={Count}", candles.Count);
+
+        return candles;
     }
 }

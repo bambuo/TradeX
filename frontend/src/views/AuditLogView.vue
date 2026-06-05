@@ -11,10 +11,11 @@ const filterResource = ref('')
 const selectedLog = ref<AuditLogEntry | null>(null)
 
 const columns = [
-  { title: '#', dataIndex: 'index', width: 60 },
-  { title: '时间', dataIndex: 'timestamp', width: 200 },
-  { title: '操作', dataIndex: 'action', width: 160 },
-  { title: '资源', dataIndex: 'resource', ellipsis: true }
+  { title: '#', width: 60, slotName: 'rowIndex' },
+  { title: '操作人', dataIndex: 'username', ellipsis: true },
+  { title: '资源', dataIndex: 'resource', ellipsis: true },
+  { title: '操作', dataIndex: 'action' },
+  { title: '时间', dataIndex: 'timestamp', width: 180 }
 ]
 
 interface TechnicalDetail {
@@ -147,12 +148,6 @@ function translateActionText(action: string): string {
     .replace(/manual/g, '手动下单')
 }
 
-function formatTime(value: string): string {
-  const d = new Date(value)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-}
-
 async function load() {
   loading.value = true
   try {
@@ -214,7 +209,7 @@ onMounted(load)
       @page-size-change="(s: number) => { pageSize = s; page = 1; load() }"
       stripe
     >
-      <template #cell-index="{ rowIndex }">{{ (page - 1) * pageSize + rowIndex + 1 }}</template>
+      <template #rowIndex="{ rowIndex }">{{ (page - 1) * pageSize + rowIndex + 1 }}</template>
       <template #cell-timestamp="{ record }">
         <span class="time-cell">{{ record.timestamp }}</span>
       </template>
@@ -232,7 +227,7 @@ onMounted(load)
         <div class="detail-grid">
           <div class="detail-field">
             <span class="detail-label">时间</span>
-            <span class="detail-value"><code>{{ formatTime(selectedLog.timestamp) }}</code></span>
+            <span class="detail-value"><code>{{ selectedLog.timestamp }}</code></span>
           </div>
           <div class="detail-field">
             <span class="detail-label">资源</span>
@@ -280,8 +275,8 @@ onMounted(load)
   display: flex;
   gap: 0.75rem;
 }
-.log-row { cursor: pointer; }
-.log-row:hover { background: rgba(79, 126, 201, 0.04); }
+:deep(.log-row) { cursor: pointer; }
+:deep(.log-row:hover) { background: rgba(79, 126, 201, 0.04); }
 .time-cell { color: var(--text-muted); white-space: nowrap; }
 .resource-text { color: var(--text-muted); }
 .resource-id { color: var(--accent-blue); font-family: monospace; font-size: 0.8rem; margin-left: 0.375rem; }

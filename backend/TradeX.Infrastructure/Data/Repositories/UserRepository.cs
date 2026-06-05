@@ -29,4 +29,11 @@ public class UserRepository(TradeXDbContext db) : IUserRepository
 
     public async Task<List<User>> GetAllAsync(CancellationToken ct = default) =>
         await db.Users.Where(x => !x.IsDeleted).ToListAsync(ct);
+
+    public async Task DeleteAsync(User user, CancellationToken ct = default)
+    {
+        user.IsDeleted = true;
+        db.Users.Update(user);
+        await db.SaveChangesAsync(ct);
+    }
 }

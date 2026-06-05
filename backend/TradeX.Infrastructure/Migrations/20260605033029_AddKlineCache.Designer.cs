@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TradeX.Infrastructure.Data;
@@ -11,9 +12,11 @@ using TradeX.Infrastructure.Data;
 namespace TradeX.Infrastructure.Migrations
 {
     [DbContext(typeof(TradeXDbContext))]
-    partial class TradeXDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260605033029_AddKlineCache")]
+    partial class AddKlineCache
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

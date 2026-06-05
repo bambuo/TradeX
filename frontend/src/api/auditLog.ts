@@ -3,6 +3,7 @@ import client from './client'
 export interface AuditLogEntry {
   id: string
   userId: string
+  username: string | null
   action: string
   resource: string
   resourceId: string | null

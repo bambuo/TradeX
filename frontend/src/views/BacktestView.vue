@@ -98,10 +98,10 @@ function load() {
   loading.value = true
   Promise.all([
     backtestsApi.getTask(taskId),
-    backtestsApi.getResult(taskId)
+    backtestsApi.getResult(taskId).catch(() => ({ data: { result: null, status: '' } }))
   ]).then(([taskRes, resultRes]) => {
     task.value = taskRes.data
-    result.value = resultRes.data
+    result.value = resultRes.data.result
   }).catch(e => {
     error.value = e.response?.data?.message || '加载回测数据失败'
   }).finally(() => {
@@ -199,7 +199,7 @@ onUnmounted(stopReplay)
   <div class="backtest-detail-page">
     <div v-if="loading" class="loading-state">加载中...</div>
     <div v-else-if="error" class="empty-state">{{ error }}</div>
-    <template v-else-if="task && result">
+    <template v-else-if="task">
       <div class="task-header">
         <div class="task-meta">
           <strong class="task-title">{{ task.strategyName || '回测任务' }}</strong>
@@ -213,6 +213,7 @@ onUnmounted(stopReplay)
 
       <a-tabs :active-key="activeTab" @tab-click="(key: unknown) => toggleTab(key as 'overview' | 'analysis')">
         <a-tab-pane key="overview" title="概览">
+          <template v-if="result">
           <div class="metrics-grid">
             <div class="metric-card">
               <span class="metric-value" :class="(result.totalReturnPercent ?? 0) >= 0 ? 'up' : 'down'">
@@ -277,6 +278,14 @@ onUnmounted(stopReplay)
               </template>
             </a-table>
           </div>
+          </template>
+          <div v-else class="result-pending">
+            <a-result status="info" title="回测进行中">
+              <template #subtitle>
+                回测仍在运行，结果将在完成后生成。您可切换到「逐笔分析」Tab 查看已处理的部分 K 线数据。
+              </template>
+            </a-result>
+          </div>
         </a-tab-pane>
 
         <a-tab-pane key="analysis" title="逐笔分析">
@@ -326,6 +335,11 @@ onUnmounted(stopReplay)
               :total="replayTotal"
               :current="replayIndex"
             />
+          </div>
+          <div v-else-if="analysisViewMode === 'chart'" class="analysis-chart-placeholder">
+            <a-result status="info" title="暂无 K 线数据">
+              <template #subtitle>回测任务正在处理中，已处理的部分 K 线将在此展示。</template>
+            </a-result>
           </div>
 
           <div v-else-if="analysisViewMode === 'table'" class="analysis-table">
@@ -385,6 +399,8 @@ onUnmounted(stopReplay)
 .speed-label { color: var(--text-muted); font-size: 0.8rem; }
 .replay-progress { color: var(--text-muted); font-size: 0.8rem; white-space: nowrap; }
 .analysis-chart { min-height: 400px; }
+.analysis-chart-placeholder { min-height: 300px; display: flex; align-items: center; justify-content: center; }
+.result-pending { min-height: 200px; display: flex; align-items: center; justify-content: center; }
 .table-toolbar { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
 .condition-card { margin: 0; }
 .condition-card :deep(.arco-card-body) {

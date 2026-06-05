@@ -27,7 +27,13 @@ public sealed record ExchangeTestResultDto(
 
 public sealed record GetExchangesQuery(Guid CurrentUserId);
 public sealed record GetExchangeByIdQuery(Guid Id, Guid CurrentUserId);
-public sealed record GetExchangeOrdersQuery(Guid Id, Guid CurrentUserId, string Type = "open");
+public sealed record GetExchangeOrdersQuery(
+    Guid Id, Guid CurrentUserId, string Type = "open",
+    int Page = 1, int PageSize = 20, string? Pair = null,
+    string? Side = null, string? OrderType = null, string? OrderStatus = null);
+
+public sealed record PagedExchangeOrderDto(
+    List<ExchangeOrderDto> Data, int Total, int Page, int PageSize);
 
 // ─── Commands ───
 
@@ -285,34 +291,48 @@ public sealed class GetExchangePairsUseCase(
 public sealed class GetExchangeOrdersUseCase(
     IExchangeRepository exchangeRepo,
     IEncryptionService encryption,
-    IExchangeClientFactory clientFactory) : IUseCase<GetExchangeOrdersQuery, Result<List<ExchangeOrderDto>>>
+    IExchangeClientFactory clientFactory,
+    IExchangeOrderHistoryRepository historyRepo) : IUseCase<GetExchangeOrdersQuery, Result<PagedExchangeOrderDto>>
 {
-    public async Task<Result<List<ExchangeOrderDto>>> ExecuteAsync(GetExchangeOrdersQuery q, CancellationToken ct = default)
+    public async Task<Result<PagedExchangeOrderDto>> ExecuteAsync(GetExchangeOrdersQuery q, CancellationToken ct = default)
     {
         var exchange = await exchangeRepo.GetByIdAsync(q.Id, ct);
         if (exchange is null)
-            return Result<List<ExchangeOrderDto>>.NotFound("交易所不存在");
+            return Result<PagedExchangeOrderDto>.NotFound("交易所不存在");
 
         if (exchange.Status == ExchangeStatus.Disabled)
-            return Result<List<ExchangeOrderDto>>.BadRequest("交易所已禁用");
+            return Result<PagedExchangeOrderDto>.BadRequest("交易所已禁用");
 
         try
         {
+            if (q.Type == "history")
+            {
+                var (items, total) = await historyRepo.GetPagedAsync(
+                    q.Id, q.Page, q.PageSize, q.Pair, q.Side, q.OrderType, q.OrderStatus, ct);
+
+                var dtos = items.Select(i => new ExchangeOrderDto(
+                    i.Pair, i.Side, i.Type, i.Status,
+                    i.Price, i.Quantity, i.FilledQuantity,
+                    i.ExchangeOrderId, i.PlacedAt)).ToList();
+
+                return Result<PagedExchangeOrderDto>.Ok(new PagedExchangeOrderDto(
+                    dtos, total, q.Page, q.PageSize));
+            }
+
+            // 挂单走 SDK 实时查询
             var apiKey = encryption.Decrypt(exchange.ApiKeyEncrypted);
             var secretKey = encryption.Decrypt(exchange.SecretKeyEncrypted);
             var passphrase = exchange.PassphraseEncrypted is not null ? encryption.Decrypt(exchange.PassphraseEncrypted) : null;
 
             var client = clientFactory.CreateClient(exchange.Type, apiKey, secretKey, passphrase);
+            var orders = await client.GetOpenOrdersAsync(ct);
 
-            var orders = q.Type == "history"
-                ? await client.GetOrderHistoryAsync(ct)
-                : await client.GetOpenOrdersAsync(ct);
-
-            return Result<List<ExchangeOrderDto>>.Ok([.. orders]);
+            return Result<PagedExchangeOrderDto>.Ok(new PagedExchangeOrderDto(
+                [.. orders], orders.Length, 1, orders.Length));
         }
         catch (Exception ex)
         {
-            return Result<List<ExchangeOrderDto>>.BadRequest($"获取订单失败: {ex.Message}");
+            return Result<PagedExchangeOrderDto>.BadRequest($"获取订单失败: {ex.Message}");
         }
     }
 }

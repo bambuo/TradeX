@@ -23,4 +23,5 @@ public interface IBacktestTaskRepository
     Task<BacktestKlineAnalysis[]> GetKlineAnalysesPageAsync(Guid taskId, int page, int pageSize, string? actionFilter = null, CancellationToken ct = default);
     Task<int> GetKlineAnalysesCountAsync(Guid taskId, string? actionFilter = null, CancellationToken ct = default);
     Task<BacktestKlineAnalysis[]> GetKlineAnalysesAllAsync(Guid taskId, CancellationToken ct = default);
+    Task DeleteKlineAnalysesByTaskIdAsync(Guid taskId, CancellationToken ct = default);
 }

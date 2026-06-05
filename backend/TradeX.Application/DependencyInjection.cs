@@ -77,12 +77,14 @@ public static class DependencyInjection
         services.AddScoped<IUseCase<TestExchangeCommand, Result<ExchangeTestResultDto>>, TestExchangeUseCase>();
         services.AddScoped<IUseCase<GetExchangeAssetsCommand, Result<List<ExchangeAssetDto>>>, GetExchangeAssetsUseCase>();
         services.AddScoped<IUseCase<GetExchangePairsCommand, Result<List<ExchangePairDto>>>, GetExchangePairsUseCase>();
-        services.AddScoped<IUseCase<GetExchangeOrdersQuery, Result<List<ExchangeOrderDto>>>, GetExchangeOrdersUseCase>();
+        services.AddScoped<IUseCase<GetExchangeOrdersQuery, Result<PagedExchangeOrderDto>>, GetExchangeOrdersUseCase>();
         services.AddScoped<IUseCase<ToggleExchangeCommand, Result>, ToggleExchangeUseCase>();
 
         // ── Users ──
         services.AddScoped<IUseCase<GetUsersQuery, Result<List<UserDto>>>, GetUsersUseCase>();
         services.AddScoped<IUseCase<GetUserByIdQuery, Result<UserDto>>, GetUserByIdUseCase>();
+        services.AddScoped<IUseCase<UpdateUserCommand, Result>, UpdateUserUseCase>();
+        services.AddScoped<IUseCase<DeleteUserCommand, Result>, DeleteUserUseCase>();
         services.AddScoped<IUseCase<UpdateUserRoleCommand, Result>, UpdateUserRoleUseCase>();
 
         // ── Auth ──

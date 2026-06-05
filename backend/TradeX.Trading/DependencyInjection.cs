@@ -41,6 +41,7 @@ public static class DependencyInjection
         services.AddScoped<LegacyStrategyScanner>();
 
         services.AddSingleton<IKillSwitch, KillSwitch>();
+        services.AddSingleton<TaskAnalysisStore>();
         services.AddSingleton<OrderBookSlippageGuard>();
         services.AddSingleton<Execution.PairRuleCache>();
         services.AddSingleton<Execution.KlineGapDetector>();
@@ -122,7 +123,6 @@ public static class DependencyInjection
         services.AddSingleton<ResourceMonitor>();
 
         services.AddSingleton<IBacktestTaskQueue, BacktestTaskQueue>();
-        services.AddSingleton<TaskAnalysisStore>();
         services.AddSingleton<RunningBacktestTracker>();
 
         services.AddHostedService<BacktestScheduler>();

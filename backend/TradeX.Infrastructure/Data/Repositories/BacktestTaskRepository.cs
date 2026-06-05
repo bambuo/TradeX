@@ -9,24 +9,28 @@ public class BacktestTaskRepository(TradeXDbContext context) : IBacktestTaskRepo
 {
     public async Task<bool> ExecuteInTransactionAsync(Func<IBacktestTaskRepository, CancellationToken, Task<bool>> action, CancellationToken ct = default)
     {
-        await using var transaction = await context.Database.BeginTransactionAsync(ct);
-        try
+        var strategy = context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
         {
-            var commit = await action(this, ct);
-            if (commit)
+            await using var transaction = await context.Database.BeginTransactionAsync(ct);
+            try
             {
-                await transaction.CommitAsync(ct);
-                return true;
-            }
+                var commit = await action(this, ct);
+                if (commit)
+                {
+                    await transaction.CommitAsync(ct);
+                    return true;
+                }
 
-            await transaction.RollbackAsync(ct);
-            return false;
-        }
-        catch
-        {
-            await transaction.RollbackAsync(ct);
-            throw;
-        }
+                await transaction.RollbackAsync(ct);
+                return false;
+            }
+            catch
+            {
+                await transaction.RollbackAsync(ct);
+                throw;
+            }
+        });
     }
 
     public async Task<BacktestTask?> GetByIdAsync(Guid id, CancellationToken ct = default)
@@ -96,6 +100,16 @@ public class BacktestTaskRepository(TradeXDbContext context) : IBacktestTaskRepo
             .Take(pageSize)
             .ToArrayAsync(ct);
         return entities.Select(e => e.ToDomain()).ToArray();
+    }
+
+    public async Task DeleteKlineAnalysesByTaskIdAsync(Guid taskId, CancellationToken ct = default)
+    {
+        var stale = await context.BacktestKlineAnalyses
+            .Where(e => e.TaskId == taskId)
+            .ToArrayAsync(ct);
+        if (stale.Length == 0) return;
+        context.BacktestKlineAnalyses.RemoveRange(stale);
+        await context.SaveChangesAsync(ct);
     }
 
     public async Task<int> GetKlineAnalysesCountAsync(Guid taskId, string? actionFilter = null, CancellationToken ct = default)

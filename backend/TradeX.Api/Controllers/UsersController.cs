@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using TradeX.Api.Filters;
 using TradeX.Application.Common;
 using TradeX.Application.Users;
 using TradeX.Application.Users.DTOs;
@@ -13,6 +12,8 @@ namespace TradeX.Api.Controllers;
 public class UsersController(
     IUseCase<GetUsersQuery, Result<List<UserDto>>> getUsersUseCase,
     IUseCase<GetUserByIdQuery, Result<UserDto>> getUserByIdUseCase,
+    IUseCase<UpdateUserCommand, Result> updateUserUseCase,
+    IUseCase<DeleteUserCommand, Result> deleteUserUseCase,
     IUseCase<UpdateUserRoleCommand, Result> updateUserRoleUseCase) : ControllerBase
 {
     [HttpGet]
@@ -32,8 +33,37 @@ public class UsersController(
         return Ok(result.Data);
     }
 
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateUserRequest request, CancellationToken ct)
+    {
+        var result = await updateUserUseCase.ExecuteAsync(new UpdateUserCommand(id, request.Username, request.Role), ct);
+        if (!result.Success)
+            return result.StatusCode switch
+            {
+                404 => NotFound(new { message = result.Error }),
+                400 => BadRequest(new { message = result.Error }),
+                _ => BadRequest(new { message = result.Error })
+            };
+
+        return Ok(new { message = "用户已更新" });
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        var result = await deleteUserUseCase.ExecuteAsync(new DeleteUserCommand(id), ct);
+        if (!result.Success)
+            return result.StatusCode switch
+            {
+                404 => NotFound(new { message = result.Error }),
+                400 => BadRequest(new { message = result.Error }),
+                _ => BadRequest(new { message = result.Error })
+            };
+
+        return Ok(new { message = "用户已删除" });
+    }
+
     [HttpPut("{id:guid}/role")]
-    [RequireMfa]
     public async Task<IActionResult> UpdateRole(Guid id, [FromBody] UpdateRoleRequest request, CancellationToken ct)
     {
         var result = await updateUserRoleUseCase.ExecuteAsync(new UpdateUserRoleCommand(id, request.Role), ct);
@@ -49,4 +79,5 @@ public class UsersController(
     }
 
     public record UpdateRoleRequest(string Role);
+    public record UpdateUserRequest(string Username, string Role);
 }

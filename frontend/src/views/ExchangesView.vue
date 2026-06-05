@@ -21,6 +21,24 @@ const orders = ref<ExchangeOrder[]>([])
 const ordersExchangeLabel = ref('')
 const ordersExchangeId = ref('')
 const ordersType = ref<'open' | 'history'>('open')
+const currentPage = ref(1)
+const totalOrders = ref(0)
+const pageSize = ref(10)
+const filterPair = ref('')
+const filterSide = ref<string | undefined>()
+const filterOrderType = ref<string | undefined>()
+const filterStatus = ref<string | undefined>()
+
+const orderColumns = [
+  { title: '交易对', dataIndex: 'pair' },
+  { title: '方向', slotName: 'side' },
+  { title: '类型', slotName: 'type' },
+  { title: '状态', slotName: 'status' },
+  { title: '价格', slotName: 'price' },
+  { title: '数量', slotName: 'quantity' },
+  { title: '已成交', slotName: 'filled' },
+  { title: '下单时间', slotName: 'placedAt' },
+]
 
 const orderStatusColor = computed(() => (status: string) => {
   const colors: Record<string, string> = {
@@ -41,21 +59,49 @@ const orderStatusLabels: Record<string, string> = {
   Expired: '已过期'
 }
 
-async function loadOrders(id: string, label: string, type: 'open' | 'history') {
+async function loadOrders(id: string, label: string, type: 'open' | 'history', page = 1) {
   ordersExchangeId.value = id
   ordersExchangeLabel.value = label
   ordersType.value = type
-  orders.value = []
+  currentPage.value = page
   showOrders.value = true
   ordersLoading.value = true
   try {
-    const { data } = await exchangesApi.getOrders(id, type)
+    const { data } = await exchangesApi.getOrders(id, type, page, pageSize.value,
+      filterPair.value || undefined,
+      type === 'history' ? filterSide.value : undefined,
+      type === 'history' ? filterOrderType.value : undefined,
+      type === 'history' ? filterStatus.value : undefined)
     orders.value = data.data ?? []
+    totalOrders.value = data.total ?? 0
+    currentPage.value = data.page ?? page
   } catch {
     Message.error('获取订单失败')
   } finally {
     ordersLoading.value = false
   }
+}
+
+function applyFilters() {
+  loadOrders(ordersExchangeId.value, ordersExchangeLabel.value, ordersType.value, 1)
+}
+
+function resetFilters() {
+  filterPair.value = ''
+  filterSide.value = undefined
+  filterOrderType.value = undefined
+  filterStatus.value = undefined
+  loadOrders(ordersExchangeId.value, ordersExchangeLabel.value, ordersType.value, 1)
+}
+
+function onPageChange(page: number) {
+  loadOrders(ordersExchangeId.value, ordersExchangeLabel.value, ordersType.value, page)
+}
+
+function onPageSizeChange(size: number) {
+  pageSize.value = size
+  currentPage.value = 1
+  loadOrders(ordersExchangeId.value, ordersExchangeLabel.value, ordersType.value, 1)
 }
 
 const formLabel = ref('')
@@ -226,49 +272,80 @@ onMounted(loadAll)
       </template>
     </a-modal>
 
-    <a-modal v-model:visible="showOrders" :title="`${ordersExchangeLabel}${ordersType === 'open' ? ' - 当前挂单' : ' - 历史订单'}`" width="1100px" :mask-closable="false">
+    <a-modal v-model:visible="showOrders" :title="`${ordersExchangeLabel} - 订单`" width="1100px" :mask-closable="false">
       <a-tabs v-model:active-key="ordersType" @change="(key) => loadOrders(ordersExchangeId, ordersExchangeLabel, key as 'open' | 'history')">
         <a-tab-pane key="open" title="当前挂单" />
         <a-tab-pane key="history" title="历史订单" />
       </a-tabs>
-      <div v-if="ordersLoading" class="loading">加载中...</div>
-      <table v-else class="table">
-        <thead>
-          <tr>
-            <th>交易对</th>
-            <th>方向</th>
-            <th>类型</th>
-            <th>状态</th>
-            <th>价格</th>
-            <th>数量</th>
-            <th>已成交</th>
-            <th>下单时间</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="o in orders" :key="o.exchangeOrderId">
-            <td>{{ o.pair }}</td>
-            <td>
-              <span :class="o.side === 'Buy' ? 'side-buy' : 'side-sell'">
-                {{ o.side === 'Buy' ? '买入' : '卖出' }}
-              </span>
-            </td>
-            <td>{{ o.type === 'Market' ? '市价' : o.type === 'Limit' ? '限价' : '止损限价' }}</td>
-            <td>
-              <a-tag :color="orderStatusColor(o.status)">
-                {{ orderStatusLabels[o.status] ?? o.status }}
-              </a-tag>
-            </td>
-            <td>{{ o.price > 0 ? o.price.toLocaleString() : '-' }}</td>
-            <td>{{ o.quantity.toLocaleString() }}</td>
-            <td>{{ o.filledQuantity.toLocaleString() }}</td>
-            <td>{{ new Date(o.placedAt).toLocaleString('zh-CN', { hour12: false }) }}</td>
-          </tr>
-          <tr v-if="!ordersLoading && orders.length === 0">
-            <td colspan="8" class="empty">{{ ordersType === 'open' ? '暂无挂单' : '暂无历史订单' }}</td>
-          </tr>
-        </tbody>
-      </table>
+      <div v-if="ordersType === 'history'" class="filter-bar">
+        <a-input v-model="filterPair" placeholder="交易对" style="width:140px" allow-clear @clear="applyFilters" @press-enter="applyFilters" />
+        <a-select v-model="filterSide" placeholder="方向" style="width:100px" allow-clear @change="applyFilters">
+          <a-option value="Buy">买入</a-option>
+          <a-option value="Sell">卖出</a-option>
+        </a-select>
+        <a-select v-model="filterOrderType" placeholder="类型" style="width:110px" allow-clear @change="applyFilters">
+          <a-option value="Market">市价</a-option>
+          <a-option value="Limit">限价</a-option>
+          <a-option value="StopLimit">止损限价</a-option>
+        </a-select>
+        <a-select v-model="filterStatus" placeholder="状态" style="width:120px" allow-clear @change="applyFilters">
+          <a-option value="New">待成交</a-option>
+          <a-option value="PartiallyFilled">部分成交</a-option>
+          <a-option value="Filled">已成交</a-option>
+          <a-option value="Cancelled">已撤销</a-option>
+          <a-option value="Expired">已过期</a-option>
+        </a-select>
+        <a-button size="small" type="primary" @click="applyFilters">
+          <template #icon><icon-search /></template>
+          查询
+        </a-button>
+        <a-button size="small" @click="resetFilters">
+          <template #icon><icon-refresh /></template>
+          重置
+        </a-button>
+      </div>
+      <a-table
+        :columns="orderColumns"
+        :data="orders"
+        :loading="ordersLoading"
+        :pagination="{
+          current: currentPage,
+          pageSize: pageSize,
+          total: totalOrders,
+          showTotal: true,
+          pageSizeChangeable: true,
+          pageSizeOptionValues: [10, 20, 50, 100]
+        }"
+        row-key="exchangeOrderId"
+        @page-change="onPageChange"
+        @page-size-change="onPageSizeChange"
+      >
+        <template #side="{ record }">
+          <span :class="record.side === 'Buy' ? 'side-buy' : 'side-sell'">
+            {{ record.side === 'Buy' ? '买入' : '卖出' }}
+          </span>
+        </template>
+        <template #type="{ record }">
+          {{ record.type === 'Market' ? '市价' : record.type === 'Limit' ? '限价' : '止损限价' }}
+        </template>
+        <template #status="{ record }">
+          <a-tag :color="orderStatusColor(record.status)">
+            {{ orderStatusLabels[record.status] ?? record.status }}
+          </a-tag>
+        </template>
+        <template #price="{ record }">
+          {{ record.price > 0 ? record.price.toLocaleString() : '-' }}
+        </template>
+        <template #quantity="{ record }">
+          {{ record.quantity.toLocaleString() }}
+        </template>
+        <template #filled="{ record }">
+          {{ record.filledQuantity.toLocaleString() }}
+        </template>
+        <template #placedAt="{ record }">
+          {{ new Date(record.placedAt).toLocaleString('zh-CN', { hour12: false }) }}
+        </template>
+      </a-table>
       <template #footer>
         <a-button @click="showOrders = false">
           <template #icon><icon-close /></template>
@@ -365,11 +442,7 @@ onMounted(loadAll)
           </a-button>
           <a-button size="small" @click="loadOrders(a.id, a.name, 'open')">
             <template #icon><icon-list /></template>
-            挂单
-          </a-button>
-          <a-button size="small" @click="loadOrders(a.id, a.name, 'history')">
-            <template #icon><icon-history /></template>
-            历史
+            订单
           </a-button>
         </div>
       </div>
@@ -583,4 +656,10 @@ onMounted(loadAll)
 .table th { color: var(--text-muted); font-weight: 600; }
 .side-buy { color: var(--accent-green); font-weight: 600; }
 .side-sell { color: var(--accent-red); font-weight: 600; }
+.filter-bar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
 </style>

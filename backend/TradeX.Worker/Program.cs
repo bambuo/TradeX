@@ -44,6 +44,7 @@ try
     builder.Services.AddTradingShared();
     builder.Services.AddHostedService<WorkerSingleInstanceGuard>();
     builder.Services.AddTradingWorker();
+    builder.Services.AddHostedService<ExchangeOrderSyncService>();
 
     // 事件总线：Redis 配置存在 → RedisDomainEventBus（XADD 到 tradex:events，API 端 RedisEventConsumerService 接收后转发 SignalR）；
     //           否则 → NullDomainEventBus 降级（前端实时事件丢失但不阻塞业务）

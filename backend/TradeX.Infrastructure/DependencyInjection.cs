@@ -45,6 +45,8 @@ public static class DependencyInjection
         services.AddScoped<IBacktestTaskRepository, BacktestTaskRepository>();
         services.AddScoped<ISystemConfigRepository, SystemConfigRepository>();
         services.AddScoped<INotificationChannelRepository, NotificationChannelRepository>();
+        services.AddScoped<IExchangeOrderHistoryRepository, ExchangeOrderHistoryRepository>();
+        services.AddScoped<IKlineCacheRepository, KlineCacheRepository>();
 
         services.AddSingleton<IEncryptionService, EncryptionService>();
         services.AddSingleton<CasbinEnforcer>();

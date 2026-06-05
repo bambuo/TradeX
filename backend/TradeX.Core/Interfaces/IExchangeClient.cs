@@ -26,7 +26,10 @@ public interface IAccountClient
     Task<Dictionary<string, decimal>> GetAssetBalancesAsync(CancellationToken ct = default);
     Task<ExchangePosition[]> GetPositionsAsync(CancellationToken ct = default);
     Task<ExchangeOrderDto[]> GetOpenOrdersAsync(CancellationToken ct = default);
-    Task<ExchangeOrderDto[]> GetOrderHistoryAsync(CancellationToken ct = default);
+    /// <param name="limit">每交易对最多返回的订单数。</param>
+    Task<ExchangeOrderDto[]> GetOrderHistoryAsync(int limit = 100, CancellationToken ct = default);
+    /// <param name="pair">交易对，如 "BTCUSDT"。为 null 时聚合并返回所有交易对的前 limit 条。</param>
+    Task<ExchangeOrderDto[]> GetOrderHistoryByPairAsync(string pair, int limit = 100, CancellationToken ct = default);
 }
 
 /// <summary>下单 / 撤单 / 订单查询。写端点。</summary>

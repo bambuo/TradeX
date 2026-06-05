@@ -20,7 +20,8 @@ public class BacktestingController(
     IUseCase<GetBacktestAnalysisPageQuery, Result<BacktestAnalysisPageDto>> getBacktestAnalysisPage,
     IUseCase<GetBacktestAnalysisAllQuery, Result<BacktestKlineAnalysis[]>> getBacktestAnalysisAll,
     IUseCase<GetBacktestAnalysisCountQuery, Result<int>> getBacktestAnalysisCount,
-    IBacktestCancellationNotifier cancellationNotifier) : ControllerBase
+    IBacktestCancellationNotifier cancellationNotifier,
+    TaskAnalysisStore analysisStore) : ControllerBase
 {
     public record StartBacktestRequest(
         Guid StrategyId,
@@ -98,25 +99,33 @@ public class BacktestingController(
         var task = await backtestService.GetTaskAsync(taskId, ct);
         if (task is null) return NotFound(new { error = "回测任务不存在" });
 
-        if (task.Status != Core.Models.BacktestTaskStatus.Completed)
-            return BadRequest(new { error = "回测尚未完成", status = task.Status.ToString() });
-
-        var result = await backtestService.GetResultAsync(taskId, ct);
-        if (result is null) return NotFound(new { error = "回测结果不存在" });
-
-        var countResult = await getBacktestAnalysisCount.ExecuteAsync(new GetBacktestAnalysisCountQuery(taskId), ct);
+        object? resultData = null;
+        if (task.Status == Core.Models.BacktestTaskStatus.Completed)
+        {
+            var dbResult = await backtestService.GetResultAsync(taskId, ct);
+            if (dbResult is not null)
+            {
+                var countResult = await getBacktestAnalysisCount.ExecuteAsync(
+                    new GetBacktestAnalysisCountQuery(taskId), ct);
+                resultData = new
+                {
+                    dbResult.TotalReturnPercent,
+                    dbResult.AnnualizedReturnPercent,
+                    dbResult.MaxDrawdownPercent,
+                    dbResult.WinRate,
+                    dbResult.TotalTrades,
+                    dbResult.SharpeRatio,
+                    dbResult.ProfitLossRatio,
+                    analysisCount = countResult.Success ? countResult.Data : 0,
+                    trades = JsonSerializer.Deserialize<object>(dbResult.Details)
+                };
+            }
+        }
 
         return Ok(new
         {
-            result.TotalReturnPercent,
-            result.AnnualizedReturnPercent,
-            result.MaxDrawdownPercent,
-            result.WinRate,
-            result.TotalTrades,
-            result.SharpeRatio,
-            result.ProfitLossRatio,
-            analysisCount = countResult.Success ? countResult.Data : 0,
-            trades = JsonSerializer.Deserialize<object>(result.Details)
+            result = resultData,
+            status = task.Status.ToString()
         });
     }
 
@@ -148,20 +157,6 @@ public class BacktestingController(
         if (task is null)
             return NotFound(new { error = "回测任务不存在" });
 
-        if (task.Status != Core.Models.BacktestTaskStatus.Completed)
-            return Accepted(new
-            {
-                taskId,
-                total = 0,
-                page,
-                pageSize,
-                totalPages = 0,
-                items = (object[])[],
-                status = task.Status.ToString(),
-                phase = task.Phase?.ToString(),
-                message = "回测分析数据将在任务完成后从数据库读取"
-            });
-
         var result = await getBacktestAnalysisPage.ExecuteAsync(
             new GetBacktestAnalysisPageQuery(taskId, page, pageSize, action), ct);
 
@@ -175,7 +170,8 @@ public class BacktestingController(
             data.Page,
             data.PageSize,
             data.TotalPages,
-            items = data.Items.Select(FormatItem).ToList()
+            items = data.Items.Select(FormatItem).ToList(),
+            status = task.Status.ToString()
         });
     }
 
@@ -205,9 +201,48 @@ public class BacktestingController(
 
         var ss = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
         speed = Math.Clamp(speed, 1, 50);
+        var delayMs = speed > 0 ? 300 / speed : 0;
 
         var task = await backtestService.GetTaskAsync(taskId, ct);
-        if (task?.Status != Core.Models.BacktestTaskStatus.Completed)
+
+        // 进行中的任务: 通过 TaskAnalysisStore Channel 实时流式推送
+        if (task is not null && task.Status != Core.Models.BacktestTaskStatus.Completed && analysisStore.Exists(taskId))
+        {
+            var statusPayload = JsonSerializer.Serialize(new
+            {
+                type = "status",
+                status = task.Status.ToString(),
+                phase = task.Phase?.ToString(),
+                incremental = true
+            }, ss);
+            await Response.WriteAsync($"data: {statusPayload}\n\n", ct);
+            await Response.Body.FlushAsync(ct);
+
+            var index = 0;
+            var storeCount = analysisStore.Count(taskId);
+            var metaPayload = JsonSerializer.Serialize(new
+            {
+                type = "meta",
+                total = storeCount,
+                incremental = true
+            }, ss);
+            await Response.WriteAsync($"data: {metaPayload}\n\n", ct);
+            await Response.Body.FlushAsync(ct);
+
+            await foreach (var item in analysisStore.SubscribeAsync(taskId, ct))
+            {
+                index++;
+                // 写入时延: 控制播放速度
+                if (delayMs > 0) await Task.Delay(delayMs, ct);
+                await WriteItemAsync(Response, item, ss, ct);
+            }
+
+            await WriteCompleteAsync(Response, ss, ct);
+            return;
+        }
+
+        // 任务未完成且无 Channel 时发空完成信号
+        if (task is null || task.Status != Core.Models.BacktestTaskStatus.Completed)
         {
             var statusPayload = JsonSerializer.Serialize(new
             {
@@ -221,6 +256,7 @@ public class BacktestingController(
             return;
         }
 
+        // 已完成的任务: 从 DB 读取全量数据后流式推送
         var allResult = await getBacktestAnalysisAll.ExecuteAsync(new GetBacktestAnalysisAllQuery(taskId), ct);
         var allData = allResult.Success ? allResult.Data! : [];
 
@@ -230,11 +266,9 @@ public class BacktestingController(
             return;
         }
 
-        var delayMs = 300 / speed;
-        var total = allData.Length;
-
-        var metaPayload = JsonSerializer.Serialize(new { type = "meta", total }, ss);
-        await Response.WriteAsync($"data: {metaPayload}\n\n", ct);
+        var completedTotal = allData.Length;
+        var completedMeta = JsonSerializer.Serialize(new { type = "meta", total = completedTotal }, ss);
+        await Response.WriteAsync($"data: {completedMeta}\n\n", ct);
         await Response.Body.FlushAsync(ct);
 
         for (var i = 0; i < allData.Length; i++)

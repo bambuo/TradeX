@@ -91,7 +91,7 @@ export const backtestsApi = {
     return client.get<BacktestTask>(`/backtests/tasks/${taskId}`)
   },
   getResult(taskId: string) {
-    return client.get<BacktestResult>(`/backtests/tasks/${taskId}/result`)
+    return client.get<{ result: BacktestResult | null; status: string }>(`/backtests/tasks/${taskId}/result`)
   },
   getAnalysis(taskId: string, page = 1, pageSize = 100, action?: string) {
     let url = `/backtests/tasks/${taskId}/analysis?page=${page}&pageSize=${pageSize}`

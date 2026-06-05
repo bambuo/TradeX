@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TradeX.Infrastructure.Data;
@@ -11,9 +12,11 @@ using TradeX.Infrastructure.Data;
 namespace TradeX.Infrastructure.Migrations
 {
     [DbContext(typeof(TradeXDbContext))]
-    partial class TradeXDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260605015745_AddExchangeOrderHistory")]
+    partial class AddExchangeOrderHistory
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -256,68 +259,6 @@ namespace TradeX.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Exchanges", (string)null);
-                });
-
-            modelBuilder.Entity("TradeX.Core.Models.ExchangeOrderHistory", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ExchangeId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ExchangeOrderId")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<decimal>("FilledQuantity")
-                        .HasColumnType("decimal(28,12)");
-
-                    b.Property<string>("Pair")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<DateTime>("PlacedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal>("Price")
-                        .HasColumnType("decimal(28,12)");
-
-                    b.Property<decimal>("Quantity")
-                        .HasColumnType("decimal(28,12)");
-
-                    b.Property<string>("Side")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<DateTime>("SyncedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ExchangeId", "ExchangeOrderId")
-                        .IsUnique()
-                        .HasDatabaseName("IX_ExchangeOrderHistories_ExchangeId_OrderId");
-
-                    b.HasIndex("ExchangeId", "PlacedAt")
-                        .IsDescending(false, true)
-                        .HasDatabaseName("IX_ExchangeOrderHistories_ExchangeId_PlacedAt");
-
-                    b.ToTable("ExchangeOrderHistories", (string)null);
                 });
 
             modelBuilder.Entity("TradeX.Core.Models.ExchangePairRuleSnapshot", b =>
@@ -995,49 +936,66 @@ namespace TradeX.Infrastructure.Migrations
                     b.ToTable("BacktestKlineAnalyses", (string)null);
                 });
 
-            modelBuilder.Entity("TradeX.Infrastructure.Data.Entities.KlineCacheEntity", b =>
+            modelBuilder.Entity("TradeX.Infrastructure.Data.Entities.ExchangeOrderHistory", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<decimal>("Close")
-                        .HasColumnType("numeric");
-
                     b.Property<Guid>("ExchangeId")
                         .HasColumnType("uuid");
 
-                    b.Property<decimal>("High")
-                        .HasColumnType("numeric");
+                    b.Property<string>("ExchangeOrderId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
-                    b.Property<decimal>("Low")
-                        .HasColumnType("numeric");
-
-                    b.Property<decimal>("Open")
-                        .HasColumnType("numeric");
+                    b.Property<decimal>("FilledQuantity")
+                        .HasColumnType("decimal(28,12)");
 
                     b.Property<string>("Pair")
                         .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
-                    b.Property<string>("Timeframe")
+                    b.Property<DateTime>("PlacedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("decimal(28,12)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(28,12)");
+
+                    b.Property<string>("Side")
                         .IsRequired()
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
 
-                    b.Property<DateTime>("Timestamp")
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("SyncedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<decimal>("Volume")
-                        .HasColumnType("numeric");
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ExchangeId", "Pair", "Timeframe", "Timestamp")
-                        .IsUnique();
+                    b.HasIndex("ExchangeId", "ExchangeOrderId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_ExchangeOrderHistories_ExchangeId_OrderId");
 
-                    b.ToTable("KlineCache", (string)null);
+                    b.HasIndex("ExchangeId", "PlacedAt")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("IX_ExchangeOrderHistories_ExchangeId_PlacedAt");
+
+                    b.ToTable("ExchangeOrderHistories", (string)null);
                 });
 #pragma warning restore 612, 618
         }

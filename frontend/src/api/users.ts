@@ -2,7 +2,7 @@ import client from './client'
 
 export interface User {
   id: string
-  userName: string
+  username: string
   role: string
   status: string
   createdAt: string
@@ -14,6 +14,12 @@ export const usersApi = {
   },
   create(data: { userName: string; password: string; role: string }) {
     return client.post<User>('/users', data)
+  },
+  update(id: string, data: { username: string; role: string }) {
+    return client.put<{ message: string }>(`/users/${id}`, data)
+  },
+  delete(id: string) {
+    return client.delete<{ message: string }>(`/users/${id}`)
   },
   updateRole(id: string, role: string) {
     return client.put<{ message: string }>(`/users/${id}/role`, { role })

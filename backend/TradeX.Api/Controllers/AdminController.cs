@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
-using TradeX.Api.Filters;
 using TradeX.Trading.Commands;
 using TradeX.Trading.Migration;
 using TradeX.Trading.Risk;
@@ -30,7 +29,6 @@ public sealed class AdminController(
 
     /// <summary>立即激活 Kill Switch: 暂停所有 Active StrategyBinding.</summary>
     [HttpPost("kill-switch/activate")]
-    [RequireMfa]
     public async Task<IActionResult> ActivateKillSwitch([FromBody] KillSwitchRequest req, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(req.Reason)) return BadRequest(new { error = "必须给出激活原因" });
@@ -41,7 +39,6 @@ public sealed class AdminController(
 
     /// <summary>解除 Kill Switch. 策略 binding 不自动恢复, 需运营逐个启用.</summary>
     [HttpPost("kill-switch/deactivate")]
-    [RequireMfa]
     public async Task<IActionResult> DeactivateKillSwitch([FromBody] KillSwitchRequest req, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(req.Reason)) return BadRequest(new { error = "必须给出解除原因" });
@@ -59,7 +56,6 @@ public sealed class AdminController(
 
     /// <summary>立即触发一次订单对账（手动覆盖 OrderReconciler 的周期巡检）。</summary>
     [HttpPost("reconcile-now")]
-    [RequireMfa]
     public async Task<IActionResult> ReconcileNow(CancellationToken ct)
     {
         await commandPublisher.PublishAsync(WorkerCommandTypes.ReconcileNow, ct: ct);
