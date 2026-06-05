@@ -7,7 +7,7 @@ import ConditionTreeEditor, { type ConditionNode } from '../components/Condition
 import ExecutionRuleEditor from '../components/ExecutionRuleEditor.vue'
 
 const cmpLabels: Record<string, string> = {
-  '>': '>', '<': '<', '>=': '≥', '<=': '≤', '==': '＝', CrossAbove: '上穿', CrossBelow: '下穿'
+  '>': '>', '<': '<', '>=': '≥', '<=': '≤', '==': '＝', CA: '↗', CB: '↘'
 }
 
 function humanizeCondition(json: string): string {
@@ -208,7 +208,7 @@ onMounted(load)
       </a-button>
     </header>
 
-    <a-modal v-model:visible="showForm" :title="editId ? '编辑策略模板' : '新建策略模板'" width="xl" :mask-closable="false">
+    <a-modal v-model:visible="showForm" :title="editId ? '编辑策略模板' : '新建策略模板'" width="1100px" :mask-closable="false">
       <div v-if="showPresets && !editId" class="presets-section">
         <p class="presets-hint">选择一个预设模板快速创建，或直接编辑下方条件</p>
         <div class="preset-cards">
@@ -428,7 +428,7 @@ onMounted(load)
 .section-label { display: block; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.375rem; font-weight: 600; }
 .presets-section { margin-bottom: 1rem; }
 .presets-hint { color: var(--text-muted); font-size: 0.85rem; margin: 0 0 0.75rem; }
-.preset-cards { display: flex; flex-direction: column; gap: 0.5rem; }
+.preset-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
 .preset-card {
   display: flex; flex-direction: column; gap: 0.25rem;
   padding: 0.75rem 1rem; border: 1px solid var(--glass-border); border-radius: 6px;

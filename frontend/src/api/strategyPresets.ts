@@ -51,14 +51,14 @@ export const strategyPresets: StrategyPreset[] = [
     entryCondition: JSON.stringify({
       operator: 'AND',
       conditions: [
-        { operator: '', indicator: 'MACD_LINE', comparison: 'CrossAbove', value: 0 },
+        { operator: '', indicator: 'MACD_LINE', comparison: 'CA', value: 0 },
         { operator: '', indicator: 'RSI', comparison: '>', value: 50 }
       ]
     }),
     exitCondition: JSON.stringify({
       operator: 'AND',
       conditions: [
-        { operator: '', indicator: 'MACD_LINE', comparison: 'CrossBelow', value: 0 },
+        { operator: '', indicator: 'MACD_LINE', comparison: 'CB', value: 0 },
         { operator: '', indicator: 'RSI', comparison: '<', value: 50 }
       ]
     }),

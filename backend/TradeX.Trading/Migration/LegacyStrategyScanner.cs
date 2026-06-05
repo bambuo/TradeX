@@ -6,9 +6,8 @@ using TradeX.Core.Models;
 namespace TradeX.Trading.Migration;
 
 /// <summary>
-/// 扫描历史策略, 标记使用了"短代号"穿越运算符 (CA/CB) 或被删除字段 (Ref) 的条件树.
-/// 这些值在 commit 9d57701 后仍可解析 (CA/CB 通过兼容别名生效, Ref 已恢复),
-/// 但建议运营在 UI 上将其改为新格式以避免长期歧义.
+/// 扫描历史策略, 标记使用了 "ref" 相对比较的条件树.
+/// Ref 在 commit 9d57701 后恢复, 但建议运营在 UI 上确认显式表达以避免歧义.
 /// </summary>
 public sealed class LegacyStrategyScanner(IStrategyRepository strategyRepo, ILogger<LegacyStrategyScanner> logger)
 {
@@ -49,16 +48,10 @@ public sealed class LegacyStrategyScanner(IStrategyRepository strategyRepo, ILog
     {
         if (node.ValueKind != JsonValueKind.Object) return;
 
-        if (node.TryGetProperty("Comparison", out var cmp) && cmp.ValueKind == JsonValueKind.String)
-        {
-            var v = cmp.GetString();
-            if (v == "CA" || v == "CB")
-                issues.Add($"{path}: 使用短代号 '{v}', 建议改为 'CrossAbove'/'CrossBelow'");
-        }
-        if (node.TryGetProperty("Ref", out var refProp) && refProp.ValueKind == JsonValueKind.String && !string.IsNullOrEmpty(refProp.GetString()))
-            issues.Add($"{path}: 使用 Ref='{refProp.GetString()}' 相对比较, 建议在 UI 上确认显式表达");
+        if (node.TryGetProperty("ref", out var refProp) && refProp.ValueKind == JsonValueKind.String && !string.IsNullOrEmpty(refProp.GetString()))
+            issues.Add($"{path}: 使用 ref='{refProp.GetString()}' 相对比较, 建议在 UI 上确认显式表达");
 
-        if (node.TryGetProperty("Conditions", out var children) && children.ValueKind == JsonValueKind.Array)
+        if (node.TryGetProperty("conditions", out var children) && children.ValueKind == JsonValueKind.Array)
         {
             var idx = 0;
             foreach (var child in children.EnumerateArray())

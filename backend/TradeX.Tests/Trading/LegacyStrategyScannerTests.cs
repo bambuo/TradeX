@@ -12,37 +12,20 @@ public class LegacyStrategyScannerTests
         new(repo, Substitute.For<ILogger<LegacyStrategyScanner>>());
 
     [Fact]
-    public async Task ScanAsync_StrategyWithCA_FlaggedAsLegacy()
-    {
-        var repo = Substitute.For<IStrategyRepository>();
-        repo.GetAllAsync(Arg.Any<CancellationToken>()).Returns([new Strategy
-        {
-            Id = Guid.NewGuid(), Name = "legacy-cross",
-            EntryCondition = """{"Operator":"","Indicator":"SMA_20","Comparison":"CA","Value":50000}""",
-            ExitCondition = "{}"
-        }]);
-
-        var report = await Build(repo).ScanAsync();
-
-        Assert.Single(report.LegacyStrategies);
-        Assert.Contains(report.LegacyStrategies[0].Issues, i => i.Contains("CA"));
-    }
-
-    [Fact]
     public async Task ScanAsync_StrategyWithRef_FlaggedAsLegacy()
     {
         var repo = Substitute.For<IStrategyRepository>();
         repo.GetAllAsync(Arg.Any<CancellationToken>()).Returns([new Strategy
         {
             Id = Guid.NewGuid(), Name = "rel-cmp",
-            EntryCondition = """{"Operator":"","Indicator":"SMA_50","Comparison":">","Value":1.02,"Ref":"SMA_20"}""",
+            EntryCondition = """{"operator":"","indicator":"SMA_50","comparison":">","value":1.02,"ref":"SMA_20"}""",
             ExitCondition = "{}"
         }]);
 
         var report = await Build(repo).ScanAsync();
 
         Assert.Single(report.LegacyStrategies);
-        Assert.Contains(report.LegacyStrategies[0].Issues, i => i.Contains("Ref"));
+        Assert.Contains(report.LegacyStrategies[0].Issues, i => i.Contains("ref"));
     }
 
     [Fact]
@@ -52,14 +35,14 @@ public class LegacyStrategyScannerTests
         repo.GetAllAsync(Arg.Any<CancellationToken>()).Returns([new Strategy
         {
             Id = Guid.NewGuid(), Name = "nested",
-            EntryCondition = """{"Operator":"AND","Conditions":[{"Operator":"","Indicator":"RSI","Comparison":"CB","Value":30}]}""",
+            EntryCondition = """{"operator":"AND","conditions":[{"operator":"","indicator":"SMA_50","comparison":">","value":1.02,"ref":"SMA_20"}]}""",
             ExitCondition = "{}"
         }]);
 
         var report = await Build(repo).ScanAsync();
 
         Assert.Single(report.LegacyStrategies);
-        Assert.Contains(report.LegacyStrategies[0].Issues, i => i.Contains("CB") && i.Contains("[0]"));
+        Assert.Contains(report.LegacyStrategies[0].Issues, i => i.Contains("ref") && i.Contains("[0]"));
     }
 
     [Fact]
@@ -69,7 +52,7 @@ public class LegacyStrategyScannerTests
         repo.GetAllAsync(Arg.Any<CancellationToken>()).Returns([new Strategy
         {
             Id = Guid.NewGuid(), Name = "clean",
-            EntryCondition = """{"Operator":"","Indicator":"RSI","Comparison":"CrossAbove","Value":30}""",
+            EntryCondition = """{"operator":"","indicator":"RSI","comparison":"CA","value":30}""",
             ExitCondition = "{}"
         }]);
 

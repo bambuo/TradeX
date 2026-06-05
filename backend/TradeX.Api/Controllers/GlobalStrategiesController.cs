@@ -26,7 +26,7 @@ public class StrategiesController(
     public IActionResult GetSchema() => Ok(new
     {
         indicators = indicatorRegistry.RegisteredNames.OrderBy(n => n).ToArray(),
-        comparisons = new[] { ">", "<", ">=", "<=", "==", "CrossAbove", "CrossBelow" },
+        comparisons = new[] { ">", "<", ">=", "<=", "==", "CA", "CB" },
         groupOperators = new[] { "AND", "OR", "NOT" }
     });
 

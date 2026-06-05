@@ -22,7 +22,7 @@ public sealed record ConditionTreeValidationResult(bool IsValid, IReadOnlyList<V
 public sealed class ConditionTreeValidator(IIndicatorRegistry registry)
 {
     private static readonly HashSet<string> ValidComparisons =
-        new(StringComparer.Ordinal) { ">", "<", ">=", "<=", "==", "CrossAbove", "CrossBelow", "CA", "CB" };
+        new(StringComparer.Ordinal) { ">", "<", ">=", "<=", "==", "CA", "CB" };
 
     private static readonly HashSet<string> ValidGroupOperators =
         new(StringComparer.Ordinal) { "AND", "OR", "NOT" };
@@ -50,7 +50,7 @@ public sealed class ConditionTreeValidator(IIndicatorRegistry registry)
             return;
         }
 
-        var op = node.TryGetProperty("Operator", out var opEl) && opEl.ValueKind == JsonValueKind.String
+        var op = node.TryGetProperty("operator", out var opEl) && opEl.ValueKind == JsonValueKind.String
             ? opEl.GetString() ?? string.Empty : string.Empty;
 
         if (ValidGroupOperators.Contains(op))
@@ -61,7 +61,7 @@ public sealed class ConditionTreeValidator(IIndicatorRegistry registry)
 
         if (op.Length > 0)
         {
-            issues.Add(new($"{path}.Operator", $"不支持的运算符 '{op}', 允许: {string.Join("/", ValidGroupOperators)} 或留空表示叶节点"));
+            issues.Add(new($"{path}.operator", $"不支持的运算符 '{op}', 允许: {string.Join("/", ValidGroupOperators)} 或留空表示叶节点"));
             return;
         }
 
@@ -70,53 +70,53 @@ public sealed class ConditionTreeValidator(IIndicatorRegistry registry)
 
     private void ValidateGroup(JsonElement node, string op, string path, List<ValidationIssue> issues)
     {
-        if (!node.TryGetProperty("Conditions", out var children) || children.ValueKind != JsonValueKind.Array)
+        if (!node.TryGetProperty("conditions", out var children) || children.ValueKind != JsonValueKind.Array)
         {
-            issues.Add(new($"{path}.Conditions", $"{op} 节点必须包含 Conditions 数组"));
+            issues.Add(new($"{path}.conditions", $"{op} 节点必须包含 conditions 数组"));
             return;
         }
 
         var count = children.GetArrayLength();
         if (op == "NOT" && count != 1)
-            issues.Add(new($"{path}.Conditions", $"NOT 必须恰好包含 1 个子节点, 实际 {count}"));
+            issues.Add(new($"{path}.conditions", $"NOT 必须恰好包含 1 个子节点, 实际 {count}"));
 
         var idx = 0;
         foreach (var child in children.EnumerateArray())
         {
-            ValidateNode(child, $"{path}.Conditions[{idx++}]", issues);
+            ValidateNode(child, $"{path}.conditions[{idx++}]", issues);
         }
     }
 
     private void ValidateLeaf(JsonElement node, string path, List<ValidationIssue> issues)
     {
-        if (!node.TryGetProperty("Indicator", out var indEl) || indEl.ValueKind != JsonValueKind.String || string.IsNullOrEmpty(indEl.GetString()))
-            issues.Add(new($"{path}.Indicator", "叶节点必须指定 Indicator"));
+        if (!node.TryGetProperty("indicator", out var indEl) || indEl.ValueKind != JsonValueKind.String || string.IsNullOrEmpty(indEl.GetString()))
+            issues.Add(new($"{path}.indicator", "叶节点必须指定 indicator"));
         else
         {
             var indName = indEl.GetString()!;
             if (!registry.RegisteredNames.Contains(indName))
-                issues.Add(new($"{path}.Indicator", $"指标 '{indName}' 未注册"));
+                issues.Add(new($"{path}.indicator", $"指标 '{indName}' 未注册"));
         }
 
-        if (!node.TryGetProperty("Comparison", out var cmpEl) || cmpEl.ValueKind != JsonValueKind.String)
-            issues.Add(new($"{path}.Comparison", "叶节点必须指定 Comparison"));
+        if (!node.TryGetProperty("comparison", out var cmpEl) || cmpEl.ValueKind != JsonValueKind.String)
+            issues.Add(new($"{path}.comparison", "叶节点必须指定 comparison"));
         else
         {
             var cmp = cmpEl.GetString() ?? string.Empty;
             if (!ValidComparisons.Contains(cmp))
-                issues.Add(new($"{path}.Comparison", $"不支持的比较运算符 '{cmp}', 允许: {string.Join("/", ValidComparisons)}"));
+                issues.Add(new($"{path}.comparison", $"不支持的比较运算符 '{cmp}', 允许: {string.Join("/", ValidComparisons)}"));
         }
 
-        if (!node.TryGetProperty("Value", out var valEl) || (valEl.ValueKind != JsonValueKind.Number && valEl.ValueKind != JsonValueKind.Null))
-            issues.Add(new($"{path}.Value", "叶节点必须指定 Value (数字)"));
+        if (!node.TryGetProperty("value", out var valEl) || (valEl.ValueKind != JsonValueKind.Number && valEl.ValueKind != JsonValueKind.Null))
+            issues.Add(new($"{path}.value", "叶节点必须指定 value (数字)"));
         else if (valEl.ValueKind == JsonValueKind.Null)
-            issues.Add(new($"{path}.Value", "Value 不能为 null"));
+            issues.Add(new($"{path}.value", "value 不能为 null"));
 
-        if (node.TryGetProperty("Ref", out var refEl) && refEl.ValueKind == JsonValueKind.String)
+        if (node.TryGetProperty("ref", out var refEl) && refEl.ValueKind == JsonValueKind.String)
         {
             var refName = refEl.GetString();
             if (!string.IsNullOrEmpty(refName) && !registry.RegisteredNames.Contains(refName))
-                issues.Add(new($"{path}.Ref", $"相对比较引用的指标 '{refName}' 未注册"));
+                issues.Add(new($"{path}.ref", $"相对比较引用的指标 '{refName}' 未注册"));
         }
     }
 }

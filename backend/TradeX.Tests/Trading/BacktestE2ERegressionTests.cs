@@ -9,7 +9,7 @@ namespace TradeX.Tests.Trading;
 
 /// <summary>
 /// 锁定 commit 9d57701 review 修复的端到端语义. 任何回归这些行为的改动应直接触发本套件失败.
-/// 覆盖 8 个语义点: 空 JSON / CA-CB 兼容 / CrossAbove-CrossBelow / Ref 相对比较 /
+/// 覆盖 7 个语义点: 空 JSON / CA CB 穿越 / Ref 相对比较 /
 /// 损坏 JSON 兜底 / AND 空数组 / pnL JSON 字段名 / CancellationToken 中断.
 /// </summary>
 public class BacktestE2ERegressionTests
@@ -60,8 +60,8 @@ public class BacktestE2ERegressionTests
         // 历史策略保存的 Comparison='CA' / 'CB' 必须继续生效, 不能静默零交易
         var strategy = new Strategy
         {
-            EntryCondition = """{"Operator":"","Indicator":"SMA_20","Comparison":"CA","Value":50000}""",
-            ExitCondition = """{"Operator":"","Indicator":"SMA_20","Comparison":"CB","Value":50000}"""
+            EntryCondition = """{"operator":"","indicator":"SMA_20","comparison":"CA","value":50000}""",
+            ExitCondition = """{"operator":"","indicator":"SMA_20","comparison":"CB","value":50000}"""
         };
 
         var (_, trades, _) = _engine.Run(strategy, "BTCUSDT", BuildSineCandles(400, 50000));
@@ -70,44 +70,17 @@ public class BacktestE2ERegressionTests
     }
 
     [Fact]
-    public void NewCrossoverCodes_CrossAbove_CrossBelow_Evaluate()
+    public void CrossoverCodes_CA_CB_Evaluate()
     {
         var strategy = new Strategy
         {
-            EntryCondition = """{"Operator":"","Indicator":"SMA_20","Comparison":"CrossAbove","Value":50000}""",
-            ExitCondition = """{"Operator":"","Indicator":"SMA_20","Comparison":"CrossBelow","Value":50000}"""
+            EntryCondition = """{"operator":"","indicator":"SMA_20","comparison":"CA","value":50000}""",
+            ExitCondition = """{"operator":"","indicator":"SMA_20","comparison":"CB","value":50000}"""
         };
 
         var (_, trades, _) = _engine.Run(strategy, "BTCUSDT", BuildSineCandles(400, 50000));
 
         Assert.NotEmpty(trades);
-    }
-
-    [Fact]
-    public void LegacyAndNewCrossoverCodes_YieldEquivalentTrades()
-    {
-        // CA/CB 与 CrossAbove/CrossBelow 必须语义完全等价
-        var legacy = new Strategy
-        {
-            EntryCondition = """{"Operator":"","Indicator":"SMA_20","Comparison":"CA","Value":50000}""",
-            ExitCondition = """{"Operator":"","Indicator":"SMA_20","Comparison":"CB","Value":50000}"""
-        };
-        var modern = new Strategy
-        {
-            EntryCondition = """{"Operator":"","Indicator":"SMA_20","Comparison":"CrossAbove","Value":50000}""",
-            ExitCondition = """{"Operator":"","Indicator":"SMA_20","Comparison":"CrossBelow","Value":50000}"""
-        };
-
-        var candles = BuildSineCandles(400, 50000);
-        var (_, legacyTrades, _) = _engine.Run(legacy, "BTCUSDT", candles);
-        var (_, modernTrades, _) = _engine.Run(modern, "BTCUSDT", candles);
-
-        Assert.Equal(legacyTrades.Count, modernTrades.Count);
-        for (var i = 0; i < legacyTrades.Count; i++)
-        {
-            Assert.Equal(legacyTrades[i].EnteredAt, modernTrades[i].EnteredAt);
-            Assert.Equal(legacyTrades[i].ExitedAt, modernTrades[i].ExitedAt);
-        }
     }
 
     [Fact]
@@ -117,13 +90,13 @@ public class BacktestE2ERegressionTests
         // 同等价格写死 50000 (literal) 会几乎恒为真; 用 Ref 后阈值会随均线浮动, 行为应有显著差异.
         var refStrategy = new Strategy
         {
-            EntryCondition = """{"Operator":"","Indicator":"SMA_50","Comparison":">","Value":1.005,"Ref":"SMA_20"}""",
-            ExitCondition = """{"Operator":"","Indicator":"SMA_50","Comparison":"<","Value":0.995,"Ref":"SMA_20"}"""
+            EntryCondition = """{"operator":"","indicator":"SMA_50","comparison":">","value":1.005,"ref":"SMA_20"}""",
+            ExitCondition = """{"operator":"","indicator":"SMA_50","comparison":"<","value":0.995,"ref":"SMA_20"}"""
         };
         var literalStrategy = new Strategy
         {
-            EntryCondition = """{"Operator":"","Indicator":"SMA_50","Comparison":">","Value":1.005}""",
-            ExitCondition = """{"Operator":"","Indicator":"SMA_50","Comparison":"<","Value":0.995}"""
+            EntryCondition = """{"operator":"","indicator":"SMA_50","comparison":">","value":1.005}""",
+            ExitCondition = """{"operator":"","indicator":"SMA_50","comparison":"<","value":0.995}"""
         };
 
         var candles = BuildSineCandles(400, 50000);
@@ -155,8 +128,8 @@ public class BacktestE2ERegressionTests
         // 前端依赖 details[i].pnL / pnLPercent 字段, 不可改名
         var strategy = new Strategy
         {
-            EntryCondition = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":0}""",
-            ExitCondition = """{"Operator":"","Indicator":"RSI","Comparison":"<","Value":100}"""
+            EntryCondition = """{"operator":"","indicator":"RSI","comparison":">","value":0}""",
+            ExitCondition = """{"operator":"","indicator":"RSI","comparison":"<","value":100}"""
         };
         var (result, trades, _) = _engine.Run(strategy, "BTCUSDT", BuildSineCandles(300, 50000));
 
@@ -175,8 +148,8 @@ public class BacktestE2ERegressionTests
     {
         var strategy = new Strategy
         {
-            EntryCondition = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":0}""",
-            ExitCondition = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":100}"""
+            EntryCondition = """{"operator":"","indicator":"RSI","comparison":">","value":0}""",
+            ExitCondition = """{"operator":"","indicator":"RSI","comparison":">","value":100}"""
         };
 
         var candles = BuildSineCandles(500, 50000);
@@ -192,8 +165,8 @@ public class BacktestE2ERegressionTests
     {
         var strategy = new Strategy
         {
-            EntryCondition = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":0}""",
-            ExitCondition = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":100}"""
+            EntryCondition = """{"operator":"","indicator":"RSI","comparison":">","value":0}""",
+            ExitCondition = """{"operator":"","indicator":"RSI","comparison":">","value":100}"""
         };
 
         // 引擎只在每根 K 线开头检查 ct, 用 Action onAnalysis 注入计数器, 第 5 根之后触发取消

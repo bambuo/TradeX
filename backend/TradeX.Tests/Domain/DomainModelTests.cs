@@ -289,7 +289,7 @@ public sealed class DomainModelTests
     [Fact]
     public void ConditionTree_SimpleComparison_ShouldEvaluate()
     {
-        var tree = ConditionTree.FromJson("""{"Indicator":"RSI","Comparison":">","Value":70}""");
+        var tree = ConditionTree.FromJson("""{"indicator":"RSI","comparison":">","value":70}""");
         Assert.True(tree.HasConditions);
         Assert.True(tree.Evaluate(new() { ["RSI"] = 75 }, []));
         Assert.False(tree.Evaluate(new() { ["RSI"] = 65 }, []));
@@ -299,7 +299,7 @@ public sealed class DomainModelTests
     public void ConditionTree_CrossAbove_ShouldDetectCrossover()
     {
         // Ref 语义：compareValue = refVal * Value（乘数），此处 Value=1 表示取同值
-        var tree = ConditionTree.FromJson("""{"Indicator":"EMA","Comparison":"CA","Value":1,"Ref":"50"}""");
+        var tree = ConditionTree.FromJson("""{"indicator":"EMA","comparison":"CA","value":1,"ref":"50"}""");
         // 前值 <= 基准 && 当前 > 基准
         Assert.True(tree.Evaluate(
             new() { ["EMA"] = 65, ["50"] = 60 },

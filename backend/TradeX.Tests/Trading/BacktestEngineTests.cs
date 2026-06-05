@@ -22,7 +22,7 @@ public class BacktestEngineTests
     {
         var strategy = new Strategy
         {
-            EntryCondition = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":100}""",
+            EntryCondition = """{"operator":"","indicator":"RSI","comparison":">","value":100}""",
             ExitCondition = "{}"
         };
 
@@ -38,8 +38,8 @@ public class BacktestEngineTests
     {
         var strategy = new Strategy
         {
-            EntryCondition = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":0}""",
-            ExitCondition = """{"Operator":"","Indicator":"RSI","Comparison":"<","Value":100}"""
+            EntryCondition = """{"operator":"","indicator":"RSI","comparison":">","value":0}""",
+            ExitCondition = """{"operator":"","indicator":"RSI","comparison":"<","value":100}"""
         };
 
         var candles = GenerateCandles(200, 50000);
@@ -54,7 +54,7 @@ public class BacktestEngineTests
     {
         var strategy = new Strategy
         {
-            EntryCondition = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":30}""",
+            EntryCondition = """{"operator":"","indicator":"RSI","comparison":">","value":30}""",
             ExitCondition = "{}"
         };
 
@@ -70,8 +70,8 @@ public class BacktestEngineTests
     {
         var strategy = new Strategy
         {
-            EntryCondition = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":0}""",
-            ExitCondition = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":100}"""
+            EntryCondition = """{"operator":"","indicator":"RSI","comparison":">","value":0}""",
+            ExitCondition = """{"operator":"","indicator":"RSI","comparison":">","value":100}"""
         };
 
         var candles = GenerateCandles(200, 50000);
@@ -87,8 +87,8 @@ public class BacktestEngineTests
     {
         var strategy = new Strategy
         {
-            EntryCondition = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":30}""",
-            ExitCondition = """{"Operator":"","Indicator":"RSI","Comparison":"<","Value":70}"""
+            EntryCondition = """{"operator":"","indicator":"RSI","comparison":">","value":30}""",
+            ExitCondition = """{"operator":"","indicator":"RSI","comparison":"<","value":70}"""
         };
 
         var candles = GenerateCandles(300, 50000);
@@ -105,8 +105,8 @@ public class BacktestEngineTests
     {
         var strategy = new Strategy
         {
-            EntryCondition = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":0}""",
-            ExitCondition = """{"Operator":"","Indicator":"RSI","Comparison":"<","Value":100}"""
+            EntryCondition = """{"operator":"","indicator":"RSI","comparison":">","value":0}""",
+            ExitCondition = """{"operator":"","indicator":"RSI","comparison":"<","value":100}"""
         };
 
         var candles = GenerateCandles(300, 50000);
@@ -129,8 +129,8 @@ public class BacktestEngineTests
         // 手续费应从权益中真实扣减：相同行情/策略下，含费回测期末权益严格低于无费
         var strategy = new Strategy
         {
-            EntryCondition = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":0}""",
-            ExitCondition = """{"Operator":"","Indicator":"RSI","Comparison":"<","Value":100}"""
+            EntryCondition = """{"operator":"","indicator":"RSI","comparison":">","value":0}""",
+            ExitCondition = """{"operator":"","indicator":"RSI","comparison":"<","value":100}"""
         };
 
         var candles = GenerateCandles(200, 50000);

@@ -211,8 +211,8 @@ public class StrategyEvaluationConsumerTests
     {
         Id = StrategyId,
         Name = "Test Strategy",
-        EntryCondition = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":30}""",
-        ExitCondition = """{"Operator":"","Indicator":"RSI","Comparison":"<","Value":70}""",
+        EntryCondition = """{"operator":"","indicator":"RSI","comparison":">","value":30}""",
+        ExitCondition = """{"operator":"","indicator":"RSI","comparison":"<","value":70}""",
         ExecutionRule = "{}"
     };
 

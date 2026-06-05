@@ -75,7 +75,7 @@ public class BacktestServiceTests
             {
                 Id = strategyId,
                 Name = "测试策略",
-                EntryCondition = """{"Operator":"","Indicator":"RSI","Comparison":">","Value":30}""",
+                EntryCondition = """{"operator":"","indicator":"RSI","comparison":">","value":30}""",
                 CreatedBy = Guid.NewGuid()
             });
 

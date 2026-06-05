@@ -22,7 +22,7 @@ const emit = defineEmits<{
 const isLeaf = computed(() => !props.node.conditions || props.node.conditions.length === 0)
 const operators = ['AND', 'OR', 'NOT']
 const indicators = ['RSI', 'SMA_20', 'SMA_50', 'EMA_20', 'MACD_LINE', 'MACD_SIGNAL', 'BB_UPPER', 'BB_LOWER', 'OBV', 'VOLUME_SMA', 'RANGE_PCT']
-const comparisons = ['>', '<', '>=', '<=', '==', 'CrossAbove', 'CrossBelow']
+const comparisons = ['>', '<', '>=', '<=', '==', 'CA', 'CB']
 
 function removeFromParent() {
   emit('update', null)
@@ -102,7 +102,7 @@ function updateField(field: string, value: unknown) {
           style="width: 110px"
           @change="(v) => updateField('comparison', v)"
         >
-          <a-option v-for="cmp in comparisons" :key="cmp" :value="cmp" :label="cmp" />
+          <a-option v-for="cmp in comparisons" :key="cmp" :value="cmp" :label="cmp === 'CA' ? '↗' : cmp === 'CB' ? '↘' : cmp" />
         </a-select>
         <a-input-number :model-value="node.value" class="field-input" placeholder="值" @change="(v) => updateField('value', Number(v) || 0)" />
         <a-button size="mini" type="text" @click="removeFromParent">

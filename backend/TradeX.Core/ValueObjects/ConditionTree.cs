@@ -91,8 +91,8 @@ public sealed class ConditionTree
             ">=" => actual >= compareValue,
             "<=" => actual <= compareValue,
             "==" => Math.Abs(actual - compareValue) < 0.0001m,
-            "CrossAbove" or "CA" => prevHasValue && prev <= prevCompareValue && actual > compareValue,
-            "CrossBelow" or "CB" => prevHasValue && prev >= prevCompareValue && actual < compareValue,
+            "CA" => prevHasValue && prev <= prevCompareValue && actual > compareValue,
+            "CB" => prevHasValue && prev >= prevCompareValue && actual < compareValue,
             _ => false
         };
     }

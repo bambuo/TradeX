@@ -26,8 +26,8 @@ public class BacktestParityTests
 
         var strategy = new Strategy
         {
-            EntryCondition = """{"Operator":"","Indicator":"SMA_20","Comparison":"CrossAbove","Value":50000}""",
-            ExitCondition = """{"Operator":"","Indicator":"SMA_20","Comparison":"CrossBelow","Value":50000}"""
+            EntryCondition = """{"operator":"","indicator":"SMA_20","comparison":"CA","value":50000}""",
+            ExitCondition = """{"operator":"","indicator":"SMA_20","comparison":"CB","value":50000}"""
         };
 
         var candles = BuildCandles(400);
@@ -55,8 +55,8 @@ public class BacktestParityTests
 
         var strategy = new Strategy
         {
-            EntryCondition = """{"Operator":"","Indicator":"SMA_50","Comparison":">","Value":1.005,"Ref":"SMA_20"}""",
-            ExitCondition  = """{"Operator":"","Indicator":"SMA_50","Comparison":"<","Value":0.995,"Ref":"SMA_20"}"""
+            EntryCondition = """{"operator":"","indicator":"SMA_50","comparison":">","value":1.005,"ref":"SMA_20"}""",
+            ExitCondition  = """{"operator":"","indicator":"SMA_50","comparison":"<","value":0.995,"ref":"SMA_20"}"""
         };
         var candles = BuildCandles(300);
 

@@ -46,9 +46,8 @@ public class ConditionTreeEvaluator : IConditionTreeEvaluator
             ">=" => actual >= compareValue,
             "<=" => actual <= compareValue,
             "==" => Math.Abs(actual - compareValue) < 0.0001m,
-            // 长名优先，短名 CA/CB 为历史策略兼容
-            "CrossAbove" or "CA" => prevHasValue && prev <= prevCompareValue && actual > compareValue,
-            "CrossBelow" or "CB" => prevHasValue && prev >= prevCompareValue && actual < compareValue,
+            "CA" => prevHasValue && prev <= prevCompareValue && actual > compareValue,
+            "CB" => prevHasValue && prev >= prevCompareValue && actual < compareValue,
             _ => false
         };
     }
