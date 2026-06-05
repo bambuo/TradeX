@@ -6,6 +6,7 @@ const props = withDefaults(defineProps<{
   modelValue: string
   disabled?: boolean
 }>(), {
+  modelValue: '',
   disabled: false
 })
 
@@ -16,6 +17,11 @@ const emit = defineEmits<{
 const options = computed(() =>
   exchangeInfos.map(info => ({ label: info.label, value: info.type }))
 )
+
+function safeExchangeInfo(type: string) {
+  if (!type) return exchangeInfos[0]
+  return getExchangeInfo(type)
+}
 
 function onSelect(value: string | number | boolean | Record<string, unknown> | (string | number | boolean | Record<string, unknown>)[]) {
   emit('update:modelValue', String(value))
@@ -30,8 +36,8 @@ function onSelect(value: string | number | boolean | Record<string, unknown> | (
     @change="onSelect"
   >
     <template #label="{ data }">
-      <span class="exchange-icon"><img :src="getExchangeInfo(String(data?.value ?? modelValue)).icon" alt="" /></span>
-      <span class="exchange-label">{{ data?.label ?? getExchangeInfo(modelValue).label }}</span>
+      <span class="exchange-icon"><img :src="safeExchangeInfo(String(data?.value ?? modelValue)).icon" alt="" /></span>
+      <span class="exchange-label">{{ data?.label ?? safeExchangeInfo(modelValue).label }}</span>
     </template>
     <a-option
       v-for="opt in options"

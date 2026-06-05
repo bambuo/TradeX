@@ -86,7 +86,7 @@ async function fetchAssets(exchangeId?: string) {
     }
     return
   }
-  const enabled = accounts.value.filter(a => a.isEnabled)
+  const enabled = accounts.value.filter(a => a.status === 'Enabled')
   if (!enabled.length) return
   assetLoading.value = true
   try {
@@ -116,12 +116,12 @@ function openCreate() {
 
 function openEdit(account: Exchange) {
   editId.value = account.id
-  formLabel.value = account.label
-  formExchangeType.value = account.exchangeType
+  formLabel.value = account.name
+  formExchangeType.value = account.type
   formApiKey.value = ''
   formSecretKey.value = ''
   formPassphrase.value = ''
-  formIsTestnet.value = account.isTestnet
+  formIsTestnet.value = false
   showForm.value = true
 }
 
@@ -286,36 +286,36 @@ onMounted(loadAll)
         v-for="a in accounts"
         :key="a.id"
         class="exchange-card"
-        :style="{ borderTopColor: getExchangeInfo(a.exchangeType).color }"
+        :style="{ borderTopColor: getExchangeInfo(a.type).color }"
       >
         <div class="card-header">
           <div class="card-logo">
-            <img :src="getExchangeInfo(a.exchangeType).icon" :alt="getExchangeInfo(a.exchangeType).label" />
+            <img :src="getExchangeInfo(a.type).icon" :alt="getExchangeInfo(a.type).label" />
           </div>
           <div class="card-title-area">
-            <h3>{{ a.label }}</h3>
+            <h3>{{ a.name }}</h3>
             <span
               class="exchange-badge"
               :style="{
-                background: getExchangeInfo(a.exchangeType).bgColor,
-                color: getExchangeInfo(a.exchangeType).color
+                background: getExchangeInfo(a.type).bgColor,
+                color: getExchangeInfo(a.type).color
               }"
             >
-              {{ getExchangeInfo(a.exchangeType).label }}
+              {{ getExchangeInfo(a.type).label }}
             </span>
           </div>
           <div class="card-header-actions">
             <a-button size="mini" type="text" title="编辑" @click="openEdit(a)">
               <template #icon><icon-edit /></template>
             </a-button>
-            <a-switch :model-value="a.isEnabled" @change="() => toggleStatus(a.id, !a.isEnabled)" />
+            <a-switch :model-value="a.status === 'Enabled'" @change="() => toggleStatus(a.id, a.status !== 'Enabled')" />
           </div>
         </div>
 
         <div class="card-body">
           <div class="info-row">
             <span class="info-label">状态</span>
-            <a-tag :color="a.isEnabled ? 'green' : ''">{{ a.isEnabled ? '启用' : '禁用' }}</a-tag>
+            <a-tag :color="a.status === 'Enabled' ? 'green' : ''">{{ a.status === 'Enabled' ? '启用' : '禁用' }}</a-tag>
           </div>
           <div class="info-row">
             <span class="info-label">模式</span>
@@ -340,7 +340,7 @@ onMounted(loadAll)
           </div>
           <div class="info-row">
             <span class="info-label">资产</span>
-            <template v-if="a.isEnabled">
+            <template v-if="a.status === 'Enabled'">
               <span v-if="assets[a.id]" class="assets-summary" @click="expandedAssets[a.id] = !expandedAssets[a.id]">
                 {{ assets[a.id].length }} 个币种
                 <span class="expand-arrow" :class="{ expanded: expandedAssets[a.id] }">▶</span>
@@ -363,11 +363,11 @@ onMounted(loadAll)
             <template #icon><icon-check-circle /></template>
             测试
           </a-button>
-          <a-button size="small" @click="loadOrders(a.id, a.label, 'open')">
+          <a-button size="small" @click="loadOrders(a.id, a.name, 'open')">
             <template #icon><icon-list /></template>
             挂单
           </a-button>
-          <a-button size="small" @click="loadOrders(a.id, a.label, 'history')">
+          <a-button size="small" @click="loadOrders(a.id, a.name, 'history')">
             <template #icon><icon-history /></template>
             历史
           </a-button>

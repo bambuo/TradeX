@@ -28,7 +28,7 @@ public sealed class AdminController(
         activatedAtUtc = killSwitch.LastActivatedAtUtc
     });
 
-    /// <summary>立即激活 Kill Switch: 暂停所有 Active StrategyBinding + Outbox 告警.</summary>
+    /// <summary>立即激活 Kill Switch: 暂停所有 Active StrategyBinding.</summary>
     [HttpPost("kill-switch/activate")]
     [RequireMfa]
     public async Task<IActionResult> ActivateKillSwitch([FromBody] KillSwitchRequest req, CancellationToken ct)

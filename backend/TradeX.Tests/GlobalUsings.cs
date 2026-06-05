@@ -3,8 +3,6 @@ global using TradeX.Trading.Backtest;
 global using TradeX.Trading.Engine;
 global using TradeX.Trading.Events;
 global using TradeX.Trading.Execution;
-global using TradeX.Trading.Messaging;
-global using TradeX.Trading.Outbox;
 global using TradeX.Trading.Risk;
 global using TradeX.Trading.Streaming;
 global using TradeX.Trading.Streams;

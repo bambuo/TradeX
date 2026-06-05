@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { Message } from '@arco-design/web-vue'
 import { strategiesApi, type Strategy } from '../api/strategies'
 import { strategyPresets } from '../api/strategyPresets'
 import ConditionTreeEditor, { type ConditionNode } from '../components/ConditionTreeEditor.vue'
@@ -50,9 +51,38 @@ const entryNode = ref<ConditionNode>({ operator: 'AND', conditions: [] })
 const exitNode = ref<ConditionNode>({ operator: 'AND', conditions: [] })
 const formExecutionRule = ref('{"type":"custom"}')
 
+function toPascalCaseNode(node: ConditionNode): Record<string, unknown> {
+  const result: Record<string, unknown> = {}
+  if (node.operator !== undefined) result['Operator'] = node.operator
+  if (node.conditions !== undefined) {
+    result['Conditions'] = node.conditions.map(toPascalCaseNode)
+  }
+  if (node.indicator !== undefined) result['Indicator'] = node.indicator
+  if (node.parameters !== undefined) result['Parameters'] = node.parameters
+  if (node.comparison !== undefined) result['Comparison'] = node.comparison
+  if (node.value !== undefined) result['Value'] = node.value
+  return result
+}
+
+function toCamelCaseNode(obj: Record<string, unknown>): ConditionNode {
+  const node: ConditionNode = {}
+  if (obj['Operator'] !== undefined) node.operator = obj['Operator'] as string
+  if (obj['Conditions'] !== undefined) {
+    node.conditions = (obj['Conditions'] as Record<string, unknown>[]).map(toCamelCaseNode)
+  }
+  if (obj['Indicator'] !== undefined) node.indicator = obj['Indicator'] as string
+  if (obj['Parameters'] !== undefined) node.parameters = obj['Parameters'] as Record<string, number>
+  if (obj['Comparison'] !== undefined) node.comparison = obj['Comparison'] as string
+  if (obj['Value'] !== undefined) node.value = obj['Value'] as number
+  return node
+}
+
 function conditionToNode(json: string): ConditionNode {
   try {
     const parsed = JSON.parse(json)
+    if (parsed.Indicator || parsed.Operator) {
+      return toCamelCaseNode(parsed)
+    }
     if (!parsed.operator && !parsed.conditions && !parsed.indicator) {
       return { operator: 'AND', conditions: [] }
     }
@@ -68,14 +98,14 @@ function conditionToNode(json: string): ConditionNode {
 function nodeToCondition(node: ConditionNode): string {
   if (!node.conditions || node.conditions.length === 0) {
     if (node.indicator) {
-      return JSON.stringify(node)
+      return JSON.stringify(toPascalCaseNode(node))
     }
     return '{}'
   }
   if (node.conditions.length === 1 && !node.conditions[0].indicator && !node.conditions[0].conditions) {
-    return JSON.stringify(node.conditions[0])
+    return JSON.stringify(toPascalCaseNode(node.conditions[0]))
   }
-  return JSON.stringify(node)
+  return JSON.stringify(toPascalCaseNode(node))
 }
 
 async function load() {
@@ -123,31 +153,46 @@ function applyPreset(preset: typeof strategyPresets[0]) {
 }
 
 async function save() {
+  if (!formName.value.trim()) {
+    Message.error('请输入策略名称')
+    return
+  }
+
   const entryJson = nodeToCondition(entryNode.value)
   const exitJson = nodeToCondition(exitNode.value)
 
-  if (editId.value) {
-    await strategiesApi.updatePure(editId.value, {
-      name: formName.value,
-      entryCondition: entryJson,
-      exitCondition: exitJson,
-      executionRule: formExecutionRule.value
-    })
-  } else {
-    await strategiesApi.createPure({
-      name: formName.value,
-      entryCondition: entryJson,
-      exitCondition: exitJson,
-      executionRule: formExecutionRule.value
-    })
+  try {
+    if (editId.value) {
+      await strategiesApi.updatePure(editId.value, {
+        name: formName.value,
+        entryCondition: entryJson,
+        exitCondition: exitJson,
+        executionRule: formExecutionRule.value
+      })
+    } else {
+      await strategiesApi.createPure({
+        name: formName.value,
+        entryCondition: entryJson,
+        exitCondition: exitJson,
+        executionRule: formExecutionRule.value
+      })
+    }
+    showForm.value = false
+    await load()
+  } catch (e: any) {
+    const msg = e?.response?.data?.error || e?.message || '保存失败'
+    Message.error(msg)
   }
-  showForm.value = false
-  await load()
 }
 
 async function remove(id: string) {
-  await strategiesApi.deletePure(id)
-  await load()
+  try {
+    await strategiesApi.deletePure(id)
+    await load()
+  } catch (e: any) {
+    const msg = e?.response?.data?.error || e?.message || '删除失败'
+    Message.error(msg)
+  }
 }
 
 onMounted(load)

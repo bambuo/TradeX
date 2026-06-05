@@ -3,6 +3,8 @@ using Microsoft.Extensions.Options;
 using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
+using TradeX.Trading.EventBus;
+using TradeX.Trading.Events;
 using TradeX.Trading.Risk;
 
 namespace TradeX.Trading.Execution;
@@ -29,7 +31,7 @@ public class OrderReconciler(
     IOrderRepository orderRepo,
     IExchangeClientFactory clientFactory,
     IEncryptionService encryption,
-    IOutboxRepository outbox,
+    IDomainEventBus eventBus,
     IFillProjector fillProjector,
     IOptions<RiskSettings> riskSettings,
     ILogger<OrderReconciler> logger) : IOrderReconciler
@@ -187,22 +189,10 @@ public class OrderReconciler(
                 if (local is not null) continue;
 
                 totalOrphans++;
-                // 包装为标准 TradingEventEnvelope，使 RedisToSignalRBridge 能解析并路由到管理员组。
-                // 孤儿订单无 trader 归属，TraderId 用 Guid.Empty。
-                var data = new TradeX.Trading.Events.OrphanOrderDetectedPayload(
+                var payload = new OrphanOrderDetectedPayload(
                     exchange.Id, exchange.Type.ToString(), remote.Pair, remote.ExchangeOrderId,
                     remote.Side, remote.Type, remote.Price, remote.Quantity, DateTime.UtcNow);
-                var envelope = new TradeX.Trading.Events.TradingEventEnvelope(
-                    TradeX.Trading.Events.TradingEventTypes.OrphanOrderDetected,
-                    Guid.NewGuid(), Guid.Empty,
-                    System.Text.Json.JsonSerializer.Serialize(data));
-                await outbox.EnqueueAsync(new OutboxEvent
-                {
-                    Type = TradeX.Trading.Events.TradingEventTypes.OrphanOrderDetected,
-                    PayloadJson = System.Text.Json.JsonSerializer.Serialize(envelope),
-                    TraderId = null
-                }, ct);
-                await outbox.SaveChangesAsync(ct);
+                await eventBus.PublishAsync(payload, ct);
                 logger.LogWarning("孤儿订单检测: ExchangeId={ExchangeId}, Pair={Pair}, ExchangeOrderId={Eid}",
                     exchange.Id, remote.Pair, remote.ExchangeOrderId);
             }

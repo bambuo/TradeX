@@ -13,9 +13,7 @@ public class ExchangeRepository(TradeXDbContext db) : IExchangeRepository
         await db.Exchanges.Where(x => x.Status == ExchangeStatus.Enabled).ToListAsync(ct);
 
     public async Task<List<Exchange>> GetAllByUserIdAsync(Guid userId, CancellationToken ct = default) =>
-        await db.Exchanges
-            .Where(exchange => exchange.TraderId == null || db.Traders.Any(t => t.Id == exchange.TraderId && t.UserId == userId))
-            .ToListAsync(ct);
+        await db.Exchanges.ToListAsync(ct);
 
     public async Task<bool> IsNameUniqueAsync(string name, CancellationToken ct = default) =>
         !await db.Exchanges.AnyAsync(x => x.Name == name, ct);

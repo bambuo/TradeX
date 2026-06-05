@@ -17,7 +17,7 @@ using TradeX.Infrastructure;
 using TradeX.Infrastructure.Data;
 using TradeX.Notifications;
 using TradeX.Trading;
-using TradeX.Trading.Messaging;
+using TradeX.Trading.EventBus;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -61,7 +61,6 @@ try
     builder.Services.AddSingleton<JwtService>();
     builder.Services.AddSingleton<TradeX.Application.Common.IAuthTokenService>(sp => sp.GetRequiredService<JwtService>());
     builder.Services.AddSingleton<MfaService>();
-    builder.Services.AddSingleton<ITradingEventBus, SignalREventBus>();
 
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
     builder.Services.AddInfrastructure(connectionString);
@@ -75,7 +74,7 @@ try
     builder.Services.AddTradingShared();
     builder.Services.AddNotifications();
 
-    // Redis: 已配置时注册多路复用器 + SignalR backplane + Worker → SignalR 事件桥接
+    // Redis: 已配置时注册多路复用器 + SignalR backplane + 领域事件消费者
     // 未配置时只使用本地 SignalR（适合单机开发，Worker 端事件丢失）
     var redisConn = builder.Configuration["Redis:ConnectionString"];
     var redisEnabled = !string.IsNullOrWhiteSpace(redisConn);
@@ -86,15 +85,18 @@ try
         builder.Services.AddSignalR()
             .AddStackExchangeRedis(redisConn!, options =>
                 options.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("tradex.signalr"));
-        builder.Services.AddHostedService<TradeX.Api.Services.RedisToSignalRBridge>();
+        builder.Services.AddDomainEventConsumer();
     }
     else
     {
         builder.Services.AddSignalR();
     }
+    builder.Services.AddDomainEventBus(redisAvailable: redisEnabled);
     builder.Services.AddTradingCommandPublisher(redisAvailable: redisEnabled);
     builder.Services.AddBacktestTaskNotifier(redisAvailable: redisEnabled);
     builder.Services.AddBacktestCancellationNotifier(redisAvailable: redisEnabled);
+
+    builder.Services.AddSingleton<TradeX.Api.DomainEventHandlers.TradingSignalRHandler>();
 
     // 限流：保护 /api/auth/* 端点防暴破
     builder.Services.AddRateLimiter(options =>

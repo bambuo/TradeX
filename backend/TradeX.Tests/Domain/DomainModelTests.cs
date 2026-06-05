@@ -20,7 +20,7 @@ public sealed class DomainModelTests
         Assert.True(order.IsManual);
         Assert.Equal(OrderStatus.Pending, order.Status);
         Assert.Single(order.DomainEvents);
-        Assert.IsType<OrderPlacedEvent>(order.DomainEvents[0]);
+        Assert.IsType<OrderPlacedDomainEvent>(order.DomainEvents[0]);
     }
 
     [Fact]
@@ -44,7 +44,7 @@ public sealed class DomainModelTests
 
         Assert.Equal(OrderStatus.Filled, order.Status);
         Assert.Equal(2, order.DomainEvents.Count); // Created + Filled
-        Assert.IsType<OrderFilledEvent>(order.DomainEvents[1]);
+        Assert.IsType<OrderFilledDomainEvent>(order.DomainEvents[1]);
     }
 
     [Fact]
@@ -55,7 +55,7 @@ public sealed class DomainModelTests
         order.MarkFailed("余额不足");
 
         Assert.Equal(OrderStatus.Failed, order.Status);
-        Assert.IsType<OrderFailedEvent>(order.DomainEvents[1]);
+        Assert.IsType<OrderFailedDomainEvent>(order.DomainEvents[1]);
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public sealed class DomainModelTests
         order.MarkCancelled();
 
         Assert.Equal(OrderStatus.Cancelled, order.Status);
-        Assert.IsType<OrderCancelledEvent>(order.DomainEvents[1]);
+        Assert.IsType<OrderCancelledDomainEvent>(order.DomainEvents[1]);
     }
 
     [Fact]
@@ -91,7 +91,7 @@ public sealed class DomainModelTests
 
         Assert.Equal(PositionStatus.Open, pos.Status);
         Assert.Single(pos.DomainEvents);
-        Assert.IsType<PositionOpenedEvent>(pos.DomainEvents[0]);
+        Assert.IsType<PositionOpenedDomainEvent>(pos.DomainEvents[0]);
     }
 
     [Fact]
@@ -105,7 +105,7 @@ public sealed class DomainModelTests
         Assert.Equal(PositionStatus.Closed, pos.Status);
         Assert.Equal(5000m, pos.RealizedPnl);
         Assert.Equal(2, pos.DomainEvents.Count);
-        Assert.IsType<PositionClosedEvent>(pos.DomainEvents[1]);
+        Assert.IsType<PositionClosedDomainEvent>(pos.DomainEvents[1]);
     }
 
     // ─────────────── User 领域方法 ───────────────
@@ -120,7 +120,7 @@ public sealed class DomainModelTests
         Assert.True(user.IsMfaEnabled);
         Assert.Equal(UserStatus.Active, user.Status);
         Assert.Single(user.DomainEvents);
-        Assert.IsType<MfaEnabledEvent>(user.DomainEvents[0]);
+        Assert.IsType<MfaEnabledDomainEvent>(user.DomainEvents[0]);
     }
 
     [Fact]
@@ -131,7 +131,7 @@ public sealed class DomainModelTests
 
         Assert.NotNull(user.LastLoginAt);
         Assert.Single(user.DomainEvents);
-        Assert.IsType<UserLoggedInEvent>(user.DomainEvents[0]);
+        Assert.IsType<UserLoggedInDomainEvent>(user.DomainEvents[0]);
     }
 
     // ─────────────── Trader 领域方法 ───────────────
@@ -144,7 +144,7 @@ public sealed class DomainModelTests
         trader.Disable();
         Assert.Equal(TraderStatus.Disabled, trader.Status);
         Assert.Single(trader.DomainEvents);
-        Assert.IsType<TraderStatusChangedEvent>(trader.DomainEvents[0]);
+        Assert.IsType<TraderStatusChangedDomainEvent>(trader.DomainEvents[0]);
     }
 
     [Fact]
@@ -181,7 +181,7 @@ public sealed class DomainModelTests
 
         Assert.Equal(ExchangeStatus.Disabled, exchange.Status);
         Assert.Single(exchange.DomainEvents);
-        Assert.IsType<ExchangeConnectionChangedEvent>(exchange.DomainEvents[0]);
+        Assert.IsType<ExchangeConnectionChangedDomainEvent>(exchange.DomainEvents[0]);
     }
 
     // ─────────────── StrategyBinding 领域方法 ───────────────
@@ -196,7 +196,7 @@ public sealed class DomainModelTests
 
         Assert.Equal(BindingStatus.Active, binding.Status);
         Assert.Single(binding.DomainEvents);
-        Assert.IsType<BindingStatusChangedEvent>(binding.DomainEvents[0]);
+        Assert.IsType<BindingStatusChangedDomainEvent>(binding.DomainEvents[0]);
     }
 
     // ─────────────── BacktestTask 领域方法 ───────────────
@@ -212,7 +212,7 @@ public sealed class DomainModelTests
         task.Start();
         Assert.Equal(BacktestTaskStatus.Running, task.Status);
         Assert.Single(task.DomainEvents);
-        Assert.IsType<BacktestStartedEvent>(task.DomainEvents[0]);
+        Assert.IsType<BacktestStartedDomainEvent>(task.DomainEvents[0]);
 
         task.Complete();
         Assert.Equal(BacktestTaskStatus.Completed, task.Status);
@@ -233,8 +233,8 @@ public sealed class DomainModelTests
         Assert.Equal(BacktestTaskStatus.Failed, task.Status);
         Assert.NotNull(task.CompletedAt);
         Assert.Equal(2, task.DomainEvents.Count); // Started + Failed
-        Assert.IsType<BacktestFailedEvent>(task.DomainEvents[1]);
-        var failedEvent = Assert.IsType<BacktestFailedEvent>(task.DomainEvents[1]);
+        Assert.IsType<BacktestFailedDomainEvent>(task.DomainEvents[1]);
+        var failedEvent = Assert.IsType<BacktestFailedDomainEvent>(task.DomainEvents[1]);
         Assert.Equal("数据下载失败", failedEvent.Reason);
     }
 
@@ -252,7 +252,7 @@ public sealed class DomainModelTests
         Assert.Equal(BacktestTaskStatus.Cancelled, task.Status);
         Assert.NotNull(task.CompletedAt);
         Assert.Equal(2, task.DomainEvents.Count); // Started + Cancelled
-        Assert.IsType<BacktestCancelledEvent>(task.DomainEvents[1]);
+        Assert.IsType<BacktestCancelledDomainEvent>(task.DomainEvents[1]);
     }
 
     [Fact]
@@ -336,7 +336,7 @@ public sealed class DomainModelTests
         Assert.Equal("RSI > 70", strategy.EntryCondition);
         Assert.Equal("RSI < 30", strategy.ExitCondition);
         Assert.Single(strategy.DomainEvents);
-        var evt = Assert.IsType<StrategyConditionsUpdatedEvent>(strategy.DomainEvents[0]);
+        var evt = Assert.IsType<StrategyConditionsUpdatedDomainEvent>(strategy.DomainEvents[0]);
         Assert.Equal(strategy.Id, evt.StrategyId);
         Assert.Equal("RSI > 70", evt.EntryCondition);
         Assert.Equal("RSI < 30", evt.ExitCondition);
@@ -352,7 +352,7 @@ public sealed class DomainModelTests
 
         Assert.Equal(2, strategy.Version);
         Assert.Single(strategy.DomainEvents);
-        var evt = Assert.IsType<StrategyVersionCreatedEvent>(strategy.DomainEvents[0]);
+        var evt = Assert.IsType<StrategyVersionCreatedDomainEvent>(strategy.DomainEvents[0]);
         Assert.Equal(strategy.Id, evt.StrategyId);
         Assert.Equal(2, evt.NewVersion);
     }
@@ -383,7 +383,7 @@ public sealed class DomainModelTests
 
         Assert.Equal(NotificationChannelStatus.Disabled, channel.Status);
         Assert.Single(channel.DomainEvents);
-        var evt = Assert.IsType<NotificationChannelStatusChangedEvent>(channel.DomainEvents[0]);
+        var evt = Assert.IsType<NotificationChannelStatusChangedDomainEvent>(channel.DomainEvents[0]);
         Assert.Equal(channel.Id, evt.ChannelId);
         Assert.Equal("Enabled", evt.OldStatus);
         Assert.Equal("Disabled", evt.NewStatus);

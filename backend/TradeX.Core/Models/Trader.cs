@@ -40,7 +40,7 @@ public class Trader : AggregateRoot
         var old = Status.ToString();
         Status = TraderStatus.Active;
         UpdatedAt = DateTime.UtcNow;
-        AddDomainEvent(new TraderStatusChangedEvent(Id, UserId, old, Status.ToString()));
+        AddDomainEvent(new TraderStatusChangedDomainEvent(Id, UserId, old, Status.ToString()));
     }
 
     /// <summary>禁用交易员。</summary>
@@ -50,7 +50,7 @@ public class Trader : AggregateRoot
         var old = Status.ToString();
         Status = TraderStatus.Disabled;
         UpdatedAt = DateTime.UtcNow;
-        AddDomainEvent(new TraderStatusChangedEvent(Id, UserId, old, Status.ToString()));
+        AddDomainEvent(new TraderStatusChangedDomainEvent(Id, UserId, old, Status.ToString()));
     }
 
     /// <summary>重命名。</summary>

@@ -47,7 +47,7 @@ public class StrategyBinding : AggregateRoot
         var old = Status.ToString();
         Status = BindingStatus.Active;
         UpdatedAt = DateTime.UtcNow;
-        AddDomainEvent(new BindingStatusChangedEvent(Id, TraderId, old, Status.ToString()));
+        AddDomainEvent(new BindingStatusChangedDomainEvent(Id, TraderId, old, Status.ToString()));
     }
 
     /// <summary>禁用策略绑定。</summary>
@@ -57,6 +57,6 @@ public class StrategyBinding : AggregateRoot
         var old = Status.ToString();
         Status = BindingStatus.Disabled;
         UpdatedAt = DateTime.UtcNow;
-        AddDomainEvent(new BindingStatusChangedEvent(Id, TraderId, old, Status.ToString()));
+        AddDomainEvent(new BindingStatusChangedDomainEvent(Id, TraderId, old, Status.ToString()));
     }
 }

@@ -2,16 +2,13 @@ import client from './client'
 
 export interface Exchange {
   id: string
-  traderId?: string
-  exchangeType: string
-  label: string
-  isTestnet: boolean
-  isEnabled: boolean
-  createdAt: string
-  updatedAt: string | null
-  traderName: string
+  name: string
+  type: string
+  status: string
   lastTestedAt: string | null
   testResult: string | null
+  createdAt: string
+  updatedAt: string | null
 }
 
 export interface ExchangeOrder {
@@ -59,7 +56,7 @@ export const exchangesApi = {
     return client.post<{ connected: boolean; error?: string }>(`/exchanges/${id}/test`)
   },
   toggleStatus(id: string, enable: boolean) {
-    return client.post<{ id: string; isEnabled: boolean }>(`/exchanges/${id}/toggle`, { enable })
+    return client.post<void>(`/exchanges/${id}/toggle`, { enable })
   },
   getPairs(id: string) {
     return client.get<{ data: { pair: string; pricePrecision: number; quantityPrecision: number; minNotional: number; price: number; priceChangePercent: number; volume: number; highPrice: number; lowPrice: number }[] }>(`/exchanges/${id}/pairs`)

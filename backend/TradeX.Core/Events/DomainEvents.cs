@@ -2,7 +2,7 @@ namespace TradeX.Core.Events;
 
 // ─────────────── Order 领域事件 ───────────────
 
-public sealed record OrderPlacedEvent(
+public sealed record OrderPlacedDomainEvent(
     Guid OrderId, Guid TraderId, Guid ExchangeId, Guid? StrategyId,
     string Pair, string Side, string Type, decimal Quantity,
     decimal? Price) : IDomainEvent
@@ -11,7 +11,7 @@ public sealed record OrderPlacedEvent(
     public DateTime OccurredAt { get; } = DateTime.UtcNow;
 }
 
-public sealed record OrderFilledEvent(
+public sealed record OrderFilledDomainEvent(
     Guid OrderId, Guid TraderId, string Pair,
     string Side, decimal FilledQuantity, decimal Fee,
     string? FeeAsset) : IDomainEvent
@@ -20,14 +20,14 @@ public sealed record OrderFilledEvent(
     public DateTime OccurredAt { get; } = DateTime.UtcNow;
 }
 
-public sealed record OrderCancelledEvent(
+public sealed record OrderCancelledDomainEvent(
     Guid OrderId, Guid TraderId) : IDomainEvent
 {
     public Guid EventId { get; } = Guid.NewGuid();
     public DateTime OccurredAt { get; } = DateTime.UtcNow;
 }
 
-public sealed record OrderFailedEvent(
+public sealed record OrderFailedDomainEvent(
     Guid OrderId, Guid TraderId, string Reason) : IDomainEvent
 {
     public Guid EventId { get; } = Guid.NewGuid();
@@ -36,7 +36,7 @@ public sealed record OrderFailedEvent(
 
 // ─────────────── Position 领域事件 ───────────────
 
-public sealed record PositionOpenedEvent(
+public sealed record PositionOpenedDomainEvent(
     Guid PositionId, Guid TraderId, Guid StrategyId,
     string Pair, decimal Quantity, decimal EntryPrice) : IDomainEvent
 {
@@ -44,7 +44,7 @@ public sealed record PositionOpenedEvent(
     public DateTime OccurredAt { get; } = DateTime.UtcNow;
 }
 
-public sealed record PositionClosedEvent(
+public sealed record PositionClosedDomainEvent(
     Guid PositionId, Guid TraderId, string Pair,
     decimal Quantity, decimal EntryPrice, decimal ExitPrice,
     decimal RealizedPnl) : IDomainEvent
@@ -55,13 +55,13 @@ public sealed record PositionClosedEvent(
 
 // ─────────────── User 领域事件 ───────────────
 
-public sealed record MfaEnabledEvent(Guid UserId) : IDomainEvent
+public sealed record MfaEnabledDomainEvent(Guid UserId) : IDomainEvent
 {
     public Guid EventId { get; } = Guid.NewGuid();
     public DateTime OccurredAt { get; } = DateTime.UtcNow;
 }
 
-public sealed record UserLoggedInEvent(Guid UserId, DateTime LoginTime) : IDomainEvent
+public sealed record UserLoggedInDomainEvent(Guid UserId, DateTime LoginTime) : IDomainEvent
 {
     public Guid EventId { get; } = Guid.NewGuid();
     public DateTime OccurredAt { get; } = DateTime.UtcNow;
@@ -69,7 +69,7 @@ public sealed record UserLoggedInEvent(Guid UserId, DateTime LoginTime) : IDomai
 
 // ─────────────── Trader 领域事件 ───────────────
 
-public sealed record TraderStatusChangedEvent(
+public sealed record TraderStatusChangedDomainEvent(
     Guid TraderId, Guid UserId, string OldStatus, string NewStatus) : IDomainEvent
 {
     public Guid EventId { get; } = Guid.NewGuid();
@@ -78,27 +78,27 @@ public sealed record TraderStatusChangedEvent(
 
 // ─────────────── BacktestTask 领域事件 ───────────────
 
-public sealed record BacktestStartedEvent(Guid TaskId) : IDomainEvent
+public sealed record BacktestStartedDomainEvent(Guid TaskId) : IDomainEvent
 {
     public Guid EventId { get; } = Guid.NewGuid();
     public DateTime OccurredAt { get; } = DateTime.UtcNow;
 }
 
-public sealed record BacktestCompletedEvent(
+public sealed record BacktestCompletedDomainEvent(
     Guid TaskId, decimal FinalValue, decimal TotalReturnPercent) : IDomainEvent
 {
     public Guid EventId { get; } = Guid.NewGuid();
     public DateTime OccurredAt { get; } = DateTime.UtcNow;
 }
 
-public sealed record BacktestFailedEvent(
+public sealed record BacktestFailedDomainEvent(
     Guid TaskId, string Reason) : IDomainEvent
 {
     public Guid EventId { get; } = Guid.NewGuid();
     public DateTime OccurredAt { get; } = DateTime.UtcNow;
 }
 
-public sealed record BacktestCancelledEvent(
+public sealed record BacktestCancelledDomainEvent(
     Guid TaskId) : IDomainEvent
 {
     public Guid EventId { get; } = Guid.NewGuid();
@@ -107,7 +107,7 @@ public sealed record BacktestCancelledEvent(
 
 // ─────────────── StrategyBinding 领域事件 ───────────────
 
-public sealed record BindingStatusChangedEvent(
+public sealed record BindingStatusChangedDomainEvent(
     Guid BindingId, Guid TraderId, string OldStatus, string NewStatus) : IDomainEvent
 {
     public Guid EventId { get; } = Guid.NewGuid();
@@ -116,14 +116,14 @@ public sealed record BindingStatusChangedEvent(
 
 // ─────────────── Strategy 领域事件 ───────────────
 
-public sealed record StrategyConditionsUpdatedEvent(
+public sealed record StrategyConditionsUpdatedDomainEvent(
     Guid StrategyId, string EntryCondition, string ExitCondition) : IDomainEvent
 {
     public Guid EventId { get; } = Guid.NewGuid();
     public DateTime OccurredAt { get; } = DateTime.UtcNow;
 }
 
-public sealed record StrategyVersionCreatedEvent(
+public sealed record StrategyVersionCreatedDomainEvent(
     Guid StrategyId, int NewVersion) : IDomainEvent
 {
     public Guid EventId { get; } = Guid.NewGuid();
@@ -132,8 +132,8 @@ public sealed record StrategyVersionCreatedEvent(
 
 // ─────────────── Exchange 领域事件 ───────────────
 
-public sealed record ExchangeConnectionChangedEvent(
-    Guid ExchangeId, Guid? TraderId, string OldStatus, string NewStatus) : IDomainEvent
+public sealed record ExchangeConnectionChangedDomainEvent(
+    Guid ExchangeId, string OldStatus, string NewStatus) : IDomainEvent
 {
     public Guid EventId { get; } = Guid.NewGuid();
     public DateTime OccurredAt { get; } = DateTime.UtcNow;
@@ -141,7 +141,7 @@ public sealed record ExchangeConnectionChangedEvent(
 
 // ─────────────── NotificationChannel 领域事件 ───────────────
 
-public sealed record NotificationChannelStatusChangedEvent(
+public sealed record NotificationChannelStatusChangedDomainEvent(
     Guid ChannelId, string Name, string OldStatus, string NewStatus) : IDomainEvent
 {
     public Guid EventId { get; } = Guid.NewGuid();

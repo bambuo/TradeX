@@ -4,6 +4,8 @@ using NSubstitute;
 using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
+using TradeX.Trading.EventBus;
+using TradeX.Trading.Events;
 using TradeX.Trading.Observability;
 using TradeX.Trading.Risk;
 
@@ -11,24 +13,24 @@ namespace TradeX.Tests.Trading;
 
 public class KillSwitchTests
 {
-    private static (KillSwitch ks, IStrategyBindingRepository bindings, IOutboxRepository outbox) Build()
+    private static (KillSwitch ks, IStrategyBindingRepository bindings, IDomainEventBus eventBus) Build()
     {
         var bindings = Substitute.For<IStrategyBindingRepository>();
-        var outbox = Substitute.For<IOutboxRepository>();
+        var eventBus = Substitute.For<IDomainEventBus>();
         var services = new ServiceCollection();
         services.AddSingleton(bindings);
-        services.AddSingleton(outbox);
+        services.AddSingleton(eventBus);
         var sp = services.BuildServiceProvider();
         var scopeFactory = sp.GetRequiredService<IServiceScopeFactory>();
         var metrics = new TradeXMetrics();
         var logger = Substitute.For<ILogger<KillSwitch>>();
-        return (new KillSwitch(scopeFactory, metrics, logger), bindings, outbox);
+        return (new KillSwitch(scopeFactory, metrics, logger), bindings, eventBus);
     }
 
     [Fact]
-    public async Task ActivateAsync_DisablesActiveBindings_AndEmitsOutbox()
+    public async Task ActivateAsync_DisablesActiveBindings_AndEmitsEvent()
     {
-        var (ks, bindings, outbox) = Build();
+        var (ks, bindings, eventBus) = Build();
         var actives = new List<StrategyBinding>
         {
             new() { Id = Guid.NewGuid(), Status = BindingStatus.Active },
@@ -41,45 +43,45 @@ public class KillSwitchTests
         Assert.True(ks.IsActive);
         Assert.All(actives, b => Assert.Equal(BindingStatus.Disabled, b.Status));
         await bindings.Received(1).UpdateRangeAsync(Arg.Is<List<StrategyBinding>>(l => l.Count == 2), Arg.Any<CancellationToken>());
-        await outbox.Received(1).EnqueueAsync(
-            Arg.Is<OutboxEvent>(e => e.Type == "KillSwitchActivated"),
+        await eventBus.Received(1).PublishAsync(
+            Arg.Is<KillSwitchActivatedPayload>(p => p.Reason == "test"),
             Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task ActivateAsync_AlreadyActive_NoOp()
     {
-        var (ks, bindings, outbox) = Build();
+        var (ks, bindings, eventBus) = Build();
         bindings.GetAllActiveAsync(Arg.Any<CancellationToken>()).Returns([]);
 
         await ks.ActivateAsync("first", null);
         await ks.ActivateAsync("second", null);
 
-        // 第二次激活应是 no-op, Outbox 只发了 1 条
-        await outbox.Received(1).EnqueueAsync(Arg.Any<OutboxEvent>(), Arg.Any<CancellationToken>());
+        // 第二次激活应是 no-op, 事件只发了 1 条
+        await eventBus.Received(1).PublishAsync(Arg.Any<KillSwitchActivatedPayload>(), Arg.Any<CancellationToken>());
         Assert.Equal("first", ks.LastReason);
     }
 
     [Fact]
-    public async Task DeactivateAsync_AfterActivate_EmitsDeactivatedOutbox()
+    public async Task DeactivateAsync_AfterActivate_EmitsDeactivatedEvent()
     {
-        var (ks, bindings, outbox) = Build();
+        var (ks, bindings, eventBus) = Build();
         bindings.GetAllActiveAsync(Arg.Any<CancellationToken>()).Returns([]);
 
         await ks.ActivateAsync("incident", null);
         await ks.DeactivateAsync("resolved", Guid.NewGuid());
 
         Assert.False(ks.IsActive);
-        await outbox.Received(1).EnqueueAsync(Arg.Is<OutboxEvent>(e => e.Type == "KillSwitchActivated"), Arg.Any<CancellationToken>());
-        await outbox.Received(1).EnqueueAsync(Arg.Is<OutboxEvent>(e => e.Type == "KillSwitchDeactivated"), Arg.Any<CancellationToken>());
+        await eventBus.Received(1).PublishAsync(Arg.Is<KillSwitchActivatedPayload>(p => p.Reason == "incident"), Arg.Any<CancellationToken>());
+        await eventBus.Received(1).PublishAsync(Arg.Is<KillSwitchDeactivatedPayload>(p => p.Reason == "resolved"), Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task DeactivateAsync_WhenNotActive_NoOp()
     {
-        var (ks, _, outbox) = Build();
+        var (ks, _, eventBus) = Build();
         await ks.DeactivateAsync("nothing", Guid.NewGuid());
-        await outbox.DidNotReceive().EnqueueAsync(Arg.Any<OutboxEvent>(), Arg.Any<CancellationToken>());
+        await eventBus.DidNotReceive().PublishAsync(Arg.Any<KillSwitchDeactivatedPayload>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

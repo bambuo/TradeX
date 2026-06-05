@@ -8,8 +8,7 @@ using TradeX.Infrastructure;
 using TradeX.Infrastructure.Data;
 using TradeX.Notifications;
 using TradeX.Trading;
-using TradeX.Trading.Events;
-using TradeX.Trading.Messaging;
+using TradeX.Trading.EventBus;
 using TradeX.Trading.Observability;
 using TradeX.Worker;
 
@@ -46,26 +45,23 @@ try
     builder.Services.AddHostedService<WorkerSingleInstanceGuard>();
     builder.Services.AddTradingWorker();
 
-    // 事件总线：Redis 配置存在 → Outbox 模式（OutboxTradingEventBus + relay XADD 到 tradex:events，API bridge 转发 SignalR）；
-    //           否则 → LoggingEventBus 降级（前端实时事件丢失但不阻塞业务）
+    // 事件总线：Redis 配置存在 → RedisDomainEventBus（XADD 到 tradex:events，API 端 RedisEventConsumerService 接收后转发 SignalR）；
+    //           否则 → NullDomainEventBus 降级（前端实时事件丢失但不阻塞业务）
     var redisConn = builder.Configuration["Redis:ConnectionString"];
     if (!string.IsNullOrWhiteSpace(redisConn))
     {
         builder.Services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(
             _ => StackExchange.Redis.ConnectionMultiplexer.Connect(redisConn));
-        // Outbox 模式：业务路径写 outbox 表（与业务事务原子），后台 relay 推到 Redis Stream
-        // 解决"业务已提交但事件发布失败 → 事件丢失"的一致性漏洞
-        builder.Services.AddScoped<ITradingEventBus, TradeX.Trading.Outbox.OutboxTradingEventBus>();
-        builder.Services.AddOutboxRelay();
+        builder.Services.AddDomainEventBus(redisAvailable: true);
         builder.Services.AddTradingWorkerCommandBus();
-        Log.Information("Worker 事件总线(Outbox) + 命令总线: Redis → {Events} / {Commands}",
-            TradingEventChannels.Events,
+        Log.Information("Worker 事件总线: Redis → {Events} / {Commands}",
+            "tradex:events",
             TradeX.Trading.Commands.WorkerCommandChannels.Commands);
     }
     else
     {
-        builder.Services.AddSingleton<ITradingEventBus, LoggingEventBus>();
-        Log.Warning("Worker 事件总线/命令通道: 未配置 Redis:ConnectionString，全部降级（仅本地进程内有效）");
+        builder.Services.AddDomainEventBus(redisAvailable: false);
+        Log.Warning("Worker 事件总线: 未配置 Redis:ConnectionString，全部降级（仅本地进程内有效）");
     }
 
     // ------ Observability ------

@@ -43,7 +43,7 @@ public class Order : AggregateRoot, IVersioned
             PositionId = positionId,
             IsManual = true
         };
-        order.AddDomainEvent(new OrderPlacedEvent(
+        order.AddDomainEvent(new OrderPlacedDomainEvent(
             order.Id, traderId, exchangeId, strategyId,
             pair, side.ToString(), type.ToString(), quantity, price));
         return order;
@@ -68,7 +68,7 @@ public class Order : AggregateRoot, IVersioned
             PositionId = positionId,
             IsManual = false
         };
-        order.AddDomainEvent(new OrderPlacedEvent(
+        order.AddDomainEvent(new OrderPlacedDomainEvent(
             order.Id, traderId, exchangeId, strategyId,
             pair, side.ToString(), "Market", quoteQuantity, null));
         return order;
@@ -133,7 +133,7 @@ public class Order : AggregateRoot, IVersioned
         UpdatedAt = DateTime.UtcNow;
 
         if (Status == OrderStatus.Filled)
-            AddDomainEvent(new OrderFilledEvent(Id, TraderId, Pair, Side.ToString(), FilledQuantity, Fee, FeeAsset));
+            AddDomainEvent(new OrderFilledDomainEvent(Id, TraderId, Pair, Side.ToString(), FilledQuantity, Fee, FeeAsset));
     }
 
     /// <summary>标记下单失败（交易所拒绝、网络错误等）。</summary>
@@ -142,7 +142,7 @@ public class Order : AggregateRoot, IVersioned
         EnsureNotTerminal(nameof(MarkFailed));
         Status = OrderStatus.Failed;
         UpdatedAt = DateTime.UtcNow;
-        AddDomainEvent(new OrderFailedEvent(Id, TraderId, reason ?? "unknown"));
+        AddDomainEvent(new OrderFailedDomainEvent(Id, TraderId, reason ?? "unknown"));
     }
 
     /// <summary>标记订单已取消。</summary>
@@ -151,7 +151,7 @@ public class Order : AggregateRoot, IVersioned
         EnsureNotTerminal(nameof(MarkCancelled));
         Status = OrderStatus.Cancelled;
         UpdatedAt = DateTime.UtcNow;
-        AddDomainEvent(new OrderCancelledEvent(Id, TraderId));
+        AddDomainEvent(new OrderCancelledDomainEvent(Id, TraderId));
     }
 
     /// <summary>是否已到达终态（不可再转换）。</summary>

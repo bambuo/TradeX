@@ -8,7 +8,7 @@ using TradeX.Core.Models;
 using TradeX.Indicators;
 using TradeX.Trading.Engine;
 using TradeX.Trading.Execution;
-using TradeX.Trading.Messaging;
+using TradeX.Trading.EventBus;
 using TradeX.Trading.Observability;
 using TradeX.Trading.Risk;
 using TradeX.Trading.Streaming;
@@ -65,11 +65,12 @@ public class StrategyEvaluationConsumerTests
             Arg.Any<CancellationToken>());
 
         // Verify: Event published
-        await eventBus.Received(1).OrderPlacedAsync(
-            TraderId, Arg.Any<Guid>(), ExchangeId, BindingId,
-            "BTCUSDT", "Buy", "Market", Arg.Any<string>(),
-            Arg.Any<decimal>(), Arg.Any<DateTime>(),
-            Arg.Any<CancellationToken>(), Arg.Any<Guid?>());
+        await eventBus.Received(1).PublishAsync(
+            Arg.Is<OrderPlacedPayload>(p =>
+                p.TraderId == TraderId && p.ExchangeId == ExchangeId &&
+                p.StrategyId == BindingId && p.Pair == "BTCUSDT" &&
+                p.Side == "Buy" && p.Type == "Market"),
+            Arg.Any<CancellationToken>());
         await consumer.StopAsync(CancellationToken.None);
     }
 
@@ -107,10 +108,12 @@ public class StrategyEvaluationConsumerTests
         await tradeExecutor.DidNotReceiveWithAnyArgs().ExecuteMarketOrderAsync(default!);
 
         // Risk alert should be published
-        await eventBus.Received(1).RiskAlertAsync(
-            TraderId, "Warning", "RiskCheck", BindingId,
-            Arg.Is<string>(s => s.Contains("当日亏损")),
-            Arg.Any<CancellationToken>(), Arg.Any<Guid?>());
+        await eventBus.Received(1).PublishAsync(
+            Arg.Is<RiskAlertPayload>(p =>
+                p.TraderId == TraderId && p.Level == "Warning" &&
+                p.Category == "RiskCheck" && p.StrategyId == BindingId &&
+                p.Message.Contains("当日亏损")),
+            Arg.Any<CancellationToken>());
         await consumer.StopAsync(CancellationToken.None);
     }
 
@@ -225,7 +228,7 @@ public class StrategyEvaluationConsumerTests
     };
 
     private static (StrategyEvaluationConsumer, ServiceProvider, Channel<TradeEvent>, Channel<KlineEvent>,
-        ITradingEventBus, ITradeExecutor, IPortfolioRiskManager) BuildConsumer(
+        IDomainEventBus, ITradeExecutor, IPortfolioRiskManager) BuildConsumer(
         IIndicatorRegistry indRegistry,
         List<StrategyBinding>? extraBindings = null,
         string? timeframe = null)
@@ -235,7 +238,7 @@ public class StrategyEvaluationConsumerTests
         var klineChannel = Channel.CreateBounded<KlineEvent>(new BoundedChannelOptions(100)
         { FullMode = BoundedChannelFullMode.DropOldest });
 
-        var eventBus = Substitute.For<ITradingEventBus>();
+        var eventBus = Substitute.For<IDomainEventBus>();
         var tradeExecutor = Substitute.For<ITradeExecutor>();
         var riskManager = Substitute.For<IPortfolioRiskManager>();
 

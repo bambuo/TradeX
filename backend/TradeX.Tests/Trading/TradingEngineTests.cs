@@ -4,7 +4,6 @@ using TradeX.Core.Interfaces;
 using TradeX.Indicators;
 using TradeX.Trading;
 using TradeX.Trading.Engine;
-using TradeX.Trading.Messaging;
 using TradeX.Trading.Observability;
 using TradeX.Trading.Streaming;
 

@@ -1,16 +1,16 @@
-using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
-using TradeX.Core.Models;
+using TradeX.Trading.EventBus;
+using TradeX.Trading.Events;
 using TradeX.Trading.Observability;
 
 namespace TradeX.Trading.Risk;
 
 /// <summary>
 /// 进程内 singleton 实现. 状态可被 CircuitBreakerHandler 读到 → 全部交易请求被拒.
-/// 通过 IOutboxRepository 发布事件 (跨进程通知); 同进程内通过 IsActive 字段实时生效.
+/// 通过 IDomainEventBus 发布 KillSwitch 事件 (跨进程通知); 同进程内通过 IsActive 字段实时生效.
 /// 暂未持久化到 DB — 进程重启后状态丢失. 这是有意为之: Kill Switch 是"应急"工具,
 /// 重启过程已经是审计窗口, 启动后需要人工再次确认是否激活.
 /// </summary>
@@ -37,26 +37,15 @@ public sealed class KillSwitch(IServiceScopeFactory scopeFactory, TradeXMetrics 
 
         using var scope = scopeFactory.CreateScope();
         var bindingRepo = scope.ServiceProvider.GetRequiredService<IStrategyBindingRepository>();
-        var outbox = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
+        var eventBus = scope.ServiceProvider.GetRequiredService<IDomainEventBus>();
 
         var actives = await bindingRepo.GetAllActiveAsync(ct);
         foreach (var binding in actives)
             binding.Status = BindingStatus.Disabled;
         await bindingRepo.UpdateRangeAsync(actives, ct);
 
-        await outbox.EnqueueAsync(new OutboxEvent
-        {
-            Type = "KillSwitchActivated",
-            PayloadJson = JsonSerializer.Serialize(new
-            {
-                reason,
-                actorUserId,
-                activatedAtUtc = LastActivatedAtUtc,
-                disabledBindings = actives.Count
-            }),
-            TraderId = null
-        }, ct);
-        await outbox.SaveChangesAsync(ct);
+        var payload = new KillSwitchActivatedPayload(reason, actorUserId, LastActivatedAtUtc!.Value, actives.Count);
+        await eventBus.PublishAsync(payload, ct);
 
         metrics.SetKillSwitchActive(true);
         metrics.KillSwitchActivations.Add(1, new KeyValuePair<string, object?>("reason", reason));
@@ -77,18 +66,8 @@ public sealed class KillSwitch(IServiceScopeFactory scopeFactory, TradeXMetrics 
             reason, actorUserId);
 
         using var scope = scopeFactory.CreateScope();
-        var outbox = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
-        await outbox.EnqueueAsync(new OutboxEvent
-        {
-            Type = "KillSwitchDeactivated",
-            PayloadJson = JsonSerializer.Serialize(new
-            {
-                reason,
-                actorUserId,
-                deactivatedAtUtc = DateTime.UtcNow
-            }),
-            TraderId = null
-        }, ct);
-        await outbox.SaveChangesAsync(ct);
+        var eventBus = scope.ServiceProvider.GetRequiredService<IDomainEventBus>();
+        var payload = new KillSwitchDeactivatedPayload(reason, actorUserId, DateTime.UtcNow);
+        await eventBus.PublishAsync(payload, ct);
     }
 }

@@ -24,7 +24,6 @@ public class TradeXDbContext(DbContextOptions<TradeXDbContext> options) : DbCont
     public DbSet<Pair> Pairs => Set<Pair>();
     public DbSet<ExchangePairRuleSnapshot> ExchangePairRules => Set<ExchangePairRuleSnapshot>();
     public DbSet<NotificationChannel> NotificationChannels => Set<NotificationChannel>();
-    public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

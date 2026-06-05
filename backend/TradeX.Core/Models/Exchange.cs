@@ -17,8 +17,7 @@ public class Exchange : AggregateRoot
 
     /// <summary>工厂方法：创建交易所配置。</summary>
     public static Exchange Create(Guid createdBy, string name, ExchangeType type,
-        string apiKeyEncrypted, string secretKeyEncrypted, string? passphraseEncrypted = null,
-        Guid? traderId = null)
+        string apiKeyEncrypted, string secretKeyEncrypted, string? passphraseEncrypted = null)
     {
         return new Exchange
         {
@@ -27,13 +26,11 @@ public class Exchange : AggregateRoot
             Type = type,
             ApiKeyEncrypted = apiKeyEncrypted,
             SecretKeyEncrypted = secretKeyEncrypted,
-            PassphraseEncrypted = passphraseEncrypted,
-            TraderId = traderId
+            PassphraseEncrypted = passphraseEncrypted
         };
     }
 
     public Guid Id { get; init; } = Guid.NewGuid();
-    public Guid? TraderId { get; init; }
     public string Name { get; set; } = string.Empty;
     public ExchangeType Type { get; set; }
     public string ApiKeyEncrypted { get; set; } = string.Empty;
@@ -54,7 +51,7 @@ public class Exchange : AggregateRoot
         var old = Status.ToString();
         Status = ExchangeStatus.Enabled;
         UpdatedAt = DateTime.UtcNow;
-        AddDomainEvent(new ExchangeConnectionChangedEvent(Id, TraderId, old, Status.ToString()));
+        AddDomainEvent(new ExchangeConnectionChangedDomainEvent(Id, old, Status.ToString()));
     }
 
     /// <summary>禁用交易所。</summary>
@@ -63,7 +60,7 @@ public class Exchange : AggregateRoot
         var old = Status.ToString();
         Status = ExchangeStatus.Disabled;
         UpdatedAt = DateTime.UtcNow;
-        AddDomainEvent(new ExchangeConnectionChangedEvent(Id, TraderId, old, Status.ToString()));
+        AddDomainEvent(new ExchangeConnectionChangedDomainEvent(Id, old, Status.ToString()));
     }
 
     /// <summary>记录连接测试结果。</summary>

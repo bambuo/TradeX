@@ -48,7 +48,7 @@ public class Strategy : AggregateRoot
         ExitCondition = exit;
         UpdatedAt = DateTime.UtcNow;
 
-        AddDomainEvent(new StrategyConditionsUpdatedEvent(Id, entry, exit));
+        AddDomainEvent(new StrategyConditionsUpdatedDomainEvent(Id, entry, exit));
     }
 
     public void UpdateExecutionRule(string rule)
@@ -62,7 +62,7 @@ public class Strategy : AggregateRoot
         Version++;
         UpdatedAt = DateTime.UtcNow;
 
-        AddDomainEvent(new StrategyVersionCreatedEvent(Id, Version));
+        AddDomainEvent(new StrategyVersionCreatedDomainEvent(Id, Version));
     }
 
     public void Rename(string name)

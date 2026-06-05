@@ -49,7 +49,7 @@ public class NotificationChannel : AggregateRoot
         var oldStatus = Status.ToString();
         Status = NotificationChannelStatus.Enabled;
         UpdatedAt = DateTime.UtcNow;
-        AddDomainEvent(new NotificationChannelStatusChangedEvent(Id, Name, oldStatus, nameof(NotificationChannelStatus.Enabled)));
+        AddDomainEvent(new NotificationChannelStatusChangedDomainEvent(Id, Name, oldStatus, nameof(NotificationChannelStatus.Enabled)));
     }
 
     /// <summary>禁用通知渠道。</summary>
@@ -59,7 +59,7 @@ public class NotificationChannel : AggregateRoot
         var oldStatus = Status.ToString();
         Status = NotificationChannelStatus.Disabled;
         UpdatedAt = DateTime.UtcNow;
-        AddDomainEvent(new NotificationChannelStatusChangedEvent(Id, Name, oldStatus, nameof(NotificationChannelStatus.Disabled)));
+        AddDomainEvent(new NotificationChannelStatusChangedDomainEvent(Id, Name, oldStatus, nameof(NotificationChannelStatus.Disabled)));
     }
 
     /// <summary>记录测试结果。</summary>

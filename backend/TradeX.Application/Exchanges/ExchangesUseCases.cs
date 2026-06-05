@@ -32,7 +32,7 @@ public sealed record GetExchangeOrdersQuery(Guid Id, Guid CurrentUserId, string 
 // ─── Commands ───
 
 public sealed record CreateExchangeCommand(
-    Guid CurrentUserId, Guid? TraderId, string Name, string Type,
+    Guid CurrentUserId, string Name, string Type,
     string ApiKey, string SecretKey, string? Passphrase, string? Password);
 
 public sealed record UpdateExchangeCommand(
@@ -96,8 +96,7 @@ public sealed class CreateExchangeUseCase(
             cmd.CurrentUserId, cmd.Name, exchangeType,
             encryption.Encrypt(cmd.ApiKey),
             encryption.Encrypt(cmd.SecretKey),
-            cmd.Passphrase is not null ? encryption.Encrypt(cmd.Passphrase) : null,
-            cmd.TraderId);
+            cmd.Passphrase is not null ? encryption.Encrypt(cmd.Passphrase) : null);
 
         await exchangeRepo.AddAsync(exchange, ct);
 

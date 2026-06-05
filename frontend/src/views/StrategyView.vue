@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue'
+import { Message } from '@arco-design/web-vue'
 import { useRoute, useRouter } from 'vue-router'
 import { strategiesApi, type Strategy, type StrategyBinding } from '../api/strategies'
 import { exchangesApi, type Exchange } from '../api/exchanges'
@@ -150,7 +151,7 @@ async function load() {
 }
 
 function getExchangeLabel(exchangeId: string): string {
-  return exchanges.value.find(a => a.id === exchangeId)?.label ?? exchangeId
+  return exchanges.value.find(a => a.id === exchangeId)?.name ?? exchangeId
 }
 
 function getTemplateName(strategyId: string): string {
@@ -294,7 +295,9 @@ async function save() {
     await load()
   } catch (e: unknown) {
     if ((e as ApiError)._mfaCancelled) return
-    throw e
+    const err = e as any
+    const msg = err?.response?.data?.error || err?.message || '保存失败'
+    Message.error(msg)
   }
 }
 
@@ -304,7 +307,9 @@ async function remove(id: string) {
     await load()
   } catch (e: unknown) {
     if ((e as ApiError)._mfaCancelled) return
-    throw e
+    const err = e as any
+    const msg = err?.response?.data?.error || err?.message || '删除失败'
+    Message.error(msg)
   }
 }
 
@@ -379,7 +384,7 @@ onMounted(load)
               style="width: 100%"
               @change="(v) => formExchangeId = String(v)"
             >
-              <a-option v-for="a in exchanges" :key="a.id" :value="a.id" :label="`${a.label} (${a.exchangeType})`" />
+              <a-option v-for="a in exchanges" :key="a.id" :value="a.id" :label="`${a.name} (${a.type})`" />
             </a-select>
           </div>
 

@@ -9,7 +9,8 @@ using TradeX.Core.Models;
 using TradeX.Indicators;
 using TradeX.Trading.Engine;
 using TradeX.Trading.Execution;
-using TradeX.Trading.Messaging;
+using TradeX.Trading.Events;
+using TradeX.Trading.EventBus;
 using TradeX.Trading.Observability;
 using TradeX.Trading.Risk;
 
@@ -35,7 +36,7 @@ public sealed class StrategyEvaluationConsumer(
     Channel<TradeEvent> tradeChannel,
     Channel<KlineEvent> klineChannel,
     IIndicatorRegistry indicatorRegistry,
-    ITradingEventBus eventBus,
+    IDomainEventBus eventBus,
     TradeXMetrics metrics,
     TradeStreamManager streamManager,
     KlineStreamManager klineStreamManager,
@@ -371,7 +372,9 @@ public sealed class StrategyEvaluationConsumer(
             var msg = string.Join("; ", riskCheck.DeniedReasons);
             logger.LogWarning("策略 {BindingId}: 风控拒绝入场, {Reasons}", binding.Id, msg);
             metrics.RiskDenials.Add(1, new KeyValuePair<string, object?>("scope", "portfolio"));
-            await eventBus.RiskAlertAsync(binding.TraderId, "Warning", "RiskCheck", binding.Id, msg, ct);
+            await eventBus.PublishAsync(new RiskAlertPayload(
+                Guid.NewGuid(), "Warning", "RiskCheck", binding.TraderId,
+                binding.Id, msg, DateTime.UtcNow), ct);
             return false;
         }
 
@@ -381,7 +384,9 @@ public sealed class StrategyEvaluationConsumer(
             var msg = string.Join("; ", pairRisk.DeniedReasons);
             logger.LogWarning("策略 {BindingId}: 币种风控拒绝, {Reasons}", binding.Id, msg);
             metrics.RiskDenials.Add(1, new KeyValuePair<string, object?>("scope", "pair"));
-            await eventBus.RiskAlertAsync(binding.TraderId, "Warning", "PairRisk", binding.Id, msg, ct);
+            await eventBus.PublishAsync(new RiskAlertPayload(
+                Guid.NewGuid(), "Warning", "PairRisk", binding.TraderId,
+                binding.Id, msg, DateTime.UtcNow), ct);
             return false;
         }
 
@@ -444,9 +449,10 @@ public sealed class StrategyEvaluationConsumer(
             metrics.OrdersPlaced.Add(1,
                 new KeyValuePair<string, object?>("side", "buy"),
                 new KeyValuePair<string, object?>("status", order.Status.ToString()));
-            await eventBus.OrderPlacedAsync(binding.TraderId, order.Id, order.ExchangeId, order.StrategyId,
+            await eventBus.PublishAsync(new OrderPlacedPayload(
+                order.Id, binding.TraderId, order.ExchangeId, order.StrategyId,
                 order.Pair, order.Side.ToString(), order.Type.ToString(),
-                order.Status.ToString(), order.Quantity, order.PlacedAtUtc, ct);
+                order.Status.ToString(), order.Quantity, order.PlacedAtUtc), ct);
         }
         else
         {
@@ -486,10 +492,10 @@ public sealed class StrategyEvaluationConsumer(
             logger.LogInformation("策略 {BindingId}: 卖出平仓下单成交 {Pair} {Quantity}（持仓由投影器关闭）",
                 binding.Id, pair, position.Quantity);
 
-            await eventBus.OrderPlacedAsync(binding.TraderId, sellOrder.Id, sellOrder.ExchangeId,
-                sellOrder.StrategyId, sellOrder.Pair, sellOrder.Side.ToString(),
-                sellOrder.Type.ToString(), sellOrder.Status.ToString(),
-                sellOrder.Quantity, sellOrder.PlacedAtUtc, ct);
+            await eventBus.PublishAsync(new OrderPlacedPayload(
+                sellOrder.Id, binding.TraderId, sellOrder.ExchangeId, sellOrder.StrategyId,
+                sellOrder.Pair, sellOrder.Side.ToString(), sellOrder.Type.ToString(),
+                sellOrder.Status.ToString(), sellOrder.Quantity, sellOrder.PlacedAtUtc), ct);
 
             metrics.OrdersPlaced.Add(1,
                 new KeyValuePair<string, object?>("side", "sell"),

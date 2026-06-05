@@ -71,7 +71,7 @@ public class BacktestTask : AggregateRoot
             throw new InvalidOperationException($"回测任务 {Id} 状态为 {Status}，不能启动");
         Status = BacktestTaskStatus.Running;
         Phase = BacktestPhase.FetchingData;
-        AddDomainEvent(new BacktestStartedEvent(Id));
+        AddDomainEvent(new BacktestStartedDomainEvent(Id));
     }
 
     public void Complete(decimal? finalValue = null, decimal? totalReturnPercent = null)
@@ -81,7 +81,7 @@ public class BacktestTask : AggregateRoot
         Status = BacktestTaskStatus.Completed;
         Phase = null;
         CompletedAt = DateTime.UtcNow;
-        AddDomainEvent(new BacktestCompletedEvent(Id, finalValue ?? 0, totalReturnPercent ?? 0));
+        AddDomainEvent(new BacktestCompletedDomainEvent(Id, finalValue ?? 0, totalReturnPercent ?? 0));
     }
 
     public void Fail(string? reason = null)
@@ -89,7 +89,7 @@ public class BacktestTask : AggregateRoot
         Status = BacktestTaskStatus.Failed;
         Phase = null;
         CompletedAt = DateTime.UtcNow;
-        AddDomainEvent(new BacktestFailedEvent(Id, reason ?? "unknown"));
+        AddDomainEvent(new BacktestFailedDomainEvent(Id, reason ?? "unknown"));
     }
 
     public void Cancel()
@@ -99,6 +99,6 @@ public class BacktestTask : AggregateRoot
         Status = BacktestTaskStatus.Cancelled;
         Phase = null;
         CompletedAt = DateTime.UtcNow;
-        AddDomainEvent(new BacktestCancelledEvent(Id));
+        AddDomainEvent(new BacktestCancelledDomainEvent(Id));
     }
 }

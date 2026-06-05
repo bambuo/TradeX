@@ -4,17 +4,17 @@ using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 using TradeX.Trading.Execution;
-using TradeX.Trading.Messaging;
+using TradeX.Trading.EventBus;
 
 namespace TradeX.Tests.Trading;
 
 public class FillProjectorTests
 {
-    private static (FillProjector projector, IPositionRepository posRepo, IOrderRepository orderRepo, ITradingEventBus bus) Build()
+    private static (FillProjector projector, IPositionRepository posRepo, IOrderRepository orderRepo, IDomainEventBus bus) Build()
     {
         var posRepo = Substitute.For<IPositionRepository>();
         var orderRepo = Substitute.For<IOrderRepository>();
-        var bus = Substitute.For<ITradingEventBus>();
+        var bus = Substitute.For<IDomainEventBus>();
         var projector = new FillProjector(posRepo, orderRepo, bus, Substitute.For<ILogger<FillProjector>>());
         return (projector, posRepo, orderRepo, bus);
     }
@@ -52,9 +52,12 @@ public class FillProjectorTests
         Assert.Equal(60000m, captured.EntryPrice);
         Assert.Equal(PositionStatus.Open, captured.Status);
         Assert.Equal(captured.Id, order.PositionId); // 审计回链
-        await bus.Received(1).PositionUpdatedAsync(order.TraderId, captured.Id, Arg.Any<Guid>(), Arg.Any<Guid>(),
-            "BTCUSDT", Arg.Any<decimal>(), Arg.Any<decimal>(), Arg.Any<decimal>(), Arg.Any<decimal>(),
-            Arg.Any<string>(), Arg.Any<DateTime>(), Arg.Any<CancellationToken>(), Arg.Any<Guid?>());
+        await bus.Received(1).PublishAsync(
+            Arg.Is<PositionUpdatedPayload>(p =>
+                p.PositionId == captured!.Id &&
+                p.TraderId == order.TraderId &&
+                p.Pair == "BTCUSDT"),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]

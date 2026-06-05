@@ -2,7 +2,8 @@ using Microsoft.Extensions.Logging;
 using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
-using TradeX.Trading.Messaging;
+using TradeX.Trading.Events;
+using TradeX.Trading.EventBus;
 
 namespace TradeX.Trading.Execution;
 
@@ -23,7 +24,7 @@ namespace TradeX.Trading.Execution;
 public sealed class FillProjector(
     IPositionRepository positionRepo,
     IOrderRepository orderRepo,
-    ITradingEventBus eventBus,
+    IDomainEventBus eventBus,
     ILogger<FillProjector> logger) : IFillProjector
 {
     public async Task ProjectFilledAsync(Order order, decimal avgFillPrice, CancellationToken ct = default)
@@ -122,8 +123,9 @@ public sealed class FillProjector(
     }
 
     private Task PublishPositionAsync(Position p, CancellationToken ct)
-        => eventBus.PositionUpdatedAsync(p.TraderId, p.Id, p.ExchangeId, p.StrategyId, p.Pair,
-            p.Quantity, p.EntryPrice, p.UnrealizedPnl, p.RealizedPnl, p.Status.ToString(), p.UpdatedAt, ct);
+        => eventBus.PublishAsync(new PositionUpdatedPayload(
+            p.Id, p.TraderId, p.ExchangeId, p.StrategyId, p.Pair,
+            p.Quantity, p.EntryPrice, p.UnrealizedPnl, p.RealizedPnl, p.Status.ToString(), p.UpdatedAt), ct);
 
     /// <summary>开仓价：成交均价优先，退化到 quote 金额/成交量，再退化到委托价。</summary>
     private static decimal ResolveEntryPrice(Order order, decimal avgFillPrice)

@@ -34,7 +34,7 @@ public class Position : AggregateRoot, IVersioned
             EntryPrice = entryPrice,
             CurrentPrice = entryPrice
         };
-        pos.AddDomainEvent(new PositionOpenedEvent(
+        pos.AddDomainEvent(new PositionOpenedDomainEvent(
             pos.Id, traderId, strategyId, pair, quantity, entryPrice));
         return pos;
     }
@@ -95,7 +95,7 @@ public class Position : AggregateRoot, IVersioned
         ClosedAtUtc = now;
         UpdatedAt = now;
 
-        AddDomainEvent(new PositionClosedEvent(
+        AddDomainEvent(new PositionClosedDomainEvent(
             Id, TraderId, Pair, Quantity, EntryPrice, exitPrice, RealizedPnl));
     }
 }

@@ -105,7 +105,7 @@ onMounted(load)
           style="width: 100%"
           @change="(v) => formExchangeId = String(v)"
         >
-          <a-option v-for="a in exchanges" :key="a.id" :value="a.id" :label="`${a.label} (${a.exchangeType})`" />
+          <a-option v-for="a in exchanges" :key="a.id" :value="a.id" :label="`${a.name} (${a.type})`" />
         </a-select>
         <a-input v-model="formPair" placeholder="交易对，如 BTCUSDT" />
         <div class="form-row">

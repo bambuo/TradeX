@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Threading.Channels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -7,7 +8,6 @@ using TradeX.Trading.Commands;
 using TradeX.Trading.Engine;
 using TradeX.Trading.Execution;
 using TradeX.Trading.Migration;
-using TradeX.Trading.Outbox;
 using TradeX.Trading.Risk;
 using TradeX.Trading.Streaming;
 
@@ -22,6 +22,10 @@ public static class DependencyInjection
     /// </summary>
     public static IServiceCollection AddTradingShared(this IServiceCollection services)
     {
+        // 注册领域事件处理器（自动扫描 TradeX.Trading 程序集中 IDomainEventHandler<> 的实现）
+        var tradingAssembly = Assembly.GetExecutingAssembly();
+        services.RegisterDomainEventHandlers(tradingAssembly);
+
         services.TryAddSingleton<IClock, SystemClock>();
         services.AddScoped<IConditionEvaluator, ConditionEvaluator>();
         services.AddScoped<IConditionTreeEvaluator, ConditionTreeEvaluator>();
@@ -52,6 +56,21 @@ public static class DependencyInjection
 
         services.Configure<RiskSettings>(settings => { });
 
+        return services;
+    }
+
+    /// <summary>
+    /// 注册 Tradng 层提供的领域事件处理器（显式注册替代扫描，如需框架扫描可抽到公共 DI 扩展）。
+    /// </summary>
+    private static IServiceCollection RegisterDomainEventHandlers(this IServiceCollection services, Assembly assembly)
+    {
+        services.Scan(scan => scan
+            .FromAssemblies(assembly)
+            .AddClasses(classes => classes
+                .AssignableTo(typeof(Core.Abstractions.IDomainEventHandler<>))
+                .Where(c => !c.IsAbstract && !c.IsGenericTypeDefinition))
+            .AsImplementedInterfaces()
+            .WithScopedLifetime());
         return services;
     }
 
@@ -172,14 +191,5 @@ public static class DependencyInjection
         return services;
     }
 
-    /// <summary>
-    /// Worker 端：注册 OutboxRelayService —— 后台轮询 outbox_events 表把 Pending 事件推到 Redis。
-    /// 调用方应同时使用 <see cref="OutboxTradingEventBus"/> 作为 ITradingEventBus 的实现。
-    /// 要求 Redis 已配置。
-    /// </summary>
-    public static IServiceCollection AddOutboxRelay(this IServiceCollection services)
-    {
-        services.AddHostedService<OutboxRelayService>();
-        return services;
-    }
+
 }

@@ -17,6 +17,7 @@ public static class DependencyInjection
     {
         services.AddSingleton<VersionInterceptor>();
         services.AddSingleton<DomainEventInterceptor>();
+        services.AddSingleton<DomainEventDispatcher>();
         services.AddDbContext<TradeXDbContext>((sp, options) =>
             options
                 .UseNpgsql(connectionString, npgsql => npgsql
@@ -44,7 +45,6 @@ public static class DependencyInjection
         services.AddScoped<IBacktestTaskRepository, BacktestTaskRepository>();
         services.AddScoped<ISystemConfigRepository, SystemConfigRepository>();
         services.AddScoped<INotificationChannelRepository, NotificationChannelRepository>();
-        services.AddScoped<IOutboxRepository, OutboxRepository>();
 
         services.AddSingleton<IEncryptionService, EncryptionService>();
         services.AddSingleton<CasbinEnforcer>();

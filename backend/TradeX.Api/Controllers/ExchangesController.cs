@@ -46,7 +46,7 @@ public class ExchangesController(
     public async Task<IActionResult> Create([FromBody] CreateExchangeRequest request, CancellationToken ct)
     {
         var result = await createExchange.ExecuteAsync(
-            new CreateExchangeCommand(UserId, null, request.Name, request.ExchangeType,
+            new CreateExchangeCommand(UserId, request.Name, request.ExchangeType,
                 request.ApiKey, request.SecretKey, request.Passphrase, null), ct);
 
         if (!result.Success)

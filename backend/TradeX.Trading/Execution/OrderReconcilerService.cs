@@ -21,14 +21,14 @@ public sealed class OrderReconcilerService(
         var interval = TimeSpan.FromSeconds(Math.Max(10, riskSettings.Value.OrderReconcileIntervalSeconds));
         logger.LogInformation("OrderReconcilerService 启动，巡检周期 {Interval}", interval);
 
-        // 启动时一次性扫描"孤儿订单"(交易所有 / 本地无). 通过 OutboxEvent 异步告警.
+        // 启动时一次性扫描"孤儿订单"(交易所有 / 本地无). 通过 IDomainEventBus 异步告警.
         try
         {
             using var scope = scopeFactory.CreateScope();
             var reconciler = scope.ServiceProvider.GetRequiredService<IOrderReconciler>();
             var orphans = await reconciler.DetectOrphanOrdersAsync(stoppingToken);
             if (orphans > 0)
-                logger.LogWarning("启动孤儿订单扫描: 发现 {Count} 笔, 已写入 Outbox 告警", orphans);
+                logger.LogWarning("启动孤儿订单扫描: 发现 {Count} 笔, 已写入事件总线告警", orphans);
         }
         catch (OperationCanceledException) { return; }
         catch (Exception ex)

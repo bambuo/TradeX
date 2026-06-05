@@ -1,68 +1,84 @@
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using TradeX.Core.Abstractions;
-using TradeX.Core.Models;
+using TradeX.Core.Events;
 
 namespace TradeX.Infrastructure.Data;
 
 /// <summary>
-/// 保存前自动读取 <see cref="AggregateRoot.DomainEvents"/> 并写入 outbox_events 表。
-/// 使领域事件从收集到发布的管线自动连通，领域方法只需调用 <see cref="AggregateRoot.AddDomainEvent"/>。
+/// SaveChanges 拦截器：在保存前采集聚合根中的领域事件并清空集合，
+/// 在保存成功后通过 <see cref="DomainEventDispatcher"/> 分发到已注册的 handler。
+///
+/// 为什么不在 SavingChanges 时写 outbox？
+/// 领域事件是 in-process side effect 的触发器（通知 UI、审计日志），
+/// 不属于跨进程消息（后者由 <c>RedisDomainEventBus</c> 处理）。
+/// handler 通过 <c>IDomainEventBus</c> 将需要推送给前端的事件桥接到交易事件管道。
 /// </summary>
-public sealed class DomainEventInterceptor : SaveChangesInterceptor
+public sealed class DomainEventInterceptor(
+    IServiceScopeFactory scopeFactory) : SaveChangesInterceptor
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = false,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
+    private static readonly AsyncLocal<List<IDomainEvent>> _pendingEvents = new();
 
-    public override InterceptionResult<int> SavingChanges(DbContextEventData eventData, InterceptionResult<int> result)
+    public override InterceptionResult<int> SavingChanges(
+        DbContextEventData eventData, InterceptionResult<int> result)
     {
-        Dispatch(eventData.Context);
+        CollectEvents(eventData.Context);
         return base.SavingChanges(eventData, result);
     }
 
     public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
-        DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        DbContextEventData eventData, InterceptionResult<int> result,
+        CancellationToken cancellationToken = default)
     {
-        Dispatch(eventData.Context);
+        CollectEvents(eventData.Context);
         return base.SavingChangesAsync(eventData, result, cancellationToken);
     }
 
-    private static void Dispatch(DbContext? context)
+    public override async ValueTask<int> SavedChangesAsync(
+        SaveChangesCompletedEventData eventData, int result,
+        CancellationToken cancellationToken = default)
+    {
+        var events = _pendingEvents.Value;
+        _pendingEvents.Value = null;
+
+        if (events is { Count: > 0 })
+        {
+            await DispatchAsync(events, cancellationToken);
+        }
+
+        return await base.SavedChangesAsync(eventData, result, cancellationToken);
+    }
+
+    /// <summary>采集所有跟踪的聚合根中的领域事件并清空集合。</summary>
+    private static void CollectEvents(DbContext? context)
     {
         if (context is null) return;
 
         var entries = context.ChangeTracker.Entries<AggregateRoot>().ToList();
+        if (entries.Count == 0) return;
+
+        var allEvents = new List<IDomainEvent>();
         foreach (var entry in entries)
         {
             var aggregate = entry.Entity;
             var events = aggregate.DomainEvents;
             if (events.Count == 0) continue;
 
-            foreach (var domainEvent in events)
-            {
-                context.Set<OutboxEvent>().Add(new OutboxEvent
-                {
-                    Type = domainEvent.GetType().Name,
-                    PayloadJson = JsonSerializer.Serialize(domainEvent, domainEvent.GetType(), JsonOptions),
-                    Status = OutboxStatus.Pending,
-                    TraderId = TryGetTraderId(domainEvent)
-                });
-            }
-
-            // 事件写入 outbox 后清空聚合根的事件集合，防止重复发布
+            allEvents.AddRange(events);
             aggregate.ClearDomainEvents();
         }
+
+        if (allEvents.Count > 0)
+            _pendingEvents.Value = allEvents;
     }
 
-    /// <summary>尝试从领域事件中提取 TraderId（部分事件包含此属性）。</summary>
-    private static Guid? TryGetTraderId(object domainEvent)
+    /// <summary>在单独的作用域中分发事件，handler 失败不影响已提交的业务数据。</summary>
+    private async Task DispatchAsync(List<IDomainEvent> events, CancellationToken ct)
     {
-        // 通过反射尝试读取 TraderId 属性（多数领域事件包含此字段）
-        var prop = domainEvent.GetType().GetProperty("TraderId");
-        return prop?.GetValue(domainEvent) as Guid?;
+        using var scope = scopeFactory.CreateScope();
+        var dispatcher = scope.ServiceProvider.GetRequiredService<DomainEventDispatcher>();
+        await dispatcher.DispatchAsync(events, ct);
     }
 }

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 using TradeX.Trading.Events;
+using TradeX.Trading.EventBus;
 using TradeX.Trading.Observability;
 using TradeX.Trading.Risk;
 
@@ -14,7 +15,7 @@ namespace TradeX.Trading.Execution;
 /// <list type="number">
 ///   <item>把本地 Open 持仓按 base 资产聚合出"应持有量"；</item>
 ///   <item>拉取交易所实际余额；</item>
-///   <item>对每个 base 资产比较，漂移超阈值则发 <see cref="TradingEventTypes.PositionDriftDetected"/> 告警。</item>
+///   <item>对每个 base 资产比较，漂移超阈值则发布 <see cref="PositionDriftDetectedPayload"/> 告警。</item>
 /// </list>
 ///
 /// <para>漂移方向语义：<c>Drift = 本地量 - 实际量</c>。</para>
@@ -30,7 +31,7 @@ public sealed class PositionReconciler(
     IPositionRepository positionRepo,
     IExchangeClientFactory clientFactory,
     IEncryptionService encryption,
-    IOutboxRepository outbox,
+    IDomainEventBus eventBus,
     TradeXMetrics metrics,
     IOptions<RiskSettings> riskSettings,
     ILogger<PositionReconciler> logger) : IPositionReconciler
@@ -107,21 +108,10 @@ public sealed class PositionReconciler(
                 totalDrift++;
 
                 var payload = new PositionDriftDetectedPayload(
-                    exchange.Id, exchange.Type.ToString(), exchange.TraderId, asset,
+                    exchange.Id, exchange.Type.ToString(), null, asset,
                     localQty, actualQty, drift, Math.Round(driftPct, 4), severity, DateTime.UtcNow);
 
-                // 包装为标准 TradingEventEnvelope，使 RedisToSignalRBridge 能解析并路由到管理员组。
-                var envelope = new TradingEventEnvelope(
-                    TradingEventTypes.PositionDriftDetected,
-                    Guid.NewGuid(), exchange.TraderId ?? Guid.Empty,
-                    JsonSerializer.Serialize(payload));
-                await outbox.EnqueueAsync(new OutboxEvent
-                {
-                    Type = TradingEventTypes.PositionDriftDetected,
-                    PayloadJson = JsonSerializer.Serialize(envelope),
-                    TraderId = exchange.TraderId
-                }, ct);
-                await outbox.SaveChangesAsync(ct);
+                await eventBus.PublishAsync(payload, ct);
 
                 metrics.PositionDriftDetected.Add(1,
                     new KeyValuePair<string, object?>("exchange", exchange.Type.ToString()),

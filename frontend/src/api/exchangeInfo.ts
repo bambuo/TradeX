@@ -45,5 +45,6 @@ export const exchangeInfos: ExchangeInfo[] = [
 ]
 
 export function getExchangeInfo(type: string): ExchangeInfo {
+  if (!type) return exchangeInfos[0]
   return exchangeInfos.find(e => e.type === type.toUpperCase()) ?? exchangeInfos[0]
 }

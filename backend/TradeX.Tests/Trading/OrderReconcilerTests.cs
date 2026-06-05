@@ -5,13 +5,15 @@ using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 using TradeX.Trading;
+using TradeX.Trading.EventBus;
+using TradeX.Trading.Events;
 
 namespace TradeX.Tests.Trading;
 
 public class OrderReconcilerTests
 {
     private static (OrderReconciler reconciler, IExchangeRepository exchangeRepo, IOrderRepository orderRepo,
-        IExchangeClient exchangeClient, IExchangeClientFactory clientFactory, IOutboxRepository outbox) BuildReconciler(int stalePendingMinutes = 5)
+        IExchangeClient exchangeClient, IExchangeClientFactory clientFactory, IDomainEventBus eventBus) BuildReconciler(int stalePendingMinutes = 5)
     {
         var exchangeRepo = Substitute.For<IExchangeRepository>();
         var orderRepo = Substitute.For<IOrderRepository>();
@@ -21,12 +23,12 @@ public class OrderReconcilerTests
             .Returns(exchangeClient);
         var encryption = Substitute.For<IEncryptionService>();
         encryption.Decrypt(Arg.Any<string>()).Returns(ci => ci.ArgAt<string>(0) + "-dec");
-        var outbox = Substitute.For<IOutboxRepository>();
+        var eventBus = Substitute.For<IDomainEventBus>();
         var settings = Options.Create(new RiskSettings { StalePendingMinutes = stalePendingMinutes });
         var logger = Substitute.For<ILogger<OrderReconciler>>();
-        var reconciler = new OrderReconciler(exchangeRepo, orderRepo, clientFactory, encryption, outbox,
+        var reconciler = new OrderReconciler(exchangeRepo, orderRepo, clientFactory, encryption, eventBus,
             Substitute.For<TradeX.Trading.Execution.IFillProjector>(), settings, logger);
-        return (reconciler, exchangeRepo, orderRepo, exchangeClient, clientFactory, outbox);
+        return (reconciler, exchangeRepo, orderRepo, exchangeClient, clientFactory, eventBus);
     }
 
     private static TradeX.Core.Models.Exchange MakeExchange(Guid id) => new()
@@ -275,7 +277,7 @@ public class OrderReconcilerTests
     [Fact]
     public async Task DetectOrphanOrdersAsync_RemoteHasOrderLocalMissing_WritesOutbox()
     {
-        var (rec, exchangeRepo, orderRepo, client, _, outbox) = BuildReconciler();
+        var (rec, exchangeRepo, orderRepo, client, _, eventBus) = BuildReconciler();
         var exchangeId = Guid.NewGuid();
         exchangeRepo.GetAllEnabledAsync(Arg.Any<CancellationToken>()).Returns([MakeExchange(exchangeId)]);
         client.GetOpenOrdersAsync(Arg.Any<CancellationToken>()).Returns(new[]
@@ -287,15 +289,15 @@ public class OrderReconcilerTests
         var count = await rec.DetectOrphanOrdersAsync();
 
         Assert.Equal(1, count);
-        await outbox.Received(1).EnqueueAsync(
-            Arg.Is<OutboxEvent>(e => e.Type == "OrphanOrderDetected" && e.PayloadJson.Contains("ORPH-1")),
+        await eventBus.Received(1).PublishAsync(
+            Arg.Is<OrphanOrderDetectedPayload>(p => p.ExchangeOrderId == "ORPH-1"),
             Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task DetectOrphanOrdersAsync_LocalMatchExists_NoOrphan()
     {
-        var (rec, exchangeRepo, orderRepo, client, _, outbox) = BuildReconciler();
+        var (rec, exchangeRepo, orderRepo, client, _, eventBus) = BuildReconciler();
         var exchangeId = Guid.NewGuid();
         exchangeRepo.GetAllEnabledAsync(Arg.Any<CancellationToken>()).Returns([MakeExchange(exchangeId)]);
         client.GetOpenOrdersAsync(Arg.Any<CancellationToken>()).Returns(new[]
@@ -308,13 +310,13 @@ public class OrderReconcilerTests
         var count = await rec.DetectOrphanOrdersAsync();
 
         Assert.Equal(0, count);
-        await outbox.DidNotReceive().EnqueueAsync(Arg.Any<OutboxEvent>(), Arg.Any<CancellationToken>());
+        await eventBus.DidNotReceive().PublishAsync(Arg.Any<OrphanOrderDetectedPayload>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task DetectOrphanOrdersAsync_ClientThrows_SkipsExchangeNotWhole()
     {
-        var (rec, exchangeRepo, _, client, _, outbox) = BuildReconciler();
+        var (rec, exchangeRepo, _, client, _, eventBus) = BuildReconciler();
         exchangeRepo.GetAllEnabledAsync(Arg.Any<CancellationToken>()).Returns([MakeExchange(Guid.NewGuid())]);
         client.GetOpenOrdersAsync(Arg.Any<CancellationToken>())
             .Returns<Task<ExchangeOrderDto[]>>(_ => throw new InvalidOperationException("network"));
@@ -322,6 +324,6 @@ public class OrderReconcilerTests
         var count = await rec.DetectOrphanOrdersAsync();
 
         Assert.Equal(0, count);
-        await outbox.DidNotReceive().EnqueueAsync(Arg.Any<OutboxEvent>(), Arg.Any<CancellationToken>());
+        await eventBus.DidNotReceive().PublishAsync(Arg.Any<OrphanOrderDetectedPayload>(), Arg.Any<CancellationToken>());
     }
 }

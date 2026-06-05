@@ -319,7 +319,7 @@ async function save() {
               style="width: 100%"
               @change="(v: unknown) => onExchangeChange(String(v))"
             >
-              <a-option v-for="e in exchanges" :key="e.id" :value="e.id" :label="`${e.label} (${e.exchangeType})`" />
+              <a-option v-for="e in exchanges" :key="e.id" :value="e.id" :label="`${e.name} (${e.type})`" />
             </a-select>
           </div>
 

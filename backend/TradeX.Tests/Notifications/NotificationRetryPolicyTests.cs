@@ -1,39 +1,32 @@
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using TradeX.Core.Interfaces;
-using TradeX.Core.Models;
 using TradeX.Notifications;
 
 namespace TradeX.Tests.Notifications;
 
 public class NotificationRetryPolicyTests
 {
-    private static NotificationRetryPolicy Build(IOutboxRepository? outbox = null, INotificationMetrics? metrics = null)
+    private static NotificationRetryPolicy Build(INotificationMetrics? metrics = null)
     {
-        outbox ??= Substitute.For<IOutboxRepository>();
         metrics ??= new NullNotificationMetrics();
-        return new NotificationRetryPolicy(outbox, metrics, Substitute.For<ILogger<NotificationRetryPolicy>>());
+        return new NotificationRetryPolicy(metrics, Substitute.For<ILogger<NotificationRetryPolicy>>());
     }
 
     private static NotificationEvent SampleEvent() => new("test", "demo-strategy", new() { ["k"] = "v" });
 
     [Fact]
-    public async Task ExecuteAsync_FirstAttemptSucceeds_NoDeadLetter()
+    public async Task ExecuteAsync_FirstAttemptSucceeds()
     {
-        var outbox = Substitute.For<IOutboxRepository>();
-        var policy = Build(outbox);
-
+        var policy = Build();
         var ok = await policy.ExecuteAsync("telegram", SampleEvent(), _ => Task.CompletedTask, CancellationToken.None);
-
         Assert.True(ok);
-        await outbox.DidNotReceive().EnqueueAsync(Arg.Any<OutboxEvent>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task ExecuteAsync_TransientFailureThenSuccess_Succeeds()
     {
-        var outbox = Substitute.For<IOutboxRepository>();
-        var policy = Build(outbox);
+        var policy = Build();
         var attempts = 0;
 
         var ok = await policy.ExecuteAsync("discord", SampleEvent(), _ =>
@@ -45,14 +38,13 @@ public class NotificationRetryPolicyTests
 
         Assert.True(ok);
         Assert.Equal(2, attempts);
-        await outbox.DidNotReceive().EnqueueAsync(Arg.Any<OutboxEvent>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task ExecuteAsync_AllAttemptsFail_WritesDeadLetter()
+    public async Task ExecuteAsync_AllAttemptsFail_ReturnsFalse()
     {
-        var outbox = Substitute.For<IOutboxRepository>();
-        var policy = Build(outbox);
+        var metrics = Substitute.For<INotificationMetrics>();
+        var policy = Build(metrics);
         var attempts = 0;
 
         var ok = await policy.ExecuteAsync("telegram", SampleEvent(), _ =>
@@ -63,16 +55,14 @@ public class NotificationRetryPolicyTests
 
         Assert.False(ok);
         Assert.Equal(NotificationRetryPolicy.MaxAttempts, attempts);
-        await outbox.Received(1).EnqueueAsync(
-            Arg.Is<OutboxEvent>(e => e.Type == "NotificationFailed" && e.PayloadJson.Contains("telegram") && e.PayloadJson.Contains("network down")),
-            Arg.Any<CancellationToken>());
+        metrics.Received(1).RecordFailed("telegram");
     }
 
     [Fact]
     public async Task ExecuteAsync_ConfigError_FailsFastNoRetry()
     {
-        var outbox = Substitute.For<IOutboxRepository>();
-        var policy = Build(outbox);
+        var metrics = Substitute.For<INotificationMetrics>();
+        var policy = Build(metrics);
         var attempts = 0;
 
         var ok = await policy.ExecuteAsync("email", SampleEvent(), _ =>
@@ -83,7 +73,7 @@ public class NotificationRetryPolicyTests
 
         Assert.False(ok);
         Assert.Equal(1, attempts);
-        await outbox.Received(1).EnqueueAsync(Arg.Any<OutboxEvent>(), Arg.Any<CancellationToken>());
+        metrics.Received(1).RecordFailed("email");
     }
 
     [Fact]

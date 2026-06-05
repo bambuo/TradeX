@@ -53,7 +53,7 @@ public class User : AggregateRoot
         RecoveryCodesJson = recoveryCodesJson;
         if (Status == UserStatus.PendingMfa)
             Status = UserStatus.Active;
-        AddDomainEvent(new MfaEnabledEvent(Id));
+        AddDomainEvent(new MfaEnabledDomainEvent(Id));
     }
 
     /// <summary>禁用 MFA。</summary>
@@ -70,7 +70,7 @@ public class User : AggregateRoot
         LastLoginAt = DateTime.UtcNow;
         if (Status == UserStatus.PendingMfa && IsMfaEnabled)
             Status = UserStatus.Active;
-        AddDomainEvent(new UserLoggedInEvent(Id, LastLoginAt.Value));
+        AddDomainEvent(new UserLoggedInDomainEvent(Id, LastLoginAt.Value));
     }
 
     /// <summary>变更角色。</summary>
