@@ -22,6 +22,20 @@ type BacktestResultCreate struct {
 	hooks    []Hook
 }
 
+// SetStrategyName sets the "strategy_name" field.
+func (_c *BacktestResultCreate) SetStrategyName(v string) *BacktestResultCreate {
+	_c.mutation.SetStrategyName(v)
+	return _c
+}
+
+// SetNillableStrategyName sets the "strategy_name" field if the given value is not nil.
+func (_c *BacktestResultCreate) SetNillableStrategyName(v *string) *BacktestResultCreate {
+	if v != nil {
+		_c.SetStrategyName(*v)
+	}
+	return _c
+}
+
 // SetFinalValue sets the "final_value" field.
 func (_c *BacktestResultCreate) SetFinalValue(v float64) *BacktestResultCreate {
 	_c.mutation.SetFinalValue(v)
@@ -150,6 +164,10 @@ func (_c *BacktestResultCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *BacktestResultCreate) defaults() {
+	if _, ok := _c.mutation.StrategyName(); !ok {
+		v := backtestresult.DefaultStrategyName
+		_c.mutation.SetStrategyName(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := backtestresult.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
@@ -162,6 +180,9 @@ func (_c *BacktestResultCreate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (_c *BacktestResultCreate) check() error {
+	if _, ok := _c.mutation.StrategyName(); !ok {
+		return &ValidationError{Name: "strategy_name", err: errors.New(`ent: missing required field "BacktestResult.strategy_name"`)}
+	}
 	if _, ok := _c.mutation.FinalValue(); !ok {
 		return &ValidationError{Name: "final_value", err: errors.New(`ent: missing required field "BacktestResult.final_value"`)}
 	}
@@ -226,6 +247,10 @@ func (_c *BacktestResultCreate) createSpec() (*BacktestResult, *sqlgraph.CreateS
 	if id, ok := _c.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = &id
+	}
+	if value, ok := _c.mutation.StrategyName(); ok {
+		_spec.SetField(backtestresult.FieldStrategyName, field.TypeString, value)
+		_node.StrategyName = value
 	}
 	if value, ok := _c.mutation.FinalValue(); ok {
 		_spec.SetField(backtestresult.FieldFinalValue, field.TypeFloat64, value)

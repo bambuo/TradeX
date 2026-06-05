@@ -12,93 +12,68 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
-	"github.com/tradex/backend-go/internal/infra/persistence/ent/backtestresult"
-	"github.com/tradex/backend-go/internal/infra/persistence/ent/backtesttask"
 	"github.com/tradex/backend-go/internal/infra/persistence/ent/predicate"
+	"github.com/tradex/backend-go/internal/infra/persistence/ent/strategy"
 )
 
-// BacktestResultQuery is the builder for querying BacktestResult entities.
-type BacktestResultQuery struct {
+// StrategyQuery is the builder for querying Strategy entities.
+type StrategyQuery struct {
 	config
 	ctx        *QueryContext
-	order      []backtestresult.OrderOption
+	order      []strategy.OrderOption
 	inters     []Interceptor
-	predicates []predicate.BacktestResult
-	withTask   *BacktestTaskQuery
-	withFKs    bool
+	predicates []predicate.Strategy
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
 }
 
-// Where adds a new predicate for the BacktestResultQuery builder.
-func (_q *BacktestResultQuery) Where(ps ...predicate.BacktestResult) *BacktestResultQuery {
+// Where adds a new predicate for the StrategyQuery builder.
+func (_q *StrategyQuery) Where(ps ...predicate.Strategy) *StrategyQuery {
 	_q.predicates = append(_q.predicates, ps...)
 	return _q
 }
 
 // Limit the number of records to be returned by this query.
-func (_q *BacktestResultQuery) Limit(limit int) *BacktestResultQuery {
+func (_q *StrategyQuery) Limit(limit int) *StrategyQuery {
 	_q.ctx.Limit = &limit
 	return _q
 }
 
 // Offset to start from.
-func (_q *BacktestResultQuery) Offset(offset int) *BacktestResultQuery {
+func (_q *StrategyQuery) Offset(offset int) *StrategyQuery {
 	_q.ctx.Offset = &offset
 	return _q
 }
 
 // Unique configures the query builder to filter duplicate records on query.
 // By default, unique is set to true, and can be disabled using this method.
-func (_q *BacktestResultQuery) Unique(unique bool) *BacktestResultQuery {
+func (_q *StrategyQuery) Unique(unique bool) *StrategyQuery {
 	_q.ctx.Unique = &unique
 	return _q
 }
 
 // Order specifies how the records should be ordered.
-func (_q *BacktestResultQuery) Order(o ...backtestresult.OrderOption) *BacktestResultQuery {
+func (_q *StrategyQuery) Order(o ...strategy.OrderOption) *StrategyQuery {
 	_q.order = append(_q.order, o...)
 	return _q
 }
 
-// QueryTask chains the current query on the "task" edge.
-func (_q *BacktestResultQuery) QueryTask() *BacktestTaskQuery {
-	query := (&BacktestTaskClient{config: _q.config}).Query()
-	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
-		if err := _q.prepareQuery(ctx); err != nil {
-			return nil, err
-		}
-		selector := _q.sqlQuery(ctx)
-		if err := selector.Err(); err != nil {
-			return nil, err
-		}
-		step := sqlgraph.NewStep(
-			sqlgraph.From(backtestresult.Table, backtestresult.FieldID, selector),
-			sqlgraph.To(backtesttask.Table, backtesttask.FieldID),
-			sqlgraph.Edge(sqlgraph.O2O, true, backtestresult.TaskTable, backtestresult.TaskColumn),
-		)
-		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
-		return fromU, nil
-	}
-	return query
-}
-
-// First returns the first BacktestResult entity from the query.
-// Returns a *NotFoundError when no BacktestResult was found.
-func (_q *BacktestResultQuery) First(ctx context.Context) (*BacktestResult, error) {
+// First returns the first Strategy entity from the query.
+// Returns a *NotFoundError when no Strategy was found.
+func (_q *StrategyQuery) First(ctx context.Context) (*Strategy, error) {
 	nodes, err := _q.Limit(1).All(setContextOp(ctx, _q.ctx, ent.OpQueryFirst))
 	if err != nil {
 		return nil, err
 	}
 	if len(nodes) == 0 {
-		return nil, &NotFoundError{backtestresult.Label}
+		return nil, &NotFoundError{strategy.Label}
 	}
 	return nodes[0], nil
 }
 
 // FirstX is like First, but panics if an error occurs.
-func (_q *BacktestResultQuery) FirstX(ctx context.Context) *BacktestResult {
+func (_q *StrategyQuery) FirstX(ctx context.Context) *Strategy {
 	node, err := _q.First(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -106,22 +81,22 @@ func (_q *BacktestResultQuery) FirstX(ctx context.Context) *BacktestResult {
 	return node
 }
 
-// FirstID returns the first BacktestResult ID from the query.
-// Returns a *NotFoundError when no BacktestResult ID was found.
-func (_q *BacktestResultQuery) FirstID(ctx context.Context) (id uuid.UUID, err error) {
+// FirstID returns the first Strategy ID from the query.
+// Returns a *NotFoundError when no Strategy ID was found.
+func (_q *StrategyQuery) FirstID(ctx context.Context) (id uuid.UUID, err error) {
 	var ids []uuid.UUID
 	if ids, err = _q.Limit(1).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryFirstID)); err != nil {
 		return
 	}
 	if len(ids) == 0 {
-		err = &NotFoundError{backtestresult.Label}
+		err = &NotFoundError{strategy.Label}
 		return
 	}
 	return ids[0], nil
 }
 
 // FirstIDX is like FirstID, but panics if an error occurs.
-func (_q *BacktestResultQuery) FirstIDX(ctx context.Context) uuid.UUID {
+func (_q *StrategyQuery) FirstIDX(ctx context.Context) uuid.UUID {
 	id, err := _q.FirstID(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -129,10 +104,10 @@ func (_q *BacktestResultQuery) FirstIDX(ctx context.Context) uuid.UUID {
 	return id
 }
 
-// Only returns a single BacktestResult entity found by the query, ensuring it only returns one.
-// Returns a *NotSingularError when more than one BacktestResult entity is found.
-// Returns a *NotFoundError when no BacktestResult entities are found.
-func (_q *BacktestResultQuery) Only(ctx context.Context) (*BacktestResult, error) {
+// Only returns a single Strategy entity found by the query, ensuring it only returns one.
+// Returns a *NotSingularError when more than one Strategy entity is found.
+// Returns a *NotFoundError when no Strategy entities are found.
+func (_q *StrategyQuery) Only(ctx context.Context) (*Strategy, error) {
 	nodes, err := _q.Limit(2).All(setContextOp(ctx, _q.ctx, ent.OpQueryOnly))
 	if err != nil {
 		return nil, err
@@ -141,14 +116,14 @@ func (_q *BacktestResultQuery) Only(ctx context.Context) (*BacktestResult, error
 	case 1:
 		return nodes[0], nil
 	case 0:
-		return nil, &NotFoundError{backtestresult.Label}
+		return nil, &NotFoundError{strategy.Label}
 	default:
-		return nil, &NotSingularError{backtestresult.Label}
+		return nil, &NotSingularError{strategy.Label}
 	}
 }
 
 // OnlyX is like Only, but panics if an error occurs.
-func (_q *BacktestResultQuery) OnlyX(ctx context.Context) *BacktestResult {
+func (_q *StrategyQuery) OnlyX(ctx context.Context) *Strategy {
 	node, err := _q.Only(ctx)
 	if err != nil {
 		panic(err)
@@ -156,10 +131,10 @@ func (_q *BacktestResultQuery) OnlyX(ctx context.Context) *BacktestResult {
 	return node
 }
 
-// OnlyID is like Only, but returns the only BacktestResult ID in the query.
-// Returns a *NotSingularError when more than one BacktestResult ID is found.
+// OnlyID is like Only, but returns the only Strategy ID in the query.
+// Returns a *NotSingularError when more than one Strategy ID is found.
 // Returns a *NotFoundError when no entities are found.
-func (_q *BacktestResultQuery) OnlyID(ctx context.Context) (id uuid.UUID, err error) {
+func (_q *StrategyQuery) OnlyID(ctx context.Context) (id uuid.UUID, err error) {
 	var ids []uuid.UUID
 	if ids, err = _q.Limit(2).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryOnlyID)); err != nil {
 		return
@@ -168,15 +143,15 @@ func (_q *BacktestResultQuery) OnlyID(ctx context.Context) (id uuid.UUID, err er
 	case 1:
 		id = ids[0]
 	case 0:
-		err = &NotFoundError{backtestresult.Label}
+		err = &NotFoundError{strategy.Label}
 	default:
-		err = &NotSingularError{backtestresult.Label}
+		err = &NotSingularError{strategy.Label}
 	}
 	return
 }
 
 // OnlyIDX is like OnlyID, but panics if an error occurs.
-func (_q *BacktestResultQuery) OnlyIDX(ctx context.Context) uuid.UUID {
+func (_q *StrategyQuery) OnlyIDX(ctx context.Context) uuid.UUID {
 	id, err := _q.OnlyID(ctx)
 	if err != nil {
 		panic(err)
@@ -184,18 +159,18 @@ func (_q *BacktestResultQuery) OnlyIDX(ctx context.Context) uuid.UUID {
 	return id
 }
 
-// All executes the query and returns a list of BacktestResults.
-func (_q *BacktestResultQuery) All(ctx context.Context) ([]*BacktestResult, error) {
+// All executes the query and returns a list of Strategies.
+func (_q *StrategyQuery) All(ctx context.Context) ([]*Strategy, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryAll)
 	if err := _q.prepareQuery(ctx); err != nil {
 		return nil, err
 	}
-	qr := querierAll[[]*BacktestResult, *BacktestResultQuery]()
-	return withInterceptors[[]*BacktestResult](ctx, _q, qr, _q.inters)
+	qr := querierAll[[]*Strategy, *StrategyQuery]()
+	return withInterceptors[[]*Strategy](ctx, _q, qr, _q.inters)
 }
 
 // AllX is like All, but panics if an error occurs.
-func (_q *BacktestResultQuery) AllX(ctx context.Context) []*BacktestResult {
+func (_q *StrategyQuery) AllX(ctx context.Context) []*Strategy {
 	nodes, err := _q.All(ctx)
 	if err != nil {
 		panic(err)
@@ -203,20 +178,20 @@ func (_q *BacktestResultQuery) AllX(ctx context.Context) []*BacktestResult {
 	return nodes
 }
 
-// IDs executes the query and returns a list of BacktestResult IDs.
-func (_q *BacktestResultQuery) IDs(ctx context.Context) (ids []uuid.UUID, err error) {
+// IDs executes the query and returns a list of Strategy IDs.
+func (_q *StrategyQuery) IDs(ctx context.Context) (ids []uuid.UUID, err error) {
 	if _q.ctx.Unique == nil && _q.path != nil {
 		_q.Unique(true)
 	}
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryIDs)
-	if err = _q.Select(backtestresult.FieldID).Scan(ctx, &ids); err != nil {
+	if err = _q.Select(strategy.FieldID).Scan(ctx, &ids); err != nil {
 		return nil, err
 	}
 	return ids, nil
 }
 
 // IDsX is like IDs, but panics if an error occurs.
-func (_q *BacktestResultQuery) IDsX(ctx context.Context) []uuid.UUID {
+func (_q *StrategyQuery) IDsX(ctx context.Context) []uuid.UUID {
 	ids, err := _q.IDs(ctx)
 	if err != nil {
 		panic(err)
@@ -225,16 +200,16 @@ func (_q *BacktestResultQuery) IDsX(ctx context.Context) []uuid.UUID {
 }
 
 // Count returns the count of the given query.
-func (_q *BacktestResultQuery) Count(ctx context.Context) (int, error) {
+func (_q *StrategyQuery) Count(ctx context.Context) (int, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryCount)
 	if err := _q.prepareQuery(ctx); err != nil {
 		return 0, err
 	}
-	return withInterceptors[int](ctx, _q, querierCount[*BacktestResultQuery](), _q.inters)
+	return withInterceptors[int](ctx, _q, querierCount[*StrategyQuery](), _q.inters)
 }
 
 // CountX is like Count, but panics if an error occurs.
-func (_q *BacktestResultQuery) CountX(ctx context.Context) int {
+func (_q *StrategyQuery) CountX(ctx context.Context) int {
 	count, err := _q.Count(ctx)
 	if err != nil {
 		panic(err)
@@ -243,7 +218,7 @@ func (_q *BacktestResultQuery) CountX(ctx context.Context) int {
 }
 
 // Exist returns true if the query has elements in the graph.
-func (_q *BacktestResultQuery) Exist(ctx context.Context) (bool, error) {
+func (_q *StrategyQuery) Exist(ctx context.Context) (bool, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryExist)
 	switch _, err := _q.FirstID(ctx); {
 	case IsNotFound(err):
@@ -256,7 +231,7 @@ func (_q *BacktestResultQuery) Exist(ctx context.Context) (bool, error) {
 }
 
 // ExistX is like Exist, but panics if an error occurs.
-func (_q *BacktestResultQuery) ExistX(ctx context.Context) bool {
+func (_q *StrategyQuery) ExistX(ctx context.Context) bool {
 	exist, err := _q.Exist(ctx)
 	if err != nil {
 		panic(err)
@@ -264,34 +239,22 @@ func (_q *BacktestResultQuery) ExistX(ctx context.Context) bool {
 	return exist
 }
 
-// Clone returns a duplicate of the BacktestResultQuery builder, including all associated steps. It can be
+// Clone returns a duplicate of the StrategyQuery builder, including all associated steps. It can be
 // used to prepare common query builders and use them differently after the clone is made.
-func (_q *BacktestResultQuery) Clone() *BacktestResultQuery {
+func (_q *StrategyQuery) Clone() *StrategyQuery {
 	if _q == nil {
 		return nil
 	}
-	return &BacktestResultQuery{
+	return &StrategyQuery{
 		config:     _q.config,
 		ctx:        _q.ctx.Clone(),
-		order:      append([]backtestresult.OrderOption{}, _q.order...),
+		order:      append([]strategy.OrderOption{}, _q.order...),
 		inters:     append([]Interceptor{}, _q.inters...),
-		predicates: append([]predicate.BacktestResult{}, _q.predicates...),
-		withTask:   _q.withTask.Clone(),
+		predicates: append([]predicate.Strategy{}, _q.predicates...),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
 	}
-}
-
-// WithTask tells the query-builder to eager-load the nodes that are connected to
-// the "task" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *BacktestResultQuery) WithTask(opts ...func(*BacktestTaskQuery)) *BacktestResultQuery {
-	query := (&BacktestTaskClient{config: _q.config}).Query()
-	for _, opt := range opts {
-		opt(query)
-	}
-	_q.withTask = query
-	return _q
 }
 
 // GroupBy is used to group vertices by one or more fields/columns.
@@ -300,19 +263,19 @@ func (_q *BacktestResultQuery) WithTask(opts ...func(*BacktestTaskQuery)) *Backt
 // Example:
 //
 //	var v []struct {
-//		StrategyName string `json:"strategy_name,omitempty"`
+//		Name string `json:"name,omitempty"`
 //		Count int `json:"count,omitempty"`
 //	}
 //
-//	client.BacktestResult.Query().
-//		GroupBy(backtestresult.FieldStrategyName).
+//	client.Strategy.Query().
+//		GroupBy(strategy.FieldName).
 //		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
-func (_q *BacktestResultQuery) GroupBy(field string, fields ...string) *BacktestResultGroupBy {
+func (_q *StrategyQuery) GroupBy(field string, fields ...string) *StrategyGroupBy {
 	_q.ctx.Fields = append([]string{field}, fields...)
-	grbuild := &BacktestResultGroupBy{build: _q}
+	grbuild := &StrategyGroupBy{build: _q}
 	grbuild.flds = &_q.ctx.Fields
-	grbuild.label = backtestresult.Label
+	grbuild.label = strategy.Label
 	grbuild.scan = grbuild.Scan
 	return grbuild
 }
@@ -323,26 +286,26 @@ func (_q *BacktestResultQuery) GroupBy(field string, fields ...string) *Backtest
 // Example:
 //
 //	var v []struct {
-//		StrategyName string `json:"strategy_name,omitempty"`
+//		Name string `json:"name,omitempty"`
 //	}
 //
-//	client.BacktestResult.Query().
-//		Select(backtestresult.FieldStrategyName).
+//	client.Strategy.Query().
+//		Select(strategy.FieldName).
 //		Scan(ctx, &v)
-func (_q *BacktestResultQuery) Select(fields ...string) *BacktestResultSelect {
+func (_q *StrategyQuery) Select(fields ...string) *StrategySelect {
 	_q.ctx.Fields = append(_q.ctx.Fields, fields...)
-	sbuild := &BacktestResultSelect{BacktestResultQuery: _q}
-	sbuild.label = backtestresult.Label
+	sbuild := &StrategySelect{StrategyQuery: _q}
+	sbuild.label = strategy.Label
 	sbuild.flds, sbuild.scan = &_q.ctx.Fields, sbuild.Scan
 	return sbuild
 }
 
-// Aggregate returns a BacktestResultSelect configured with the given aggregations.
-func (_q *BacktestResultQuery) Aggregate(fns ...AggregateFunc) *BacktestResultSelect {
+// Aggregate returns a StrategySelect configured with the given aggregations.
+func (_q *StrategyQuery) Aggregate(fns ...AggregateFunc) *StrategySelect {
 	return _q.Select().Aggregate(fns...)
 }
 
-func (_q *BacktestResultQuery) prepareQuery(ctx context.Context) error {
+func (_q *StrategyQuery) prepareQuery(ctx context.Context) error {
 	for _, inter := range _q.inters {
 		if inter == nil {
 			return fmt.Errorf("ent: uninitialized interceptor (forgotten import ent/runtime?)")
@@ -354,7 +317,7 @@ func (_q *BacktestResultQuery) prepareQuery(ctx context.Context) error {
 		}
 	}
 	for _, f := range _q.ctx.Fields {
-		if !backtestresult.ValidColumn(f) {
+		if !strategy.ValidColumn(f) {
 			return &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
 		}
 	}
@@ -368,28 +331,17 @@ func (_q *BacktestResultQuery) prepareQuery(ctx context.Context) error {
 	return nil
 }
 
-func (_q *BacktestResultQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*BacktestResult, error) {
+func (_q *StrategyQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Strategy, error) {
 	var (
-		nodes       = []*BacktestResult{}
-		withFKs     = _q.withFKs
-		_spec       = _q.querySpec()
-		loadedTypes = [1]bool{
-			_q.withTask != nil,
-		}
+		nodes = []*Strategy{}
+		_spec = _q.querySpec()
 	)
-	if _q.withTask != nil {
-		withFKs = true
-	}
-	if withFKs {
-		_spec.Node.Columns = append(_spec.Node.Columns, backtestresult.ForeignKeys...)
-	}
 	_spec.ScanValues = func(columns []string) ([]any, error) {
-		return (*BacktestResult).scanValues(nil, columns)
+		return (*Strategy).scanValues(nil, columns)
 	}
 	_spec.Assign = func(columns []string, values []any) error {
-		node := &BacktestResult{config: _q.config}
+		node := &Strategy{config: _q.config}
 		nodes = append(nodes, node)
-		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
 	}
 	for i := range hooks {
@@ -401,49 +353,10 @@ func (_q *BacktestResultQuery) sqlAll(ctx context.Context, hooks ...queryHook) (
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
-	if query := _q.withTask; query != nil {
-		if err := _q.loadTask(ctx, query, nodes, nil,
-			func(n *BacktestResult, e *BacktestTask) { n.Edges.Task = e }); err != nil {
-			return nil, err
-		}
-	}
 	return nodes, nil
 }
 
-func (_q *BacktestResultQuery) loadTask(ctx context.Context, query *BacktestTaskQuery, nodes []*BacktestResult, init func(*BacktestResult), assign func(*BacktestResult, *BacktestTask)) error {
-	ids := make([]uuid.UUID, 0, len(nodes))
-	nodeids := make(map[uuid.UUID][]*BacktestResult)
-	for i := range nodes {
-		if nodes[i].result_id == nil {
-			continue
-		}
-		fk := *nodes[i].result_id
-		if _, ok := nodeids[fk]; !ok {
-			ids = append(ids, fk)
-		}
-		nodeids[fk] = append(nodeids[fk], nodes[i])
-	}
-	if len(ids) == 0 {
-		return nil
-	}
-	query.Where(backtesttask.IDIn(ids...))
-	neighbors, err := query.All(ctx)
-	if err != nil {
-		return err
-	}
-	for _, n := range neighbors {
-		nodes, ok := nodeids[n.ID]
-		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "result_id" returned %v`, n.ID)
-		}
-		for i := range nodes {
-			assign(nodes[i], n)
-		}
-	}
-	return nil
-}
-
-func (_q *BacktestResultQuery) sqlCount(ctx context.Context) (int, error) {
+func (_q *StrategyQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := _q.querySpec()
 	_spec.Node.Columns = _q.ctx.Fields
 	if len(_q.ctx.Fields) > 0 {
@@ -452,8 +365,8 @@ func (_q *BacktestResultQuery) sqlCount(ctx context.Context) (int, error) {
 	return sqlgraph.CountNodes(ctx, _q.driver, _spec)
 }
 
-func (_q *BacktestResultQuery) querySpec() *sqlgraph.QuerySpec {
-	_spec := sqlgraph.NewQuerySpec(backtestresult.Table, backtestresult.Columns, sqlgraph.NewFieldSpec(backtestresult.FieldID, field.TypeUUID))
+func (_q *StrategyQuery) querySpec() *sqlgraph.QuerySpec {
+	_spec := sqlgraph.NewQuerySpec(strategy.Table, strategy.Columns, sqlgraph.NewFieldSpec(strategy.FieldID, field.TypeUUID))
 	_spec.From = _q.sql
 	if unique := _q.ctx.Unique; unique != nil {
 		_spec.Unique = *unique
@@ -462,9 +375,9 @@ func (_q *BacktestResultQuery) querySpec() *sqlgraph.QuerySpec {
 	}
 	if fields := _q.ctx.Fields; len(fields) > 0 {
 		_spec.Node.Columns = make([]string, 0, len(fields))
-		_spec.Node.Columns = append(_spec.Node.Columns, backtestresult.FieldID)
+		_spec.Node.Columns = append(_spec.Node.Columns, strategy.FieldID)
 		for i := range fields {
-			if fields[i] != backtestresult.FieldID {
+			if fields[i] != strategy.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 			}
 		}
@@ -492,12 +405,12 @@ func (_q *BacktestResultQuery) querySpec() *sqlgraph.QuerySpec {
 	return _spec
 }
 
-func (_q *BacktestResultQuery) sqlQuery(ctx context.Context) *sql.Selector {
+func (_q *StrategyQuery) sqlQuery(ctx context.Context) *sql.Selector {
 	builder := sql.Dialect(_q.driver.Dialect())
-	t1 := builder.Table(backtestresult.Table)
+	t1 := builder.Table(strategy.Table)
 	columns := _q.ctx.Fields
 	if len(columns) == 0 {
-		columns = backtestresult.Columns
+		columns = strategy.Columns
 	}
 	selector := builder.Select(t1.Columns(columns...)...).From(t1)
 	if _q.sql != nil {
@@ -524,28 +437,28 @@ func (_q *BacktestResultQuery) sqlQuery(ctx context.Context) *sql.Selector {
 	return selector
 }
 
-// BacktestResultGroupBy is the group-by builder for BacktestResult entities.
-type BacktestResultGroupBy struct {
+// StrategyGroupBy is the group-by builder for Strategy entities.
+type StrategyGroupBy struct {
 	selector
-	build *BacktestResultQuery
+	build *StrategyQuery
 }
 
 // Aggregate adds the given aggregation functions to the group-by query.
-func (_g *BacktestResultGroupBy) Aggregate(fns ...AggregateFunc) *BacktestResultGroupBy {
+func (_g *StrategyGroupBy) Aggregate(fns ...AggregateFunc) *StrategyGroupBy {
 	_g.fns = append(_g.fns, fns...)
 	return _g
 }
 
 // Scan applies the selector query and scans the result into the given value.
-func (_g *BacktestResultGroupBy) Scan(ctx context.Context, v any) error {
+func (_g *StrategyGroupBy) Scan(ctx context.Context, v any) error {
 	ctx = setContextOp(ctx, _g.build.ctx, ent.OpQueryGroupBy)
 	if err := _g.build.prepareQuery(ctx); err != nil {
 		return err
 	}
-	return scanWithInterceptors[*BacktestResultQuery, *BacktestResultGroupBy](ctx, _g.build, _g, _g.build.inters, v)
+	return scanWithInterceptors[*StrategyQuery, *StrategyGroupBy](ctx, _g.build, _g, _g.build.inters, v)
 }
 
-func (_g *BacktestResultGroupBy) sqlScan(ctx context.Context, root *BacktestResultQuery, v any) error {
+func (_g *StrategyGroupBy) sqlScan(ctx context.Context, root *StrategyQuery, v any) error {
 	selector := root.sqlQuery(ctx).Select()
 	aggregation := make([]string, 0, len(_g.fns))
 	for _, fn := range _g.fns {
@@ -572,28 +485,28 @@ func (_g *BacktestResultGroupBy) sqlScan(ctx context.Context, root *BacktestResu
 	return sql.ScanSlice(rows, v)
 }
 
-// BacktestResultSelect is the builder for selecting fields of BacktestResult entities.
-type BacktestResultSelect struct {
-	*BacktestResultQuery
+// StrategySelect is the builder for selecting fields of Strategy entities.
+type StrategySelect struct {
+	*StrategyQuery
 	selector
 }
 
 // Aggregate adds the given aggregation functions to the selector query.
-func (_s *BacktestResultSelect) Aggregate(fns ...AggregateFunc) *BacktestResultSelect {
+func (_s *StrategySelect) Aggregate(fns ...AggregateFunc) *StrategySelect {
 	_s.fns = append(_s.fns, fns...)
 	return _s
 }
 
 // Scan applies the selector query and scans the result into the given value.
-func (_s *BacktestResultSelect) Scan(ctx context.Context, v any) error {
+func (_s *StrategySelect) Scan(ctx context.Context, v any) error {
 	ctx = setContextOp(ctx, _s.ctx, ent.OpQuerySelect)
 	if err := _s.prepareQuery(ctx); err != nil {
 		return err
 	}
-	return scanWithInterceptors[*BacktestResultQuery, *BacktestResultSelect](ctx, _s.BacktestResultQuery, _s, _s.inters, v)
+	return scanWithInterceptors[*StrategyQuery, *StrategySelect](ctx, _s.StrategyQuery, _s, _s.inters, v)
 }
 
-func (_s *BacktestResultSelect) sqlScan(ctx context.Context, root *BacktestResultQuery, v any) error {
+func (_s *StrategySelect) sqlScan(ctx context.Context, root *StrategyQuery, v any) error {
 	selector := root.sqlQuery(ctx)
 	aggregation := make([]string, 0, len(_s.fns))
 	for _, fn := range _s.fns {

@@ -18,6 +18,10 @@ const (
 	FieldID = "id"
 	// FieldStrategyID holds the string denoting the strategy_id field in the database.
 	FieldStrategyID = "strategy_id"
+	// FieldStrategyName holds the string denoting the strategy_name field in the database.
+	FieldStrategyName = "strategy_name"
+	// FieldCreatedBy holds the string denoting the created_by field in the database.
+	FieldCreatedBy = "created_by"
 	// FieldExchangeID holds the string denoting the exchange_id field in the database.
 	FieldExchangeID = "exchange_id"
 	// FieldPair holds the string denoting the pair field in the database.
@@ -34,6 +38,8 @@ const (
 	FieldStartAt = "start_at"
 	// FieldEndAt holds the string denoting the end_at field in the database.
 	FieldEndAt = "end_at"
+	// FieldCompletedAt holds the string denoting the completed_at field in the database.
+	FieldCompletedAt = "completed_at"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
 	// FieldPhase holds the string denoting the phase field in the database.
@@ -63,6 +69,8 @@ const (
 var Columns = []string{
 	FieldID,
 	FieldStrategyID,
+	FieldStrategyName,
+	FieldCreatedBy,
 	FieldExchangeID,
 	FieldPair,
 	FieldTimeframe,
@@ -71,6 +79,7 @@ var Columns = []string{
 	FieldFeeRate,
 	FieldStartAt,
 	FieldEndAt,
+	FieldCompletedAt,
 	FieldStatus,
 	FieldPhase,
 	FieldProgress,
@@ -90,6 +99,10 @@ func ValidColumn(column string) bool {
 }
 
 var (
+	// DefaultStrategyName holds the default value on creation for the "strategy_name" field.
+	DefaultStrategyName string
+	// DefaultCreatedBy holds the default value on creation for the "created_by" field.
+	DefaultCreatedBy func() uuid.UUID
 	// DefaultFeeRate holds the default value on creation for the "fee_rate" field.
 	DefaultFeeRate float64
 	// DefaultProgress holds the default value on creation for the "progress" field.
@@ -170,6 +183,16 @@ func ByStrategyID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStrategyID, opts...).ToFunc()
 }
 
+// ByStrategyName orders the results by the strategy_name field.
+func ByStrategyName(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldStrategyName, opts...).ToFunc()
+}
+
+// ByCreatedBy orders the results by the created_by field.
+func ByCreatedBy(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCreatedBy, opts...).ToFunc()
+}
+
 // ByExchangeID orders the results by the exchange_id field.
 func ByExchangeID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldExchangeID, opts...).ToFunc()
@@ -208,6 +231,11 @@ func ByStartAt(opts ...sql.OrderTermOption) OrderOption {
 // ByEndAt orders the results by the end_at field.
 func ByEndAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldEndAt, opts...).ToFunc()
+}
+
+// ByCompletedAt orders the results by the completed_at field.
+func ByCompletedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCompletedAt, opts...).ToFunc()
 }
 
 // ByStatus orders the results by the status field.

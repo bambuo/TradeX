@@ -61,6 +61,16 @@ func StrategyID(v uuid.UUID) predicate.BacktestTask {
 	return predicate.BacktestTask(sql.FieldEQ(FieldStrategyID, v))
 }
 
+// StrategyName applies equality check predicate on the "strategy_name" field. It's identical to StrategyNameEQ.
+func StrategyName(v string) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldEQ(FieldStrategyName, v))
+}
+
+// CreatedBy applies equality check predicate on the "created_by" field. It's identical to CreatedByEQ.
+func CreatedBy(v uuid.UUID) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldEQ(FieldCreatedBy, v))
+}
+
 // ExchangeID applies equality check predicate on the "exchange_id" field. It's identical to ExchangeIDEQ.
 func ExchangeID(v string) predicate.BacktestTask {
 	return predicate.BacktestTask(sql.FieldEQ(FieldExchangeID, v))
@@ -99,6 +109,11 @@ func StartAt(v time.Time) predicate.BacktestTask {
 // EndAt applies equality check predicate on the "end_at" field. It's identical to EndAtEQ.
 func EndAt(v time.Time) predicate.BacktestTask {
 	return predicate.BacktestTask(sql.FieldEQ(FieldEndAt, v))
+}
+
+// CompletedAt applies equality check predicate on the "completed_at" field. It's identical to CompletedAtEQ.
+func CompletedAt(v time.Time) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldEQ(FieldCompletedAt, v))
 }
 
 // Progress applies equality check predicate on the "progress" field. It's identical to ProgressEQ.
@@ -159,6 +174,111 @@ func StrategyIDLT(v uuid.UUID) predicate.BacktestTask {
 // StrategyIDLTE applies the LTE predicate on the "strategy_id" field.
 func StrategyIDLTE(v uuid.UUID) predicate.BacktestTask {
 	return predicate.BacktestTask(sql.FieldLTE(FieldStrategyID, v))
+}
+
+// StrategyNameEQ applies the EQ predicate on the "strategy_name" field.
+func StrategyNameEQ(v string) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldEQ(FieldStrategyName, v))
+}
+
+// StrategyNameNEQ applies the NEQ predicate on the "strategy_name" field.
+func StrategyNameNEQ(v string) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldNEQ(FieldStrategyName, v))
+}
+
+// StrategyNameIn applies the In predicate on the "strategy_name" field.
+func StrategyNameIn(vs ...string) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldIn(FieldStrategyName, vs...))
+}
+
+// StrategyNameNotIn applies the NotIn predicate on the "strategy_name" field.
+func StrategyNameNotIn(vs ...string) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldNotIn(FieldStrategyName, vs...))
+}
+
+// StrategyNameGT applies the GT predicate on the "strategy_name" field.
+func StrategyNameGT(v string) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldGT(FieldStrategyName, v))
+}
+
+// StrategyNameGTE applies the GTE predicate on the "strategy_name" field.
+func StrategyNameGTE(v string) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldGTE(FieldStrategyName, v))
+}
+
+// StrategyNameLT applies the LT predicate on the "strategy_name" field.
+func StrategyNameLT(v string) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldLT(FieldStrategyName, v))
+}
+
+// StrategyNameLTE applies the LTE predicate on the "strategy_name" field.
+func StrategyNameLTE(v string) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldLTE(FieldStrategyName, v))
+}
+
+// StrategyNameContains applies the Contains predicate on the "strategy_name" field.
+func StrategyNameContains(v string) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldContains(FieldStrategyName, v))
+}
+
+// StrategyNameHasPrefix applies the HasPrefix predicate on the "strategy_name" field.
+func StrategyNameHasPrefix(v string) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldHasPrefix(FieldStrategyName, v))
+}
+
+// StrategyNameHasSuffix applies the HasSuffix predicate on the "strategy_name" field.
+func StrategyNameHasSuffix(v string) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldHasSuffix(FieldStrategyName, v))
+}
+
+// StrategyNameEqualFold applies the EqualFold predicate on the "strategy_name" field.
+func StrategyNameEqualFold(v string) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldEqualFold(FieldStrategyName, v))
+}
+
+// StrategyNameContainsFold applies the ContainsFold predicate on the "strategy_name" field.
+func StrategyNameContainsFold(v string) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldContainsFold(FieldStrategyName, v))
+}
+
+// CreatedByEQ applies the EQ predicate on the "created_by" field.
+func CreatedByEQ(v uuid.UUID) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldEQ(FieldCreatedBy, v))
+}
+
+// CreatedByNEQ applies the NEQ predicate on the "created_by" field.
+func CreatedByNEQ(v uuid.UUID) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldNEQ(FieldCreatedBy, v))
+}
+
+// CreatedByIn applies the In predicate on the "created_by" field.
+func CreatedByIn(vs ...uuid.UUID) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldIn(FieldCreatedBy, vs...))
+}
+
+// CreatedByNotIn applies the NotIn predicate on the "created_by" field.
+func CreatedByNotIn(vs ...uuid.UUID) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldNotIn(FieldCreatedBy, vs...))
+}
+
+// CreatedByGT applies the GT predicate on the "created_by" field.
+func CreatedByGT(v uuid.UUID) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldGT(FieldCreatedBy, v))
+}
+
+// CreatedByGTE applies the GTE predicate on the "created_by" field.
+func CreatedByGTE(v uuid.UUID) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldGTE(FieldCreatedBy, v))
+}
+
+// CreatedByLT applies the LT predicate on the "created_by" field.
+func CreatedByLT(v uuid.UUID) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldLT(FieldCreatedBy, v))
+}
+
+// CreatedByLTE applies the LTE predicate on the "created_by" field.
+func CreatedByLTE(v uuid.UUID) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldLTE(FieldCreatedBy, v))
 }
 
 // ExchangeIDEQ applies the EQ predicate on the "exchange_id" field.
@@ -564,6 +684,56 @@ func EndAtLT(v time.Time) predicate.BacktestTask {
 // EndAtLTE applies the LTE predicate on the "end_at" field.
 func EndAtLTE(v time.Time) predicate.BacktestTask {
 	return predicate.BacktestTask(sql.FieldLTE(FieldEndAt, v))
+}
+
+// CompletedAtEQ applies the EQ predicate on the "completed_at" field.
+func CompletedAtEQ(v time.Time) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldEQ(FieldCompletedAt, v))
+}
+
+// CompletedAtNEQ applies the NEQ predicate on the "completed_at" field.
+func CompletedAtNEQ(v time.Time) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldNEQ(FieldCompletedAt, v))
+}
+
+// CompletedAtIn applies the In predicate on the "completed_at" field.
+func CompletedAtIn(vs ...time.Time) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldIn(FieldCompletedAt, vs...))
+}
+
+// CompletedAtNotIn applies the NotIn predicate on the "completed_at" field.
+func CompletedAtNotIn(vs ...time.Time) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldNotIn(FieldCompletedAt, vs...))
+}
+
+// CompletedAtGT applies the GT predicate on the "completed_at" field.
+func CompletedAtGT(v time.Time) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldGT(FieldCompletedAt, v))
+}
+
+// CompletedAtGTE applies the GTE predicate on the "completed_at" field.
+func CompletedAtGTE(v time.Time) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldGTE(FieldCompletedAt, v))
+}
+
+// CompletedAtLT applies the LT predicate on the "completed_at" field.
+func CompletedAtLT(v time.Time) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldLT(FieldCompletedAt, v))
+}
+
+// CompletedAtLTE applies the LTE predicate on the "completed_at" field.
+func CompletedAtLTE(v time.Time) predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldLTE(FieldCompletedAt, v))
+}
+
+// CompletedAtIsNil applies the IsNil predicate on the "completed_at" field.
+func CompletedAtIsNil() predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldIsNull(FieldCompletedAt))
+}
+
+// CompletedAtNotNil applies the NotNil predicate on the "completed_at" field.
+func CompletedAtNotNil() predicate.BacktestTask {
+	return predicate.BacktestTask(sql.FieldNotNull(FieldCompletedAt))
 }
 
 // StatusEQ applies the EQ predicate on the "status" field.

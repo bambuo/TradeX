@@ -16,8 +16,14 @@ type BacktestRepository interface {
 	GetResult(ctx context.Context, taskID uuid.UUID) (*BacktestResult, []BacktestTrade, error)
 	SaveAnalysisBatch(ctx context.Context, taskID uuid.UUID, analysis []BacktestKlineAnalysis) error
 	GetAnalysis(ctx context.Context, taskID uuid.UUID, cursor, limit int) ([]BacktestKlineAnalysis, error)
+	GetAnalysisCount(ctx context.Context, taskID uuid.UUID) (int, error)
 	GetPendingTasks(ctx context.Context) ([]*BacktestTask, error)
 	GetRunningTasks(ctx context.Context) ([]*BacktestTask, error)
+	StrategyRepository
+}
+
+type StrategyRepository interface {
+	GetStrategy(ctx context.Context, id uuid.UUID) (*Strategy, error)
 }
 
 type TaskFilter struct {

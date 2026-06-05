@@ -14,3 +14,6 @@ type BacktestResult func(*sql.Selector)
 
 // BacktestTask is the predicate function for backtesttask builders.
 type BacktestTask func(*sql.Selector)
+
+// Strategy is the predicate function for strategy builders.
+type Strategy func(*sql.Selector)

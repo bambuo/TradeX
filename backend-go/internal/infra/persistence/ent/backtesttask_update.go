@@ -44,6 +44,34 @@ func (_u *BacktestTaskUpdate) SetNillableStrategyID(v *uuid.UUID) *BacktestTaskU
 	return _u
 }
 
+// SetStrategyName sets the "strategy_name" field.
+func (_u *BacktestTaskUpdate) SetStrategyName(v string) *BacktestTaskUpdate {
+	_u.mutation.SetStrategyName(v)
+	return _u
+}
+
+// SetNillableStrategyName sets the "strategy_name" field if the given value is not nil.
+func (_u *BacktestTaskUpdate) SetNillableStrategyName(v *string) *BacktestTaskUpdate {
+	if v != nil {
+		_u.SetStrategyName(*v)
+	}
+	return _u
+}
+
+// SetCreatedBy sets the "created_by" field.
+func (_u *BacktestTaskUpdate) SetCreatedBy(v uuid.UUID) *BacktestTaskUpdate {
+	_u.mutation.SetCreatedBy(v)
+	return _u
+}
+
+// SetNillableCreatedBy sets the "created_by" field if the given value is not nil.
+func (_u *BacktestTaskUpdate) SetNillableCreatedBy(v *uuid.UUID) *BacktestTaskUpdate {
+	if v != nil {
+		_u.SetCreatedBy(*v)
+	}
+	return _u
+}
+
 // SetExchangeID sets the "exchange_id" field.
 func (_u *BacktestTaskUpdate) SetExchangeID(v string) *BacktestTaskUpdate {
 	_u.mutation.SetExchangeID(v)
@@ -180,6 +208,26 @@ func (_u *BacktestTaskUpdate) SetNillableEndAt(v *time.Time) *BacktestTaskUpdate
 	if v != nil {
 		_u.SetEndAt(*v)
 	}
+	return _u
+}
+
+// SetCompletedAt sets the "completed_at" field.
+func (_u *BacktestTaskUpdate) SetCompletedAt(v time.Time) *BacktestTaskUpdate {
+	_u.mutation.SetCompletedAt(v)
+	return _u
+}
+
+// SetNillableCompletedAt sets the "completed_at" field if the given value is not nil.
+func (_u *BacktestTaskUpdate) SetNillableCompletedAt(v *time.Time) *BacktestTaskUpdate {
+	if v != nil {
+		_u.SetCompletedAt(*v)
+	}
+	return _u
+}
+
+// ClearCompletedAt clears the value of the "completed_at" field.
+func (_u *BacktestTaskUpdate) ClearCompletedAt() *BacktestTaskUpdate {
+	_u.mutation.ClearCompletedAt()
 	return _u
 }
 
@@ -360,6 +408,12 @@ func (_u *BacktestTaskUpdate) sqlSave(ctx context.Context) (_node int, err error
 	if value, ok := _u.mutation.StrategyID(); ok {
 		_spec.SetField(backtesttask.FieldStrategyID, field.TypeUUID, value)
 	}
+	if value, ok := _u.mutation.StrategyName(); ok {
+		_spec.SetField(backtesttask.FieldStrategyName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.CreatedBy(); ok {
+		_spec.SetField(backtesttask.FieldCreatedBy, field.TypeUUID, value)
+	}
 	if value, ok := _u.mutation.ExchangeID(); ok {
 		_spec.SetField(backtesttask.FieldExchangeID, field.TypeString, value)
 	}
@@ -395,6 +449,12 @@ func (_u *BacktestTaskUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if value, ok := _u.mutation.EndAt(); ok {
 		_spec.SetField(backtesttask.FieldEndAt, field.TypeTime, value)
+	}
+	if value, ok := _u.mutation.CompletedAt(); ok {
+		_spec.SetField(backtesttask.FieldCompletedAt, field.TypeTime, value)
+	}
+	if _u.mutation.CompletedAtCleared() {
+		_spec.ClearField(backtesttask.FieldCompletedAt, field.TypeTime)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(backtesttask.FieldStatus, field.TypeEnum, value)
@@ -479,6 +539,34 @@ func (_u *BacktestTaskUpdateOne) SetStrategyID(v uuid.UUID) *BacktestTaskUpdateO
 func (_u *BacktestTaskUpdateOne) SetNillableStrategyID(v *uuid.UUID) *BacktestTaskUpdateOne {
 	if v != nil {
 		_u.SetStrategyID(*v)
+	}
+	return _u
+}
+
+// SetStrategyName sets the "strategy_name" field.
+func (_u *BacktestTaskUpdateOne) SetStrategyName(v string) *BacktestTaskUpdateOne {
+	_u.mutation.SetStrategyName(v)
+	return _u
+}
+
+// SetNillableStrategyName sets the "strategy_name" field if the given value is not nil.
+func (_u *BacktestTaskUpdateOne) SetNillableStrategyName(v *string) *BacktestTaskUpdateOne {
+	if v != nil {
+		_u.SetStrategyName(*v)
+	}
+	return _u
+}
+
+// SetCreatedBy sets the "created_by" field.
+func (_u *BacktestTaskUpdateOne) SetCreatedBy(v uuid.UUID) *BacktestTaskUpdateOne {
+	_u.mutation.SetCreatedBy(v)
+	return _u
+}
+
+// SetNillableCreatedBy sets the "created_by" field if the given value is not nil.
+func (_u *BacktestTaskUpdateOne) SetNillableCreatedBy(v *uuid.UUID) *BacktestTaskUpdateOne {
+	if v != nil {
+		_u.SetCreatedBy(*v)
 	}
 	return _u
 }
@@ -619,6 +707,26 @@ func (_u *BacktestTaskUpdateOne) SetNillableEndAt(v *time.Time) *BacktestTaskUpd
 	if v != nil {
 		_u.SetEndAt(*v)
 	}
+	return _u
+}
+
+// SetCompletedAt sets the "completed_at" field.
+func (_u *BacktestTaskUpdateOne) SetCompletedAt(v time.Time) *BacktestTaskUpdateOne {
+	_u.mutation.SetCompletedAt(v)
+	return _u
+}
+
+// SetNillableCompletedAt sets the "completed_at" field if the given value is not nil.
+func (_u *BacktestTaskUpdateOne) SetNillableCompletedAt(v *time.Time) *BacktestTaskUpdateOne {
+	if v != nil {
+		_u.SetCompletedAt(*v)
+	}
+	return _u
+}
+
+// ClearCompletedAt clears the value of the "completed_at" field.
+func (_u *BacktestTaskUpdateOne) ClearCompletedAt() *BacktestTaskUpdateOne {
+	_u.mutation.ClearCompletedAt()
 	return _u
 }
 
@@ -829,6 +937,12 @@ func (_u *BacktestTaskUpdateOne) sqlSave(ctx context.Context) (_node *BacktestTa
 	if value, ok := _u.mutation.StrategyID(); ok {
 		_spec.SetField(backtesttask.FieldStrategyID, field.TypeUUID, value)
 	}
+	if value, ok := _u.mutation.StrategyName(); ok {
+		_spec.SetField(backtesttask.FieldStrategyName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.CreatedBy(); ok {
+		_spec.SetField(backtesttask.FieldCreatedBy, field.TypeUUID, value)
+	}
 	if value, ok := _u.mutation.ExchangeID(); ok {
 		_spec.SetField(backtesttask.FieldExchangeID, field.TypeString, value)
 	}
@@ -864,6 +978,12 @@ func (_u *BacktestTaskUpdateOne) sqlSave(ctx context.Context) (_node *BacktestTa
 	}
 	if value, ok := _u.mutation.EndAt(); ok {
 		_spec.SetField(backtesttask.FieldEndAt, field.TypeTime, value)
+	}
+	if value, ok := _u.mutation.CompletedAt(); ok {
+		_spec.SetField(backtesttask.FieldCompletedAt, field.TypeTime, value)
+	}
+	if _u.mutation.CompletedAtCleared() {
+		_spec.ClearField(backtesttask.FieldCompletedAt, field.TypeTime)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(backtesttask.FieldStatus, field.TypeEnum, value)

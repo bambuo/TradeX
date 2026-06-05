@@ -8,6 +8,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 
+	"github.com/tradex/backend-go/internal/domain"
 	"github.com/tradex/backend-go/internal/infra/eventbus"
 )
 
@@ -124,7 +125,8 @@ func (c *BacktestCancellationConsumer) processCancel(ctx context.Context, msg re
 	c.log.Info().Str("task_id", taskID.String()).Msg("received cancel from stream")
 
 	if c.tracker.Cancel(taskID) {
-		c.log.Info().Str("task_id", taskID.String()).Msg("cancelled running task")
+		c.log.Info().Str("task_id", taskID.String()).Interface("event",
+			domain.BacktestCancelledEvent{TaskID: taskID, Timestamp: time.Now()}).Msg("backtest_cancelled")
 	} else {
 		c.log.Warn().Str("task_id", taskID.String()).Msg("task not found in tracker, may already be done")
 	}

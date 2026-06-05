@@ -15,6 +15,7 @@ import (
 	"github.com/tradex/backend-go/internal/infra/persistence/ent/backtestklineanalysis"
 	"github.com/tradex/backend-go/internal/infra/persistence/ent/backtestresult"
 	"github.com/tradex/backend-go/internal/infra/persistence/ent/backtesttask"
+	"github.com/tradex/backend-go/internal/infra/persistence/ent/strategy"
 )
 
 // ent aliases to avoid import conflicts in user's code.
@@ -78,6 +79,7 @@ func checkColumn(t, c string) error {
 			backtestklineanalysis.Table: backtestklineanalysis.ValidColumn,
 			backtestresult.Table:        backtestresult.ValidColumn,
 			backtesttask.Table:          backtesttask.ValidColumn,
+			strategy.Table:              strategy.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

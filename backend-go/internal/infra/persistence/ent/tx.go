@@ -18,6 +18,8 @@ type Tx struct {
 	BacktestResult *BacktestResultClient
 	// BacktestTask is the client for interacting with the BacktestTask builders.
 	BacktestTask *BacktestTaskClient
+	// Strategy is the client for interacting with the Strategy builders.
+	Strategy *StrategyClient
 
 	// lazily loaded.
 	client     *Client
@@ -152,6 +154,7 @@ func (tx *Tx) init() {
 	tx.BacktestKlineAnalysis = NewBacktestKlineAnalysisClient(tx.config)
 	tx.BacktestResult = NewBacktestResultClient(tx.config)
 	tx.BacktestTask = NewBacktestTaskClient(tx.config)
+	tx.Strategy = NewStrategyClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.

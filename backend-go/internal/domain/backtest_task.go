@@ -10,6 +10,8 @@ import (
 type BacktestTask struct {
 	ID             uuid.UUID
 	StrategyID     uuid.UUID
+	StrategyName   string
+	CreatedBy      uuid.UUID
 	ExchangeID     string
 	Pair           string
 	Timeframe      string
@@ -18,6 +20,7 @@ type BacktestTask struct {
 	FeeRate        decimal.Decimal
 	StartAt        time.Time
 	EndAt          time.Time
+	CompletedAt    *time.Time
 	Status         BacktestTaskStatus
 	Phase          *BacktestPhase
 	Progress       int

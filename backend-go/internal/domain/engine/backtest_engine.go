@@ -24,6 +24,7 @@ type EngineInput struct {
 	PositionSize   *decimal.Decimal
 	FeeRate        decimal.Decimal
 	Timeframe      string
+	OnAnalysis     func(domain.BacktestKlineAnalysis)
 }
 
 type EngineOutput struct {
@@ -185,6 +186,10 @@ func (e *BacktestEngine) Run(ctx context.Context, input EngineInput) (EngineOutp
 		analysisEntry.IndicatorValues = indicatorValues
 
 		analysis = append(analysis, analysisEntry)
+
+		if input.OnAnalysis != nil {
+			input.OnAnalysis(analysisEntry)
+		}
 	}
 
 	result := e.computeResult(input, trades, equityCurve)

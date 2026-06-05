@@ -56,6 +56,11 @@ func IDLTE(id uuid.UUID) predicate.BacktestResult {
 	return predicate.BacktestResult(sql.FieldLTE(FieldID, id))
 }
 
+// StrategyName applies equality check predicate on the "strategy_name" field. It's identical to StrategyNameEQ.
+func StrategyName(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldEQ(FieldStrategyName, v))
+}
+
 // FinalValue applies equality check predicate on the "final_value" field. It's identical to FinalValueEQ.
 func FinalValue(v float64) predicate.BacktestResult {
 	return predicate.BacktestResult(sql.FieldEQ(FieldFinalValue, v))
@@ -99,6 +104,71 @@ func TotalTrades(v int) predicate.BacktestResult {
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.BacktestResult {
 	return predicate.BacktestResult(sql.FieldEQ(FieldCreatedAt, v))
+}
+
+// StrategyNameEQ applies the EQ predicate on the "strategy_name" field.
+func StrategyNameEQ(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldEQ(FieldStrategyName, v))
+}
+
+// StrategyNameNEQ applies the NEQ predicate on the "strategy_name" field.
+func StrategyNameNEQ(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldNEQ(FieldStrategyName, v))
+}
+
+// StrategyNameIn applies the In predicate on the "strategy_name" field.
+func StrategyNameIn(vs ...string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldIn(FieldStrategyName, vs...))
+}
+
+// StrategyNameNotIn applies the NotIn predicate on the "strategy_name" field.
+func StrategyNameNotIn(vs ...string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldNotIn(FieldStrategyName, vs...))
+}
+
+// StrategyNameGT applies the GT predicate on the "strategy_name" field.
+func StrategyNameGT(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldGT(FieldStrategyName, v))
+}
+
+// StrategyNameGTE applies the GTE predicate on the "strategy_name" field.
+func StrategyNameGTE(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldGTE(FieldStrategyName, v))
+}
+
+// StrategyNameLT applies the LT predicate on the "strategy_name" field.
+func StrategyNameLT(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldLT(FieldStrategyName, v))
+}
+
+// StrategyNameLTE applies the LTE predicate on the "strategy_name" field.
+func StrategyNameLTE(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldLTE(FieldStrategyName, v))
+}
+
+// StrategyNameContains applies the Contains predicate on the "strategy_name" field.
+func StrategyNameContains(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldContains(FieldStrategyName, v))
+}
+
+// StrategyNameHasPrefix applies the HasPrefix predicate on the "strategy_name" field.
+func StrategyNameHasPrefix(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldHasPrefix(FieldStrategyName, v))
+}
+
+// StrategyNameHasSuffix applies the HasSuffix predicate on the "strategy_name" field.
+func StrategyNameHasSuffix(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldHasSuffix(FieldStrategyName, v))
+}
+
+// StrategyNameEqualFold applies the EqualFold predicate on the "strategy_name" field.
+func StrategyNameEqualFold(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldEqualFold(FieldStrategyName, v))
+}
+
+// StrategyNameContainsFold applies the ContainsFold predicate on the "strategy_name" field.
+func StrategyNameContainsFold(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldContainsFold(FieldStrategyName, v))
 }
 
 // FinalValueEQ applies the EQ predicate on the "final_value" field.

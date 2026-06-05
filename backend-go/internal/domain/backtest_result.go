@@ -20,6 +20,7 @@ type BacktestTrade struct {
 }
 
 type BacktestResult struct {
+	StrategyName            string
 	FinalValue              decimal.Decimal
 	TotalReturnPercent      decimal.Decimal
 	AnnualizedReturnPercent decimal.Decimal

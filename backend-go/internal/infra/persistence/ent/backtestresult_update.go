@@ -30,6 +30,20 @@ func (_u *BacktestResultUpdate) Where(ps ...predicate.BacktestResult) *BacktestR
 	return _u
 }
 
+// SetStrategyName sets the "strategy_name" field.
+func (_u *BacktestResultUpdate) SetStrategyName(v string) *BacktestResultUpdate {
+	_u.mutation.SetStrategyName(v)
+	return _u
+}
+
+// SetNillableStrategyName sets the "strategy_name" field if the given value is not nil.
+func (_u *BacktestResultUpdate) SetNillableStrategyName(v *string) *BacktestResultUpdate {
+	if v != nil {
+		_u.SetStrategyName(*v)
+	}
+	return _u
+}
+
 // SetFinalValue sets the "final_value" field.
 func (_u *BacktestResultUpdate) SetFinalValue(v float64) *BacktestResultUpdate {
 	_u.mutation.ResetFinalValue()
@@ -285,6 +299,9 @@ func (_u *BacktestResultUpdate) sqlSave(ctx context.Context) (_node int, err err
 			}
 		}
 	}
+	if value, ok := _u.mutation.StrategyName(); ok {
+		_spec.SetField(backtestresult.FieldStrategyName, field.TypeString, value)
+	}
 	if value, ok := _u.mutation.FinalValue(); ok {
 		_spec.SetField(backtestresult.FieldFinalValue, field.TypeFloat64, value)
 	}
@@ -391,6 +408,20 @@ type BacktestResultUpdateOne struct {
 	fields   []string
 	hooks    []Hook
 	mutation *BacktestResultMutation
+}
+
+// SetStrategyName sets the "strategy_name" field.
+func (_u *BacktestResultUpdateOne) SetStrategyName(v string) *BacktestResultUpdateOne {
+	_u.mutation.SetStrategyName(v)
+	return _u
+}
+
+// SetNillableStrategyName sets the "strategy_name" field if the given value is not nil.
+func (_u *BacktestResultUpdateOne) SetNillableStrategyName(v *string) *BacktestResultUpdateOne {
+	if v != nil {
+		_u.SetStrategyName(*v)
+	}
+	return _u
 }
 
 // SetFinalValue sets the "final_value" field.
@@ -677,6 +708,9 @@ func (_u *BacktestResultUpdateOne) sqlSave(ctx context.Context) (_node *Backtest
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := _u.mutation.StrategyName(); ok {
+		_spec.SetField(backtestresult.FieldStrategyName, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.FinalValue(); ok {
 		_spec.SetField(backtestresult.FieldFinalValue, field.TypeFloat64, value)

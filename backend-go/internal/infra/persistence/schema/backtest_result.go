@@ -17,6 +17,7 @@ type BacktestResult struct {
 func (BacktestResult) Fields() []ent.Field {
 	return []ent.Field{
 		field.UUID("id", uuid.UUID{}).Default(uuid.New),
+		field.String("strategy_name").Default(""),
 		field.Float("final_value").
 			SchemaType(map[string]string{dialect.Postgres: "numeric(20,8)"}),
 		field.Float("total_return_percent").

@@ -30,7 +30,6 @@ func init() {
 
 	setDefault("LISTEN", ":8080")
 	setDefault("ENVIRONMENT", "development")
-	setDefault("OTLP_ENDPOINT", "localhost:4318")
 }
 
 func setDefault(key, val string) {

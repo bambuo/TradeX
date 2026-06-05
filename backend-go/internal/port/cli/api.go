@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/tradex/backend-go/internal/port/api"
 	"github.com/tradex/backend-go/internal/app"
+	"github.com/tradex/backend-go/internal/infra/eventbus"
 	"github.com/tradex/backend-go/internal/infra/persistence"
 	"github.com/tradex/backend-go/internal/infra/telemetry"
 )
@@ -53,7 +55,16 @@ func NewAPICmd() *cobra.Command {
 
 			repo := storage.NewBacktestRepo(client)
 			svc := service.NewBacktestService(repo)
-			handler := api.NewBacktestHandler(svc, log)
+
+			redisAddr := viper.GetString("redis_addr")
+			var redisBus *eventbus.RedisEventBus
+			if redisAddr != "" {
+				rdb := redis.NewClient(&redis.Options{Addr: redisAddr})
+				defer rdb.Close()
+				redisBus = eventbus.NewRedisEventBus(rdb)
+			}
+
+			handler := api.NewBacktestHandler(svc, log, redisBus)
 
 			r := gin.New()
 			r.Use(api.RecoveryMiddleware(log))
@@ -73,10 +84,12 @@ func NewAPICmd() *cobra.Command {
 
 	cmd.Flags().String("listen", "", "listen address (env: LISTEN)")
 	cmd.Flags().String("database_dsn", "", "postgresql DSN (env: DATABASE_DSN)")
+	cmd.Flags().String("redis_addr", "", "redis address (env: REDIS_ADDR)")
 	cmd.Flags().String("otlp_endpoint", "", "OTLP HTTP endpoint (env: OTLP_ENDPOINT)")
 	cmd.Flags().String("environment", "", "deployment environment (env: ENVIRONMENT)")
 	viper.BindPFlag("listen", cmd.Flags().Lookup("listen"))
 	viper.BindPFlag("database_dsn", cmd.Flags().Lookup("database_dsn"))
+	viper.BindPFlag("redis_addr", cmd.Flags().Lookup("redis_addr"))
 	viper.BindPFlag("otlp_endpoint", cmd.Flags().Lookup("otlp_endpoint"))
 	viper.BindPFlag("environment", cmd.Flags().Lookup("environment"))
 	viper.AutomaticEnv()

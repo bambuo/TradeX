@@ -25,6 +25,8 @@ func (r *backtestRepo) CreateTask(ctx context.Context, task *domain.BacktestTask
 	_, err := r.client.BacktestTask.Create().
 		SetID(task.ID).
 		SetStrategyID(task.StrategyID).
+		SetStrategyName(task.StrategyName).
+		SetCreatedBy(task.CreatedBy).
 		SetExchangeID(task.ExchangeID).
 		SetPair(task.Pair).
 		SetTimeframe(task.Timeframe).
@@ -111,6 +113,7 @@ func (r *backtestRepo) SaveResult(ctx context.Context, taskID uuid.UUID, result 
 	}
 	_, err = r.client.BacktestResult.Create().
 		SetTask(task).
+		SetStrategyName(result.StrategyName).
 		SetFinalValue(f64(result.FinalValue)).
 		SetTotalReturnPercent(f64(result.TotalReturnPercent)).
 		SetAnnualizedReturnPercent(f64(result.AnnualizedReturnPercent)).
@@ -198,6 +201,37 @@ func (r *backtestRepo) GetAnalysis(ctx context.Context, taskID uuid.UUID, cursor
 	return result, nil
 }
 
+func (r *backtestRepo) GetStrategy(ctx context.Context, id uuid.UUID) (*domain.Strategy, error) {
+	row, err := r.client.Strategy.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	s := &domain.Strategy{
+		ID:         row.ID,
+		Name:       row.Name,
+		ExchangeID: row.ExchangeID,
+		Pair:       row.Pair,
+		Timeframe:  row.Timeframe,
+		IsActive:   row.IsActive,
+	}
+	if row.EntryCondition != "" {
+		s.EntryCondition = json.RawMessage(row.EntryCondition)
+	}
+	if row.ExitCondition != "" {
+		s.ExitCondition = json.RawMessage(row.ExitCondition)
+	}
+	if row.ExecutionRule != "" {
+		s.ExecutionRule = json.RawMessage(row.ExecutionRule)
+	}
+	return s, nil
+}
+
+func (r *backtestRepo) GetAnalysisCount(ctx context.Context, taskID uuid.UUID) (int, error) {
+	return r.client.BacktestKlineAnalysis.Query().
+		Where(backtestklineanalysis.TaskID(taskID)).
+		Count(ctx)
+}
+
 func (r *backtestRepo) GetPendingTasks(ctx context.Context) ([]*domain.BacktestTask, error) {
 	rows, err := r.client.BacktestTask.Query().
 		Where(backtesttask.StatusEQ(backtesttask.StatusPending)).
@@ -230,6 +264,8 @@ func rowToTask(row *ent.BacktestTask) *domain.BacktestTask {
 	task := &domain.BacktestTask{
 		ID:             row.ID,
 		StrategyID:     row.StrategyID,
+		StrategyName:   row.StrategyName,
+		CreatedBy:      row.CreatedBy,
 		ExchangeID:     row.ExchangeID,
 		Pair:           row.Pair,
 		Timeframe:      row.Timeframe,
@@ -245,6 +281,9 @@ func rowToTask(row *ent.BacktestTask) *domain.BacktestTask {
 	if row.PositionSize != nil {
 		v := dec(*row.PositionSize)
 		task.PositionSize = &v
+	}
+	if row.CompletedAt != nil {
+		task.CompletedAt = row.CompletedAt
 	}
 	if row.Phase != "" {
 		p := domain.BacktestPhase(row.Phase)

@@ -37,6 +37,15 @@ func (s *BacktestService) CreateTask(ctx context.Context, req CreateBacktestRequ
 		return nil, fmt.Errorf("%w: invalid strategy_id: %s", domain.ErrInvalidInput, req.StrategyID)
 	}
 
+	// validate strategy exists
+	strategy, err := s.repo.GetStrategy(ctx, strategyID)
+	if err != nil {
+		return nil, fmt.Errorf("%w: strategy not found: %s", domain.ErrInvalidInput, req.StrategyID)
+	}
+	if !strategy.IsActive {
+		return nil, fmt.Errorf("%w: strategy is inactive", domain.ErrInvalidInput)
+	}
+
 	startAt, err := time.Parse(time.RFC3339, req.StartAt)
 	if err != nil {
 		return nil, fmt.Errorf("%w: invalid start_at, use RFC3339", domain.ErrInvalidInput)
@@ -54,6 +63,8 @@ func (s *BacktestService) CreateTask(ctx context.Context, req CreateBacktestRequ
 	task := &domain.BacktestTask{
 		ID:             uuid.New(),
 		StrategyID:     strategyID,
+		StrategyName:   strategy.Name,
+		CreatedBy:      uuid.Nil,
 		ExchangeID:     req.ExchangeID,
 		Pair:           req.Pair,
 		Timeframe:      req.Timeframe,
@@ -74,6 +85,7 @@ func (s *BacktestService) CreateTask(ctx context.Context, req CreateBacktestRequ
 		return nil, fmt.Errorf("create task: %w", err)
 	}
 
+	_ = strategy // strategy loaded and validated
 	return task, nil
 }
 
@@ -102,4 +114,8 @@ func (s *BacktestService) GetResult(ctx context.Context, id uuid.UUID) (*domain.
 
 func (s *BacktestService) GetAnalysis(ctx context.Context, id uuid.UUID, cursor, limit int) ([]domain.BacktestKlineAnalysis, error) {
 	return s.repo.GetAnalysis(ctx, id, cursor, limit)
+}
+
+func (s *BacktestService) GetAnalysisCount(ctx context.Context, id uuid.UUID) (int, error) {
+	return s.repo.GetAnalysisCount(ctx, id)
 }

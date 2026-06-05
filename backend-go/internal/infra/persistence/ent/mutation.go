@@ -16,6 +16,7 @@ import (
 	"github.com/tradex/backend-go/internal/infra/persistence/ent/backtestresult"
 	"github.com/tradex/backend-go/internal/infra/persistence/ent/backtesttask"
 	"github.com/tradex/backend-go/internal/infra/persistence/ent/predicate"
+	"github.com/tradex/backend-go/internal/infra/persistence/ent/strategy"
 )
 
 const (
@@ -30,6 +31,7 @@ const (
 	TypeBacktestKlineAnalysis = "BacktestKlineAnalysis"
 	TypeBacktestResult        = "BacktestResult"
 	TypeBacktestTask          = "BacktestTask"
+	TypeStrategy              = "Strategy"
 )
 
 // BacktestKlineAnalysisMutation represents an operation that mutates the BacktestKlineAnalysis nodes in the graph.
@@ -1507,6 +1509,7 @@ type BacktestResultMutation struct {
 	op                           Op
 	typ                          string
 	id                           *uuid.UUID
+	strategy_name                *string
 	final_value                  *float64
 	addfinal_value               *float64
 	total_return_percent         *float64
@@ -1636,6 +1639,42 @@ func (m *BacktestResultMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
 	default:
 		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
 	}
+}
+
+// SetStrategyName sets the "strategy_name" field.
+func (m *BacktestResultMutation) SetStrategyName(s string) {
+	m.strategy_name = &s
+}
+
+// StrategyName returns the value of the "strategy_name" field in the mutation.
+func (m *BacktestResultMutation) StrategyName() (r string, exists bool) {
+	v := m.strategy_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStrategyName returns the old "strategy_name" field's value of the BacktestResult entity.
+// If the BacktestResult object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BacktestResultMutation) OldStrategyName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStrategyName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStrategyName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStrategyName: %w", err)
+	}
+	return oldValue.StrategyName, nil
+}
+
+// ResetStrategyName resets all changes to the "strategy_name" field.
+func (m *BacktestResultMutation) ResetStrategyName() {
+	m.strategy_name = nil
 }
 
 // SetFinalValue sets the "final_value" field.
@@ -2260,7 +2299,10 @@ func (m *BacktestResultMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *BacktestResultMutation) Fields() []string {
-	fields := make([]string, 0, 10)
+	fields := make([]string, 0, 11)
+	if m.strategy_name != nil {
+		fields = append(fields, backtestresult.FieldStrategyName)
+	}
 	if m.final_value != nil {
 		fields = append(fields, backtestresult.FieldFinalValue)
 	}
@@ -2299,6 +2341,8 @@ func (m *BacktestResultMutation) Fields() []string {
 // schema.
 func (m *BacktestResultMutation) Field(name string) (ent.Value, bool) {
 	switch name {
+	case backtestresult.FieldStrategyName:
+		return m.StrategyName()
 	case backtestresult.FieldFinalValue:
 		return m.FinalValue()
 	case backtestresult.FieldTotalReturnPercent:
@@ -2328,6 +2372,8 @@ func (m *BacktestResultMutation) Field(name string) (ent.Value, bool) {
 // database failed.
 func (m *BacktestResultMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
 	switch name {
+	case backtestresult.FieldStrategyName:
+		return m.OldStrategyName(ctx)
 	case backtestresult.FieldFinalValue:
 		return m.OldFinalValue(ctx)
 	case backtestresult.FieldTotalReturnPercent:
@@ -2357,6 +2403,13 @@ func (m *BacktestResultMutation) OldField(ctx context.Context, name string) (ent
 // type.
 func (m *BacktestResultMutation) SetField(name string, value ent.Value) error {
 	switch name {
+	case backtestresult.FieldStrategyName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStrategyName(v)
+		return nil
 	case backtestresult.FieldFinalValue:
 		v, ok := value.(float64)
 		if !ok {
@@ -2584,6 +2637,9 @@ func (m *BacktestResultMutation) ClearField(name string) error {
 // It returns an error if the field is not defined in the schema.
 func (m *BacktestResultMutation) ResetField(name string) error {
 	switch name {
+	case backtestresult.FieldStrategyName:
+		m.ResetStrategyName()
+		return nil
 	case backtestresult.FieldFinalValue:
 		m.ResetFinalValue()
 		return nil
@@ -2699,6 +2755,8 @@ type BacktestTaskMutation struct {
 	typ                string
 	id                 *uuid.UUID
 	strategy_id        *uuid.UUID
+	strategy_name      *string
+	created_by         *uuid.UUID
 	exchange_id        *string
 	pair               *string
 	timeframe          *string
@@ -2710,6 +2768,7 @@ type BacktestTaskMutation struct {
 	addfee_rate        *float64
 	start_at           *time.Time
 	end_at             *time.Time
+	completed_at       *time.Time
 	status             *backtesttask.Status
 	phase              *backtesttask.Phase
 	progress           *int
@@ -2863,6 +2922,78 @@ func (m *BacktestTaskMutation) OldStrategyID(ctx context.Context) (v uuid.UUID, 
 // ResetStrategyID resets all changes to the "strategy_id" field.
 func (m *BacktestTaskMutation) ResetStrategyID() {
 	m.strategy_id = nil
+}
+
+// SetStrategyName sets the "strategy_name" field.
+func (m *BacktestTaskMutation) SetStrategyName(s string) {
+	m.strategy_name = &s
+}
+
+// StrategyName returns the value of the "strategy_name" field in the mutation.
+func (m *BacktestTaskMutation) StrategyName() (r string, exists bool) {
+	v := m.strategy_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStrategyName returns the old "strategy_name" field's value of the BacktestTask entity.
+// If the BacktestTask object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BacktestTaskMutation) OldStrategyName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStrategyName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStrategyName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStrategyName: %w", err)
+	}
+	return oldValue.StrategyName, nil
+}
+
+// ResetStrategyName resets all changes to the "strategy_name" field.
+func (m *BacktestTaskMutation) ResetStrategyName() {
+	m.strategy_name = nil
+}
+
+// SetCreatedBy sets the "created_by" field.
+func (m *BacktestTaskMutation) SetCreatedBy(u uuid.UUID) {
+	m.created_by = &u
+}
+
+// CreatedBy returns the value of the "created_by" field in the mutation.
+func (m *BacktestTaskMutation) CreatedBy() (r uuid.UUID, exists bool) {
+	v := m.created_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedBy returns the old "created_by" field's value of the BacktestTask entity.
+// If the BacktestTask object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BacktestTaskMutation) OldCreatedBy(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedBy: %w", err)
+	}
+	return oldValue.CreatedBy, nil
+}
+
+// ResetCreatedBy resets all changes to the "created_by" field.
+func (m *BacktestTaskMutation) ResetCreatedBy() {
+	m.created_by = nil
 }
 
 // SetExchangeID sets the "exchange_id" field.
@@ -3227,6 +3358,55 @@ func (m *BacktestTaskMutation) ResetEndAt() {
 	m.end_at = nil
 }
 
+// SetCompletedAt sets the "completed_at" field.
+func (m *BacktestTaskMutation) SetCompletedAt(t time.Time) {
+	m.completed_at = &t
+}
+
+// CompletedAt returns the value of the "completed_at" field in the mutation.
+func (m *BacktestTaskMutation) CompletedAt() (r time.Time, exists bool) {
+	v := m.completed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCompletedAt returns the old "completed_at" field's value of the BacktestTask entity.
+// If the BacktestTask object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BacktestTaskMutation) OldCompletedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCompletedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCompletedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCompletedAt: %w", err)
+	}
+	return oldValue.CompletedAt, nil
+}
+
+// ClearCompletedAt clears the value of the "completed_at" field.
+func (m *BacktestTaskMutation) ClearCompletedAt() {
+	m.completed_at = nil
+	m.clearedFields[backtesttask.FieldCompletedAt] = struct{}{}
+}
+
+// CompletedAtCleared returns if the "completed_at" field was cleared in this mutation.
+func (m *BacktestTaskMutation) CompletedAtCleared() bool {
+	_, ok := m.clearedFields[backtesttask.FieldCompletedAt]
+	return ok
+}
+
+// ResetCompletedAt resets all changes to the "completed_at" field.
+func (m *BacktestTaskMutation) ResetCompletedAt() {
+	m.completed_at = nil
+	delete(m.clearedFields, backtesttask.FieldCompletedAt)
+}
+
 // SetStatus sets the "status" field.
 func (m *BacktestTaskMutation) SetStatus(b backtesttask.Status) {
 	m.status = &b
@@ -3562,9 +3742,15 @@ func (m *BacktestTaskMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *BacktestTaskMutation) Fields() []string {
-	fields := make([]string, 0, 15)
+	fields := make([]string, 0, 18)
 	if m.strategy_id != nil {
 		fields = append(fields, backtesttask.FieldStrategyID)
+	}
+	if m.strategy_name != nil {
+		fields = append(fields, backtesttask.FieldStrategyName)
+	}
+	if m.created_by != nil {
+		fields = append(fields, backtesttask.FieldCreatedBy)
 	}
 	if m.exchange_id != nil {
 		fields = append(fields, backtesttask.FieldExchangeID)
@@ -3589,6 +3775,9 @@ func (m *BacktestTaskMutation) Fields() []string {
 	}
 	if m.end_at != nil {
 		fields = append(fields, backtesttask.FieldEndAt)
+	}
+	if m.completed_at != nil {
+		fields = append(fields, backtesttask.FieldCompletedAt)
 	}
 	if m.status != nil {
 		fields = append(fields, backtesttask.FieldStatus)
@@ -3618,6 +3807,10 @@ func (m *BacktestTaskMutation) Field(name string) (ent.Value, bool) {
 	switch name {
 	case backtesttask.FieldStrategyID:
 		return m.StrategyID()
+	case backtesttask.FieldStrategyName:
+		return m.StrategyName()
+	case backtesttask.FieldCreatedBy:
+		return m.CreatedBy()
 	case backtesttask.FieldExchangeID:
 		return m.ExchangeID()
 	case backtesttask.FieldPair:
@@ -3634,6 +3827,8 @@ func (m *BacktestTaskMutation) Field(name string) (ent.Value, bool) {
 		return m.StartAt()
 	case backtesttask.FieldEndAt:
 		return m.EndAt()
+	case backtesttask.FieldCompletedAt:
+		return m.CompletedAt()
 	case backtesttask.FieldStatus:
 		return m.Status()
 	case backtesttask.FieldPhase:
@@ -3657,6 +3852,10 @@ func (m *BacktestTaskMutation) OldField(ctx context.Context, name string) (ent.V
 	switch name {
 	case backtesttask.FieldStrategyID:
 		return m.OldStrategyID(ctx)
+	case backtesttask.FieldStrategyName:
+		return m.OldStrategyName(ctx)
+	case backtesttask.FieldCreatedBy:
+		return m.OldCreatedBy(ctx)
 	case backtesttask.FieldExchangeID:
 		return m.OldExchangeID(ctx)
 	case backtesttask.FieldPair:
@@ -3673,6 +3872,8 @@ func (m *BacktestTaskMutation) OldField(ctx context.Context, name string) (ent.V
 		return m.OldStartAt(ctx)
 	case backtesttask.FieldEndAt:
 		return m.OldEndAt(ctx)
+	case backtesttask.FieldCompletedAt:
+		return m.OldCompletedAt(ctx)
 	case backtesttask.FieldStatus:
 		return m.OldStatus(ctx)
 	case backtesttask.FieldPhase:
@@ -3700,6 +3901,20 @@ func (m *BacktestTaskMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetStrategyID(v)
+		return nil
+	case backtesttask.FieldStrategyName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStrategyName(v)
+		return nil
+	case backtesttask.FieldCreatedBy:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedBy(v)
 		return nil
 	case backtesttask.FieldExchangeID:
 		v, ok := value.(string)
@@ -3756,6 +3971,13 @@ func (m *BacktestTaskMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetEndAt(v)
+		return nil
+	case backtesttask.FieldCompletedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCompletedAt(v)
 		return nil
 	case backtesttask.FieldStatus:
 		v, ok := value.(backtesttask.Status)
@@ -3883,6 +4105,9 @@ func (m *BacktestTaskMutation) ClearedFields() []string {
 	if m.FieldCleared(backtesttask.FieldPositionSize) {
 		fields = append(fields, backtesttask.FieldPositionSize)
 	}
+	if m.FieldCleared(backtesttask.FieldCompletedAt) {
+		fields = append(fields, backtesttask.FieldCompletedAt)
+	}
 	if m.FieldCleared(backtesttask.FieldPhase) {
 		fields = append(fields, backtesttask.FieldPhase)
 	}
@@ -3906,6 +4131,9 @@ func (m *BacktestTaskMutation) ClearField(name string) error {
 	case backtesttask.FieldPositionSize:
 		m.ClearPositionSize()
 		return nil
+	case backtesttask.FieldCompletedAt:
+		m.ClearCompletedAt()
+		return nil
 	case backtesttask.FieldPhase:
 		m.ClearPhase()
 		return nil
@@ -3922,6 +4150,12 @@ func (m *BacktestTaskMutation) ResetField(name string) error {
 	switch name {
 	case backtesttask.FieldStrategyID:
 		m.ResetStrategyID()
+		return nil
+	case backtesttask.FieldStrategyName:
+		m.ResetStrategyName()
+		return nil
+	case backtesttask.FieldCreatedBy:
+		m.ResetCreatedBy()
 		return nil
 	case backtesttask.FieldExchangeID:
 		m.ResetExchangeID()
@@ -3946,6 +4180,9 @@ func (m *BacktestTaskMutation) ResetField(name string) error {
 		return nil
 	case backtesttask.FieldEndAt:
 		m.ResetEndAt()
+		return nil
+	case backtesttask.FieldCompletedAt:
+		m.ResetCompletedAt()
 		return nil
 	case backtesttask.FieldStatus:
 		m.ResetStatus()
@@ -4041,4 +4278,774 @@ func (m *BacktestTaskMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown BacktestTask edge %s", name)
+}
+
+// StrategyMutation represents an operation that mutates the Strategy nodes in the graph.
+type StrategyMutation struct {
+	config
+	op              Op
+	typ             string
+	id              *uuid.UUID
+	name            *string
+	entry_condition *string
+	exit_condition  *string
+	execution_rule  *string
+	exchange_id     *string
+	pair            *string
+	timeframe       *string
+	is_active       *bool
+	clearedFields   map[string]struct{}
+	done            bool
+	oldValue        func(context.Context) (*Strategy, error)
+	predicates      []predicate.Strategy
+}
+
+var _ ent.Mutation = (*StrategyMutation)(nil)
+
+// strategyOption allows management of the mutation configuration using functional options.
+type strategyOption func(*StrategyMutation)
+
+// newStrategyMutation creates new mutation for the Strategy entity.
+func newStrategyMutation(c config, op Op, opts ...strategyOption) *StrategyMutation {
+	m := &StrategyMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeStrategy,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withStrategyID sets the ID field of the mutation.
+func withStrategyID(id uuid.UUID) strategyOption {
+	return func(m *StrategyMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Strategy
+		)
+		m.oldValue = func(ctx context.Context) (*Strategy, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Strategy.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withStrategy sets the old Strategy of the mutation.
+func withStrategy(node *Strategy) strategyOption {
+	return func(m *StrategyMutation) {
+		m.oldValue = func(context.Context) (*Strategy, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m StrategyMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m StrategyMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of Strategy entities.
+func (m *StrategyMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *StrategyMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *StrategyMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().Strategy.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetName sets the "name" field.
+func (m *StrategyMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *StrategyMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the Strategy entity.
+// If the Strategy object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *StrategyMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *StrategyMutation) ResetName() {
+	m.name = nil
+}
+
+// SetEntryCondition sets the "entry_condition" field.
+func (m *StrategyMutation) SetEntryCondition(s string) {
+	m.entry_condition = &s
+}
+
+// EntryCondition returns the value of the "entry_condition" field in the mutation.
+func (m *StrategyMutation) EntryCondition() (r string, exists bool) {
+	v := m.entry_condition
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEntryCondition returns the old "entry_condition" field's value of the Strategy entity.
+// If the Strategy object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *StrategyMutation) OldEntryCondition(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEntryCondition is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEntryCondition requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEntryCondition: %w", err)
+	}
+	return oldValue.EntryCondition, nil
+}
+
+// ClearEntryCondition clears the value of the "entry_condition" field.
+func (m *StrategyMutation) ClearEntryCondition() {
+	m.entry_condition = nil
+	m.clearedFields[strategy.FieldEntryCondition] = struct{}{}
+}
+
+// EntryConditionCleared returns if the "entry_condition" field was cleared in this mutation.
+func (m *StrategyMutation) EntryConditionCleared() bool {
+	_, ok := m.clearedFields[strategy.FieldEntryCondition]
+	return ok
+}
+
+// ResetEntryCondition resets all changes to the "entry_condition" field.
+func (m *StrategyMutation) ResetEntryCondition() {
+	m.entry_condition = nil
+	delete(m.clearedFields, strategy.FieldEntryCondition)
+}
+
+// SetExitCondition sets the "exit_condition" field.
+func (m *StrategyMutation) SetExitCondition(s string) {
+	m.exit_condition = &s
+}
+
+// ExitCondition returns the value of the "exit_condition" field in the mutation.
+func (m *StrategyMutation) ExitCondition() (r string, exists bool) {
+	v := m.exit_condition
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExitCondition returns the old "exit_condition" field's value of the Strategy entity.
+// If the Strategy object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *StrategyMutation) OldExitCondition(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExitCondition is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExitCondition requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExitCondition: %w", err)
+	}
+	return oldValue.ExitCondition, nil
+}
+
+// ClearExitCondition clears the value of the "exit_condition" field.
+func (m *StrategyMutation) ClearExitCondition() {
+	m.exit_condition = nil
+	m.clearedFields[strategy.FieldExitCondition] = struct{}{}
+}
+
+// ExitConditionCleared returns if the "exit_condition" field was cleared in this mutation.
+func (m *StrategyMutation) ExitConditionCleared() bool {
+	_, ok := m.clearedFields[strategy.FieldExitCondition]
+	return ok
+}
+
+// ResetExitCondition resets all changes to the "exit_condition" field.
+func (m *StrategyMutation) ResetExitCondition() {
+	m.exit_condition = nil
+	delete(m.clearedFields, strategy.FieldExitCondition)
+}
+
+// SetExecutionRule sets the "execution_rule" field.
+func (m *StrategyMutation) SetExecutionRule(s string) {
+	m.execution_rule = &s
+}
+
+// ExecutionRule returns the value of the "execution_rule" field in the mutation.
+func (m *StrategyMutation) ExecutionRule() (r string, exists bool) {
+	v := m.execution_rule
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExecutionRule returns the old "execution_rule" field's value of the Strategy entity.
+// If the Strategy object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *StrategyMutation) OldExecutionRule(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExecutionRule is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExecutionRule requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExecutionRule: %w", err)
+	}
+	return oldValue.ExecutionRule, nil
+}
+
+// ClearExecutionRule clears the value of the "execution_rule" field.
+func (m *StrategyMutation) ClearExecutionRule() {
+	m.execution_rule = nil
+	m.clearedFields[strategy.FieldExecutionRule] = struct{}{}
+}
+
+// ExecutionRuleCleared returns if the "execution_rule" field was cleared in this mutation.
+func (m *StrategyMutation) ExecutionRuleCleared() bool {
+	_, ok := m.clearedFields[strategy.FieldExecutionRule]
+	return ok
+}
+
+// ResetExecutionRule resets all changes to the "execution_rule" field.
+func (m *StrategyMutation) ResetExecutionRule() {
+	m.execution_rule = nil
+	delete(m.clearedFields, strategy.FieldExecutionRule)
+}
+
+// SetExchangeID sets the "exchange_id" field.
+func (m *StrategyMutation) SetExchangeID(s string) {
+	m.exchange_id = &s
+}
+
+// ExchangeID returns the value of the "exchange_id" field in the mutation.
+func (m *StrategyMutation) ExchangeID() (r string, exists bool) {
+	v := m.exchange_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExchangeID returns the old "exchange_id" field's value of the Strategy entity.
+// If the Strategy object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *StrategyMutation) OldExchangeID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExchangeID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExchangeID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExchangeID: %w", err)
+	}
+	return oldValue.ExchangeID, nil
+}
+
+// ResetExchangeID resets all changes to the "exchange_id" field.
+func (m *StrategyMutation) ResetExchangeID() {
+	m.exchange_id = nil
+}
+
+// SetPair sets the "pair" field.
+func (m *StrategyMutation) SetPair(s string) {
+	m.pair = &s
+}
+
+// Pair returns the value of the "pair" field in the mutation.
+func (m *StrategyMutation) Pair() (r string, exists bool) {
+	v := m.pair
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPair returns the old "pair" field's value of the Strategy entity.
+// If the Strategy object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *StrategyMutation) OldPair(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPair is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPair requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPair: %w", err)
+	}
+	return oldValue.Pair, nil
+}
+
+// ResetPair resets all changes to the "pair" field.
+func (m *StrategyMutation) ResetPair() {
+	m.pair = nil
+}
+
+// SetTimeframe sets the "timeframe" field.
+func (m *StrategyMutation) SetTimeframe(s string) {
+	m.timeframe = &s
+}
+
+// Timeframe returns the value of the "timeframe" field in the mutation.
+func (m *StrategyMutation) Timeframe() (r string, exists bool) {
+	v := m.timeframe
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTimeframe returns the old "timeframe" field's value of the Strategy entity.
+// If the Strategy object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *StrategyMutation) OldTimeframe(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTimeframe is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTimeframe requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTimeframe: %w", err)
+	}
+	return oldValue.Timeframe, nil
+}
+
+// ResetTimeframe resets all changes to the "timeframe" field.
+func (m *StrategyMutation) ResetTimeframe() {
+	m.timeframe = nil
+}
+
+// SetIsActive sets the "is_active" field.
+func (m *StrategyMutation) SetIsActive(b bool) {
+	m.is_active = &b
+}
+
+// IsActive returns the value of the "is_active" field in the mutation.
+func (m *StrategyMutation) IsActive() (r bool, exists bool) {
+	v := m.is_active
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIsActive returns the old "is_active" field's value of the Strategy entity.
+// If the Strategy object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *StrategyMutation) OldIsActive(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIsActive is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIsActive requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIsActive: %w", err)
+	}
+	return oldValue.IsActive, nil
+}
+
+// ResetIsActive resets all changes to the "is_active" field.
+func (m *StrategyMutation) ResetIsActive() {
+	m.is_active = nil
+}
+
+// Where appends a list predicates to the StrategyMutation builder.
+func (m *StrategyMutation) Where(ps ...predicate.Strategy) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the StrategyMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *StrategyMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.Strategy, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *StrategyMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *StrategyMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (Strategy).
+func (m *StrategyMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *StrategyMutation) Fields() []string {
+	fields := make([]string, 0, 8)
+	if m.name != nil {
+		fields = append(fields, strategy.FieldName)
+	}
+	if m.entry_condition != nil {
+		fields = append(fields, strategy.FieldEntryCondition)
+	}
+	if m.exit_condition != nil {
+		fields = append(fields, strategy.FieldExitCondition)
+	}
+	if m.execution_rule != nil {
+		fields = append(fields, strategy.FieldExecutionRule)
+	}
+	if m.exchange_id != nil {
+		fields = append(fields, strategy.FieldExchangeID)
+	}
+	if m.pair != nil {
+		fields = append(fields, strategy.FieldPair)
+	}
+	if m.timeframe != nil {
+		fields = append(fields, strategy.FieldTimeframe)
+	}
+	if m.is_active != nil {
+		fields = append(fields, strategy.FieldIsActive)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *StrategyMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case strategy.FieldName:
+		return m.Name()
+	case strategy.FieldEntryCondition:
+		return m.EntryCondition()
+	case strategy.FieldExitCondition:
+		return m.ExitCondition()
+	case strategy.FieldExecutionRule:
+		return m.ExecutionRule()
+	case strategy.FieldExchangeID:
+		return m.ExchangeID()
+	case strategy.FieldPair:
+		return m.Pair()
+	case strategy.FieldTimeframe:
+		return m.Timeframe()
+	case strategy.FieldIsActive:
+		return m.IsActive()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *StrategyMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case strategy.FieldName:
+		return m.OldName(ctx)
+	case strategy.FieldEntryCondition:
+		return m.OldEntryCondition(ctx)
+	case strategy.FieldExitCondition:
+		return m.OldExitCondition(ctx)
+	case strategy.FieldExecutionRule:
+		return m.OldExecutionRule(ctx)
+	case strategy.FieldExchangeID:
+		return m.OldExchangeID(ctx)
+	case strategy.FieldPair:
+		return m.OldPair(ctx)
+	case strategy.FieldTimeframe:
+		return m.OldTimeframe(ctx)
+	case strategy.FieldIsActive:
+		return m.OldIsActive(ctx)
+	}
+	return nil, fmt.Errorf("unknown Strategy field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *StrategyMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case strategy.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case strategy.FieldEntryCondition:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEntryCondition(v)
+		return nil
+	case strategy.FieldExitCondition:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExitCondition(v)
+		return nil
+	case strategy.FieldExecutionRule:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExecutionRule(v)
+		return nil
+	case strategy.FieldExchangeID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExchangeID(v)
+		return nil
+	case strategy.FieldPair:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPair(v)
+		return nil
+	case strategy.FieldTimeframe:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTimeframe(v)
+		return nil
+	case strategy.FieldIsActive:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIsActive(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Strategy field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *StrategyMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *StrategyMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *StrategyMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Strategy numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *StrategyMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(strategy.FieldEntryCondition) {
+		fields = append(fields, strategy.FieldEntryCondition)
+	}
+	if m.FieldCleared(strategy.FieldExitCondition) {
+		fields = append(fields, strategy.FieldExitCondition)
+	}
+	if m.FieldCleared(strategy.FieldExecutionRule) {
+		fields = append(fields, strategy.FieldExecutionRule)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *StrategyMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *StrategyMutation) ClearField(name string) error {
+	switch name {
+	case strategy.FieldEntryCondition:
+		m.ClearEntryCondition()
+		return nil
+	case strategy.FieldExitCondition:
+		m.ClearExitCondition()
+		return nil
+	case strategy.FieldExecutionRule:
+		m.ClearExecutionRule()
+		return nil
+	}
+	return fmt.Errorf("unknown Strategy nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *StrategyMutation) ResetField(name string) error {
+	switch name {
+	case strategy.FieldName:
+		m.ResetName()
+		return nil
+	case strategy.FieldEntryCondition:
+		m.ResetEntryCondition()
+		return nil
+	case strategy.FieldExitCondition:
+		m.ResetExitCondition()
+		return nil
+	case strategy.FieldExecutionRule:
+		m.ResetExecutionRule()
+		return nil
+	case strategy.FieldExchangeID:
+		m.ResetExchangeID()
+		return nil
+	case strategy.FieldPair:
+		m.ResetPair()
+		return nil
+	case strategy.FieldTimeframe:
+		m.ResetTimeframe()
+		return nil
+	case strategy.FieldIsActive:
+		m.ResetIsActive()
+		return nil
+	}
+	return fmt.Errorf("unknown Strategy field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *StrategyMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *StrategyMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *StrategyMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *StrategyMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *StrategyMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *StrategyMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *StrategyMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown Strategy unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *StrategyMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown Strategy edge %s", name)
 }

@@ -19,6 +19,8 @@ func (BacktestTask) Fields() []ent.Field {
 	return []ent.Field{
 		field.UUID("id", uuid.UUID{}).Default(uuid.New),
 		field.UUID("strategy_id", uuid.UUID{}),
+		field.String("strategy_name").Default(""),
+		field.UUID("created_by", uuid.UUID{}).Default(uuid.New),
 		field.String("exchange_id"),
 		field.String("pair"),
 		field.String("timeframe"),
@@ -33,6 +35,7 @@ func (BacktestTask) Fields() []ent.Field {
 			SchemaType(map[string]string{dialect.Postgres: "numeric(10,6)"}),
 		field.Time("start_at"),
 		field.Time("end_at"),
+		field.Time("completed_at").Optional().Nillable(),
 		field.Enum("status").
 			Values("Pending", "Running", "Completed", "Failed", "Cancelled").
 			Default("Pending"),

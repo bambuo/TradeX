@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -85,7 +86,13 @@ func (r *RedisEventBus) StreamAdd(ctx context.Context, stream string, values map
 }
 
 func (r *RedisEventBus) EnsureConsumerGroup(ctx context.Context, stream, group string) error {
-	return r.client.XGroupCreateMkStream(ctx, stream, group, "0").Err()
+	err := r.client.XGroupCreateMkStream(ctx, stream, group, "0").Err()
+	if err != nil {
+		if strings.Contains(err.Error(), "BUSYGROUP") {
+			return nil
+		}
+	}
+	return err
 }
 
 func (r *RedisEventBus) IsAlreadyProcessed(ctx context.Context, group, entryID string) (bool, error) {

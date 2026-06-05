@@ -21,6 +21,10 @@ type BacktestTask struct {
 	ID uuid.UUID `json:"id,omitempty"`
 	// StrategyID holds the value of the "strategy_id" field.
 	StrategyID uuid.UUID `json:"strategy_id,omitempty"`
+	// StrategyName holds the value of the "strategy_name" field.
+	StrategyName string `json:"strategy_name,omitempty"`
+	// CreatedBy holds the value of the "created_by" field.
+	CreatedBy uuid.UUID `json:"created_by,omitempty"`
 	// ExchangeID holds the value of the "exchange_id" field.
 	ExchangeID string `json:"exchange_id,omitempty"`
 	// Pair holds the value of the "pair" field.
@@ -37,6 +41,8 @@ type BacktestTask struct {
 	StartAt time.Time `json:"start_at,omitempty"`
 	// EndAt holds the value of the "end_at" field.
 	EndAt time.Time `json:"end_at,omitempty"`
+	// CompletedAt holds the value of the "completed_at" field.
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
 	// Status holds the value of the "status" field.
 	Status backtesttask.Status `json:"status,omitempty"`
 	// Phase holds the value of the "phase" field.
@@ -84,11 +90,11 @@ func (*BacktestTask) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullFloat64)
 		case backtesttask.FieldProgress:
 			values[i] = new(sql.NullInt64)
-		case backtesttask.FieldExchangeID, backtesttask.FieldPair, backtesttask.FieldTimeframe, backtesttask.FieldStatus, backtesttask.FieldPhase, backtesttask.FieldErrorMessage:
+		case backtesttask.FieldStrategyName, backtesttask.FieldExchangeID, backtesttask.FieldPair, backtesttask.FieldTimeframe, backtesttask.FieldStatus, backtesttask.FieldPhase, backtesttask.FieldErrorMessage:
 			values[i] = new(sql.NullString)
-		case backtesttask.FieldStartAt, backtesttask.FieldEndAt, backtesttask.FieldCreatedAt, backtesttask.FieldUpdatedAt:
+		case backtesttask.FieldStartAt, backtesttask.FieldEndAt, backtesttask.FieldCompletedAt, backtesttask.FieldCreatedAt, backtesttask.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
-		case backtesttask.FieldID, backtesttask.FieldStrategyID:
+		case backtesttask.FieldID, backtesttask.FieldStrategyID, backtesttask.FieldCreatedBy:
 			values[i] = new(uuid.UUID)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -116,6 +122,18 @@ func (_m *BacktestTask) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field strategy_id", values[i])
 			} else if value != nil {
 				_m.StrategyID = *value
+			}
+		case backtesttask.FieldStrategyName:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field strategy_name", values[i])
+			} else if value.Valid {
+				_m.StrategyName = value.String
+			}
+		case backtesttask.FieldCreatedBy:
+			if value, ok := values[i].(*uuid.UUID); !ok {
+				return fmt.Errorf("unexpected type %T for field created_by", values[i])
+			} else if value != nil {
+				_m.CreatedBy = *value
 			}
 		case backtesttask.FieldExchangeID:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -165,6 +183,13 @@ func (_m *BacktestTask) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field end_at", values[i])
 			} else if value.Valid {
 				_m.EndAt = value.Time
+			}
+		case backtesttask.FieldCompletedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field completed_at", values[i])
+			} else if value.Valid {
+				_m.CompletedAt = new(time.Time)
+				*_m.CompletedAt = value.Time
 			}
 		case backtesttask.FieldStatus:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -247,6 +272,12 @@ func (_m *BacktestTask) String() string {
 	builder.WriteString("strategy_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.StrategyID))
 	builder.WriteString(", ")
+	builder.WriteString("strategy_name=")
+	builder.WriteString(_m.StrategyName)
+	builder.WriteString(", ")
+	builder.WriteString("created_by=")
+	builder.WriteString(fmt.Sprintf("%v", _m.CreatedBy))
+	builder.WriteString(", ")
 	builder.WriteString("exchange_id=")
 	builder.WriteString(_m.ExchangeID)
 	builder.WriteString(", ")
@@ -272,6 +303,11 @@ func (_m *BacktestTask) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("end_at=")
 	builder.WriteString(_m.EndAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	if v := _m.CompletedAt; v != nil {
+		builder.WriteString("completed_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Status))

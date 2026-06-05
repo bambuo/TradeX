@@ -15,6 +15,8 @@ const (
 	Label = "backtest_result"
 	// FieldID holds the string denoting the id field in the database.
 	FieldID = "id"
+	// FieldStrategyName holds the string denoting the strategy_name field in the database.
+	FieldStrategyName = "strategy_name"
 	// FieldFinalValue holds the string denoting the final_value field in the database.
 	FieldFinalValue = "final_value"
 	// FieldTotalReturnPercent holds the string denoting the total_return_percent field in the database.
@@ -51,6 +53,7 @@ const (
 // Columns holds all SQL columns for backtestresult fields.
 var Columns = []string{
 	FieldID,
+	FieldStrategyName,
 	FieldFinalValue,
 	FieldTotalReturnPercent,
 	FieldAnnualizedReturnPercent,
@@ -85,6 +88,8 @@ func ValidColumn(column string) bool {
 }
 
 var (
+	// DefaultStrategyName holds the default value on creation for the "strategy_name" field.
+	DefaultStrategyName string
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 	// DefaultID holds the default value on creation for the "id" field.
@@ -97,6 +102,11 @@ type OrderOption func(*sql.Selector)
 // ByID orders the results by the id field.
 func ByID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldID, opts...).ToFunc()
+}
+
+// ByStrategyName orders the results by the strategy_name field.
+func ByStrategyName(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldStrategyName, opts...).ToFunc()
 }
 
 // ByFinalValue orders the results by the final_value field.

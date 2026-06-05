@@ -28,6 +28,34 @@ func (_c *BacktestTaskCreate) SetStrategyID(v uuid.UUID) *BacktestTaskCreate {
 	return _c
 }
 
+// SetStrategyName sets the "strategy_name" field.
+func (_c *BacktestTaskCreate) SetStrategyName(v string) *BacktestTaskCreate {
+	_c.mutation.SetStrategyName(v)
+	return _c
+}
+
+// SetNillableStrategyName sets the "strategy_name" field if the given value is not nil.
+func (_c *BacktestTaskCreate) SetNillableStrategyName(v *string) *BacktestTaskCreate {
+	if v != nil {
+		_c.SetStrategyName(*v)
+	}
+	return _c
+}
+
+// SetCreatedBy sets the "created_by" field.
+func (_c *BacktestTaskCreate) SetCreatedBy(v uuid.UUID) *BacktestTaskCreate {
+	_c.mutation.SetCreatedBy(v)
+	return _c
+}
+
+// SetNillableCreatedBy sets the "created_by" field if the given value is not nil.
+func (_c *BacktestTaskCreate) SetNillableCreatedBy(v *uuid.UUID) *BacktestTaskCreate {
+	if v != nil {
+		_c.SetCreatedBy(*v)
+	}
+	return _c
+}
+
 // SetExchangeID sets the "exchange_id" field.
 func (_c *BacktestTaskCreate) SetExchangeID(v string) *BacktestTaskCreate {
 	_c.mutation.SetExchangeID(v)
@@ -89,6 +117,20 @@ func (_c *BacktestTaskCreate) SetStartAt(v time.Time) *BacktestTaskCreate {
 // SetEndAt sets the "end_at" field.
 func (_c *BacktestTaskCreate) SetEndAt(v time.Time) *BacktestTaskCreate {
 	_c.mutation.SetEndAt(v)
+	return _c
+}
+
+// SetCompletedAt sets the "completed_at" field.
+func (_c *BacktestTaskCreate) SetCompletedAt(v time.Time) *BacktestTaskCreate {
+	_c.mutation.SetCompletedAt(v)
+	return _c
+}
+
+// SetNillableCompletedAt sets the "completed_at" field if the given value is not nil.
+func (_c *BacktestTaskCreate) SetNillableCompletedAt(v *time.Time) *BacktestTaskCreate {
+	if v != nil {
+		_c.SetCompletedAt(*v)
+	}
 	return _c
 }
 
@@ -244,6 +286,14 @@ func (_c *BacktestTaskCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *BacktestTaskCreate) defaults() {
+	if _, ok := _c.mutation.StrategyName(); !ok {
+		v := backtesttask.DefaultStrategyName
+		_c.mutation.SetStrategyName(v)
+	}
+	if _, ok := _c.mutation.CreatedBy(); !ok {
+		v := backtesttask.DefaultCreatedBy()
+		_c.mutation.SetCreatedBy(v)
+	}
 	if _, ok := _c.mutation.FeeRate(); !ok {
 		v := backtesttask.DefaultFeeRate
 		_c.mutation.SetFeeRate(v)
@@ -274,6 +324,12 @@ func (_c *BacktestTaskCreate) defaults() {
 func (_c *BacktestTaskCreate) check() error {
 	if _, ok := _c.mutation.StrategyID(); !ok {
 		return &ValidationError{Name: "strategy_id", err: errors.New(`ent: missing required field "BacktestTask.strategy_id"`)}
+	}
+	if _, ok := _c.mutation.StrategyName(); !ok {
+		return &ValidationError{Name: "strategy_name", err: errors.New(`ent: missing required field "BacktestTask.strategy_name"`)}
+	}
+	if _, ok := _c.mutation.CreatedBy(); !ok {
+		return &ValidationError{Name: "created_by", err: errors.New(`ent: missing required field "BacktestTask.created_by"`)}
 	}
 	if _, ok := _c.mutation.ExchangeID(); !ok {
 		return &ValidationError{Name: "exchange_id", err: errors.New(`ent: missing required field "BacktestTask.exchange_id"`)}
@@ -357,6 +413,14 @@ func (_c *BacktestTaskCreate) createSpec() (*BacktestTask, *sqlgraph.CreateSpec)
 		_spec.SetField(backtesttask.FieldStrategyID, field.TypeUUID, value)
 		_node.StrategyID = value
 	}
+	if value, ok := _c.mutation.StrategyName(); ok {
+		_spec.SetField(backtesttask.FieldStrategyName, field.TypeString, value)
+		_node.StrategyName = value
+	}
+	if value, ok := _c.mutation.CreatedBy(); ok {
+		_spec.SetField(backtesttask.FieldCreatedBy, field.TypeUUID, value)
+		_node.CreatedBy = value
+	}
 	if value, ok := _c.mutation.ExchangeID(); ok {
 		_spec.SetField(backtesttask.FieldExchangeID, field.TypeString, value)
 		_node.ExchangeID = value
@@ -388,6 +452,10 @@ func (_c *BacktestTaskCreate) createSpec() (*BacktestTask, *sqlgraph.CreateSpec)
 	if value, ok := _c.mutation.EndAt(); ok {
 		_spec.SetField(backtesttask.FieldEndAt, field.TypeTime, value)
 		_node.EndAt = value
+	}
+	if value, ok := _c.mutation.CompletedAt(); ok {
+		_spec.SetField(backtesttask.FieldCompletedAt, field.TypeTime, value)
+		_node.CompletedAt = &value
 	}
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(backtesttask.FieldStatus, field.TypeEnum, value)

@@ -45,6 +45,18 @@ func (f BacktestTaskFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.BacktestTaskMutation", m)
 }
 
+// The StrategyFunc type is an adapter to allow the use of ordinary
+// function as Strategy mutator.
+type StrategyFunc func(context.Context, *ent.StrategyMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f StrategyFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.StrategyMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.StrategyMutation", m)
+}
+
 // Condition is a hook condition function.
 type Condition func(context.Context, ent.Mutation) bool
 

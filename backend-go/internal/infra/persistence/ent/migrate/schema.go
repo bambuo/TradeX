@@ -49,6 +49,7 @@ var (
 	// BacktestResultsColumns holds the columns for the "backtest_results" table.
 	BacktestResultsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
+		{Name: "strategy_name", Type: field.TypeString, Default: ""},
 		{Name: "final_value", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "numeric(20,8)"}},
 		{Name: "total_return_percent", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "numeric(12,4)"}},
 		{Name: "annualized_return_percent", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "numeric(12,4)"}},
@@ -69,7 +70,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "backtest_results_backtest_tasks_result",
-				Columns:    []*schema.Column{BacktestResultsColumns[11]},
+				Columns:    []*schema.Column{BacktestResultsColumns[12]},
 				RefColumns: []*schema.Column{BacktestTasksColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -79,6 +80,8 @@ var (
 	BacktestTasksColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "strategy_id", Type: field.TypeUUID},
+		{Name: "strategy_name", Type: field.TypeString, Default: ""},
+		{Name: "created_by", Type: field.TypeUUID},
 		{Name: "exchange_id", Type: field.TypeString},
 		{Name: "pair", Type: field.TypeString},
 		{Name: "timeframe", Type: field.TypeString},
@@ -87,6 +90,7 @@ var (
 		{Name: "fee_rate", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "numeric(10,6)"}},
 		{Name: "start_at", Type: field.TypeTime},
 		{Name: "end_at", Type: field.TypeTime},
+		{Name: "completed_at", Type: field.TypeTime, Nullable: true},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"Pending", "Running", "Completed", "Failed", "Cancelled"}, Default: "Pending"},
 		{Name: "phase", Type: field.TypeEnum, Nullable: true, Enums: []string{"Queued", "FetchingData", "Running"}},
 		{Name: "progress", Type: field.TypeInt, Default: 0},
@@ -103,7 +107,7 @@ var (
 			{
 				Name:    "backtesttask_status",
 				Unique:  false,
-				Columns: []*schema.Column{BacktestTasksColumns[10]},
+				Columns: []*schema.Column{BacktestTasksColumns[13]},
 			},
 			{
 				Name:    "backtesttask_strategy_id",
@@ -113,15 +117,34 @@ var (
 			{
 				Name:    "backtesttask_pair_timeframe",
 				Unique:  false,
-				Columns: []*schema.Column{BacktestTasksColumns[3], BacktestTasksColumns[4]},
+				Columns: []*schema.Column{BacktestTasksColumns[5], BacktestTasksColumns[6]},
 			},
 		},
+	}
+	// StrategiesColumns holds the columns for the "strategies" table.
+	StrategiesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "name", Type: field.TypeString},
+		{Name: "entry_condition", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "exit_condition", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "execution_rule", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "exchange_id", Type: field.TypeString},
+		{Name: "pair", Type: field.TypeString},
+		{Name: "timeframe", Type: field.TypeString},
+		{Name: "is_active", Type: field.TypeBool, Default: true},
+	}
+	// StrategiesTable holds the schema information for the "strategies" table.
+	StrategiesTable = &schema.Table{
+		Name:       "strategies",
+		Columns:    StrategiesColumns,
+		PrimaryKey: []*schema.Column{StrategiesColumns[0]},
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		BacktestKlineAnalysesTable,
 		BacktestResultsTable,
 		BacktestTasksTable,
+		StrategiesTable,
 	}
 )
 

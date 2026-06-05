@@ -20,6 +20,8 @@ type BacktestResult struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID uuid.UUID `json:"id,omitempty"`
+	// StrategyName holds the value of the "strategy_name" field.
+	StrategyName string `json:"strategy_name,omitempty"`
 	// FinalValue holds the value of the "final_value" field.
 	FinalValue float64 `json:"final_value,omitempty"`
 	// TotalReturnPercent holds the value of the "total_return_percent" field.
@@ -78,6 +80,8 @@ func (*BacktestResult) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullFloat64)
 		case backtestresult.FieldTotalTrades:
 			values[i] = new(sql.NullInt64)
+		case backtestresult.FieldStrategyName:
+			values[i] = new(sql.NullString)
 		case backtestresult.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
 		case backtestresult.FieldID:
@@ -104,6 +108,12 @@ func (_m *BacktestResult) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field id", values[i])
 			} else if value != nil {
 				_m.ID = *value
+			}
+		case backtestresult.FieldStrategyName:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field strategy_name", values[i])
+			} else if value.Valid {
+				_m.StrategyName = value.String
 			}
 		case backtestresult.FieldFinalValue:
 			if value, ok := values[i].(*sql.NullFloat64); !ok {
@@ -215,6 +225,9 @@ func (_m *BacktestResult) String() string {
 	var builder strings.Builder
 	builder.WriteString("BacktestResult(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
+	builder.WriteString("strategy_name=")
+	builder.WriteString(_m.StrategyName)
+	builder.WriteString(", ")
 	builder.WriteString("final_value=")
 	builder.WriteString(fmt.Sprintf("%v", _m.FinalValue))
 	builder.WriteString(", ")

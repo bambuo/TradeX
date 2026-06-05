@@ -56,6 +56,12 @@ func (m *mockRepo) GetPendingTasks(_ context.Context) ([]*domain.BacktestTask, e
 func (m *mockRepo) GetRunningTasks(_ context.Context) ([]*domain.BacktestTask, error) {
 	return nil, nil
 }
+func (m *mockRepo) GetAnalysisCount(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+func (m *mockRepo) GetStrategy(_ context.Context, _ uuid.UUID) (*domain.Strategy, error) {
+	return nil, errMock
+}
 
 func newTestHandler() *BacktestHandler {
 	return NewBacktestHandler(service.NewBacktestService(&mockRepo{}), zerolog.Nop())

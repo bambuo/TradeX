@@ -9,6 +9,7 @@ import (
 	"github.com/tradex/backend-go/internal/infra/persistence/ent/backtestklineanalysis"
 	"github.com/tradex/backend-go/internal/infra/persistence/ent/backtestresult"
 	"github.com/tradex/backend-go/internal/infra/persistence/ent/backtesttask"
+	"github.com/tradex/backend-go/internal/infra/persistence/ent/strategy"
 	"github.com/tradex/backend-go/internal/infra/persistence/schema"
 )
 
@@ -44,8 +45,12 @@ func init() {
 	backtestklineanalysis.DefaultID = backtestklineanalysisDescID.Default.(func() uuid.UUID)
 	backtestresultFields := schema.BacktestResult{}.Fields()
 	_ = backtestresultFields
+	// backtestresultDescStrategyName is the schema descriptor for strategy_name field.
+	backtestresultDescStrategyName := backtestresultFields[1].Descriptor()
+	// backtestresult.DefaultStrategyName holds the default value on creation for the strategy_name field.
+	backtestresult.DefaultStrategyName = backtestresultDescStrategyName.Default.(string)
 	// backtestresultDescCreatedAt is the schema descriptor for created_at field.
-	backtestresultDescCreatedAt := backtestresultFields[10].Descriptor()
+	backtestresultDescCreatedAt := backtestresultFields[11].Descriptor()
 	// backtestresult.DefaultCreatedAt holds the default value on creation for the created_at field.
 	backtestresult.DefaultCreatedAt = backtestresultDescCreatedAt.Default.(func() time.Time)
 	// backtestresultDescID is the schema descriptor for id field.
@@ -54,20 +59,28 @@ func init() {
 	backtestresult.DefaultID = backtestresultDescID.Default.(func() uuid.UUID)
 	backtesttaskFields := schema.BacktestTask{}.Fields()
 	_ = backtesttaskFields
+	// backtesttaskDescStrategyName is the schema descriptor for strategy_name field.
+	backtesttaskDescStrategyName := backtesttaskFields[2].Descriptor()
+	// backtesttask.DefaultStrategyName holds the default value on creation for the strategy_name field.
+	backtesttask.DefaultStrategyName = backtesttaskDescStrategyName.Default.(string)
+	// backtesttaskDescCreatedBy is the schema descriptor for created_by field.
+	backtesttaskDescCreatedBy := backtesttaskFields[3].Descriptor()
+	// backtesttask.DefaultCreatedBy holds the default value on creation for the created_by field.
+	backtesttask.DefaultCreatedBy = backtesttaskDescCreatedBy.Default.(func() uuid.UUID)
 	// backtesttaskDescFeeRate is the schema descriptor for fee_rate field.
-	backtesttaskDescFeeRate := backtesttaskFields[7].Descriptor()
+	backtesttaskDescFeeRate := backtesttaskFields[9].Descriptor()
 	// backtesttask.DefaultFeeRate holds the default value on creation for the fee_rate field.
 	backtesttask.DefaultFeeRate = backtesttaskDescFeeRate.Default.(float64)
 	// backtesttaskDescProgress is the schema descriptor for progress field.
-	backtesttaskDescProgress := backtesttaskFields[12].Descriptor()
+	backtesttaskDescProgress := backtesttaskFields[15].Descriptor()
 	// backtesttask.DefaultProgress holds the default value on creation for the progress field.
 	backtesttask.DefaultProgress = backtesttaskDescProgress.Default.(int)
 	// backtesttaskDescCreatedAt is the schema descriptor for created_at field.
-	backtesttaskDescCreatedAt := backtesttaskFields[14].Descriptor()
+	backtesttaskDescCreatedAt := backtesttaskFields[17].Descriptor()
 	// backtesttask.DefaultCreatedAt holds the default value on creation for the created_at field.
 	backtesttask.DefaultCreatedAt = backtesttaskDescCreatedAt.Default.(func() time.Time)
 	// backtesttaskDescUpdatedAt is the schema descriptor for updated_at field.
-	backtesttaskDescUpdatedAt := backtesttaskFields[15].Descriptor()
+	backtesttaskDescUpdatedAt := backtesttaskFields[18].Descriptor()
 	// backtesttask.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	backtesttask.DefaultUpdatedAt = backtesttaskDescUpdatedAt.Default.(func() time.Time)
 	// backtesttask.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
@@ -76,4 +89,14 @@ func init() {
 	backtesttaskDescID := backtesttaskFields[0].Descriptor()
 	// backtesttask.DefaultID holds the default value on creation for the id field.
 	backtesttask.DefaultID = backtesttaskDescID.Default.(func() uuid.UUID)
+	strategyFields := schema.Strategy{}.Fields()
+	_ = strategyFields
+	// strategyDescIsActive is the schema descriptor for is_active field.
+	strategyDescIsActive := strategyFields[8].Descriptor()
+	// strategy.DefaultIsActive holds the default value on creation for the is_active field.
+	strategy.DefaultIsActive = strategyDescIsActive.Default.(bool)
+	// strategyDescID is the schema descriptor for id field.
+	strategyDescID := strategyFields[0].Descriptor()
+	// strategy.DefaultID holds the default value on creation for the id field.
+	strategy.DefaultID = strategyDescID.Default.(func() uuid.UUID)
 }

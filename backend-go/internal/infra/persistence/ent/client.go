@@ -19,6 +19,7 @@ import (
 	"github.com/tradex/backend-go/internal/infra/persistence/ent/backtestklineanalysis"
 	"github.com/tradex/backend-go/internal/infra/persistence/ent/backtestresult"
 	"github.com/tradex/backend-go/internal/infra/persistence/ent/backtesttask"
+	"github.com/tradex/backend-go/internal/infra/persistence/ent/strategy"
 )
 
 // Client is the client that holds all ent builders.
@@ -32,6 +33,8 @@ type Client struct {
 	BacktestResult *BacktestResultClient
 	// BacktestTask is the client for interacting with the BacktestTask builders.
 	BacktestTask *BacktestTaskClient
+	// Strategy is the client for interacting with the Strategy builders.
+	Strategy *StrategyClient
 }
 
 // NewClient creates a new client configured with the given options.
@@ -46,6 +49,7 @@ func (c *Client) init() {
 	c.BacktestKlineAnalysis = NewBacktestKlineAnalysisClient(c.config)
 	c.BacktestResult = NewBacktestResultClient(c.config)
 	c.BacktestTask = NewBacktestTaskClient(c.config)
+	c.Strategy = NewStrategyClient(c.config)
 }
 
 type (
@@ -141,6 +145,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		BacktestKlineAnalysis: NewBacktestKlineAnalysisClient(cfg),
 		BacktestResult:        NewBacktestResultClient(cfg),
 		BacktestTask:          NewBacktestTaskClient(cfg),
+		Strategy:              NewStrategyClient(cfg),
 	}, nil
 }
 
@@ -163,6 +168,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		BacktestKlineAnalysis: NewBacktestKlineAnalysisClient(cfg),
 		BacktestResult:        NewBacktestResultClient(cfg),
 		BacktestTask:          NewBacktestTaskClient(cfg),
+		Strategy:              NewStrategyClient(cfg),
 	}, nil
 }
 
@@ -194,6 +200,7 @@ func (c *Client) Use(hooks ...Hook) {
 	c.BacktestKlineAnalysis.Use(hooks...)
 	c.BacktestResult.Use(hooks...)
 	c.BacktestTask.Use(hooks...)
+	c.Strategy.Use(hooks...)
 }
 
 // Intercept adds the query interceptors to all the entity clients.
@@ -202,6 +209,7 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 	c.BacktestKlineAnalysis.Intercept(interceptors...)
 	c.BacktestResult.Intercept(interceptors...)
 	c.BacktestTask.Intercept(interceptors...)
+	c.Strategy.Intercept(interceptors...)
 }
 
 // Mutate implements the ent.Mutator interface.
@@ -213,6 +221,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.BacktestResult.mutate(ctx, m)
 	case *BacktestTaskMutation:
 		return c.BacktestTask.mutate(ctx, m)
+	case *StrategyMutation:
+		return c.Strategy.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
 	}
@@ -649,12 +659,145 @@ func (c *BacktestTaskClient) mutate(ctx context.Context, m *BacktestTaskMutation
 	}
 }
 
+// StrategyClient is a client for the Strategy schema.
+type StrategyClient struct {
+	config
+}
+
+// NewStrategyClient returns a client for the Strategy from the given config.
+func NewStrategyClient(c config) *StrategyClient {
+	return &StrategyClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `strategy.Hooks(f(g(h())))`.
+func (c *StrategyClient) Use(hooks ...Hook) {
+	c.hooks.Strategy = append(c.hooks.Strategy, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `strategy.Intercept(f(g(h())))`.
+func (c *StrategyClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Strategy = append(c.inters.Strategy, interceptors...)
+}
+
+// Create returns a builder for creating a Strategy entity.
+func (c *StrategyClient) Create() *StrategyCreate {
+	mutation := newStrategyMutation(c.config, OpCreate)
+	return &StrategyCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Strategy entities.
+func (c *StrategyClient) CreateBulk(builders ...*StrategyCreate) *StrategyCreateBulk {
+	return &StrategyCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *StrategyClient) MapCreateBulk(slice any, setFunc func(*StrategyCreate, int)) *StrategyCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &StrategyCreateBulk{err: fmt.Errorf("calling to StrategyClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*StrategyCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &StrategyCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Strategy.
+func (c *StrategyClient) Update() *StrategyUpdate {
+	mutation := newStrategyMutation(c.config, OpUpdate)
+	return &StrategyUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *StrategyClient) UpdateOne(_m *Strategy) *StrategyUpdateOne {
+	mutation := newStrategyMutation(c.config, OpUpdateOne, withStrategy(_m))
+	return &StrategyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *StrategyClient) UpdateOneID(id uuid.UUID) *StrategyUpdateOne {
+	mutation := newStrategyMutation(c.config, OpUpdateOne, withStrategyID(id))
+	return &StrategyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Strategy.
+func (c *StrategyClient) Delete() *StrategyDelete {
+	mutation := newStrategyMutation(c.config, OpDelete)
+	return &StrategyDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *StrategyClient) DeleteOne(_m *Strategy) *StrategyDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *StrategyClient) DeleteOneID(id uuid.UUID) *StrategyDeleteOne {
+	builder := c.Delete().Where(strategy.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &StrategyDeleteOne{builder}
+}
+
+// Query returns a query builder for Strategy.
+func (c *StrategyClient) Query() *StrategyQuery {
+	return &StrategyQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeStrategy},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Strategy entity by its id.
+func (c *StrategyClient) Get(ctx context.Context, id uuid.UUID) (*Strategy, error) {
+	return c.Query().Where(strategy.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *StrategyClient) GetX(ctx context.Context, id uuid.UUID) *Strategy {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *StrategyClient) Hooks() []Hook {
+	return c.hooks.Strategy
+}
+
+// Interceptors returns the client interceptors.
+func (c *StrategyClient) Interceptors() []Interceptor {
+	return c.inters.Strategy
+}
+
+func (c *StrategyClient) mutate(ctx context.Context, m *StrategyMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&StrategyCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&StrategyUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&StrategyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&StrategyDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Strategy mutation op: %q", m.Op())
+	}
+}
+
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		BacktestKlineAnalysis, BacktestResult, BacktestTask []ent.Hook
+		BacktestKlineAnalysis, BacktestResult, BacktestTask, Strategy []ent.Hook
 	}
 	inters struct {
-		BacktestKlineAnalysis, BacktestResult, BacktestTask []ent.Interceptor
+		BacktestKlineAnalysis, BacktestResult, BacktestTask, Strategy []ent.Interceptor
 	}
 )

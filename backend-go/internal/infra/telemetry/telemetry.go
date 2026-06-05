@@ -30,6 +30,18 @@ func InitOTel(_ context.Context, cfg Config) (shutdown func(context.Context) err
 		attribute.String("deployment.environment", cfg.Environment),
 	)
 
+	propagator := propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	)
+	otel.SetTextMapPropagator(propagator)
+
+	if cfg.OTLPEndpoint == "" {
+		otel.SetTracerProvider(sdktrace.NewTracerProvider(sdktrace.WithResource(res)))
+		otel.SetMeterProvider(sdkmetric.NewMeterProvider(sdkmetric.WithResource(res)))
+		return func(_ context.Context) error { return nil }, nil
+	}
+
 	traceExporter, err := otlptracehttp.New(context.Background(),
 		otlptracehttp.WithEndpoint(cfg.OTLPEndpoint),
 		otlptracehttp.WithInsecure(),
@@ -46,12 +58,6 @@ func InitOTel(_ context.Context, cfg Config) (shutdown func(context.Context) err
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
 	)
 	otel.SetTracerProvider(tp)
-
-	propagator := propagation.NewCompositeTextMapPropagator(
-		propagation.TraceContext{},
-		propagation.Baggage{},
-	)
-	otel.SetTextMapPropagator(propagator)
 
 	metricExporter, err := otlpmetrichttp.New(context.Background(),
 		otlpmetrichttp.WithEndpoint(cfg.OTLPEndpoint),

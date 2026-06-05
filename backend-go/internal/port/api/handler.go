@@ -2,8 +2,10 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"runtime"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -11,15 +13,30 @@ import (
 
 	"github.com/tradex/backend-go/internal/domain"
 	"github.com/tradex/backend-go/internal/app"
+	"github.com/tradex/backend-go/internal/infra/eventbus"
+	"github.com/tradex/backend-go/internal/infra/scheduler"
 )
 
+const CancelStreamKey = "tradex:backtest:cancel"
+
 type BacktestHandler struct {
-	svc *service.BacktestService
-	log zerolog.Logger
+	svc           *service.BacktestService
+	bus           *eventbus.RedisEventBus
+	analysisStore *scheduler.TaskAnalysisStore
+	log           zerolog.Logger
 }
 
-func NewBacktestHandler(svc *service.BacktestService, log zerolog.Logger) *BacktestHandler {
-	return &BacktestHandler{svc: svc, log: log}
+func NewBacktestHandler(svc *service.BacktestService, log zerolog.Logger, bus ...*eventbus.RedisEventBus) *BacktestHandler {
+	h := &BacktestHandler{svc: svc, log: log, analysisStore: scheduler.NewTaskAnalysisStore()}
+	if len(bus) > 0 {
+		h.bus = bus[0]
+	}
+	return h
+}
+
+// SetAnalysisStore sets a shared analysis store (used when handler runs alongside worker).
+func (h *BacktestHandler) SetAnalysisStore(store *scheduler.TaskAnalysisStore) {
+	h.analysisStore = store
 }
 
 func (h *BacktestHandler) RegisterRoutes(r *gin.Engine) {
@@ -45,6 +62,8 @@ func (h *BacktestHandler) RegisterRoutes(r *gin.Engine) {
 		v1.GET("/backtest/:id/result", h.GetResult)
 		v1.GET("/backtest/:id/analysis", h.GetAnalysis)
 		v1.POST("/backtest/:id/cancel", h.CancelTask)
+		v1.GET("/backtest/:id/analysis/count", h.GetAnalysisCount)
+		v1.GET("/backtest/:id/analysis/stream", h.StreamAnalysis)
 	}
 }
 
@@ -158,6 +177,16 @@ func (h *BacktestHandler) CancelTask(c *gin.Context) {
 		return
 	}
 
+	// publish cancel event to Redis Stream for cross-process notification
+	if h.bus != nil {
+		if err := h.bus.StreamAdd(c.Request.Context(), CancelStreamKey,
+			map[string]any{"task_id": id.String()}); err != nil {
+			h.log.Warn().Err(err).Str("task_id", id.String()).Msg("failed to publish cancel event")
+		} else {
+			h.log.Info().Str("task_id", id.String()).Msg("cancel event published to stream")
+		}
+	}
+
 	Success(c, gin.H{"id": id, "status": domain.TaskStatusCancelled})
 }
 
@@ -186,6 +215,159 @@ func (h *BacktestHandler) GetResult(c *gin.Context) {
 	}
 
 	Success(c, gin.H{"result": result, "trades": trades})
+}
+
+func (h *BacktestHandler) StreamAnalysis(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		BadRequest(c, "invalid id")
+		return
+	}
+
+	speedStr := c.DefaultQuery("speed", "1")
+	speed, _ := strconv.Atoi(speedStr)
+	if speed < 1 {
+		speed = 1
+	}
+	if speed > 50 {
+		speed = 50
+	}
+	delayMs := 300 / speed
+
+	taskIDStr := id.String()
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
+	c.Writer.Header().Set("X-Accel-Buffering", "no")
+
+	flusher, _ := c.Writer.(interface{ Flush() })
+
+	task, err := h.svc.GetTask(c.Request.Context(), id)
+	if err != nil {
+		ss, _ := fmt.Sprintf("data: {\"type\":\"status\",\"status\":\"NotFound\"}\n\n"), error(nil)
+		c.Writer.WriteString(ss)
+		if flusher != nil {
+			flusher.Flush()
+		}
+		return
+	}
+
+	// 进行中的任务：从 analysisStore 实时流式推送
+	if task.Status != domain.TaskStatusCompleted && h.analysisStore.Exists(taskIDStr) {
+		c.Writer.WriteString(fmt.Sprintf("data: {\"type\":\"status\",\"status\":%q,\"incremental\":true}\n\n", task.Status))
+		if flusher != nil {
+			flusher.Flush()
+		}
+		storeCount := h.analysisStore.Count(taskIDStr)
+		c.Writer.WriteString(fmt.Sprintf("data: {\"type\":\"meta\",\"total\":%d,\"incremental\":true}\n\n", storeCount))
+		if flusher != nil {
+			flusher.Flush()
+		}
+
+		ch, ok := h.analysisStore.Subscribe(taskIDStr)
+		if ok {
+			for item := range ch {
+				if delayMs > 0 {
+					time.Sleep(time.Duration(delayMs) * time.Millisecond)
+				}
+				writeAnalysisSSE(c, item, flusher)
+				if flusher != nil {
+					flusher.Flush()
+				}
+			}
+		}
+		c.Writer.WriteString("data: {\"type\":\"complete\"}\n\n")
+		if flusher != nil {
+			flusher.Flush()
+		}
+		return
+	}
+
+	// 已完成的任务：从 DB 读取后流式推送
+	if task.Status == domain.TaskStatusCompleted {
+		analysis, err := h.svc.GetAnalysis(c.Request.Context(), id, 0, 100000)
+		if err != nil || len(analysis) == 0 {
+			c.Writer.WriteString("data: {\"type\":\"complete\"}\n\n")
+			if flusher != nil {
+				flusher.Flush()
+			}
+			return
+		}
+		c.Writer.WriteString(fmt.Sprintf("data: {\"type\":\"meta\",\"total\":%d}\n\n", len(analysis)))
+		if flusher != nil {
+			flusher.Flush()
+		}
+		for _, item := range analysis {
+			if delayMs > 0 {
+				time.Sleep(time.Duration(delayMs) * time.Millisecond)
+			}
+			writeAnalysisSSE(c, item, flusher)
+			if flusher != nil {
+				flusher.Flush()
+			}
+		}
+		c.Writer.WriteString("data: {\"type\":\"complete\"}\n\n")
+		if flusher != nil {
+			flusher.Flush()
+		}
+		return
+	}
+
+	// 未开始或未知状态
+	c.Writer.WriteString(fmt.Sprintf("data: {\"type\":\"status\",\"status\":%q}\n\n", task.Status))
+	if flusher != nil {
+		flusher.Flush()
+	}
+	c.Writer.WriteString("data: {\"type\":\"complete\"}\n\n")
+	if flusher != nil {
+		flusher.Flush()
+	}
+}
+
+func writeAnalysisSSE(c *gin.Context, a domain.BacktestKlineAnalysis, flusher interface{ Flush() }) {
+	entry := ""
+	entry += fmt.Sprintf(`"index":%d,`, a.KlineIndex)
+	entry += fmt.Sprintf(`"timestamp":%q,`, a.Timestamp.Format(time.RFC3339))
+	open, _ := a.Open.Float64()
+	high, _ := a.High.Float64()
+	low, _ := a.Low.Float64()
+	close_, _ := a.Close.Float64()
+	volume, _ := a.Volume.Float64()
+	entry += fmt.Sprintf(`"open":%f,"high":%f,"low":%f,"close":%f,"volume":%f,`, open, high, low, close_, volume)
+	entry += fmt.Sprintf(`"inPosition":%v,`, a.InPosition)
+	entry += fmt.Sprintf(`"action":%q`, a.Action)
+
+	if a.IndicatorValues != nil {
+		entry += `,"indicators":{`
+		first := true
+		for k, v := range a.IndicatorValues {
+			if !first {
+				entry += ","
+			}
+			entry += fmt.Sprintf("%q:%f", k, v)
+			first = false
+		}
+		entry += "}"
+	}
+
+	payload := fmt.Sprintf("data: {\"type\":\"item\",%s}\n\n", entry)
+	c.Writer.WriteString(payload)
+}
+
+func (h *BacktestHandler) GetAnalysisCount(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		BadRequest(c, "invalid id")
+		return
+	}
+
+	count, err := h.svc.GetAnalysisCount(c.Request.Context(), id)
+	if err != nil {
+		Success(c, gin.H{"count": 0})
+		return
+	}
+
+	Success(c, gin.H{"count": count})
 }
 
 func (h *BacktestHandler) GetAnalysis(c *gin.Context) {

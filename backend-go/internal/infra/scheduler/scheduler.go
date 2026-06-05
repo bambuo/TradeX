@@ -16,19 +16,28 @@ import (
 )
 
 type BacktestScheduler struct {
-	repo       domain.BacktestRepository
-	queue      TaskQueue
-	monitor    *ResourceMonitor
-	registry   *indicator.Registry
-	klineCache storage.KlineCache
-	klineClient exchange.KlineClient
-	tracker    *RunningBacktestTracker
-	log        zerolog.Logger
+	repo         domain.BacktestRepository
+	queue        TaskQueue
+	monitor      *ResourceMonitor
+	registry     *indicator.Registry
+	klineCache   storage.KlineCache
+	klineClient  exchange.KlineClient
+	tracker      *RunningBacktestTracker
+	analysisStore *TaskAnalysisStore
+	log          zerolog.Logger
 }
 
 type SchedulerConfig struct {
-	MaxConcurrency     int
-	TaskTimeoutMinutes int
+	MaxConcurrency       int
+	TaskTimeoutMinutes   int
+	FeeRate              float64
+	MonitorIntervalSec   int
+	MemoryWarningMb      int64
+	MemoryCriticalMb     int64
+	MemoryAbsoluteMb     int64
+	CpuWarningPercent    int
+	CpuCriticalPercent   int
+	CpuAbsolutePercent   int
 }
 
 func NewBacktestScheduler(
@@ -39,21 +48,33 @@ func NewBacktestScheduler(
 	klineCache storage.KlineCache,
 	klineClient exchange.KlineClient,
 	tracker *RunningBacktestTracker,
+	analysisStore *TaskAnalysisStore,
 	log zerolog.Logger,
 ) *BacktestScheduler {
 	return &BacktestScheduler{
-		repo:       repo,
-		queue:      queue,
-		monitor:    monitor,
-		registry:   registry,
-		klineCache: klineCache,
-		klineClient: klineClient,
-		tracker:    tracker,
-		log:        log,
+		repo:          repo,
+		queue:         queue,
+		monitor:       monitor,
+		registry:      registry,
+		klineCache:    klineCache,
+		klineClient:   klineClient,
+		tracker:       tracker,
+		analysisStore: analysisStore,
+		log:           log,
 	}
 }
 
-func (s *BacktestScheduler) Run(ctx context.Context, cfg SchedulerConfig) {
+func (s *BacktestScheduler) Run(ctx context.Context, cfg SchedulerConfig, guards ...*BacktestWorkerGuard) {
+	// acquire PG advisory lock if guard provided
+	if len(guards) > 0 && guards[0] != nil {
+		if err := guards[0].TryAcquire(ctx); err != nil {
+			s.log.Fatal().Err(err).Msg("instance guard: failed to acquire lock")
+			return
+		}
+		defer guards[0].Release(context.Background())
+		s.log.Info().Msg("instance guard: advisory lock acquired")
+	}
+
 	s.recoverStuckTasks(ctx)
 
 	slots := make(chan struct{}, cfg.MaxConcurrency)
@@ -120,12 +141,16 @@ func (s *BacktestScheduler) executeTask(ctx context.Context, taskID uuid.UUID, c
 		return s.repo.UpdateTaskStatus(taskCtx, taskID, domain.TaskStatusRunning, &phase) == nil
 	}
 
+	// emit BacktestStarted
+	log.Info().Interface("event", domain.BacktestStartedEvent{TaskID: taskID, Timestamp: time.Now()}).Msg("backtest_started")
+
 	advance(domain.PhaseQueued)
 	advance(domain.PhaseFetchingData)
 
 	candles, err := s.fetchKlines(taskCtx, task)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to fetch klines")
+		log.Error().Err(err).Msg("failed to fetch klines, emitting BacktestFailed")
+		log.Info().Interface("event", domain.BacktestFailedEvent{TaskID: taskID, Reason: err.Error(), Timestamp: time.Now()}).Msg("backtest_failed")
 		s.repo.UpdateTaskStatus(taskCtx, taskID, domain.TaskStatusFailed, nil)
 		return
 	}
@@ -133,29 +158,44 @@ func (s *BacktestScheduler) executeTask(ctx context.Context, taskID uuid.UUID, c
 	log.Info().Int("klines", len(candles)).Msg("fetched klines")
 	advance(domain.PhaseRunning)
 
+	strategy, err := s.repo.GetStrategy(taskCtx, task.StrategyID)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to load strategy")
+		s.repo.UpdateTaskStatus(taskCtx, taskID, domain.TaskStatusFailed, nil)
+		return
+	}
+
+	taskIDStr := taskID.String()
+	s.analysisStore.Init(taskIDStr)
+	defer s.analysisStore.Remove(taskIDStr)
+
+	feeRate := task.FeeRate
+	if feeRate.IsZero() && cfg.FeeRate > 0 {
+		feeRate = decimal.NewFromFloat(cfg.FeeRate)
+	}
+
 	eng := engine.NewBacktestEngine(s.registry)
 	out, err := eng.Run(taskCtx, engine.EngineInput{
-		Strategy: domain.Strategy{
-			ID:         task.StrategyID,
-			Name:       task.Pair,
-			ExchangeID: task.ExchangeID,
-			Pair:       task.Pair,
-			Timeframe:  task.Timeframe,
-			IsActive:   true,
-		},
+		Strategy:       *strategy,
 		Pair:           task.Pair,
 		Klines:         candles,
 		InitialCapital: task.InitialCapital,
 		PositionSize:   task.PositionSize,
-		FeeRate:        task.FeeRate,
+		FeeRate:        feeRate,
 		Timeframe:      task.Timeframe,
+		OnAnalysis: func(a domain.BacktestKlineAnalysis) {
+			s.analysisStore.Push(taskIDStr, a)
+		},
 	})
 
 	if err != nil {
-		log.Error().Err(err).Msg("engine run failed")
+		log.Error().Err(err).Msg("engine run failed, emitting BacktestFailed")
+		log.Info().Interface("event", domain.BacktestFailedEvent{TaskID: taskID, Reason: err.Error(), Timestamp: time.Now()}).Msg("backtest_failed")
 		s.repo.UpdateTaskStatus(taskCtx, taskID, domain.TaskStatusFailed, nil)
 		return
 	}
+
+	out.Result.StrategyName = strategy.Name
 
 	// 写入守卫：引擎跑完后重读 DB，确认没有被取消
 	latest, err := s.repo.GetTask(context.Background(), taskID)
@@ -184,6 +224,15 @@ func (s *BacktestScheduler) executeTask(ctx context.Context, taskID uuid.UUID, c
 		log.Error().Err(err).Msg("failed to update task to completed")
 		return
 	}
+
+	log.Info().Interface("event",
+		domain.BacktestCompletedEvent{
+			TaskID:             taskID,
+			FinalValue:         out.Result.FinalValue,
+			TotalReturnPercent: out.Result.TotalReturnPercent,
+			Timestamp:          time.Now(),
+		},
+	).Msg("backtest_completed")
 
 	log.Info().
 		Float64("final_value", f64(out.Result.FinalValue)).
