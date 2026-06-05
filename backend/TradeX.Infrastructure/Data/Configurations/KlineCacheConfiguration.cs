@@ -8,7 +8,6 @@ public sealed class KlineCacheConfiguration : IEntityTypeConfiguration<KlineCach
 {
     public void Configure(EntityTypeBuilder<KlineCacheEntity> builder)
     {
-        builder.ToTable("KlineCache");
         builder.HasKey(x => x.Id);
         builder.HasIndex(x => new { x.ExchangeId, x.Pair, x.Timeframe, x.Timestamp }).IsUnique();
         builder.Property(x => x.Pair).HasMaxLength(32);

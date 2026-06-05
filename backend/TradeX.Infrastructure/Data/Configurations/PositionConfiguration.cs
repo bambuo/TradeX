@@ -16,7 +16,7 @@ public sealed class PositionConfiguration : IEntityTypeConfiguration<Position>
         // 过滤索引仅约束非 NULL 行，避免历史/手工持仓（OpeningOrderId 为空）相互冲突。
         builder.HasIndex(x => x.OpeningOrderId)
             .IsUnique()
-            .HasFilter("\"OpeningOrderId\" IS NOT NULL");
+            .HasFilter("opening_order_id IS NOT NULL");
         builder.Property(x => x.Pair).HasMaxLength(50).IsRequired();
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
         builder.Property(x => x.Quantity).HasColumnType("decimal(28,12)");

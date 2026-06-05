@@ -8,7 +8,6 @@ public sealed class BacktestKlineAnalysisConfiguration : IEntityTypeConfiguratio
 {
     public void Configure(EntityTypeBuilder<BacktestKlineAnalysisEntity> builder)
     {
-        builder.ToTable("BacktestKlineAnalyses");
         builder.HasKey(x => x.Id);
         builder.HasIndex(x => x.TaskId);
         builder.HasIndex(x => new { x.TaskId, x.Index }).IsUnique();

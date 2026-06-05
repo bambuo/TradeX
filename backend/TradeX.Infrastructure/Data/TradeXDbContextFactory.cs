@@ -12,10 +12,12 @@ public class TradeXDbContextFactory : IDesignTimeDbContextFactory<TradeXDbContex
     public TradeXDbContext CreateDbContext(string[] args)
     {
         var connectionString = Environment.GetEnvironmentVariable("TRADEX_DESIGN_CONNECTION")
-            ?? "Host=localhost;Port=5432;Database=tradex;Username=tradex;Password=tradex;";
+            ?? "Host=localhost;Port=5432;Database=tradex;Username=postgres;Password=postgres;";
 
         var options = new DbContextOptionsBuilder<TradeXDbContext>()
-            .UseNpgsql(connectionString)
+            .UseNpgsql(connectionString, npgsql => npgsql
+                .MigrationsHistoryTable("_ef_migrations_history"))
+            .UseSnakeCaseNamingConvention()
             .Options;
 
         return new TradeXDbContext(options);

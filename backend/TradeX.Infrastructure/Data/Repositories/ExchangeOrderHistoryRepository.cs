@@ -43,18 +43,18 @@ public class ExchangeOrderHistoryRepository(TradeXDbContext db)
         foreach (var order in list)
         {
             await db.Database.ExecuteSqlRawAsync("""
-                INSERT INTO "ExchangeOrderHistories" (
-                    "Id", "ExchangeId", "Pair", "Side", "Type", "Status",
-                    "Price", "Quantity", "FilledQuantity", "ExchangeOrderId",
-                    "PlacedAt", "SyncedAt")
+                INSERT INTO "exchange_order_histories" (
+                    "id", "exchange_id", "pair", "side", "type", "status",
+                    "price", "quantity", "filled_quantity", "exchange_order_id",
+                    "placed_at", "synced_at")
                 VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}, {11})
-                ON CONFLICT ("ExchangeId", "ExchangeOrderId")
+                ON CONFLICT ("exchange_id", "exchange_order_id")
                 DO UPDATE SET
-                    "Status" = EXCLUDED."Status",
-                    "FilledQuantity" = EXCLUDED."FilledQuantity",
-                    "Price" = EXCLUDED."Price",
-                    "Quantity" = EXCLUDED."Quantity",
-                    "SyncedAt" = EXCLUDED."SyncedAt";
+                    "status" = EXCLUDED."status",
+                    "filled_quantity" = EXCLUDED."filled_quantity",
+                    "price" = EXCLUDED."price",
+                    "quantity" = EXCLUDED."quantity",
+                    "synced_at" = EXCLUDED."synced_at";
                 """,
                 order.Id, order.ExchangeId, order.Pair, order.Side, order.Type,
                 order.Status, order.Price, order.Quantity, order.FilledQuantity,

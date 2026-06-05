@@ -25,7 +25,9 @@ public static class DependencyInjection
                         maxRetryCount: 5,
                         maxRetryDelay: TimeSpan.FromSeconds(10),
                         errorCodesToAdd: null)
-                    .CommandTimeout(120))
+                    .CommandTimeout(120)
+                    .MigrationsHistoryTable("_ef_migrations_history"))
+                .UseSnakeCaseNamingConvention()
                 .AddInterceptors(
                     sp.GetRequiredService<VersionInterceptor>(),
                     sp.GetRequiredService<DomainEventInterceptor>())

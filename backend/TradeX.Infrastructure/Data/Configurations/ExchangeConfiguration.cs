@@ -8,7 +8,6 @@ public sealed class ExchangeConfiguration : IEntityTypeConfiguration<Exchange>
 {
     public void Configure(EntityTypeBuilder<Exchange> builder)
     {
-        builder.ToTable("Exchanges");
         builder.HasKey(x => x.Id);
         builder.HasIndex(x => x.Name).IsUnique();
         builder.Property(x => x.Name).HasMaxLength(100).IsRequired();
