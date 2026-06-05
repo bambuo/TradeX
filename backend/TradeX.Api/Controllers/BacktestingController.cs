@@ -67,10 +67,11 @@ public class BacktestingController(
 
         return Ok(result.Data!.Select(t => new
         {
-            t.Id, t.StrategyName, t.Pair,
-            status = t.Status,
-            phase = t.Phase,
-            t.InitialCapital, t.CreatedAt, t.CompletedAt
+            t.Id, t.StrategyName, t.Pair, t.Timeframe,
+            status = t.Status, phase = t.Phase,
+            t.InitialCapital, t.CreatedAt, t.CompletedAt,
+            startAt = t.StartAt.ToString("yyyy-MM-dd HH:mm:ss"),
+            endAt = t.EndAt.ToString("yyyy-MM-dd HH:mm:ss")
         }));
     }
 
@@ -85,11 +86,12 @@ public class BacktestingController(
         var t = result.Data!;
         return Ok(new
         {
-            t.Id, strategyId = t.Id,
-            status = t.Status,
-            phase = t.Phase,
-            createdAt = t.CreatedAt,
-            completedAt = t.CompletedAt
+            t.Id, t.StrategyName, t.StrategyId,
+            t.Pair, t.Timeframe,
+            status = t.Status, phase = t.Phase,
+            t.InitialCapital, t.CreatedAt, t.CompletedAt,
+            startAt = t.StartAt.ToString("yyyy-MM-dd HH:mm:ss"),
+            endAt = t.EndAt.ToString("yyyy-MM-dd HH:mm:ss")
         });
     }
 

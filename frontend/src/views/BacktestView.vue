@@ -397,7 +397,7 @@ onUnmounted(stopReplay)
 .analysis-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; gap: 0.5rem; }
 .toolbar-left, .toolbar-right { display: flex; align-items: center; gap: 0.5rem; }
 .speed-label { color: var(--text-muted); font-size: 0.8rem; }
-.replay-progress { color: var(--text-muted); font-size: 0.8rem; white-space: nowrap; }
+.replay-progress { color: var(--text-muted); font-size: 0.8rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .analysis-chart { min-height: 400px; }
 .analysis-chart-placeholder { min-height: 300px; display: flex; align-items: center; justify-content: center; }
 .result-pending { min-height: 200px; display: flex; align-items: center; justify-content: center; }

@@ -6,13 +6,17 @@ namespace TradeX.Application.Backtesting;
 
 public sealed record BacktestTaskDto(
     Guid Id,
+    Guid StrategyId,
     string StrategyName,
     string Pair,
+    string Timeframe,
     string Status,
     string? Phase,
     decimal InitialCapital,
     DateTime CreatedAt,
-    DateTime? CompletedAt);
+    DateTime? CompletedAt,
+    DateTime StartAt,
+    DateTime EndAt);
 
 public sealed record GetBacktestTasksQuery(Guid? StrategyId, Guid CurrentUserId);
 
@@ -31,9 +35,10 @@ public sealed class GetBacktestTasksUseCase(
     }
 
     private static BacktestTaskDto MapToDto(Core.Models.BacktestTask t) => new(
-        t.Id, t.StrategyName, t.Pair,
+        t.Id, t.StrategyId, t.StrategyName, t.Pair, t.Timeframe,
         t.Status.ToString(), t.Phase?.ToString(),
-        t.InitialCapital, t.CreatedAt, t.CompletedAt);
+        t.InitialCapital, t.CreatedAt, t.CompletedAt,
+        t.StartAt, t.EndAt);
 }
 
 public sealed record GetBacktestTaskByIdQuery(Guid Id, Guid CurrentUserId);
@@ -49,9 +54,10 @@ public sealed class GetBacktestTaskByIdUseCase(
             return Result<BacktestTaskDto>.NotFound("回测任务不存在");
 
         return Result<BacktestTaskDto>.Ok(new BacktestTaskDto(
-            task.Id, task.StrategyName, task.Pair,
+            task.Id, task.StrategyId, task.StrategyName, task.Pair, task.Timeframe,
             task.Status.ToString(), task.Phase?.ToString(),
-            task.InitialCapital, task.CreatedAt, task.CompletedAt));
+            task.InitialCapital, task.CreatedAt, task.CompletedAt,
+            task.StartAt, task.EndAt));
     }
 }
 

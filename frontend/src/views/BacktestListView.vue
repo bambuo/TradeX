@@ -490,9 +490,7 @@ async function save() {
         </a-tag>
       </template>
       <template #actions="{ record }">
-        <a-button size="mini" @click="openDetail(record)">
-          详情
-        </a-button>
+        <a-link hoverable @click="openDetail(record)">详情</a-link>
       </template>
     </a-table>
   </div>
