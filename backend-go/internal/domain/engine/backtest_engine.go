@@ -97,11 +97,11 @@ func (e *BacktestEngine) Run(ctx context.Context, input EngineInput) (EngineOutp
 
 			amount := posSize
 			if amount == nil {
-				amount = decimalPtr(equity)
+				amount = new(equity)
 			}
 
 			if amount.GreaterThan(equity) {
-				amount = decimalPtr(equity)
+				amount = new(equity)
 			}
 
 			qty := amount.Div(closePrice)
@@ -166,9 +166,6 @@ func (e *BacktestEngine) Run(ctx context.Context, input EngineInput) (EngineOutp
 
 		equityCurve[i] = equity
 
-		posValue := positionSize.Mul(closePrice)
-		posPnl := positionSize.Mul(closePrice.Sub(avgEntryPrice))
-
 		analysisEntry := domain.BacktestKlineAnalysis{
 			KlineIndex: i,
 			Timestamp:  candle.Timestamp,
@@ -181,11 +178,10 @@ func (e *BacktestEngine) Run(ctx context.Context, input EngineInput) (EngineOutp
 			Action:     string(decision.Type),
 		}
 		if inPosition {
-			avgPrice := avgEntryPrice
-			analysisEntry.AvgEntryPrice = &avgPrice
+			analysisEntry.AvgEntryPrice = new(avgEntryPrice)
 			analysisEntry.PositionQuantity = &positionSize
-			analysisEntry.PositionValue = &posValue
-			analysisEntry.PositionPnl = &posPnl
+			analysisEntry.PositionValue = new(positionSize.Mul(closePrice))
+			analysisEntry.PositionPnl = new(positionSize.Mul(closePrice.Sub(avgEntryPrice)))
 		}
 
 		indicatorValues := make(map[string]float64)
