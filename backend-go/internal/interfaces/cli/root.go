@@ -3,7 +3,7 @@ package cli
 import (
 	"github.com/spf13/cobra"
 
-	_ "github.com/tradex/backend-go/internal/config"
+	_ "tradex/internal/config"
 )
 
 func NewRootCmd() *cobra.Command {

@@ -8,8 +8,8 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 
-	"github.com/tradex/backend-go/internal/domain"
-	"github.com/tradex/backend-go/internal/infrastructure/eventbus"
+	"tradex/internal/domain"
+	"tradex/internal/infrastructure/eventbus"
 )
 
 const (

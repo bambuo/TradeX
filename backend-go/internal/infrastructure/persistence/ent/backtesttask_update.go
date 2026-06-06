@@ -12,9 +12,9 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent/backtestresult"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent/backtesttask"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent/predicate"
+	"tradex/internal/infrastructure/persistence/ent/backtestresult"
+	"tradex/internal/infrastructure/persistence/ent/backtesttask"
+	"tradex/internal/infrastructure/persistence/ent/predicate"
 )
 
 // BacktestTaskUpdate is the builder for updating BacktestTask entities.

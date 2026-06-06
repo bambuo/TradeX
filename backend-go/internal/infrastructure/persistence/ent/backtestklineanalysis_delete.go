@@ -8,8 +8,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent/backtestklineanalysis"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent/predicate"
+	"tradex/internal/infrastructure/persistence/ent/backtestklineanalysis"
+	"tradex/internal/infrastructure/persistence/ent/predicate"
 )
 
 // BacktestKlineAnalysisDelete is the builder for deleting a BacktestKlineAnalysis entity.

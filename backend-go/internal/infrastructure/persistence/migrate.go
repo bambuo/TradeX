@@ -10,8 +10,8 @@ import (
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
 
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent/migrate"
+	"tradex/internal/infrastructure/persistence/ent"
+	"tradex/internal/infrastructure/persistence/ent/migrate"
 )
 
 func AutoMigrate(ctx context.Context, client *ent.Client) error {

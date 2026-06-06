@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
-	"github.com/tradex/backend-go/internal/domain"
+	"tradex/internal/domain"
 )
 
 type CreateBacktestRequest struct {

@@ -11,8 +11,8 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent/backtestresult"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent/backtesttask"
+	"tradex/internal/infrastructure/persistence/ent/backtestresult"
+	"tradex/internal/infrastructure/persistence/ent/backtesttask"
 )
 
 // BacktestResult is the model entity for the BacktestResult schema.

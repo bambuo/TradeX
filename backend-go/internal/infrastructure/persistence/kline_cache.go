@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tradex/backend-go/internal/domain"
+	"tradex/internal/domain"
 )
 
 type KlineCache interface {

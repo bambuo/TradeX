@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/tradex/backend-go/internal/domain"
+	"tradex/internal/domain"
 )
 
 type KlineClient interface {

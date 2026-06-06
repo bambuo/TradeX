@@ -5,12 +5,12 @@ package enttest
 import (
 	"context"
 
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent"
+	"tradex/internal/infrastructure/persistence/ent"
 	// required by schema hooks.
-	_ "github.com/tradex/backend-go/internal/infrastructure/persistence/ent/runtime"
+	_ "tradex/internal/infrastructure/persistence/ent/runtime"
 
 	"entgo.io/ent/dialect/sql/schema"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent/migrate"
+	"tradex/internal/infrastructure/persistence/ent/migrate"
 )
 
 type (

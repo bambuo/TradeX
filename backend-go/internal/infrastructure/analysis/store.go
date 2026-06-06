@@ -3,7 +3,7 @@ package analysis
 import (
 	"sync"
 
-	"github.com/tradex/backend-go/internal/domain"
+	"tradex/internal/domain"
 )
 
 type Store struct {

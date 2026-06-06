@@ -7,8 +7,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/tradex/backend-go/internal/domain"
-	"github.com/tradex/backend-go/internal/domain/indicator"
+	"tradex/internal/domain"
+	"tradex/internal/domain/indicator"
 )
 
 const (

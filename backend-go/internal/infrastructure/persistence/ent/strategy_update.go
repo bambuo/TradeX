@@ -10,8 +10,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent/predicate"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent/strategy"
+	"tradex/internal/infrastructure/persistence/ent/predicate"
+	"tradex/internal/infrastructure/persistence/ent/strategy"
 )
 
 // StrategyUpdate is the builder for updating Strategy entities.

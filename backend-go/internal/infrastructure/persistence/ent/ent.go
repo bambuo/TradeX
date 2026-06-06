@@ -12,10 +12,10 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent/backtestklineanalysis"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent/backtestresult"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent/backtesttask"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent/strategy"
+	"tradex/internal/infrastructure/persistence/ent/backtestklineanalysis"
+	"tradex/internal/infrastructure/persistence/ent/backtestresult"
+	"tradex/internal/infrastructure/persistence/ent/backtesttask"
+	"tradex/internal/infrastructure/persistence/ent/strategy"
 )
 
 // ent aliases to avoid import conflicts in user's code.

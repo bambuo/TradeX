@@ -1,6 +1,6 @@
 package indicator
 
-import "github.com/tradex/backend-go/internal/domain"
+import "tradex/internal/domain"
 
 type Registry struct {
 	indicators map[string]Indicator

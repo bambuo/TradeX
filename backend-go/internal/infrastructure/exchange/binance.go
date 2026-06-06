@@ -12,7 +12,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/tradex/backend-go/internal/domain"
+	"tradex/internal/domain"
 )
 
 const maxRetries = 3

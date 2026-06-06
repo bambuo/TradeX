@@ -7,7 +7,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/tradex/backend-go/internal/domain"
+	"tradex/internal/domain"
 )
 
 func buildSineCandles(count int, basePrice decimal.Decimal, seed int64) []domain.Candle {

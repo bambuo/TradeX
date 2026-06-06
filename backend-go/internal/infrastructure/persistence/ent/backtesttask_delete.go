@@ -8,8 +8,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent/backtesttask"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent/predicate"
+	"tradex/internal/infrastructure/persistence/ent/backtesttask"
+	"tradex/internal/infrastructure/persistence/ent/predicate"
 )
 
 // BacktestTaskDelete is the builder for deleting a BacktestTask entity.

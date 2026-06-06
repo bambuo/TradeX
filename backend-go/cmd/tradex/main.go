@@ -5,7 +5,7 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/tradex/backend-go/internal/interfaces/cli"
+	"tradex/internal/interfaces/cli"
 )
 
 func main() {

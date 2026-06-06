@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tradex/backend-go/internal/domain"
-	"github.com/tradex/backend-go/internal/application"
+	"tradex/internal/domain"
+	"tradex/internal/application"
 )
 
 var errMock = errors.New("mock error")

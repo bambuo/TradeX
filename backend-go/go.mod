@@ -1,4 +1,4 @@
-module github.com/tradex/backend-go
+module tradex
 
 go 1.26.1
 

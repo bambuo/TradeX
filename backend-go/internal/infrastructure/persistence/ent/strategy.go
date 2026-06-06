@@ -9,7 +9,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent/strategy"
+	"tradex/internal/infrastructure/persistence/ent/strategy"
 )
 
 // Strategy is the model entity for the Strategy schema.

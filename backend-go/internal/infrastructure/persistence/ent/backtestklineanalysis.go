@@ -11,7 +11,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent/backtestklineanalysis"
+	"tradex/internal/infrastructure/persistence/ent/backtestklineanalysis"
 )
 
 // BacktestKlineAnalysis is the model entity for the BacktestKlineAnalysis schema.

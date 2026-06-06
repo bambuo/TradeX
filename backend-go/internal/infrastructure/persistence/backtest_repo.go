@@ -7,10 +7,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
-	"github.com/tradex/backend-go/internal/domain"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent/backtestklineanalysis"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent/backtesttask"
+	"tradex/internal/domain"
+	"tradex/internal/infrastructure/persistence/ent"
+	"tradex/internal/infrastructure/persistence/ent/backtestklineanalysis"
+	"tradex/internal/infrastructure/persistence/ent/backtesttask"
 )
 
 type backtestRepo struct {

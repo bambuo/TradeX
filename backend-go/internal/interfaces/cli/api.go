@@ -13,11 +13,11 @@ import (
 	"github.com/spf13/viper"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 
-	"github.com/tradex/backend-go/internal/interfaces/api"
-	"github.com/tradex/backend-go/internal/application"
-	"github.com/tradex/backend-go/internal/infrastructure/eventbus"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence"
-	"github.com/tradex/backend-go/internal/infrastructure/telemetry"
+	"tradex/internal/interfaces/api"
+	"tradex/internal/application"
+	"tradex/internal/infrastructure/eventbus"
+	"tradex/internal/infrastructure/persistence"
+	"tradex/internal/infrastructure/telemetry"
 )
 
 func NewAPICmd() *cobra.Command {

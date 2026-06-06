@@ -11,8 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
-	"github.com/tradex/backend-go/internal/domain"
-	"github.com/tradex/backend-go/internal/application"
+	"tradex/internal/domain"
+	"tradex/internal/application"
 )
 
 const CancelStreamKey = "tradex:backtest:cancel"

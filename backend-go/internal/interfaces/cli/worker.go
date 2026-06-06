@@ -14,13 +14,13 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/tradex/backend-go/internal/infrastructure/analysis"
-	"github.com/tradex/backend-go/internal/infrastructure/eventbus"
-	"github.com/tradex/backend-go/internal/infrastructure/exchange"
-	"github.com/tradex/backend-go/internal/domain/indicator"
-	"github.com/tradex/backend-go/internal/infrastructure/scheduler"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence"
-	"github.com/tradex/backend-go/internal/infrastructure/telemetry"
+	"tradex/internal/infrastructure/analysis"
+	"tradex/internal/infrastructure/eventbus"
+	"tradex/internal/infrastructure/exchange"
+	"tradex/internal/domain/indicator"
+	"tradex/internal/infrastructure/scheduler"
+	"tradex/internal/infrastructure/persistence"
+	"tradex/internal/infrastructure/telemetry"
 )
 
 func NewWorkerCmd() *cobra.Command {

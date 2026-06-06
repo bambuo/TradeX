@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tradex/backend-go/internal/domain"
-	"github.com/tradex/backend-go/internal/domain/indicator"
+	"tradex/internal/domain"
+	"tradex/internal/domain/indicator"
 )
 
 func parityEngine() *BacktestEngine {

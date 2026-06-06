@@ -8,12 +8,12 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/shopspring/decimal"
 
-	"github.com/tradex/backend-go/internal/domain"
-	"github.com/tradex/backend-go/internal/domain/engine"
-	"github.com/tradex/backend-go/internal/infrastructure/analysis"
-	"github.com/tradex/backend-go/internal/infrastructure/exchange"
-	"github.com/tradex/backend-go/internal/domain/indicator"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence"
+	"tradex/internal/domain"
+	"tradex/internal/domain/engine"
+	"tradex/internal/infrastructure/analysis"
+	"tradex/internal/infrastructure/exchange"
+	"tradex/internal/domain/indicator"
+	"tradex/internal/infrastructure/persistence"
 )
 
 type BacktestScheduler struct {

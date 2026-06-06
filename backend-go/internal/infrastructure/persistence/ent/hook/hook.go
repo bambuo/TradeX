@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent"
+	"tradex/internal/infrastructure/persistence/ent"
 )
 
 // The BacktestKlineAnalysisFunc type is an adapter to allow the use of ordinary

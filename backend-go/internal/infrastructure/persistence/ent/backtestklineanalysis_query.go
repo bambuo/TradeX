@@ -12,8 +12,8 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent/backtestklineanalysis"
-	"github.com/tradex/backend-go/internal/infrastructure/persistence/ent/predicate"
+	"tradex/internal/infrastructure/persistence/ent/backtestklineanalysis"
+	"tradex/internal/infrastructure/persistence/ent/predicate"
 )
 
 // BacktestKlineAnalysisQuery is the builder for querying BacktestKlineAnalysis entities.
