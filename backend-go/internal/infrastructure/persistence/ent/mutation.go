@@ -8,15 +8,15 @@ import (
 	"fmt"
 	"sync"
 	"time"
-
-	"entgo.io/ent"
-	"entgo.io/ent/dialect/sql"
-	"github.com/google/uuid"
 	"tradex/internal/infrastructure/persistence/ent/backtestklineanalysis"
 	"tradex/internal/infrastructure/persistence/ent/backtestresult"
 	"tradex/internal/infrastructure/persistence/ent/backtesttask"
 	"tradex/internal/infrastructure/persistence/ent/predicate"
 	"tradex/internal/infrastructure/persistence/ent/strategy"
+
+	"entgo.io/ent"
+	"entgo.io/ent/dialect/sql"
+	"github.com/google/uuid"
 )
 
 const (

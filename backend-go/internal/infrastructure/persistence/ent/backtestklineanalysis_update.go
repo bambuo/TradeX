@@ -7,13 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"tradex/internal/infrastructure/persistence/ent/backtestklineanalysis"
+	"tradex/internal/infrastructure/persistence/ent/predicate"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
-	"tradex/internal/infrastructure/persistence/ent/backtestklineanalysis"
-	"tradex/internal/infrastructure/persistence/ent/predicate"
 )
 
 // BacktestKlineAnalysisUpdate is the builder for updating BacktestKlineAnalysis entities.

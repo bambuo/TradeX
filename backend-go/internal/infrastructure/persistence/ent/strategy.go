@@ -5,11 +5,11 @@ package ent
 import (
 	"fmt"
 	"strings"
+	"tradex/internal/infrastructure/persistence/ent/strategy"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
-	"tradex/internal/infrastructure/persistence/ent/strategy"
 )
 
 // Strategy is the model entity for the Strategy schema.

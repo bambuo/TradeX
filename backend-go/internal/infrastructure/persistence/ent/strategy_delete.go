@@ -4,12 +4,12 @@ package ent
 
 import (
 	"context"
+	"tradex/internal/infrastructure/persistence/ent/predicate"
+	"tradex/internal/infrastructure/persistence/ent/strategy"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"tradex/internal/infrastructure/persistence/ent/predicate"
-	"tradex/internal/infrastructure/persistence/ent/strategy"
 )
 
 // StrategyDelete is the builder for deleting a Strategy entity.

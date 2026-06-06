@@ -18,7 +18,7 @@ import (
 	"tradex/internal/infrastructure/eventbus"
 	"tradex/internal/infrastructure/exchange"
 	"tradex/internal/domain/indicator"
-	"tradex/internal/infrastructure/scheduler"
+	"tradex/internal/infrastructure/worker"
 	"tradex/internal/infrastructure/persistence"
 	"tradex/internal/infrastructure/telemetry"
 )
@@ -48,13 +48,13 @@ func NewWorkerCmd() *cobra.Command {
 				defer shutdown(context.Background())
 			}
 
-			client, err := storage.OpenDB(dsn)
+			client, err := persistence.OpenDB(dsn)
 			if err != nil {
 				log.Fatal().Err(err).Msg("failed to open database")
 			}
 			defer client.Close()
 
-			if err := storage.AutoMigrate(context.Background(), client); err != nil {
+			if err := persistence.AutoMigrate(context.Background(), client); err != nil {
 				log.Fatal().Err(err).Msg("failed to run migrations")
 			}
 			log.Info().Msg("database migrations applied")
@@ -63,22 +63,22 @@ func NewWorkerCmd() *cobra.Command {
 			defer cancel()
 
 			// PG advisory lock for single-instance guard
-			var guard *scheduler.BacktestWorkerGuard
+			var guard *worker.BacktestWorkerGuard
 			if dsn != "" {
 				if sqlDB, err := sql.Open("pgx", dsn); err == nil {
-					guard = scheduler.NewBacktestWorkerGuard(sqlDB)
+					guard = worker.NewBacktestWorkerGuard(sqlDB)
 					defer sqlDB.Close()
 				}
 			}
 
-			rmCfg := scheduler.ResourceMonitorConfig{
+			rmCfg := worker.ResourceMonitorConfig{
 				MonitorIntervalSec: viper.GetInt("monitor_interval_sec"),
 				CpuWarningPercent:  viper.GetInt("cpu_warning_pct"),
 				CpuCriticalPercent: viper.GetInt("cpu_critical_pct"),
 				CpuAbsolutePercent: viper.GetInt("cpu_absolute_pct"),
 			}
 			// set defaults if zero
-			def := scheduler.DefaultResourceMonitorConfig()
+			def := worker.DefaultResourceMonitorConfig()
 			if rmCfg.MonitorIntervalSec == 0 {
 				rmCfg.MonitorIntervalSec = def.MonitorIntervalSec
 			}
@@ -92,13 +92,13 @@ func NewWorkerCmd() *cobra.Command {
 				rmCfg.CpuAbsolutePercent = def.CpuAbsolutePercent
 			}
 
-			repo := storage.NewBacktestRepo(client)
-			taskQueue := scheduler.NewTaskQueue(maxConcurrency * 2)
-			resMon := scheduler.NewResourceMonitor(ctx, maxConcurrency, rmCfg)
-			tracker := scheduler.NewRunningBacktestTracker()
+			btRepo := persistence.NewBacktestRepo(client)
+			taskQueue := worker.NewTaskQueue(maxConcurrency * 2)
+			resMon := worker.NewResourceMonitor(ctx, maxConcurrency, rmCfg)
+			tracker := worker.NewRunningBacktestTracker()
 			analysisStore := analysis.NewStore()
 
-			klineCache := storage.NewKlineCache(10 * time.Minute)
+			klineCache := persistence.NewKlineCache(10 * time.Minute)
 			klineClient := exchange.NewBinanceClient()
 
 			reg := indicator.NewRegistry()
@@ -110,7 +110,7 @@ func NewWorkerCmd() *cobra.Command {
 			reg.Register(indicator.NewBollingerBands(20, 2))
 			reg.Register(indicator.NewStochastic(5, 3))
 
-			sch := scheduler.NewBacktestScheduler(repo, taskQueue, resMon, reg, klineCache, klineClient, tracker, analysisStore, log)
+			sch := worker.NewBacktestScheduler(btRepo, taskQueue, resMon, reg, klineCache, klineClient, tracker, analysisStore, log)
 
 			var redisBus *eventbus.RedisEventBus
 			if redisAddr != "" {
@@ -119,10 +119,10 @@ func NewWorkerCmd() *cobra.Command {
 
 				redisBus = eventbus.NewRedisEventBus(rdb)
 
-				listener := scheduler.NewTaskListener(repo, taskQueue, redisBus, log)
+				listener := worker.NewTaskListener(btRepo, taskQueue, redisBus, log)
 				listener.Start(ctx)
 
-				cancelConsumer := scheduler.NewCancellationConsumer(tracker, redisBus, log)
+				cancelConsumer := worker.NewCancellationConsumer(tracker, redisBus, log)
 				cancelConsumer.Start(ctx)
 
 				log.Info().Str("redis_addr", redisAddr).Msg("redis stream listeners started")
@@ -132,7 +132,7 @@ func NewWorkerCmd() *cobra.Command {
 
 			feeRate := viper.GetFloat64("fee_rate")
 
-			go sch.Run(ctx, scheduler.SchedulerConfig{
+			go sch.Run(ctx, worker.SchedulerConfig{
 				MaxConcurrency:     maxConcurrency,
 				TaskTimeoutMinutes: taskTimeout,
 				FeeRate:            feeRate,

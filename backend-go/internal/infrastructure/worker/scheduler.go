@@ -1,4 +1,4 @@
-package scheduler
+package worker
 
 import (
 	"context"
@@ -21,7 +21,7 @@ type BacktestScheduler struct {
 	queue        TaskQueue
 	monitor      *ResourceMonitor
 	registry     *indicator.Registry
-	klineCache   storage.KlineCache
+	klineCache   persistence.KlineCache
 	klineClient  exchange.KlineClient
 	tracker      *RunningBacktestTracker
 	analysisStore *analysis.Store
@@ -39,7 +39,7 @@ func NewBacktestScheduler(
 	queue TaskQueue,
 	monitor *ResourceMonitor,
 	registry *indicator.Registry,
-	klineCache storage.KlineCache,
+	klineCache persistence.KlineCache,
 	klineClient exchange.KlineClient,
 	tracker *RunningBacktestTracker,
 	analysisStore *analysis.Store,

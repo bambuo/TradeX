@@ -6,12 +6,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"tradex/internal/infrastructure/persistence/ent/predicate"
+	"tradex/internal/infrastructure/persistence/ent/strategy"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"tradex/internal/infrastructure/persistence/ent/predicate"
-	"tradex/internal/infrastructure/persistence/ent/strategy"
 )
 
 // StrategyUpdate is the builder for updating Strategy entities.

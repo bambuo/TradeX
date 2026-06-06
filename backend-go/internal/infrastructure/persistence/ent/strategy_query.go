@@ -6,14 +6,14 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"tradex/internal/infrastructure/persistence/ent/predicate"
+	"tradex/internal/infrastructure/persistence/ent/strategy"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
-	"tradex/internal/infrastructure/persistence/ent/predicate"
-	"tradex/internal/infrastructure/persistence/ent/strategy"
 )
 
 // StrategyQuery is the builder for querying Strategy entities.

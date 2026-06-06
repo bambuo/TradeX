@@ -1,4 +1,4 @@
-package api
+package rest
 
 import (
 	"bytes"
@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"tradex/internal/domain"
 	"tradex/internal/application"
+	"tradex/internal/domain"
 )
 
 var errMock = errors.New("mock error")
@@ -64,7 +64,7 @@ func (m *mockRepo) GetStrategy(_ context.Context, _ uuid.UUID) (*domain.Strategy
 }
 
 func newTestHandler() *BacktestHandler {
-	return NewBacktestHandler(service.NewBacktestService(&mockRepo{}), zerolog.Nop())
+	return NewBacktestHandler(application.NewBacktestService(&mockRepo{}), zerolog.Nop())
 }
 
 func TestHandler_Health(t *testing.T) {

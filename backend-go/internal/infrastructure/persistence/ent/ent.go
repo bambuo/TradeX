@@ -8,14 +8,14 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
-
-	"entgo.io/ent"
-	"entgo.io/ent/dialect/sql"
-	"entgo.io/ent/dialect/sql/sqlgraph"
 	"tradex/internal/infrastructure/persistence/ent/backtestklineanalysis"
 	"tradex/internal/infrastructure/persistence/ent/backtestresult"
 	"tradex/internal/infrastructure/persistence/ent/backtesttask"
 	"tradex/internal/infrastructure/persistence/ent/strategy"
+
+	"entgo.io/ent"
+	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 )
 
 // ent aliases to avoid import conflicts in user's code.

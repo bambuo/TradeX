@@ -7,14 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"tradex/internal/infrastructure/persistence/ent/backtestresult"
+	"tradex/internal/infrastructure/persistence/ent/backtesttask"
+	"tradex/internal/infrastructure/persistence/ent/predicate"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
-	"tradex/internal/infrastructure/persistence/ent/backtestresult"
-	"tradex/internal/infrastructure/persistence/ent/backtesttask"
-	"tradex/internal/infrastructure/persistence/ent/predicate"
 )
 
 // BacktestTaskUpdate is the builder for updating BacktestTask entities.

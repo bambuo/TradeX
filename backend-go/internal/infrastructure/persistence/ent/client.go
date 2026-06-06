@@ -9,17 +9,18 @@ import (
 	"log"
 	"reflect"
 
-	"github.com/google/uuid"
 	"tradex/internal/infrastructure/persistence/ent/migrate"
+
+	"tradex/internal/infrastructure/persistence/ent/backtestklineanalysis"
+	"tradex/internal/infrastructure/persistence/ent/backtestresult"
+	"tradex/internal/infrastructure/persistence/ent/backtesttask"
+	"tradex/internal/infrastructure/persistence/ent/strategy"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"tradex/internal/infrastructure/persistence/ent/backtestklineanalysis"
-	"tradex/internal/infrastructure/persistence/ent/backtestresult"
-	"tradex/internal/infrastructure/persistence/ent/backtesttask"
-	"tradex/internal/infrastructure/persistence/ent/strategy"
+	"github.com/google/uuid"
 )
 
 // Client is the client that holds all ent builders.

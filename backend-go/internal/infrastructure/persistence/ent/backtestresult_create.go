@@ -7,12 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"tradex/internal/infrastructure/persistence/ent/backtestresult"
+	"tradex/internal/infrastructure/persistence/ent/backtesttask"
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
-	"tradex/internal/infrastructure/persistence/ent/backtestresult"
-	"tradex/internal/infrastructure/persistence/ent/backtesttask"
 )
 
 // BacktestResultCreate is the builder for creating a BacktestResult entity.

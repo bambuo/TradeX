@@ -9,8 +9,9 @@ import (
 	// required by schema hooks.
 	_ "tradex/internal/infrastructure/persistence/ent/runtime"
 
-	"entgo.io/ent/dialect/sql/schema"
 	"tradex/internal/infrastructure/persistence/ent/migrate"
+
+	"entgo.io/ent/dialect/sql/schema"
 )
 
 type (

@@ -1,4 +1,4 @@
-package api
+package rest
 
 import (
 	"net/http"
@@ -31,8 +31,8 @@ func init() {
 }
 
 type visitor struct {
-	mu       sync.Mutex
-	window   []time.Time
+	mu     sync.Mutex
+	window []time.Time
 }
 
 var visitors sync.Map

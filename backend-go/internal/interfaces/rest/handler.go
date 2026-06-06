@@ -1,4 +1,4 @@
-package api
+package rest
 
 import (
 	"errors"
@@ -11,20 +11,20 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
-	"tradex/internal/domain"
 	"tradex/internal/application"
+	"tradex/internal/domain"
 )
 
 const CancelStreamKey = "tradex:backtest:cancel"
 
 type BacktestHandler struct {
-	svc           *service.BacktestService
+	svc           *application.BacktestService
 	cancelPub     domain.CancelNotifier
 	analysisStore domain.AnalysisStore
 	log           zerolog.Logger
 }
 
-func NewBacktestHandler(svc *service.BacktestService, log zerolog.Logger) *BacktestHandler {
+func NewBacktestHandler(svc *application.BacktestService, log zerolog.Logger) *BacktestHandler {
 	return &BacktestHandler{svc: svc, log: log}
 }
 
@@ -91,7 +91,7 @@ func (h *BacktestHandler) CreateTask(c *gin.Context) {
 		return
 	}
 
-	svcReq := service.CreateBacktestRequest{
+	svcReq := application.CreateBacktestRequest{
 		StrategyID:     req.StrategyID,
 		ExchangeID:     req.ExchangeID,
 		Pair:           req.Pair,

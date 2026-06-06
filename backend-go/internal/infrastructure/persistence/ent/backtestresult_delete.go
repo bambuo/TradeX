@@ -4,12 +4,12 @@ package ent
 
 import (
 	"context"
+	"tradex/internal/infrastructure/persistence/ent/backtestresult"
+	"tradex/internal/infrastructure/persistence/ent/predicate"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"tradex/internal/infrastructure/persistence/ent/backtestresult"
-	"tradex/internal/infrastructure/persistence/ent/predicate"
 )
 
 // BacktestResultDelete is the builder for deleting a BacktestResult entity.

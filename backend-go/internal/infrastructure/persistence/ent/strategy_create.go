@@ -6,11 +6,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"tradex/internal/infrastructure/persistence/ent/strategy"
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
-	"tradex/internal/infrastructure/persistence/ent/strategy"
 )
 
 // StrategyCreate is the builder for creating a Strategy entity.

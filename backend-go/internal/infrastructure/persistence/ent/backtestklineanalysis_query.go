@@ -6,14 +6,14 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"tradex/internal/infrastructure/persistence/ent/backtestklineanalysis"
+	"tradex/internal/infrastructure/persistence/ent/predicate"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
-	"tradex/internal/infrastructure/persistence/ent/backtestklineanalysis"
-	"tradex/internal/infrastructure/persistence/ent/predicate"
 )
 
 // BacktestKlineAnalysisQuery is the builder for querying BacktestKlineAnalysis entities.

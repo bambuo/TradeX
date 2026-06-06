@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"tradex/internal/infrastructure/persistence/ent/backtestklineanalysis"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
-	"tradex/internal/infrastructure/persistence/ent/backtestklineanalysis"
 )
 
 // BacktestKlineAnalysis is the model entity for the BacktestKlineAnalysis schema.

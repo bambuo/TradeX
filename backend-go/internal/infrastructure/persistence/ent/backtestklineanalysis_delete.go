@@ -4,12 +4,12 @@ package ent
 
 import (
 	"context"
+	"tradex/internal/infrastructure/persistence/ent/backtestklineanalysis"
+	"tradex/internal/infrastructure/persistence/ent/predicate"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"tradex/internal/infrastructure/persistence/ent/backtestklineanalysis"
-	"tradex/internal/infrastructure/persistence/ent/predicate"
 )
 
 // BacktestKlineAnalysisDelete is the builder for deleting a BacktestKlineAnalysis entity.

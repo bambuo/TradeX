@@ -1,4 +1,4 @@
-package api
+package rest
 
 import (
 	"net/http"
@@ -7,9 +7,9 @@ import (
 )
 
 type Response struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    any         `json:"data,omitempty"`
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`
 }
 
 func Success(c *gin.Context, data any) {

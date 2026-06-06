@@ -4,10 +4,10 @@ package backtestklineanalysis
 
 import (
 	"time"
+	"tradex/internal/infrastructure/persistence/ent/predicate"
 
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
-	"tradex/internal/infrastructure/persistence/ent/predicate"
 )
 
 // ID filters vertices based on their ID field.

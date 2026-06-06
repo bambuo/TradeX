@@ -13,11 +13,11 @@ import (
 	"github.com/spf13/viper"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 
-	"tradex/internal/interfaces/api"
 	"tradex/internal/application"
 	"tradex/internal/infrastructure/eventbus"
 	"tradex/internal/infrastructure/persistence"
 	"tradex/internal/infrastructure/telemetry"
+	"tradex/internal/interfaces/rest"
 )
 
 func NewAPICmd() *cobra.Command {
@@ -42,19 +42,19 @@ func NewAPICmd() *cobra.Command {
 				defer shutdown(context.Background())
 			}
 
-			client, err := storage.OpenDB(dsn)
+			client, err := persistence.OpenDB(dsn)
 			if err != nil {
 				log.Fatal().Err(err).Msg("failed to open database")
 			}
 			defer client.Close()
 
-			if err := storage.AutoMigrate(context.Background(), client); err != nil {
+			if err := persistence.AutoMigrate(context.Background(), client); err != nil {
 				log.Fatal().Err(err).Msg("failed to run migrations")
 			}
 			log.Info().Msg("database migrations applied")
 
-			repo := storage.NewBacktestRepo(client)
-			svc := service.NewBacktestService(repo)
+			btRepo := persistence.NewBacktestRepo(client)
+			svc := application.NewBacktestService(btRepo)
 
 			redisAddr := viper.GetString("redis_addr")
 			var redisBus *eventbus.RedisEventBus
@@ -64,20 +64,20 @@ func NewAPICmd() *cobra.Command {
 				redisBus = eventbus.NewRedisEventBus(rdb)
 			}
 
-			handler := api.NewBacktestHandler(svc, log)
+			h := rest.NewBacktestHandler(svc, log)
 			if redisBus != nil {
-				handler.WithCancelPublisher(eventbus.NewRedisCancelNotifier(redisBus))
+				h.WithCancelPublisher(eventbus.NewRedisCancelNotifier(redisBus))
 			}
 
 			r := gin.New()
-			r.Use(api.RecoveryMiddleware(log))
-			r.Use(api.ZerologMiddleware(log))
-			r.Use(api.AuthMiddleware())
-			r.Use(api.RateLimitMiddleware())
+			r.Use(rest.RecoveryMiddleware(log))
+			r.Use(rest.ZerologMiddleware(log))
+			r.Use(rest.AuthMiddleware())
+			r.Use(rest.RateLimitMiddleware())
 			r.Use(otelgin.Middleware("tradex-api"))
 			r.GET("/debug/pprof/*pprof", gin.WrapH(http.DefaultServeMux))
 			r.GET("/debug/pprof", gin.WrapH(http.DefaultServeMux))
-			handler.RegisterRoutes(r)
+			h.RegisterRoutes(r)
 
 			addr := viper.GetString("listen")
 			log.Info().Str("addr", addr).Msg("API server starting")

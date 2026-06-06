@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"tradex/internal/infrastructure/persistence/ent/backtestresult"
+	"tradex/internal/infrastructure/persistence/ent/backtesttask"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
-	"tradex/internal/infrastructure/persistence/ent/backtestresult"
-	"tradex/internal/infrastructure/persistence/ent/backtesttask"
 )
 
 // BacktestTask is the model entity for the BacktestTask schema.

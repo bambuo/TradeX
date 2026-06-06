@@ -7,11 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"tradex/internal/infrastructure/persistence/ent/backtestklineanalysis"
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
-	"tradex/internal/infrastructure/persistence/ent/backtestklineanalysis"
 )
 
 // BacktestKlineAnalysisCreate is the builder for creating a BacktestKlineAnalysis entity.

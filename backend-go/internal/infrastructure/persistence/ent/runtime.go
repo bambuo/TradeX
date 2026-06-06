@@ -4,13 +4,13 @@ package ent
 
 import (
 	"time"
-
-	"github.com/google/uuid"
 	"tradex/internal/infrastructure/persistence/ent/backtestklineanalysis"
 	"tradex/internal/infrastructure/persistence/ent/backtestresult"
 	"tradex/internal/infrastructure/persistence/ent/backtesttask"
 	"tradex/internal/infrastructure/persistence/ent/strategy"
 	"tradex/internal/infrastructure/persistence/schema"
+
+	"github.com/google/uuid"
 )
 
 // The init function reads all schema descriptors with runtime code
