@@ -18,9 +18,6 @@ func (b *BollingerBands) Compute(values []float64) []float64 {
 		return result
 	}
 
-	upper := 0.0
-	lower := 0.0
-
 	for i := b.Period - 1; i < n; i++ {
 		var sum, meanVal float64
 		for j := i - b.Period + 1; j <= i; j++ {
@@ -33,13 +30,7 @@ func (b *BollingerBands) Compute(values []float64) []float64 {
 			diff := values[j] - meanVal
 			varianceSum += diff * diff
 		}
-		std := b.StdDev * sqrt(varianceSum/float64(b.Period))
-
-		upper = meanVal + std
-		_ = upper
-
-		lower = meanVal - std
-		_ = lower
+		std := b.StdDev * sqrt(varianceSum / float64(b.Period))
 
 		result[i] = (values[i] - meanVal) / (std + 1e-10)
 	}

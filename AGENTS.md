@@ -1,40 +1,8 @@
-# AGENTS.md — TradeX 编码规范
+# TradeX — AI 助手指南
 
-AI 代理唯一编码准则。不遵守 = 拒收 PR。
+## 项目概述
 
-## AI 团队协作规范
-
-> 本项目依赖一份完整的多角色分工协作规范来驱动 AI 工作。
-
-### 首次指令（必须执行）
-
-**你的第一条指令必须是**：读取并理解团队协作规范文件。
-
-```
-📖 加载团队协作规范
-文件路径: ROLE.md
-```
-
-**禁止跳过此步骤。** 未加载该文件前，不得输出任何代码或执行任何操作。
-
-### 工作流程
-
-加载完成后：
-
-1. 以 **PM（项目经理）** 角色按 `ROLE.md` §14 输出「PM 启动声明」
-2. 按 §2「角色切换触发规则」匹配任务类型，确定执行链路
-3. 每切换一个角色，按 §9 输出「角色激活声明」
-4. 产出交付前按 §10 输出「闭环自检」，全部 ✅ 方可提交
-5. 角色交接时按 §11 输出「角色交接协议」
-6. 违反角色边界按 §12 进行熔断与回退
-
-### 文件结构
-
-| 文件 | 作用 |
-|------|------|
-| `AGENTS.md`（本文件） | **通用入口**，大多数 AI 工具自动识别。定义技术栈、项目结构、通讯规范 |
-| `.trae/rules/project_rules.md` | Trae IDE 的自动加载入口，指向此处 |
-| `ROLE.md` | **核心规范文件**，所有角色定义、闭环、防御机制、编码约定均在其中 |
+TradeX 是一个自动化加密货币交易系统，基于 ASP.NET Core + Vue 3 构建。支持多交易所接入、技术指标分析、策略引擎、风控管理、回测验证及实时通知。
 
 ---
 
@@ -42,52 +10,71 @@ AI 代理唯一编码准则。不遵守 = 拒收 PR。
 
 | 项 | 值 |
 |---|---|
-| TargetFramework | `net10.0` |
-| LangVersion | `14.0` |
-| Nullable | `enable` |
-| ImplicitUsings | `enable` |
-| 测试 | xUnit + NSubstitute |
+| 目标框架 | `net10.0` |
+| 语言版本 | C# 14（`LangVersion=14.0`） |
+| 可空引用类型 | 启用（`Nullable=enable`） |
+| 隐式 using | 启用（`ImplicitUsings=enable`） |
+| 测试框架 | xUnit + NSubstitute |
 | 前端 | Vue 3 + TypeScript + Vite |
-| 前端组件库 | Arco Design Vue (`@arco-design/web-vue`) |
-| 后端 ORM | EF Core + PostgreSQL (Npgsql) |
-
-所有代码必须使用以下 C# 14 语法：
-- **主构造函数** — 消除所有简单 DI 字段注入。例外：`IOptions<T>.Value` 延迟访问、循环依赖
-- **集合表达式** — `[]` 替代 `new List<T>()` / `Array.Empty<T>()` / `new Dictionary<K,V>()`
-- **`field` 关键字** — 代替手动 `_field` 声明
-- 禁止：`new List<T>()`、`new Dictionary<K,V>()`、`private readonly` DI 字段、`net8.0`/`net9.0`
+| 前端组件库 | `@arco-design/web-vue` |
+| 后端 ORM | EF Core + PostgreSQL（Npgsql） |
 
 ---
 
-## 项目结构 & 依赖方向
+## 项目结构
 
 ```
 backend/
-├── TradeX.Api/            # ASP.NET Core + SignalR Hubs
-├── TradeX.Core/           # 纯领域模型、枚举、接口（叶节点，零依赖）
-├── TradeX.Exchange/       # IExchangeClient + 各交易所实现
-├── TradeX.Indicators/     # Skender.Stock.Indicators 封装
-├── TradeX.Trading/        # 策略引擎 + 风控 + 回测 + 订单 reconciliation
-├── TradeX.Infrastructure/ # EF Core + PostgreSQL + Casbin + Encryption
-├── TradeX.Notifications/  # Telegram / Discord / Email
-├── TradeX.Worker/         # 策略/回测 Worker 进程
+├── TradeX.Api/              # ASP.NET Core Web API + SignalR Hubs
+├── TradeX.Core/             # 纯领域模型、枚举、接口（叶节点，零依赖）
+├── TradeX.Exchange/         # IExchangeClient + 各交易所实现
+├── TradeX.Indicators/       # Skender.Stock.Indicators 封装
+├── TradeX.Trading/          # 策略引擎 + 风控 + 回测 + 订单 reconciliation
+├── TradeX.Infrastructure/   # EF Core + PostgreSQL + Casbin + Encryption
+├── TradeX.Notifications/    # Telegram / Discord / Email
+├── TradeX.Worker/           # 策略/回测 Worker 进程
 └── TradeX.Tests/
 ```
 
-依赖方向：`Api → Trading → Exchange, Indicators, Infrastructure, Notifications`。**Core 不依赖任何项目**。
+**依赖方向**：`Api → Trading → Exchange, Indicators, Infrastructure, Notifications`。`Core` 为叶节点，不依赖任何其他项目。
 
 ---
 
-## 审查清单
+## 编码规范
 
-- [ ] `net10.0` + `LangVersion=14.0` + Nullable 启用
-- [ ] 主构造函数替代简单 DI 注入
-- [ ] 集合用 `[]` 语法
-- [ ] 无 Service Locator（仅 `Program.cs` 允许）
-- [ ] I/O 方法传递 `CancellationToken`，后缀 `Async`
-- [ ] 结构化日志，禁止字符串拼接
-- [ ] Casbin 策略已为新 API 端点添加规则
-- [ ] 详细编码约定见 `ROLE.md`
+### 强制语法规则（C# 14）
+
+所有代码必须遵循以下规则，**禁止例外**：
+
+| 规则 | 说明 | 禁止 |
+|---|---|---|
+| 主构造函数 | 消除所有简单 DI 字段注入 | `private readonly` DI 字段 |
+| 集合表达式 | `[]` 初始化空集合 | `new List<T>()`、`new Dictionary<K,V>()`、`Array.Empty<T>()` |
+| `field` 关键字 | 替代手动 `_field` 声明 | 手动 `_field` 后备字段 |
+
+> **主构造函数例外**：`IOptions<T>.Value` 延迟访问、循环依赖场景。
+
+### 通用约定
+
+- I/O 方法必须传递 `CancellationToken`，方法名以 `Async` 后缀
+- 使用结构化日志（`ILogger<T>`），禁止字符串拼接
+- 禁止 Service Locator 模式（仅 `Program.cs` 允许）
+- Casbin 策略需为新 API 端点添加对应规则
+
+---
+
+## 构建与运行
+
+```bash
+# 构建所有项目
+dotnet build backend/TradeX.sln
+
+# 运行测试
+dotnet test backend/TradeX.Tests
+
+# 启动 API 服务
+dotnet run --project backend/TradeX.Api
+```
 
 ---
 

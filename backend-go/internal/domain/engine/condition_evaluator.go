@@ -315,15 +315,4 @@ func resolveRef(ref *RefNode, ctx EvaluationContext) (float64, error) {
 	}
 }
 
-type ConditionEvaluator struct{}
 
-var _ = &ConditionEvaluator{}
-
-func (e *ConditionEvaluator) Evaluate(raw json.RawMessage, index int, klines []domain.Candle, registry *indicator.Registry) (bool, error) {
-	ctx := EvaluationContext{
-		Index:    index,
-		Klines:   klines,
-		Registry: registry,
-	}
-	return EvaluateCondition(raw, ctx)
-}
