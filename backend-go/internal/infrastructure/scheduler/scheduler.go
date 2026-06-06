@@ -10,6 +10,7 @@ import (
 
 	"github.com/tradex/backend-go/internal/domain"
 	"github.com/tradex/backend-go/internal/domain/engine"
+	"github.com/tradex/backend-go/internal/infrastructure/analysis"
 	"github.com/tradex/backend-go/internal/infrastructure/exchange"
 	"github.com/tradex/backend-go/internal/domain/indicator"
 	"github.com/tradex/backend-go/internal/infrastructure/persistence"
@@ -23,7 +24,7 @@ type BacktestScheduler struct {
 	klineCache   storage.KlineCache
 	klineClient  exchange.KlineClient
 	tracker      *RunningBacktestTracker
-	analysisStore *TaskAnalysisStore
+	analysisStore *analysis.Store
 	log          zerolog.Logger
 }
 
@@ -41,7 +42,7 @@ func NewBacktestScheduler(
 	klineCache storage.KlineCache,
 	klineClient exchange.KlineClient,
 	tracker *RunningBacktestTracker,
-	analysisStore *TaskAnalysisStore,
+	analysisStore *analysis.Store,
 	log zerolog.Logger,
 ) *BacktestScheduler {
 	return &BacktestScheduler{
@@ -81,7 +82,12 @@ func (s *BacktestScheduler) Run(ctx context.Context, cfg SchedulerConfig, guards
 			return
 		case <-slots:
 			go func() {
-				defer func() { slots <- struct{}{} }()
+				defer func() {
+					if r := recover(); r != nil {
+						s.log.Error().Interface("panic", r).Msg("task goroutine panicked, slot released")
+					}
+					slots <- struct{}{}
+				}()
 
 				if int(s.monitor.AllowedConcurrency()) <= lenRunning(s.tracker) {
 					time.Sleep(200 * time.Millisecond)

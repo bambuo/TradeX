@@ -3,9 +3,9 @@ package domain
 import "errors"
 
 var (
-	ErrNotFound         = errors.New("resource not found")
-	ErrInvalidInput     = errors.New("invalid input")
-	ErrInvalidOperation = errors.New("invalid operation")
-	ErrInsufficientData = errors.New("insufficient data")
-	ErrConflict         = errors.New("resource conflict")
+	ErrNotFound         = errors.New("资源不存在")
+	ErrInvalidInput     = errors.New("非法输入")
+	ErrInvalidOperation = errors.New("非法操作")
+	ErrInsufficientData = errors.New("数据不足")
+	ErrConflict         = errors.New("资源冲突")
 )

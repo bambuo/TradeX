@@ -39,6 +39,12 @@ func (h *BacktestHandler) WithAnalysisStore(store domain.AnalysisStore) *Backtes
 }
 
 func (h *BacktestHandler) RegisterRoutes(r *gin.Engine) {
+	r.GET("/livez", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "alive"})
+	})
+	r.GET("/readyz", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ready"})
+	})
 	r.GET("/health", func(c *gin.Context) {
 		var m runtime.MemStats
 		runtime.ReadMemStats(&m)
@@ -103,8 +109,8 @@ func (h *BacktestHandler) CreateTask(c *gin.Context) {
 			BadRequest(c, err.Error())
 			return
 		}
-		h.log.Error().Err(err).Msg("failed to create task")
-		InternalError(c, "failed to create task")
+		h.log.Error().Err(err).Msg("创建任务失败")
+		InternalError(c, "创建任务失败")
 		return
 	}
 
@@ -131,8 +137,8 @@ func (h *BacktestHandler) ListTasks(c *gin.Context) {
 
 	tasks, total, err := h.svc.ListTasks(c.Request.Context(), filter)
 	if err != nil {
-		h.log.Error().Err(err).Msg("failed to list tasks")
-		InternalError(c, "failed to list tasks")
+		h.log.Error().Err(err).Msg("查询任务列表失败")
+		InternalError(c, "查询任务列表失败")
 		return
 	}
 
@@ -142,13 +148,13 @@ func (h *BacktestHandler) ListTasks(c *gin.Context) {
 func (h *BacktestHandler) GetTask(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		BadRequest(c, "invalid id")
+		BadRequest(c, "无效的ID")
 		return
 	}
 
 	task, err := h.svc.GetTask(c.Request.Context(), id)
 	if err != nil {
-		NotFound(c, "task not found")
+		NotFound(c, "任务不存在")
 		return
 	}
 
@@ -158,21 +164,21 @@ func (h *BacktestHandler) GetTask(c *gin.Context) {
 func (h *BacktestHandler) CancelTask(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		BadRequest(c, "invalid id")
+		BadRequest(c, "无效的ID")
 		return
 	}
 
 	if err := h.svc.CancelTask(c.Request.Context(), id); err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
-			NotFound(c, "task not found")
+			NotFound(c, "任务不存在")
 			return
 		}
 		if errors.Is(err, domain.ErrConflict) {
-			Conflict(c, "task already finished")
+			Conflict(c, "任务已结束，无法取消")
 			return
 		}
-		h.log.Error().Err(err).Msg("failed to cancel task")
-		InternalError(c, "failed to cancel task")
+		h.log.Error().Err(err).Msg("取消失败")
+		InternalError(c, "取消失败")
 		return
 	}
 
@@ -191,24 +197,24 @@ func (h *BacktestHandler) CancelTask(c *gin.Context) {
 func (h *BacktestHandler) GetResult(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		BadRequest(c, "invalid id")
+		BadRequest(c, "无效的ID")
 		return
 	}
 
 	task, err := h.svc.GetTask(c.Request.Context(), id)
 	if err != nil {
-		NotFound(c, "task not found")
+		NotFound(c, "任务不存在")
 		return
 	}
 
 	if task.Status != domain.TaskStatusCompleted {
-		Conflict(c, "task not completed yet")
+		Conflict(c, "任务尚未完成")
 		return
 	}
 
 	result, trades, err := h.svc.GetResult(c.Request.Context(), id)
 	if err != nil {
-		NotFound(c, "result not found")
+		NotFound(c, "结果不存在")
 		return
 	}
 
@@ -218,7 +224,7 @@ func (h *BacktestHandler) GetResult(c *gin.Context) {
 func (h *BacktestHandler) StreamAnalysis(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		BadRequest(c, "invalid id")
+		BadRequest(c, "无效的ID")
 		return
 	}
 
@@ -354,7 +360,7 @@ func writeAnalysisSSE(c *gin.Context, a domain.BacktestKlineAnalysis, flusher in
 func (h *BacktestHandler) GetAnalysisCount(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		BadRequest(c, "invalid id")
+		BadRequest(c, "无效的ID")
 		return
 	}
 
@@ -370,7 +376,7 @@ func (h *BacktestHandler) GetAnalysisCount(c *gin.Context) {
 func (h *BacktestHandler) GetAnalysis(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		BadRequest(c, "invalid id")
+		BadRequest(c, "无效的ID")
 		return
 	}
 

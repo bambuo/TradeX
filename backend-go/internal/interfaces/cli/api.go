@@ -65,13 +65,15 @@ func NewAPICmd() *cobra.Command {
 			}
 
 			handler := api.NewBacktestHandler(svc, log)
-	if redisBus != nil {
-		handler.WithCancelPublisher(eventbus.NewRedisCancelNotifier(redisBus))
-	}
+			if redisBus != nil {
+				handler.WithCancelPublisher(eventbus.NewRedisCancelNotifier(redisBus))
+			}
 
 			r := gin.New()
 			r.Use(api.RecoveryMiddleware(log))
 			r.Use(api.ZerologMiddleware(log))
+			r.Use(api.AuthMiddleware())
+			r.Use(api.RateLimitMiddleware())
 			r.Use(otelgin.Middleware("tradex-api"))
 			r.GET("/debug/pprof/*pprof", gin.WrapH(http.DefaultServeMux))
 			r.GET("/debug/pprof", gin.WrapH(http.DefaultServeMux))

@@ -34,30 +34,30 @@ func NewBacktestService(repo domain.BacktestRepository) *BacktestService {
 func (s *BacktestService) CreateTask(ctx context.Context, req CreateBacktestRequest) (*domain.BacktestTask, error) {
 	strategyID, err := uuid.Parse(req.StrategyID)
 	if err != nil {
-		return nil, fmt.Errorf("%w: invalid strategy_id: %s", domain.ErrInvalidInput, req.StrategyID)
+		return nil, fmt.Errorf("%w: 无效的策略ID: %s", domain.ErrInvalidInput, req.StrategyID)
 	}
 
 	// validate strategy exists
 	strategy, err := s.repo.GetStrategy(ctx, strategyID)
 	if err != nil {
-		return nil, fmt.Errorf("%w: strategy not found: %s", domain.ErrInvalidInput, req.StrategyID)
+		return nil, fmt.Errorf("%w: 策略不存在: %s", domain.ErrInvalidInput, req.StrategyID)
 	}
 	if !strategy.IsActive {
-		return nil, fmt.Errorf("%w: strategy is inactive", domain.ErrInvalidInput)
+		return nil, fmt.Errorf("%w: 策略已停用", domain.ErrInvalidInput)
 	}
 
 	startAt, err := time.Parse(time.RFC3339, req.StartAt)
 	if err != nil {
-		return nil, fmt.Errorf("%w: invalid start_at, use RFC3339", domain.ErrInvalidInput)
+		return nil, fmt.Errorf("%w: 开始时间格式无效，请使用 RFC3339", domain.ErrInvalidInput)
 	}
 
 	endAt, err := time.Parse(time.RFC3339, req.EndAt)
 	if err != nil {
-		return nil, fmt.Errorf("%w: invalid end_at, use RFC3339", domain.ErrInvalidInput)
+		return nil, fmt.Errorf("%w: 结束时间格式无效，请使用 RFC3339", domain.ErrInvalidInput)
 	}
 
 	if endAt.Before(startAt) {
-		return nil, fmt.Errorf("%w: end_at must be after start_at", domain.ErrInvalidInput)
+		return nil, fmt.Errorf("%w: 结束时间必须晚于开始时间", domain.ErrInvalidInput)
 	}
 
 	task := &domain.BacktestTask{
@@ -103,7 +103,7 @@ func (s *BacktestService) CancelTask(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 	if task.Status == domain.TaskStatusCompleted || task.Status == domain.TaskStatusFailed {
-		return fmt.Errorf("%w: task already finished", domain.ErrConflict)
+		return fmt.Errorf("%w: 任务已结束，无法取消", domain.ErrConflict)
 	}
 	return s.repo.UpdateTaskStatus(ctx, id, domain.TaskStatusCancelled, nil)
 }

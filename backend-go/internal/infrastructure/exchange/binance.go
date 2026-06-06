@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"time"
@@ -13,6 +14,8 @@ import (
 
 	"github.com/tradex/backend-go/internal/domain"
 )
+
+const maxRetries = 3
 
 type binanceKline struct {
 	OpenTime                int64
@@ -46,61 +49,80 @@ func (b *BinanceClient) FetchKlines(ctx context.Context, pair, timeframe string,
 	url := fmt.Sprintf("%s/api/v3/klines?symbol=%s&interval=%s&startTime=%d&endTime=%d&limit=%d",
 		b.baseURL, pair, timeframe, start.UnixMilli(), end.UnixMilli(), limit)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
-	}
+	var lastErr error
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			delay := time.Duration(100*attempt+rand.Intn(100)) * time.Millisecond
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(delay):
+			}
+		}
 
-	resp, err := b.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("fetch klines: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read body: %w", err)
-	}
-
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("binance api error %d: %s", resp.StatusCode, string(body))
-	}
-
-	var raw [][]json.RawMessage
-	if err := json.Unmarshal(body, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal klines: %w", err)
-	}
-
-	candles := make([]domain.Candle, 0, len(raw))
-	for _, item := range raw {
-		if len(item) < 11 {
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			lastErr = fmt.Errorf("创建请求失败: %w", err)
 			continue
 		}
 
-		openTime, _ := strconv.ParseInt(string(item[0]), 10, 64)
-		openStr, _ := strconv.Unquote(string(item[1]))
-		highStr, _ := strconv.Unquote(string(item[2]))
-		lowStr, _ := strconv.Unquote(string(item[3]))
-		closeStr, _ := strconv.Unquote(string(item[4]))
-		volumeStr, _ := strconv.Unquote(string(item[5]))
+		resp, err := b.client.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("获取K线失败: %w", err)
+			continue
+		}
 
-		open, _ := decimal.NewFromString(openStr)
-		high, _ := decimal.NewFromString(highStr)
-		low, _ := decimal.NewFromString(lowStr)
-		close_, _ := decimal.NewFromString(closeStr)
-		volume, _ := decimal.NewFromString(volumeStr)
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			lastErr = fmt.Errorf("读取响应失败: %w", err)
+			continue
+		}
 
-		candles = append(candles, domain.Candle{
-			Timestamp: time.UnixMilli(openTime),
-			Open:      open,
-			High:      high,
-			Low:       low,
-			Close:     close_,
-			Volume:    volume,
-		})
+		if resp.StatusCode != 200 {
+			lastErr = fmt.Errorf("Binance API 错误 %d: %s", resp.StatusCode, string(body))
+			continue
+		}
+
+		var raw [][]json.RawMessage
+		if err := json.Unmarshal(body, &raw); err != nil {
+			lastErr = fmt.Errorf("解析K线失败: %w", err)
+			continue
+		}
+
+		candles := make([]domain.Candle, 0, len(raw))
+		for _, item := range raw {
+			if len(item) < 11 {
+				continue
+			}
+
+			openTime, _ := strconv.ParseInt(string(item[0]), 10, 64)
+			openStr, _ := strconv.Unquote(string(item[1]))
+			highStr, _ := strconv.Unquote(string(item[2]))
+			lowStr, _ := strconv.Unquote(string(item[3]))
+			closeStr, _ := strconv.Unquote(string(item[4]))
+			volumeStr, _ := strconv.Unquote(string(item[5]))
+
+			open, _ := decimal.NewFromString(openStr)
+			high, _ := decimal.NewFromString(highStr)
+			low, _ := decimal.NewFromString(lowStr)
+			close_, _ := decimal.NewFromString(closeStr)
+			volume, _ := decimal.NewFromString(volumeStr)
+
+			candles = append(candles, domain.Candle{
+				Timestamp: time.UnixMilli(openTime),
+				Open:      open,
+				High:      high,
+				Low:       low,
+				Close:     close_,
+				Volume:    volume,
+			})
+		}
+
+		return candles, nil
 	}
 
-	return candles, nil
+	return nil, fmt.Errorf("获取K线失败（已重试%d次）: %w", maxRetries, lastErr)
 }
 
 func (b *BinanceClient) Ping(ctx context.Context) error {

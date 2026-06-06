@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/tradex/backend-go/internal/infrastructure/analysis"
 	"github.com/tradex/backend-go/internal/infrastructure/eventbus"
 	"github.com/tradex/backend-go/internal/infrastructure/exchange"
 	"github.com/tradex/backend-go/internal/domain/indicator"
@@ -95,7 +96,7 @@ func NewWorkerCmd() *cobra.Command {
 			taskQueue := scheduler.NewTaskQueue(maxConcurrency * 2)
 			resMon := scheduler.NewResourceMonitor(ctx, maxConcurrency, rmCfg)
 			tracker := scheduler.NewRunningBacktestTracker()
-			analysisStore := scheduler.NewTaskAnalysisStore()
+			analysisStore := analysis.NewStore()
 
 			klineCache := storage.NewKlineCache(10 * time.Minute)
 			klineClient := exchange.NewBinanceClient()
