@@ -2,6 +2,7 @@ package domain
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -12,8 +13,8 @@ type Strategy struct {
 	EntryCondition json.RawMessage
 	ExitCondition  json.RawMessage
 	ExecutionRule  json.RawMessage
-	ExchangeID     string
-	Pair           string
-	Timeframe      string
-	IsActive       bool
+	Version        int
+	CreatedBy      uuid.UUID
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }

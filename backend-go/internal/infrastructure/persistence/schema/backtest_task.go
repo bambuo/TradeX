@@ -19,20 +19,17 @@ func (BacktestTask) Fields() []ent.Field {
 	return []ent.Field{
 		field.UUID("id", uuid.UUID{}).Default(uuid.New),
 		field.UUID("strategy_id", uuid.UUID{}),
-		field.String("strategy_name").Default(""),
+		field.String("strategy_name").MaxLen(200).Default(""),
 		field.UUID("created_by", uuid.UUID{}).Default(uuid.New),
-		field.String("exchange_id"),
-		field.String("pair"),
-		field.String("timeframe"),
+		field.UUID("exchange_id", uuid.UUID{}),
+		field.String("pair").MaxLen(50),
+		field.String("timeframe").MaxLen(10),
 		field.Float("initial_capital").
 			SchemaType(map[string]string{dialect.Postgres: "numeric(20,8)"}),
 		field.Float("position_size").
 			Optional().
 			Nillable().
 			SchemaType(map[string]string{dialect.Postgres: "numeric(20,8)"}),
-		field.Float("fee_rate").
-			Default(0).
-			SchemaType(map[string]string{dialect.Postgres: "numeric(10,6)"}),
 		field.Time("start_at"),
 		field.Time("end_at"),
 		field.Time("completed_at").Optional().Nillable(),
@@ -42,10 +39,7 @@ func (BacktestTask) Fields() []ent.Field {
 		field.Enum("phase").
 			Values("Queued", "FetchingData", "Running").
 			Optional(),
-		field.Int("progress").Default(0),
-		field.Text("error_message").Optional().Nillable(),
 		field.Time("created_at").Default(time.Now).Immutable(),
-		field.Time("updated_at").Default(time.Now).UpdateDefault(time.Now),
 	}
 }
 
@@ -54,7 +48,6 @@ func (BacktestTask) Edges() []ent.Edge {
 		edge.To("result", BacktestResult.Type).
 			Unique().
 			StorageKey(edge.Column("result_id")),
-
 	}
 }
 
@@ -62,6 +55,6 @@ func (BacktestTask) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("status"),
 		index.Fields("strategy_id"),
-		index.Fields("pair", "timeframe"),
+		index.Fields("exchange_id"),
 	}
 }

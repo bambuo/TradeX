@@ -95,6 +95,16 @@ func Volume(v float64) predicate.BacktestKlineAnalysis {
 	return predicate.BacktestKlineAnalysis(sql.FieldEQ(FieldVolume, v))
 }
 
+// EntryConditionResult applies equality check predicate on the "entry_condition_result" field. It's identical to EntryConditionResultEQ.
+func EntryConditionResult(v bool) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldEQ(FieldEntryConditionResult, v))
+}
+
+// ExitConditionResult applies equality check predicate on the "exit_condition_result" field. It's identical to ExitConditionResultEQ.
+func ExitConditionResult(v bool) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldEQ(FieldExitConditionResult, v))
+}
+
 // InPosition applies equality check predicate on the "in_position" field. It's identical to InPositionEQ.
 func InPosition(v bool) predicate.BacktestKlineAnalysis {
 	return predicate.BacktestKlineAnalysis(sql.FieldEQ(FieldInPosition, v))
@@ -103,6 +113,21 @@ func InPosition(v bool) predicate.BacktestKlineAnalysis {
 // Action applies equality check predicate on the "action" field. It's identical to ActionEQ.
 func Action(v string) predicate.BacktestKlineAnalysis {
 	return predicate.BacktestKlineAnalysis(sql.FieldEQ(FieldAction, v))
+}
+
+// AvgEntryPrice applies equality check predicate on the "avg_entry_price" field. It's identical to AvgEntryPriceEQ.
+func AvgEntryPrice(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldEQ(FieldAvgEntryPrice, v))
+}
+
+// PositionQuantity applies equality check predicate on the "position_quantity" field. It's identical to PositionQuantityEQ.
+func PositionQuantity(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldEQ(FieldPositionQuantity, v))
+}
+
+// PositionCost applies equality check predicate on the "position_cost" field. It's identical to PositionCostEQ.
+func PositionCost(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldEQ(FieldPositionCost, v))
 }
 
 // PositionValue applies equality check predicate on the "position_value" field. It's identical to PositionValueEQ.
@@ -115,9 +140,9 @@ func PositionPnl(v float64) predicate.BacktestKlineAnalysis {
 	return predicate.BacktestKlineAnalysis(sql.FieldEQ(FieldPositionPnl, v))
 }
 
-// CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
-func CreatedAt(v time.Time) predicate.BacktestKlineAnalysis {
-	return predicate.BacktestKlineAnalysis(sql.FieldEQ(FieldCreatedAt, v))
+// PositionPnlPercent applies equality check predicate on the "position_pnl_percent" field. It's identical to PositionPnlPercentEQ.
+func PositionPnlPercent(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldEQ(FieldPositionPnlPercent, v))
 }
 
 // TaskIDEQ applies the EQ predicate on the "task_id" field.
@@ -450,6 +475,16 @@ func IndicatorValuesNotNil() predicate.BacktestKlineAnalysis {
 	return predicate.BacktestKlineAnalysis(sql.FieldNotNull(FieldIndicatorValues))
 }
 
+// EntryConditionResultEQ applies the EQ predicate on the "entry_condition_result" field.
+func EntryConditionResultEQ(v bool) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldEQ(FieldEntryConditionResult, v))
+}
+
+// EntryConditionResultNEQ applies the NEQ predicate on the "entry_condition_result" field.
+func EntryConditionResultNEQ(v bool) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldNEQ(FieldEntryConditionResult, v))
+}
+
 // EntryConditionResultIsNil applies the IsNil predicate on the "entry_condition_result" field.
 func EntryConditionResultIsNil() predicate.BacktestKlineAnalysis {
 	return predicate.BacktestKlineAnalysis(sql.FieldIsNull(FieldEntryConditionResult))
@@ -458,6 +493,16 @@ func EntryConditionResultIsNil() predicate.BacktestKlineAnalysis {
 // EntryConditionResultNotNil applies the NotNil predicate on the "entry_condition_result" field.
 func EntryConditionResultNotNil() predicate.BacktestKlineAnalysis {
 	return predicate.BacktestKlineAnalysis(sql.FieldNotNull(FieldEntryConditionResult))
+}
+
+// ExitConditionResultEQ applies the EQ predicate on the "exit_condition_result" field.
+func ExitConditionResultEQ(v bool) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldEQ(FieldExitConditionResult, v))
+}
+
+// ExitConditionResultNEQ applies the NEQ predicate on the "exit_condition_result" field.
+func ExitConditionResultNEQ(v bool) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldNEQ(FieldExitConditionResult, v))
 }
 
 // ExitConditionResultIsNil applies the IsNil predicate on the "exit_condition_result" field.
@@ -545,6 +590,156 @@ func ActionContainsFold(v string) predicate.BacktestKlineAnalysis {
 	return predicate.BacktestKlineAnalysis(sql.FieldContainsFold(FieldAction, v))
 }
 
+// AvgEntryPriceEQ applies the EQ predicate on the "avg_entry_price" field.
+func AvgEntryPriceEQ(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldEQ(FieldAvgEntryPrice, v))
+}
+
+// AvgEntryPriceNEQ applies the NEQ predicate on the "avg_entry_price" field.
+func AvgEntryPriceNEQ(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldNEQ(FieldAvgEntryPrice, v))
+}
+
+// AvgEntryPriceIn applies the In predicate on the "avg_entry_price" field.
+func AvgEntryPriceIn(vs ...float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldIn(FieldAvgEntryPrice, vs...))
+}
+
+// AvgEntryPriceNotIn applies the NotIn predicate on the "avg_entry_price" field.
+func AvgEntryPriceNotIn(vs ...float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldNotIn(FieldAvgEntryPrice, vs...))
+}
+
+// AvgEntryPriceGT applies the GT predicate on the "avg_entry_price" field.
+func AvgEntryPriceGT(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldGT(FieldAvgEntryPrice, v))
+}
+
+// AvgEntryPriceGTE applies the GTE predicate on the "avg_entry_price" field.
+func AvgEntryPriceGTE(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldGTE(FieldAvgEntryPrice, v))
+}
+
+// AvgEntryPriceLT applies the LT predicate on the "avg_entry_price" field.
+func AvgEntryPriceLT(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldLT(FieldAvgEntryPrice, v))
+}
+
+// AvgEntryPriceLTE applies the LTE predicate on the "avg_entry_price" field.
+func AvgEntryPriceLTE(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldLTE(FieldAvgEntryPrice, v))
+}
+
+// AvgEntryPriceIsNil applies the IsNil predicate on the "avg_entry_price" field.
+func AvgEntryPriceIsNil() predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldIsNull(FieldAvgEntryPrice))
+}
+
+// AvgEntryPriceNotNil applies the NotNil predicate on the "avg_entry_price" field.
+func AvgEntryPriceNotNil() predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldNotNull(FieldAvgEntryPrice))
+}
+
+// PositionQuantityEQ applies the EQ predicate on the "position_quantity" field.
+func PositionQuantityEQ(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldEQ(FieldPositionQuantity, v))
+}
+
+// PositionQuantityNEQ applies the NEQ predicate on the "position_quantity" field.
+func PositionQuantityNEQ(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldNEQ(FieldPositionQuantity, v))
+}
+
+// PositionQuantityIn applies the In predicate on the "position_quantity" field.
+func PositionQuantityIn(vs ...float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldIn(FieldPositionQuantity, vs...))
+}
+
+// PositionQuantityNotIn applies the NotIn predicate on the "position_quantity" field.
+func PositionQuantityNotIn(vs ...float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldNotIn(FieldPositionQuantity, vs...))
+}
+
+// PositionQuantityGT applies the GT predicate on the "position_quantity" field.
+func PositionQuantityGT(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldGT(FieldPositionQuantity, v))
+}
+
+// PositionQuantityGTE applies the GTE predicate on the "position_quantity" field.
+func PositionQuantityGTE(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldGTE(FieldPositionQuantity, v))
+}
+
+// PositionQuantityLT applies the LT predicate on the "position_quantity" field.
+func PositionQuantityLT(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldLT(FieldPositionQuantity, v))
+}
+
+// PositionQuantityLTE applies the LTE predicate on the "position_quantity" field.
+func PositionQuantityLTE(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldLTE(FieldPositionQuantity, v))
+}
+
+// PositionQuantityIsNil applies the IsNil predicate on the "position_quantity" field.
+func PositionQuantityIsNil() predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldIsNull(FieldPositionQuantity))
+}
+
+// PositionQuantityNotNil applies the NotNil predicate on the "position_quantity" field.
+func PositionQuantityNotNil() predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldNotNull(FieldPositionQuantity))
+}
+
+// PositionCostEQ applies the EQ predicate on the "position_cost" field.
+func PositionCostEQ(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldEQ(FieldPositionCost, v))
+}
+
+// PositionCostNEQ applies the NEQ predicate on the "position_cost" field.
+func PositionCostNEQ(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldNEQ(FieldPositionCost, v))
+}
+
+// PositionCostIn applies the In predicate on the "position_cost" field.
+func PositionCostIn(vs ...float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldIn(FieldPositionCost, vs...))
+}
+
+// PositionCostNotIn applies the NotIn predicate on the "position_cost" field.
+func PositionCostNotIn(vs ...float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldNotIn(FieldPositionCost, vs...))
+}
+
+// PositionCostGT applies the GT predicate on the "position_cost" field.
+func PositionCostGT(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldGT(FieldPositionCost, v))
+}
+
+// PositionCostGTE applies the GTE predicate on the "position_cost" field.
+func PositionCostGTE(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldGTE(FieldPositionCost, v))
+}
+
+// PositionCostLT applies the LT predicate on the "position_cost" field.
+func PositionCostLT(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldLT(FieldPositionCost, v))
+}
+
+// PositionCostLTE applies the LTE predicate on the "position_cost" field.
+func PositionCostLTE(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldLTE(FieldPositionCost, v))
+}
+
+// PositionCostIsNil applies the IsNil predicate on the "position_cost" field.
+func PositionCostIsNil() predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldIsNull(FieldPositionCost))
+}
+
+// PositionCostNotNil applies the NotNil predicate on the "position_cost" field.
+func PositionCostNotNil() predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldNotNull(FieldPositionCost))
+}
+
 // PositionValueEQ applies the EQ predicate on the "position_value" field.
 func PositionValueEQ(v float64) predicate.BacktestKlineAnalysis {
 	return predicate.BacktestKlineAnalysis(sql.FieldEQ(FieldPositionValue, v))
@@ -583,6 +778,16 @@ func PositionValueLT(v float64) predicate.BacktestKlineAnalysis {
 // PositionValueLTE applies the LTE predicate on the "position_value" field.
 func PositionValueLTE(v float64) predicate.BacktestKlineAnalysis {
 	return predicate.BacktestKlineAnalysis(sql.FieldLTE(FieldPositionValue, v))
+}
+
+// PositionValueIsNil applies the IsNil predicate on the "position_value" field.
+func PositionValueIsNil() predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldIsNull(FieldPositionValue))
+}
+
+// PositionValueNotNil applies the NotNil predicate on the "position_value" field.
+func PositionValueNotNil() predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldNotNull(FieldPositionValue))
 }
 
 // PositionPnlEQ applies the EQ predicate on the "position_pnl" field.
@@ -625,44 +830,64 @@ func PositionPnlLTE(v float64) predicate.BacktestKlineAnalysis {
 	return predicate.BacktestKlineAnalysis(sql.FieldLTE(FieldPositionPnl, v))
 }
 
-// CreatedAtEQ applies the EQ predicate on the "created_at" field.
-func CreatedAtEQ(v time.Time) predicate.BacktestKlineAnalysis {
-	return predicate.BacktestKlineAnalysis(sql.FieldEQ(FieldCreatedAt, v))
+// PositionPnlIsNil applies the IsNil predicate on the "position_pnl" field.
+func PositionPnlIsNil() predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldIsNull(FieldPositionPnl))
 }
 
-// CreatedAtNEQ applies the NEQ predicate on the "created_at" field.
-func CreatedAtNEQ(v time.Time) predicate.BacktestKlineAnalysis {
-	return predicate.BacktestKlineAnalysis(sql.FieldNEQ(FieldCreatedAt, v))
+// PositionPnlNotNil applies the NotNil predicate on the "position_pnl" field.
+func PositionPnlNotNil() predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldNotNull(FieldPositionPnl))
 }
 
-// CreatedAtIn applies the In predicate on the "created_at" field.
-func CreatedAtIn(vs ...time.Time) predicate.BacktestKlineAnalysis {
-	return predicate.BacktestKlineAnalysis(sql.FieldIn(FieldCreatedAt, vs...))
+// PositionPnlPercentEQ applies the EQ predicate on the "position_pnl_percent" field.
+func PositionPnlPercentEQ(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldEQ(FieldPositionPnlPercent, v))
 }
 
-// CreatedAtNotIn applies the NotIn predicate on the "created_at" field.
-func CreatedAtNotIn(vs ...time.Time) predicate.BacktestKlineAnalysis {
-	return predicate.BacktestKlineAnalysis(sql.FieldNotIn(FieldCreatedAt, vs...))
+// PositionPnlPercentNEQ applies the NEQ predicate on the "position_pnl_percent" field.
+func PositionPnlPercentNEQ(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldNEQ(FieldPositionPnlPercent, v))
 }
 
-// CreatedAtGT applies the GT predicate on the "created_at" field.
-func CreatedAtGT(v time.Time) predicate.BacktestKlineAnalysis {
-	return predicate.BacktestKlineAnalysis(sql.FieldGT(FieldCreatedAt, v))
+// PositionPnlPercentIn applies the In predicate on the "position_pnl_percent" field.
+func PositionPnlPercentIn(vs ...float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldIn(FieldPositionPnlPercent, vs...))
 }
 
-// CreatedAtGTE applies the GTE predicate on the "created_at" field.
-func CreatedAtGTE(v time.Time) predicate.BacktestKlineAnalysis {
-	return predicate.BacktestKlineAnalysis(sql.FieldGTE(FieldCreatedAt, v))
+// PositionPnlPercentNotIn applies the NotIn predicate on the "position_pnl_percent" field.
+func PositionPnlPercentNotIn(vs ...float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldNotIn(FieldPositionPnlPercent, vs...))
 }
 
-// CreatedAtLT applies the LT predicate on the "created_at" field.
-func CreatedAtLT(v time.Time) predicate.BacktestKlineAnalysis {
-	return predicate.BacktestKlineAnalysis(sql.FieldLT(FieldCreatedAt, v))
+// PositionPnlPercentGT applies the GT predicate on the "position_pnl_percent" field.
+func PositionPnlPercentGT(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldGT(FieldPositionPnlPercent, v))
 }
 
-// CreatedAtLTE applies the LTE predicate on the "created_at" field.
-func CreatedAtLTE(v time.Time) predicate.BacktestKlineAnalysis {
-	return predicate.BacktestKlineAnalysis(sql.FieldLTE(FieldCreatedAt, v))
+// PositionPnlPercentGTE applies the GTE predicate on the "position_pnl_percent" field.
+func PositionPnlPercentGTE(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldGTE(FieldPositionPnlPercent, v))
+}
+
+// PositionPnlPercentLT applies the LT predicate on the "position_pnl_percent" field.
+func PositionPnlPercentLT(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldLT(FieldPositionPnlPercent, v))
+}
+
+// PositionPnlPercentLTE applies the LTE predicate on the "position_pnl_percent" field.
+func PositionPnlPercentLTE(v float64) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldLTE(FieldPositionPnlPercent, v))
+}
+
+// PositionPnlPercentIsNil applies the IsNil predicate on the "position_pnl_percent" field.
+func PositionPnlPercentIsNil() predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldIsNull(FieldPositionPnlPercent))
+}
+
+// PositionPnlPercentNotNil applies the NotNil predicate on the "position_pnl_percent" field.
+func PositionPnlPercentNotNil() predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldNotNull(FieldPositionPnlPercent))
 }
 
 // And groups predicates with the AND operator between them.

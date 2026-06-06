@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 	"tradex/internal/infrastructure/persistence/ent/strategy"
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
@@ -68,34 +69,58 @@ func (_c *StrategyCreate) SetNillableExecutionRule(v *string) *StrategyCreate {
 	return _c
 }
 
-// SetExchangeID sets the "exchange_id" field.
-func (_c *StrategyCreate) SetExchangeID(v string) *StrategyCreate {
-	_c.mutation.SetExchangeID(v)
+// SetVersion sets the "version" field.
+func (_c *StrategyCreate) SetVersion(v int) *StrategyCreate {
+	_c.mutation.SetVersion(v)
 	return _c
 }
 
-// SetPair sets the "pair" field.
-func (_c *StrategyCreate) SetPair(v string) *StrategyCreate {
-	_c.mutation.SetPair(v)
-	return _c
-}
-
-// SetTimeframe sets the "timeframe" field.
-func (_c *StrategyCreate) SetTimeframe(v string) *StrategyCreate {
-	_c.mutation.SetTimeframe(v)
-	return _c
-}
-
-// SetIsActive sets the "is_active" field.
-func (_c *StrategyCreate) SetIsActive(v bool) *StrategyCreate {
-	_c.mutation.SetIsActive(v)
-	return _c
-}
-
-// SetNillableIsActive sets the "is_active" field if the given value is not nil.
-func (_c *StrategyCreate) SetNillableIsActive(v *bool) *StrategyCreate {
+// SetNillableVersion sets the "version" field if the given value is not nil.
+func (_c *StrategyCreate) SetNillableVersion(v *int) *StrategyCreate {
 	if v != nil {
-		_c.SetIsActive(*v)
+		_c.SetVersion(*v)
+	}
+	return _c
+}
+
+// SetCreatedBy sets the "created_by" field.
+func (_c *StrategyCreate) SetCreatedBy(v uuid.UUID) *StrategyCreate {
+	_c.mutation.SetCreatedBy(v)
+	return _c
+}
+
+// SetNillableCreatedBy sets the "created_by" field if the given value is not nil.
+func (_c *StrategyCreate) SetNillableCreatedBy(v *uuid.UUID) *StrategyCreate {
+	if v != nil {
+		_c.SetCreatedBy(*v)
+	}
+	return _c
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (_c *StrategyCreate) SetCreatedAt(v time.Time) *StrategyCreate {
+	_c.mutation.SetCreatedAt(v)
+	return _c
+}
+
+// SetNillableCreatedAt sets the "created_at" field if the given value is not nil.
+func (_c *StrategyCreate) SetNillableCreatedAt(v *time.Time) *StrategyCreate {
+	if v != nil {
+		_c.SetCreatedAt(*v)
+	}
+	return _c
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (_c *StrategyCreate) SetUpdatedAt(v time.Time) *StrategyCreate {
+	_c.mutation.SetUpdatedAt(v)
+	return _c
+}
+
+// SetNillableUpdatedAt sets the "updated_at" field if the given value is not nil.
+func (_c *StrategyCreate) SetNillableUpdatedAt(v *time.Time) *StrategyCreate {
+	if v != nil {
+		_c.SetUpdatedAt(*v)
 	}
 	return _c
 }
@@ -149,9 +174,21 @@ func (_c *StrategyCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *StrategyCreate) defaults() {
-	if _, ok := _c.mutation.IsActive(); !ok {
-		v := strategy.DefaultIsActive
-		_c.mutation.SetIsActive(v)
+	if _, ok := _c.mutation.Version(); !ok {
+		v := strategy.DefaultVersion
+		_c.mutation.SetVersion(v)
+	}
+	if _, ok := _c.mutation.CreatedBy(); !ok {
+		v := strategy.DefaultCreatedBy()
+		_c.mutation.SetCreatedBy(v)
+	}
+	if _, ok := _c.mutation.CreatedAt(); !ok {
+		v := strategy.DefaultCreatedAt()
+		_c.mutation.SetCreatedAt(v)
+	}
+	if _, ok := _c.mutation.UpdatedAt(); !ok {
+		v := strategy.DefaultUpdatedAt()
+		_c.mutation.SetUpdatedAt(v)
 	}
 	if _, ok := _c.mutation.ID(); !ok {
 		v := strategy.DefaultID()
@@ -164,17 +201,22 @@ func (_c *StrategyCreate) check() error {
 	if _, ok := _c.mutation.Name(); !ok {
 		return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "Strategy.name"`)}
 	}
-	if _, ok := _c.mutation.ExchangeID(); !ok {
-		return &ValidationError{Name: "exchange_id", err: errors.New(`ent: missing required field "Strategy.exchange_id"`)}
+	if v, ok := _c.mutation.Name(); ok {
+		if err := strategy.NameValidator(v); err != nil {
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Strategy.name": %w`, err)}
+		}
 	}
-	if _, ok := _c.mutation.Pair(); !ok {
-		return &ValidationError{Name: "pair", err: errors.New(`ent: missing required field "Strategy.pair"`)}
+	if _, ok := _c.mutation.Version(); !ok {
+		return &ValidationError{Name: "version", err: errors.New(`ent: missing required field "Strategy.version"`)}
 	}
-	if _, ok := _c.mutation.Timeframe(); !ok {
-		return &ValidationError{Name: "timeframe", err: errors.New(`ent: missing required field "Strategy.timeframe"`)}
+	if _, ok := _c.mutation.CreatedBy(); !ok {
+		return &ValidationError{Name: "created_by", err: errors.New(`ent: missing required field "Strategy.created_by"`)}
 	}
-	if _, ok := _c.mutation.IsActive(); !ok {
-		return &ValidationError{Name: "is_active", err: errors.New(`ent: missing required field "Strategy.is_active"`)}
+	if _, ok := _c.mutation.CreatedAt(); !ok {
+		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Strategy.created_at"`)}
+	}
+	if _, ok := _c.mutation.UpdatedAt(); !ok {
+		return &ValidationError{Name: "updated_at", err: errors.New(`ent: missing required field "Strategy.updated_at"`)}
 	}
 	return nil
 }
@@ -227,21 +269,21 @@ func (_c *StrategyCreate) createSpec() (*Strategy, *sqlgraph.CreateSpec) {
 		_spec.SetField(strategy.FieldExecutionRule, field.TypeString, value)
 		_node.ExecutionRule = value
 	}
-	if value, ok := _c.mutation.ExchangeID(); ok {
-		_spec.SetField(strategy.FieldExchangeID, field.TypeString, value)
-		_node.ExchangeID = value
+	if value, ok := _c.mutation.Version(); ok {
+		_spec.SetField(strategy.FieldVersion, field.TypeInt, value)
+		_node.Version = value
 	}
-	if value, ok := _c.mutation.Pair(); ok {
-		_spec.SetField(strategy.FieldPair, field.TypeString, value)
-		_node.Pair = value
+	if value, ok := _c.mutation.CreatedBy(); ok {
+		_spec.SetField(strategy.FieldCreatedBy, field.TypeUUID, value)
+		_node.CreatedBy = value
 	}
-	if value, ok := _c.mutation.Timeframe(); ok {
-		_spec.SetField(strategy.FieldTimeframe, field.TypeString, value)
-		_node.Timeframe = value
+	if value, ok := _c.mutation.CreatedAt(); ok {
+		_spec.SetField(strategy.FieldCreatedAt, field.TypeTime, value)
+		_node.CreatedAt = value
 	}
-	if value, ok := _c.mutation.IsActive(); ok {
-		_spec.SetField(strategy.FieldIsActive, field.TypeBool, value)
-		_node.IsActive = value
+	if value, ok := _c.mutation.UpdatedAt(); ok {
+		_spec.SetField(strategy.FieldUpdatedAt, field.TypeTime, value)
+		_node.UpdatedAt = value
 	}
 	return _node, _spec
 }

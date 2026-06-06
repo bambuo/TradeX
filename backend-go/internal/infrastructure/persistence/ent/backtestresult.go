@@ -22,6 +22,16 @@ type BacktestResult struct {
 	ID uuid.UUID `json:"id,omitempty"`
 	// StrategyName holds the value of the "strategy_name" field.
 	StrategyName string `json:"strategy_name,omitempty"`
+	// Pair holds the value of the "pair" field.
+	Pair string `json:"pair,omitempty"`
+	// Timeframe holds the value of the "timeframe" field.
+	Timeframe string `json:"timeframe,omitempty"`
+	// StartAt holds the value of the "start_at" field.
+	StartAt time.Time `json:"start_at,omitempty"`
+	// EndAt holds the value of the "end_at" field.
+	EndAt time.Time `json:"end_at,omitempty"`
+	// InitialCapital holds the value of the "initial_capital" field.
+	InitialCapital float64 `json:"initial_capital,omitempty"`
 	// FinalValue holds the value of the "final_value" field.
 	FinalValue float64 `json:"final_value,omitempty"`
 	// TotalReturnPercent holds the value of the "total_return_percent" field.
@@ -76,13 +86,13 @@ func (*BacktestResult) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case backtestresult.FieldDetails:
 			values[i] = new([]byte)
-		case backtestresult.FieldFinalValue, backtestresult.FieldTotalReturnPercent, backtestresult.FieldAnnualizedReturnPercent, backtestresult.FieldMaxDrawdownPercent, backtestresult.FieldWinRate, backtestresult.FieldSharpeRatio, backtestresult.FieldProfitLossRatio:
+		case backtestresult.FieldInitialCapital, backtestresult.FieldFinalValue, backtestresult.FieldTotalReturnPercent, backtestresult.FieldAnnualizedReturnPercent, backtestresult.FieldMaxDrawdownPercent, backtestresult.FieldWinRate, backtestresult.FieldSharpeRatio, backtestresult.FieldProfitLossRatio:
 			values[i] = new(sql.NullFloat64)
 		case backtestresult.FieldTotalTrades:
 			values[i] = new(sql.NullInt64)
-		case backtestresult.FieldStrategyName:
+		case backtestresult.FieldStrategyName, backtestresult.FieldPair, backtestresult.FieldTimeframe:
 			values[i] = new(sql.NullString)
-		case backtestresult.FieldCreatedAt:
+		case backtestresult.FieldStartAt, backtestresult.FieldEndAt, backtestresult.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
 		case backtestresult.FieldID:
 			values[i] = new(uuid.UUID)
@@ -114,6 +124,36 @@ func (_m *BacktestResult) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field strategy_name", values[i])
 			} else if value.Valid {
 				_m.StrategyName = value.String
+			}
+		case backtestresult.FieldPair:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field pair", values[i])
+			} else if value.Valid {
+				_m.Pair = value.String
+			}
+		case backtestresult.FieldTimeframe:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field timeframe", values[i])
+			} else if value.Valid {
+				_m.Timeframe = value.String
+			}
+		case backtestresult.FieldStartAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field start_at", values[i])
+			} else if value.Valid {
+				_m.StartAt = value.Time
+			}
+		case backtestresult.FieldEndAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field end_at", values[i])
+			} else if value.Valid {
+				_m.EndAt = value.Time
+			}
+		case backtestresult.FieldInitialCapital:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field initial_capital", values[i])
+			} else if value.Valid {
+				_m.InitialCapital = value.Float64
 			}
 		case backtestresult.FieldFinalValue:
 			if value, ok := values[i].(*sql.NullFloat64); !ok {
@@ -227,6 +267,21 @@ func (_m *BacktestResult) String() string {
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
 	builder.WriteString("strategy_name=")
 	builder.WriteString(_m.StrategyName)
+	builder.WriteString(", ")
+	builder.WriteString("pair=")
+	builder.WriteString(_m.Pair)
+	builder.WriteString(", ")
+	builder.WriteString("timeframe=")
+	builder.WriteString(_m.Timeframe)
+	builder.WriteString(", ")
+	builder.WriteString("start_at=")
+	builder.WriteString(_m.StartAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("end_at=")
+	builder.WriteString(_m.EndAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("initial_capital=")
+	builder.WriteString(fmt.Sprintf("%v", _m.InitialCapital))
 	builder.WriteString(", ")
 	builder.WriteString("final_value=")
 	builder.WriteString(fmt.Sprintf("%v", _m.FinalValue))

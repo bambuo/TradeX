@@ -10,22 +10,22 @@ import (
 
 	"tradex/internal/domain"
 	"tradex/internal/domain/engine"
+	"tradex/internal/domain/indicator"
 	"tradex/internal/infrastructure/analysis"
 	"tradex/internal/infrastructure/exchange"
-	"tradex/internal/domain/indicator"
 	"tradex/internal/infrastructure/persistence"
 )
 
 type BacktestScheduler struct {
-	repo         domain.BacktestRepository
-	queue        TaskQueue
-	monitor      *ResourceMonitor
-	registry     *indicator.Registry
-	klineCache   persistence.KlineCache
-	klineClient  exchange.KlineClient
-	tracker      *RunningBacktestTracker
+	repo          domain.BacktestRepository
+	queue         TaskQueue
+	monitor       *ResourceMonitor
+	registry      *indicator.Registry
+	klineCache    persistence.KlineCache
+	klineClient   exchange.KlineClient
+	tracker       *RunningBacktestTracker
 	analysisStore *analysis.Store
-	log          zerolog.Logger
+	log           zerolog.Logger
 }
 
 type SchedulerConfig struct {
@@ -168,10 +168,7 @@ func (s *BacktestScheduler) executeTask(ctx context.Context, taskID uuid.UUID, c
 	s.analysisStore.Init(taskIDStr)
 	defer s.analysisStore.Remove(taskIDStr)
 
-	feeRate := task.FeeRate
-	if feeRate.IsZero() && cfg.FeeRate > 0 {
-		feeRate = decimal.NewFromFloat(cfg.FeeRate)
-	}
+	feeRate := decimal.NewFromFloat(cfg.FeeRate)
 
 	eng := engine.NewBacktestEngine(s.registry)
 	out, err := eng.Run(taskCtx, engine.EngineInput{
@@ -195,6 +192,11 @@ func (s *BacktestScheduler) executeTask(ctx context.Context, taskID uuid.UUID, c
 	}
 
 	out.Result.StrategyName = strategy.Name
+	out.Result.Pair = task.Pair
+	out.Result.Timeframe = task.Timeframe
+	out.Result.StartAt = task.StartAt
+	out.Result.EndAt = task.EndAt
+	out.Result.InitialCapital = task.InitialCapital
 
 	// 写入守卫：引擎跑完后重读 DB，确认没有被取消
 	latest, err := s.repo.GetTask(context.Background(), taskID)

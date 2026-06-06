@@ -18,6 +18,12 @@ func (BacktestResult) Fields() []ent.Field {
 	return []ent.Field{
 		field.UUID("id", uuid.UUID{}).Default(uuid.New),
 		field.String("strategy_name").Default(""),
+		field.String("pair").Default(""),
+		field.String("timeframe").Default(""),
+		field.Time("start_at"),
+		field.Time("end_at"),
+		field.Float("initial_capital").
+			SchemaType(map[string]string{dialect.Postgres: "numeric(20,8)"}),
 		field.Float("final_value").
 			SchemaType(map[string]string{dialect.Postgres: "numeric(20,8)"}),
 		field.Float("total_return_percent").

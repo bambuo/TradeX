@@ -3,6 +3,7 @@
 package strategy
 
 import (
+	"time"
 	"tradex/internal/infrastructure/persistence/ent/predicate"
 
 	"entgo.io/ent/dialect/sql"
@@ -74,24 +75,24 @@ func ExecutionRule(v string) predicate.Strategy {
 	return predicate.Strategy(sql.FieldEQ(FieldExecutionRule, v))
 }
 
-// ExchangeID applies equality check predicate on the "exchange_id" field. It's identical to ExchangeIDEQ.
-func ExchangeID(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldEQ(FieldExchangeID, v))
+// Version applies equality check predicate on the "version" field. It's identical to VersionEQ.
+func Version(v int) predicate.Strategy {
+	return predicate.Strategy(sql.FieldEQ(FieldVersion, v))
 }
 
-// Pair applies equality check predicate on the "pair" field. It's identical to PairEQ.
-func Pair(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldEQ(FieldPair, v))
+// CreatedBy applies equality check predicate on the "created_by" field. It's identical to CreatedByEQ.
+func CreatedBy(v uuid.UUID) predicate.Strategy {
+	return predicate.Strategy(sql.FieldEQ(FieldCreatedBy, v))
 }
 
-// Timeframe applies equality check predicate on the "timeframe" field. It's identical to TimeframeEQ.
-func Timeframe(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldEQ(FieldTimeframe, v))
+// CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
+func CreatedAt(v time.Time) predicate.Strategy {
+	return predicate.Strategy(sql.FieldEQ(FieldCreatedAt, v))
 }
 
-// IsActive applies equality check predicate on the "is_active" field. It's identical to IsActiveEQ.
-func IsActive(v bool) predicate.Strategy {
-	return predicate.Strategy(sql.FieldEQ(FieldIsActive, v))
+// UpdatedAt applies equality check predicate on the "updated_at" field. It's identical to UpdatedAtEQ.
+func UpdatedAt(v time.Time) predicate.Strategy {
+	return predicate.Strategy(sql.FieldEQ(FieldUpdatedAt, v))
 }
 
 // NameEQ applies the EQ predicate on the "name" field.
@@ -384,209 +385,164 @@ func ExecutionRuleContainsFold(v string) predicate.Strategy {
 	return predicate.Strategy(sql.FieldContainsFold(FieldExecutionRule, v))
 }
 
-// ExchangeIDEQ applies the EQ predicate on the "exchange_id" field.
-func ExchangeIDEQ(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldEQ(FieldExchangeID, v))
+// VersionEQ applies the EQ predicate on the "version" field.
+func VersionEQ(v int) predicate.Strategy {
+	return predicate.Strategy(sql.FieldEQ(FieldVersion, v))
 }
 
-// ExchangeIDNEQ applies the NEQ predicate on the "exchange_id" field.
-func ExchangeIDNEQ(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldNEQ(FieldExchangeID, v))
+// VersionNEQ applies the NEQ predicate on the "version" field.
+func VersionNEQ(v int) predicate.Strategy {
+	return predicate.Strategy(sql.FieldNEQ(FieldVersion, v))
 }
 
-// ExchangeIDIn applies the In predicate on the "exchange_id" field.
-func ExchangeIDIn(vs ...string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldIn(FieldExchangeID, vs...))
+// VersionIn applies the In predicate on the "version" field.
+func VersionIn(vs ...int) predicate.Strategy {
+	return predicate.Strategy(sql.FieldIn(FieldVersion, vs...))
 }
 
-// ExchangeIDNotIn applies the NotIn predicate on the "exchange_id" field.
-func ExchangeIDNotIn(vs ...string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldNotIn(FieldExchangeID, vs...))
+// VersionNotIn applies the NotIn predicate on the "version" field.
+func VersionNotIn(vs ...int) predicate.Strategy {
+	return predicate.Strategy(sql.FieldNotIn(FieldVersion, vs...))
 }
 
-// ExchangeIDGT applies the GT predicate on the "exchange_id" field.
-func ExchangeIDGT(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldGT(FieldExchangeID, v))
+// VersionGT applies the GT predicate on the "version" field.
+func VersionGT(v int) predicate.Strategy {
+	return predicate.Strategy(sql.FieldGT(FieldVersion, v))
 }
 
-// ExchangeIDGTE applies the GTE predicate on the "exchange_id" field.
-func ExchangeIDGTE(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldGTE(FieldExchangeID, v))
+// VersionGTE applies the GTE predicate on the "version" field.
+func VersionGTE(v int) predicate.Strategy {
+	return predicate.Strategy(sql.FieldGTE(FieldVersion, v))
 }
 
-// ExchangeIDLT applies the LT predicate on the "exchange_id" field.
-func ExchangeIDLT(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldLT(FieldExchangeID, v))
+// VersionLT applies the LT predicate on the "version" field.
+func VersionLT(v int) predicate.Strategy {
+	return predicate.Strategy(sql.FieldLT(FieldVersion, v))
 }
 
-// ExchangeIDLTE applies the LTE predicate on the "exchange_id" field.
-func ExchangeIDLTE(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldLTE(FieldExchangeID, v))
+// VersionLTE applies the LTE predicate on the "version" field.
+func VersionLTE(v int) predicate.Strategy {
+	return predicate.Strategy(sql.FieldLTE(FieldVersion, v))
 }
 
-// ExchangeIDContains applies the Contains predicate on the "exchange_id" field.
-func ExchangeIDContains(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldContains(FieldExchangeID, v))
+// CreatedByEQ applies the EQ predicate on the "created_by" field.
+func CreatedByEQ(v uuid.UUID) predicate.Strategy {
+	return predicate.Strategy(sql.FieldEQ(FieldCreatedBy, v))
 }
 
-// ExchangeIDHasPrefix applies the HasPrefix predicate on the "exchange_id" field.
-func ExchangeIDHasPrefix(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldHasPrefix(FieldExchangeID, v))
+// CreatedByNEQ applies the NEQ predicate on the "created_by" field.
+func CreatedByNEQ(v uuid.UUID) predicate.Strategy {
+	return predicate.Strategy(sql.FieldNEQ(FieldCreatedBy, v))
 }
 
-// ExchangeIDHasSuffix applies the HasSuffix predicate on the "exchange_id" field.
-func ExchangeIDHasSuffix(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldHasSuffix(FieldExchangeID, v))
+// CreatedByIn applies the In predicate on the "created_by" field.
+func CreatedByIn(vs ...uuid.UUID) predicate.Strategy {
+	return predicate.Strategy(sql.FieldIn(FieldCreatedBy, vs...))
 }
 
-// ExchangeIDEqualFold applies the EqualFold predicate on the "exchange_id" field.
-func ExchangeIDEqualFold(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldEqualFold(FieldExchangeID, v))
+// CreatedByNotIn applies the NotIn predicate on the "created_by" field.
+func CreatedByNotIn(vs ...uuid.UUID) predicate.Strategy {
+	return predicate.Strategy(sql.FieldNotIn(FieldCreatedBy, vs...))
 }
 
-// ExchangeIDContainsFold applies the ContainsFold predicate on the "exchange_id" field.
-func ExchangeIDContainsFold(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldContainsFold(FieldExchangeID, v))
+// CreatedByGT applies the GT predicate on the "created_by" field.
+func CreatedByGT(v uuid.UUID) predicate.Strategy {
+	return predicate.Strategy(sql.FieldGT(FieldCreatedBy, v))
 }
 
-// PairEQ applies the EQ predicate on the "pair" field.
-func PairEQ(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldEQ(FieldPair, v))
+// CreatedByGTE applies the GTE predicate on the "created_by" field.
+func CreatedByGTE(v uuid.UUID) predicate.Strategy {
+	return predicate.Strategy(sql.FieldGTE(FieldCreatedBy, v))
 }
 
-// PairNEQ applies the NEQ predicate on the "pair" field.
-func PairNEQ(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldNEQ(FieldPair, v))
+// CreatedByLT applies the LT predicate on the "created_by" field.
+func CreatedByLT(v uuid.UUID) predicate.Strategy {
+	return predicate.Strategy(sql.FieldLT(FieldCreatedBy, v))
 }
 
-// PairIn applies the In predicate on the "pair" field.
-func PairIn(vs ...string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldIn(FieldPair, vs...))
+// CreatedByLTE applies the LTE predicate on the "created_by" field.
+func CreatedByLTE(v uuid.UUID) predicate.Strategy {
+	return predicate.Strategy(sql.FieldLTE(FieldCreatedBy, v))
 }
 
-// PairNotIn applies the NotIn predicate on the "pair" field.
-func PairNotIn(vs ...string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldNotIn(FieldPair, vs...))
+// CreatedAtEQ applies the EQ predicate on the "created_at" field.
+func CreatedAtEQ(v time.Time) predicate.Strategy {
+	return predicate.Strategy(sql.FieldEQ(FieldCreatedAt, v))
 }
 
-// PairGT applies the GT predicate on the "pair" field.
-func PairGT(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldGT(FieldPair, v))
+// CreatedAtNEQ applies the NEQ predicate on the "created_at" field.
+func CreatedAtNEQ(v time.Time) predicate.Strategy {
+	return predicate.Strategy(sql.FieldNEQ(FieldCreatedAt, v))
 }
 
-// PairGTE applies the GTE predicate on the "pair" field.
-func PairGTE(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldGTE(FieldPair, v))
+// CreatedAtIn applies the In predicate on the "created_at" field.
+func CreatedAtIn(vs ...time.Time) predicate.Strategy {
+	return predicate.Strategy(sql.FieldIn(FieldCreatedAt, vs...))
 }
 
-// PairLT applies the LT predicate on the "pair" field.
-func PairLT(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldLT(FieldPair, v))
+// CreatedAtNotIn applies the NotIn predicate on the "created_at" field.
+func CreatedAtNotIn(vs ...time.Time) predicate.Strategy {
+	return predicate.Strategy(sql.FieldNotIn(FieldCreatedAt, vs...))
 }
 
-// PairLTE applies the LTE predicate on the "pair" field.
-func PairLTE(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldLTE(FieldPair, v))
+// CreatedAtGT applies the GT predicate on the "created_at" field.
+func CreatedAtGT(v time.Time) predicate.Strategy {
+	return predicate.Strategy(sql.FieldGT(FieldCreatedAt, v))
 }
 
-// PairContains applies the Contains predicate on the "pair" field.
-func PairContains(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldContains(FieldPair, v))
+// CreatedAtGTE applies the GTE predicate on the "created_at" field.
+func CreatedAtGTE(v time.Time) predicate.Strategy {
+	return predicate.Strategy(sql.FieldGTE(FieldCreatedAt, v))
 }
 
-// PairHasPrefix applies the HasPrefix predicate on the "pair" field.
-func PairHasPrefix(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldHasPrefix(FieldPair, v))
+// CreatedAtLT applies the LT predicate on the "created_at" field.
+func CreatedAtLT(v time.Time) predicate.Strategy {
+	return predicate.Strategy(sql.FieldLT(FieldCreatedAt, v))
 }
 
-// PairHasSuffix applies the HasSuffix predicate on the "pair" field.
-func PairHasSuffix(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldHasSuffix(FieldPair, v))
+// CreatedAtLTE applies the LTE predicate on the "created_at" field.
+func CreatedAtLTE(v time.Time) predicate.Strategy {
+	return predicate.Strategy(sql.FieldLTE(FieldCreatedAt, v))
 }
 
-// PairEqualFold applies the EqualFold predicate on the "pair" field.
-func PairEqualFold(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldEqualFold(FieldPair, v))
+// UpdatedAtEQ applies the EQ predicate on the "updated_at" field.
+func UpdatedAtEQ(v time.Time) predicate.Strategy {
+	return predicate.Strategy(sql.FieldEQ(FieldUpdatedAt, v))
 }
 
-// PairContainsFold applies the ContainsFold predicate on the "pair" field.
-func PairContainsFold(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldContainsFold(FieldPair, v))
+// UpdatedAtNEQ applies the NEQ predicate on the "updated_at" field.
+func UpdatedAtNEQ(v time.Time) predicate.Strategy {
+	return predicate.Strategy(sql.FieldNEQ(FieldUpdatedAt, v))
 }
 
-// TimeframeEQ applies the EQ predicate on the "timeframe" field.
-func TimeframeEQ(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldEQ(FieldTimeframe, v))
+// UpdatedAtIn applies the In predicate on the "updated_at" field.
+func UpdatedAtIn(vs ...time.Time) predicate.Strategy {
+	return predicate.Strategy(sql.FieldIn(FieldUpdatedAt, vs...))
 }
 
-// TimeframeNEQ applies the NEQ predicate on the "timeframe" field.
-func TimeframeNEQ(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldNEQ(FieldTimeframe, v))
+// UpdatedAtNotIn applies the NotIn predicate on the "updated_at" field.
+func UpdatedAtNotIn(vs ...time.Time) predicate.Strategy {
+	return predicate.Strategy(sql.FieldNotIn(FieldUpdatedAt, vs...))
 }
 
-// TimeframeIn applies the In predicate on the "timeframe" field.
-func TimeframeIn(vs ...string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldIn(FieldTimeframe, vs...))
+// UpdatedAtGT applies the GT predicate on the "updated_at" field.
+func UpdatedAtGT(v time.Time) predicate.Strategy {
+	return predicate.Strategy(sql.FieldGT(FieldUpdatedAt, v))
 }
 
-// TimeframeNotIn applies the NotIn predicate on the "timeframe" field.
-func TimeframeNotIn(vs ...string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldNotIn(FieldTimeframe, vs...))
+// UpdatedAtGTE applies the GTE predicate on the "updated_at" field.
+func UpdatedAtGTE(v time.Time) predicate.Strategy {
+	return predicate.Strategy(sql.FieldGTE(FieldUpdatedAt, v))
 }
 
-// TimeframeGT applies the GT predicate on the "timeframe" field.
-func TimeframeGT(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldGT(FieldTimeframe, v))
+// UpdatedAtLT applies the LT predicate on the "updated_at" field.
+func UpdatedAtLT(v time.Time) predicate.Strategy {
+	return predicate.Strategy(sql.FieldLT(FieldUpdatedAt, v))
 }
 
-// TimeframeGTE applies the GTE predicate on the "timeframe" field.
-func TimeframeGTE(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldGTE(FieldTimeframe, v))
-}
-
-// TimeframeLT applies the LT predicate on the "timeframe" field.
-func TimeframeLT(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldLT(FieldTimeframe, v))
-}
-
-// TimeframeLTE applies the LTE predicate on the "timeframe" field.
-func TimeframeLTE(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldLTE(FieldTimeframe, v))
-}
-
-// TimeframeContains applies the Contains predicate on the "timeframe" field.
-func TimeframeContains(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldContains(FieldTimeframe, v))
-}
-
-// TimeframeHasPrefix applies the HasPrefix predicate on the "timeframe" field.
-func TimeframeHasPrefix(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldHasPrefix(FieldTimeframe, v))
-}
-
-// TimeframeHasSuffix applies the HasSuffix predicate on the "timeframe" field.
-func TimeframeHasSuffix(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldHasSuffix(FieldTimeframe, v))
-}
-
-// TimeframeEqualFold applies the EqualFold predicate on the "timeframe" field.
-func TimeframeEqualFold(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldEqualFold(FieldTimeframe, v))
-}
-
-// TimeframeContainsFold applies the ContainsFold predicate on the "timeframe" field.
-func TimeframeContainsFold(v string) predicate.Strategy {
-	return predicate.Strategy(sql.FieldContainsFold(FieldTimeframe, v))
-}
-
-// IsActiveEQ applies the EQ predicate on the "is_active" field.
-func IsActiveEQ(v bool) predicate.Strategy {
-	return predicate.Strategy(sql.FieldEQ(FieldIsActive, v))
-}
-
-// IsActiveNEQ applies the NEQ predicate on the "is_active" field.
-func IsActiveNEQ(v bool) predicate.Strategy {
-	return predicate.Strategy(sql.FieldNEQ(FieldIsActive, v))
+// UpdatedAtLTE applies the LTE predicate on the "updated_at" field.
+func UpdatedAtLTE(v time.Time) predicate.Strategy {
+	return predicate.Strategy(sql.FieldLTE(FieldUpdatedAt, v))
 }
 
 // And groups predicates with the AND operator between them.

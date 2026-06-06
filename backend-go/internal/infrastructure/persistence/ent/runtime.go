@@ -27,18 +27,8 @@ func init() {
 	backtestklineanalysisDescAction := backtestklineanalysisFields[13].Descriptor()
 	// backtestklineanalysis.DefaultAction holds the default value on creation for the action field.
 	backtestklineanalysis.DefaultAction = backtestklineanalysisDescAction.Default.(string)
-	// backtestklineanalysisDescPositionValue is the schema descriptor for position_value field.
-	backtestklineanalysisDescPositionValue := backtestklineanalysisFields[14].Descriptor()
-	// backtestklineanalysis.DefaultPositionValue holds the default value on creation for the position_value field.
-	backtestklineanalysis.DefaultPositionValue = backtestklineanalysisDescPositionValue.Default.(float64)
-	// backtestklineanalysisDescPositionPnl is the schema descriptor for position_pnl field.
-	backtestklineanalysisDescPositionPnl := backtestklineanalysisFields[15].Descriptor()
-	// backtestklineanalysis.DefaultPositionPnl holds the default value on creation for the position_pnl field.
-	backtestklineanalysis.DefaultPositionPnl = backtestklineanalysisDescPositionPnl.Default.(float64)
-	// backtestklineanalysisDescCreatedAt is the schema descriptor for created_at field.
-	backtestklineanalysisDescCreatedAt := backtestklineanalysisFields[16].Descriptor()
-	// backtestklineanalysis.DefaultCreatedAt holds the default value on creation for the created_at field.
-	backtestklineanalysis.DefaultCreatedAt = backtestklineanalysisDescCreatedAt.Default.(func() time.Time)
+	// backtestklineanalysis.ActionValidator is a validator for the "action" field. It is called by the builders before save.
+	backtestklineanalysis.ActionValidator = backtestklineanalysisDescAction.Validators[0].(func(string) error)
 	// backtestklineanalysisDescID is the schema descriptor for id field.
 	backtestklineanalysisDescID := backtestklineanalysisFields[0].Descriptor()
 	// backtestklineanalysis.DefaultID holds the default value on creation for the id field.
@@ -49,8 +39,16 @@ func init() {
 	backtestresultDescStrategyName := backtestresultFields[1].Descriptor()
 	// backtestresult.DefaultStrategyName holds the default value on creation for the strategy_name field.
 	backtestresult.DefaultStrategyName = backtestresultDescStrategyName.Default.(string)
+	// backtestresultDescPair is the schema descriptor for pair field.
+	backtestresultDescPair := backtestresultFields[2].Descriptor()
+	// backtestresult.DefaultPair holds the default value on creation for the pair field.
+	backtestresult.DefaultPair = backtestresultDescPair.Default.(string)
+	// backtestresultDescTimeframe is the schema descriptor for timeframe field.
+	backtestresultDescTimeframe := backtestresultFields[3].Descriptor()
+	// backtestresult.DefaultTimeframe holds the default value on creation for the timeframe field.
+	backtestresult.DefaultTimeframe = backtestresultDescTimeframe.Default.(string)
 	// backtestresultDescCreatedAt is the schema descriptor for created_at field.
-	backtestresultDescCreatedAt := backtestresultFields[11].Descriptor()
+	backtestresultDescCreatedAt := backtestresultFields[16].Descriptor()
 	// backtestresult.DefaultCreatedAt holds the default value on creation for the created_at field.
 	backtestresult.DefaultCreatedAt = backtestresultDescCreatedAt.Default.(func() time.Time)
 	// backtestresultDescID is the schema descriptor for id field.
@@ -63,38 +61,52 @@ func init() {
 	backtesttaskDescStrategyName := backtesttaskFields[2].Descriptor()
 	// backtesttask.DefaultStrategyName holds the default value on creation for the strategy_name field.
 	backtesttask.DefaultStrategyName = backtesttaskDescStrategyName.Default.(string)
+	// backtesttask.StrategyNameValidator is a validator for the "strategy_name" field. It is called by the builders before save.
+	backtesttask.StrategyNameValidator = backtesttaskDescStrategyName.Validators[0].(func(string) error)
 	// backtesttaskDescCreatedBy is the schema descriptor for created_by field.
 	backtesttaskDescCreatedBy := backtesttaskFields[3].Descriptor()
 	// backtesttask.DefaultCreatedBy holds the default value on creation for the created_by field.
 	backtesttask.DefaultCreatedBy = backtesttaskDescCreatedBy.Default.(func() uuid.UUID)
-	// backtesttaskDescFeeRate is the schema descriptor for fee_rate field.
-	backtesttaskDescFeeRate := backtesttaskFields[9].Descriptor()
-	// backtesttask.DefaultFeeRate holds the default value on creation for the fee_rate field.
-	backtesttask.DefaultFeeRate = backtesttaskDescFeeRate.Default.(float64)
-	// backtesttaskDescProgress is the schema descriptor for progress field.
-	backtesttaskDescProgress := backtesttaskFields[15].Descriptor()
-	// backtesttask.DefaultProgress holds the default value on creation for the progress field.
-	backtesttask.DefaultProgress = backtesttaskDescProgress.Default.(int)
+	// backtesttaskDescPair is the schema descriptor for pair field.
+	backtesttaskDescPair := backtesttaskFields[5].Descriptor()
+	// backtesttask.PairValidator is a validator for the "pair" field. It is called by the builders before save.
+	backtesttask.PairValidator = backtesttaskDescPair.Validators[0].(func(string) error)
+	// backtesttaskDescTimeframe is the schema descriptor for timeframe field.
+	backtesttaskDescTimeframe := backtesttaskFields[6].Descriptor()
+	// backtesttask.TimeframeValidator is a validator for the "timeframe" field. It is called by the builders before save.
+	backtesttask.TimeframeValidator = backtesttaskDescTimeframe.Validators[0].(func(string) error)
 	// backtesttaskDescCreatedAt is the schema descriptor for created_at field.
-	backtesttaskDescCreatedAt := backtesttaskFields[17].Descriptor()
+	backtesttaskDescCreatedAt := backtesttaskFields[14].Descriptor()
 	// backtesttask.DefaultCreatedAt holds the default value on creation for the created_at field.
 	backtesttask.DefaultCreatedAt = backtesttaskDescCreatedAt.Default.(func() time.Time)
-	// backtesttaskDescUpdatedAt is the schema descriptor for updated_at field.
-	backtesttaskDescUpdatedAt := backtesttaskFields[18].Descriptor()
-	// backtesttask.DefaultUpdatedAt holds the default value on creation for the updated_at field.
-	backtesttask.DefaultUpdatedAt = backtesttaskDescUpdatedAt.Default.(func() time.Time)
-	// backtesttask.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
-	backtesttask.UpdateDefaultUpdatedAt = backtesttaskDescUpdatedAt.UpdateDefault.(func() time.Time)
 	// backtesttaskDescID is the schema descriptor for id field.
 	backtesttaskDescID := backtesttaskFields[0].Descriptor()
 	// backtesttask.DefaultID holds the default value on creation for the id field.
 	backtesttask.DefaultID = backtesttaskDescID.Default.(func() uuid.UUID)
 	strategyFields := schema.Strategy{}.Fields()
 	_ = strategyFields
-	// strategyDescIsActive is the schema descriptor for is_active field.
-	strategyDescIsActive := strategyFields[8].Descriptor()
-	// strategy.DefaultIsActive holds the default value on creation for the is_active field.
-	strategy.DefaultIsActive = strategyDescIsActive.Default.(bool)
+	// strategyDescName is the schema descriptor for name field.
+	strategyDescName := strategyFields[1].Descriptor()
+	// strategy.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	strategy.NameValidator = strategyDescName.Validators[0].(func(string) error)
+	// strategyDescVersion is the schema descriptor for version field.
+	strategyDescVersion := strategyFields[5].Descriptor()
+	// strategy.DefaultVersion holds the default value on creation for the version field.
+	strategy.DefaultVersion = strategyDescVersion.Default.(int)
+	// strategyDescCreatedBy is the schema descriptor for created_by field.
+	strategyDescCreatedBy := strategyFields[6].Descriptor()
+	// strategy.DefaultCreatedBy holds the default value on creation for the created_by field.
+	strategy.DefaultCreatedBy = strategyDescCreatedBy.Default.(func() uuid.UUID)
+	// strategyDescCreatedAt is the schema descriptor for created_at field.
+	strategyDescCreatedAt := strategyFields[7].Descriptor()
+	// strategy.DefaultCreatedAt holds the default value on creation for the created_at field.
+	strategy.DefaultCreatedAt = strategyDescCreatedAt.Default.(func() time.Time)
+	// strategyDescUpdatedAt is the schema descriptor for updated_at field.
+	strategyDescUpdatedAt := strategyFields[8].Descriptor()
+	// strategy.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	strategy.DefaultUpdatedAt = strategyDescUpdatedAt.Default.(func() time.Time)
+	// strategy.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	strategy.UpdateDefaultUpdatedAt = strategyDescUpdatedAt.UpdateDefault.(func() time.Time)
 	// strategyDescID is the schema descriptor for id field.
 	strategyDescID := strategyFields[0].Descriptor()
 	// strategy.DefaultID holds the default value on creation for the id field.

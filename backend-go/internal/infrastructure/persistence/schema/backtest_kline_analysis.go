@@ -1,8 +1,6 @@
 package schema
 
 import (
-	"time"
-
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/schema/field"
@@ -31,17 +29,28 @@ func (BacktestKlineAnalysis) Fields() []ent.Field {
 		field.Float("volume").
 			SchemaType(map[string]string{dialect.Postgres: "numeric(20,8)"}),
 		field.JSON("indicator_values", map[string]float64{}).Optional(),
-		field.JSON("entry_condition_result", map[string]any{}).Optional(),
-		field.JSON("exit_condition_result", map[string]any{}).Optional(),
+		field.Bool("entry_condition_result").Optional().Nillable(),
+		field.Bool("exit_condition_result").Optional().Nillable(),
 		field.Bool("in_position").Default(false),
-		field.String("action").Default("hold"),
+		field.String("action").MaxLen(20).Default("none"),
+		field.Float("avg_entry_price").
+			Optional().Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "numeric(20,8)"}),
+		field.Float("position_quantity").
+			Optional().Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "numeric(20,8)"}),
+		field.Float("position_cost").
+			Optional().Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "numeric(20,8)"}),
 		field.Float("position_value").
-			Default(0).
+			Optional().Nillable().
 			SchemaType(map[string]string{dialect.Postgres: "numeric(20,8)"}),
 		field.Float("position_pnl").
-			Default(0).
+			Optional().Nillable().
 			SchemaType(map[string]string{dialect.Postgres: "numeric(20,8)"}),
-		field.Time("created_at").Default(time.Now).Immutable(),
+		field.Float("position_pnl_percent").
+			Optional().Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "numeric(12,4)"}),
 	}
 }
 

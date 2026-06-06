@@ -37,13 +37,15 @@ func (s *BacktestService) CreateTask(ctx context.Context, req CreateBacktestRequ
 		return nil, fmt.Errorf("%w: 无效的策略ID: %s", domain.ErrInvalidInput, req.StrategyID)
 	}
 
+	exchangeID, err := uuid.Parse(req.ExchangeID)
+	if err != nil {
+		return nil, fmt.Errorf("%w: 无效的交易所ID: %s", domain.ErrInvalidInput, req.ExchangeID)
+	}
+
 	// validate strategy exists
 	strategy, err := s.repo.GetStrategy(ctx, strategyID)
 	if err != nil {
 		return nil, fmt.Errorf("%w: 策略不存在: %s", domain.ErrInvalidInput, req.StrategyID)
-	}
-	if !strategy.IsActive {
-		return nil, fmt.Errorf("%w: 策略已停用", domain.ErrInvalidInput)
 	}
 
 	startAt, err := time.Parse(time.RFC3339, req.StartAt)
@@ -65,16 +67,14 @@ func (s *BacktestService) CreateTask(ctx context.Context, req CreateBacktestRequ
 		StrategyID:     strategyID,
 		StrategyName:   strategy.Name,
 		CreatedBy:      uuid.Nil,
-		ExchangeID:     req.ExchangeID,
+		ExchangeID:     exchangeID,
 		Pair:           req.Pair,
 		Timeframe:      req.Timeframe,
 		InitialCapital: decimal.NewFromFloat(req.InitialCapital),
-		FeeRate:        decimal.NewFromFloat(req.FeeRate),
 		StartAt:        startAt,
 		EndAt:          endAt,
 		Status:         domain.TaskStatusPending,
 		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
 	}
 	if req.PositionSize != nil {
 		v := decimal.NewFromFloat(*req.PositionSize)

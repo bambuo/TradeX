@@ -26,7 +26,7 @@ type BacktestTask struct {
 	// CreatedBy holds the value of the "created_by" field.
 	CreatedBy uuid.UUID `json:"created_by,omitempty"`
 	// ExchangeID holds the value of the "exchange_id" field.
-	ExchangeID string `json:"exchange_id,omitempty"`
+	ExchangeID uuid.UUID `json:"exchange_id,omitempty"`
 	// Pair holds the value of the "pair" field.
 	Pair string `json:"pair,omitempty"`
 	// Timeframe holds the value of the "timeframe" field.
@@ -35,8 +35,6 @@ type BacktestTask struct {
 	InitialCapital float64 `json:"initial_capital,omitempty"`
 	// PositionSize holds the value of the "position_size" field.
 	PositionSize *float64 `json:"position_size,omitempty"`
-	// FeeRate holds the value of the "fee_rate" field.
-	FeeRate float64 `json:"fee_rate,omitempty"`
 	// StartAt holds the value of the "start_at" field.
 	StartAt time.Time `json:"start_at,omitempty"`
 	// EndAt holds the value of the "end_at" field.
@@ -47,14 +45,8 @@ type BacktestTask struct {
 	Status backtesttask.Status `json:"status,omitempty"`
 	// Phase holds the value of the "phase" field.
 	Phase backtesttask.Phase `json:"phase,omitempty"`
-	// Progress holds the value of the "progress" field.
-	Progress int `json:"progress,omitempty"`
-	// ErrorMessage holds the value of the "error_message" field.
-	ErrorMessage *string `json:"error_message,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
-	// UpdatedAt holds the value of the "updated_at" field.
-	UpdatedAt time.Time `json:"updated_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the BacktestTaskQuery when eager-loading is set.
 	Edges        BacktestTaskEdges `json:"edges"`
@@ -86,15 +78,13 @@ func (*BacktestTask) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case backtesttask.FieldInitialCapital, backtesttask.FieldPositionSize, backtesttask.FieldFeeRate:
+		case backtesttask.FieldInitialCapital, backtesttask.FieldPositionSize:
 			values[i] = new(sql.NullFloat64)
-		case backtesttask.FieldProgress:
-			values[i] = new(sql.NullInt64)
-		case backtesttask.FieldStrategyName, backtesttask.FieldExchangeID, backtesttask.FieldPair, backtesttask.FieldTimeframe, backtesttask.FieldStatus, backtesttask.FieldPhase, backtesttask.FieldErrorMessage:
+		case backtesttask.FieldStrategyName, backtesttask.FieldPair, backtesttask.FieldTimeframe, backtesttask.FieldStatus, backtesttask.FieldPhase:
 			values[i] = new(sql.NullString)
-		case backtesttask.FieldStartAt, backtesttask.FieldEndAt, backtesttask.FieldCompletedAt, backtesttask.FieldCreatedAt, backtesttask.FieldUpdatedAt:
+		case backtesttask.FieldStartAt, backtesttask.FieldEndAt, backtesttask.FieldCompletedAt, backtesttask.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
-		case backtesttask.FieldID, backtesttask.FieldStrategyID, backtesttask.FieldCreatedBy:
+		case backtesttask.FieldID, backtesttask.FieldStrategyID, backtesttask.FieldCreatedBy, backtesttask.FieldExchangeID:
 			values[i] = new(uuid.UUID)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -136,10 +126,10 @@ func (_m *BacktestTask) assignValues(columns []string, values []any) error {
 				_m.CreatedBy = *value
 			}
 		case backtesttask.FieldExchangeID:
-			if value, ok := values[i].(*sql.NullString); !ok {
+			if value, ok := values[i].(*uuid.UUID); !ok {
 				return fmt.Errorf("unexpected type %T for field exchange_id", values[i])
-			} else if value.Valid {
-				_m.ExchangeID = value.String
+			} else if value != nil {
+				_m.ExchangeID = *value
 			}
 		case backtesttask.FieldPair:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -165,12 +155,6 @@ func (_m *BacktestTask) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.PositionSize = new(float64)
 				*_m.PositionSize = value.Float64
-			}
-		case backtesttask.FieldFeeRate:
-			if value, ok := values[i].(*sql.NullFloat64); !ok {
-				return fmt.Errorf("unexpected type %T for field fee_rate", values[i])
-			} else if value.Valid {
-				_m.FeeRate = value.Float64
 			}
 		case backtesttask.FieldStartAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -203,30 +187,11 @@ func (_m *BacktestTask) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Phase = backtesttask.Phase(value.String)
 			}
-		case backtesttask.FieldProgress:
-			if value, ok := values[i].(*sql.NullInt64); !ok {
-				return fmt.Errorf("unexpected type %T for field progress", values[i])
-			} else if value.Valid {
-				_m.Progress = int(value.Int64)
-			}
-		case backtesttask.FieldErrorMessage:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field error_message", values[i])
-			} else if value.Valid {
-				_m.ErrorMessage = new(string)
-				*_m.ErrorMessage = value.String
-			}
 		case backtesttask.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field created_at", values[i])
 			} else if value.Valid {
 				_m.CreatedAt = value.Time
-			}
-		case backtesttask.FieldUpdatedAt:
-			if value, ok := values[i].(*sql.NullTime); !ok {
-				return fmt.Errorf("unexpected type %T for field updated_at", values[i])
-			} else if value.Valid {
-				_m.UpdatedAt = value.Time
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -279,7 +244,7 @@ func (_m *BacktestTask) String() string {
 	builder.WriteString(fmt.Sprintf("%v", _m.CreatedBy))
 	builder.WriteString(", ")
 	builder.WriteString("exchange_id=")
-	builder.WriteString(_m.ExchangeID)
+	builder.WriteString(fmt.Sprintf("%v", _m.ExchangeID))
 	builder.WriteString(", ")
 	builder.WriteString("pair=")
 	builder.WriteString(_m.Pair)
@@ -294,9 +259,6 @@ func (_m *BacktestTask) String() string {
 		builder.WriteString("position_size=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
-	builder.WriteString(", ")
-	builder.WriteString("fee_rate=")
-	builder.WriteString(fmt.Sprintf("%v", _m.FeeRate))
 	builder.WriteString(", ")
 	builder.WriteString("start_at=")
 	builder.WriteString(_m.StartAt.Format(time.ANSIC))
@@ -315,19 +277,8 @@ func (_m *BacktestTask) String() string {
 	builder.WriteString("phase=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Phase))
 	builder.WriteString(", ")
-	builder.WriteString("progress=")
-	builder.WriteString(fmt.Sprintf("%v", _m.Progress))
-	builder.WriteString(", ")
-	if v := _m.ErrorMessage; v != nil {
-		builder.WriteString("error_message=")
-		builder.WriteString(*v)
-	}
-	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))
-	builder.WriteString(", ")
-	builder.WriteString("updated_at=")
-	builder.WriteString(_m.UpdatedAt.Format(time.ANSIC))
 	builder.WriteByte(')')
 	return builder.String()
 }

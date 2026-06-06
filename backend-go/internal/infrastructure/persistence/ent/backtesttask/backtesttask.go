@@ -32,8 +32,6 @@ const (
 	FieldInitialCapital = "initial_capital"
 	// FieldPositionSize holds the string denoting the position_size field in the database.
 	FieldPositionSize = "position_size"
-	// FieldFeeRate holds the string denoting the fee_rate field in the database.
-	FieldFeeRate = "fee_rate"
 	// FieldStartAt holds the string denoting the start_at field in the database.
 	FieldStartAt = "start_at"
 	// FieldEndAt holds the string denoting the end_at field in the database.
@@ -44,14 +42,8 @@ const (
 	FieldStatus = "status"
 	// FieldPhase holds the string denoting the phase field in the database.
 	FieldPhase = "phase"
-	// FieldProgress holds the string denoting the progress field in the database.
-	FieldProgress = "progress"
-	// FieldErrorMessage holds the string denoting the error_message field in the database.
-	FieldErrorMessage = "error_message"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
-	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
-	FieldUpdatedAt = "updated_at"
 	// EdgeResult holds the string denoting the result edge name in mutations.
 	EdgeResult = "result"
 	// Table holds the table name of the backtesttask in the database.
@@ -76,16 +68,12 @@ var Columns = []string{
 	FieldTimeframe,
 	FieldInitialCapital,
 	FieldPositionSize,
-	FieldFeeRate,
 	FieldStartAt,
 	FieldEndAt,
 	FieldCompletedAt,
 	FieldStatus,
 	FieldPhase,
-	FieldProgress,
-	FieldErrorMessage,
 	FieldCreatedAt,
-	FieldUpdatedAt,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -101,18 +89,16 @@ func ValidColumn(column string) bool {
 var (
 	// DefaultStrategyName holds the default value on creation for the "strategy_name" field.
 	DefaultStrategyName string
+	// StrategyNameValidator is a validator for the "strategy_name" field. It is called by the builders before save.
+	StrategyNameValidator func(string) error
 	// DefaultCreatedBy holds the default value on creation for the "created_by" field.
 	DefaultCreatedBy func() uuid.UUID
-	// DefaultFeeRate holds the default value on creation for the "fee_rate" field.
-	DefaultFeeRate float64
-	// DefaultProgress holds the default value on creation for the "progress" field.
-	DefaultProgress int
+	// PairValidator is a validator for the "pair" field. It is called by the builders before save.
+	PairValidator func(string) error
+	// TimeframeValidator is a validator for the "timeframe" field. It is called by the builders before save.
+	TimeframeValidator func(string) error
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
-	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
-	DefaultUpdatedAt func() time.Time
-	// UpdateDefaultUpdatedAt holds the default value on update for the "updated_at" field.
-	UpdateDefaultUpdatedAt func() time.Time
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
@@ -218,11 +204,6 @@ func ByPositionSize(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldPositionSize, opts...).ToFunc()
 }
 
-// ByFeeRate orders the results by the fee_rate field.
-func ByFeeRate(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldFeeRate, opts...).ToFunc()
-}
-
 // ByStartAt orders the results by the start_at field.
 func ByStartAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStartAt, opts...).ToFunc()
@@ -248,24 +229,9 @@ func ByPhase(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldPhase, opts...).ToFunc()
 }
 
-// ByProgress orders the results by the progress field.
-func ByProgress(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldProgress, opts...).ToFunc()
-}
-
-// ByErrorMessage orders the results by the error_message field.
-func ByErrorMessage(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldErrorMessage, opts...).ToFunc()
-}
-
 // ByCreatedAt orders the results by the created_at field.
 func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCreatedAt, opts...).ToFunc()
-}
-
-// ByUpdatedAt orders the results by the updated_at field.
-func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldUpdatedAt, opts...).ToFunc()
 }
 
 // ByResultField orders the results by result field.

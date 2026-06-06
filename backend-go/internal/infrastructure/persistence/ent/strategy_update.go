@@ -6,12 +6,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 	"tradex/internal/infrastructure/persistence/ent/predicate"
 	"tradex/internal/infrastructure/persistence/ent/strategy"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/google/uuid"
 )
 
 // StrategyUpdate is the builder for updating Strategy entities.
@@ -101,59 +103,44 @@ func (_u *StrategyUpdate) ClearExecutionRule() *StrategyUpdate {
 	return _u
 }
 
-// SetExchangeID sets the "exchange_id" field.
-func (_u *StrategyUpdate) SetExchangeID(v string) *StrategyUpdate {
-	_u.mutation.SetExchangeID(v)
+// SetVersion sets the "version" field.
+func (_u *StrategyUpdate) SetVersion(v int) *StrategyUpdate {
+	_u.mutation.ResetVersion()
+	_u.mutation.SetVersion(v)
 	return _u
 }
 
-// SetNillableExchangeID sets the "exchange_id" field if the given value is not nil.
-func (_u *StrategyUpdate) SetNillableExchangeID(v *string) *StrategyUpdate {
+// SetNillableVersion sets the "version" field if the given value is not nil.
+func (_u *StrategyUpdate) SetNillableVersion(v *int) *StrategyUpdate {
 	if v != nil {
-		_u.SetExchangeID(*v)
+		_u.SetVersion(*v)
 	}
 	return _u
 }
 
-// SetPair sets the "pair" field.
-func (_u *StrategyUpdate) SetPair(v string) *StrategyUpdate {
-	_u.mutation.SetPair(v)
+// AddVersion adds value to the "version" field.
+func (_u *StrategyUpdate) AddVersion(v int) *StrategyUpdate {
+	_u.mutation.AddVersion(v)
 	return _u
 }
 
-// SetNillablePair sets the "pair" field if the given value is not nil.
-func (_u *StrategyUpdate) SetNillablePair(v *string) *StrategyUpdate {
+// SetCreatedBy sets the "created_by" field.
+func (_u *StrategyUpdate) SetCreatedBy(v uuid.UUID) *StrategyUpdate {
+	_u.mutation.SetCreatedBy(v)
+	return _u
+}
+
+// SetNillableCreatedBy sets the "created_by" field if the given value is not nil.
+func (_u *StrategyUpdate) SetNillableCreatedBy(v *uuid.UUID) *StrategyUpdate {
 	if v != nil {
-		_u.SetPair(*v)
+		_u.SetCreatedBy(*v)
 	}
 	return _u
 }
 
-// SetTimeframe sets the "timeframe" field.
-func (_u *StrategyUpdate) SetTimeframe(v string) *StrategyUpdate {
-	_u.mutation.SetTimeframe(v)
-	return _u
-}
-
-// SetNillableTimeframe sets the "timeframe" field if the given value is not nil.
-func (_u *StrategyUpdate) SetNillableTimeframe(v *string) *StrategyUpdate {
-	if v != nil {
-		_u.SetTimeframe(*v)
-	}
-	return _u
-}
-
-// SetIsActive sets the "is_active" field.
-func (_u *StrategyUpdate) SetIsActive(v bool) *StrategyUpdate {
-	_u.mutation.SetIsActive(v)
-	return _u
-}
-
-// SetNillableIsActive sets the "is_active" field if the given value is not nil.
-func (_u *StrategyUpdate) SetNillableIsActive(v *bool) *StrategyUpdate {
-	if v != nil {
-		_u.SetIsActive(*v)
-	}
+// SetUpdatedAt sets the "updated_at" field.
+func (_u *StrategyUpdate) SetUpdatedAt(v time.Time) *StrategyUpdate {
+	_u.mutation.SetUpdatedAt(v)
 	return _u
 }
 
@@ -164,6 +151,7 @@ func (_u *StrategyUpdate) Mutation() *StrategyMutation {
 
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (_u *StrategyUpdate) Save(ctx context.Context) (int, error) {
+	_u.defaults()
 	return withHooks(ctx, _u.sqlSave, _u.mutation, _u.hooks)
 }
 
@@ -189,7 +177,28 @@ func (_u *StrategyUpdate) ExecX(ctx context.Context) {
 	}
 }
 
+// defaults sets the default values of the builder before save.
+func (_u *StrategyUpdate) defaults() {
+	if _, ok := _u.mutation.UpdatedAt(); !ok {
+		v := strategy.UpdateDefaultUpdatedAt()
+		_u.mutation.SetUpdatedAt(v)
+	}
+}
+
+// check runs all checks and user-defined validators on the builder.
+func (_u *StrategyUpdate) check() error {
+	if v, ok := _u.mutation.Name(); ok {
+		if err := strategy.NameValidator(v); err != nil {
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Strategy.name": %w`, err)}
+		}
+	}
+	return nil
+}
+
 func (_u *StrategyUpdate) sqlSave(ctx context.Context) (_node int, err error) {
+	if err := _u.check(); err != nil {
+		return _node, err
+	}
 	_spec := sqlgraph.NewUpdateSpec(strategy.Table, strategy.Columns, sqlgraph.NewFieldSpec(strategy.FieldID, field.TypeUUID))
 	if ps := _u.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
@@ -219,17 +228,17 @@ func (_u *StrategyUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if _u.mutation.ExecutionRuleCleared() {
 		_spec.ClearField(strategy.FieldExecutionRule, field.TypeString)
 	}
-	if value, ok := _u.mutation.ExchangeID(); ok {
-		_spec.SetField(strategy.FieldExchangeID, field.TypeString, value)
+	if value, ok := _u.mutation.Version(); ok {
+		_spec.SetField(strategy.FieldVersion, field.TypeInt, value)
 	}
-	if value, ok := _u.mutation.Pair(); ok {
-		_spec.SetField(strategy.FieldPair, field.TypeString, value)
+	if value, ok := _u.mutation.AddedVersion(); ok {
+		_spec.AddField(strategy.FieldVersion, field.TypeInt, value)
 	}
-	if value, ok := _u.mutation.Timeframe(); ok {
-		_spec.SetField(strategy.FieldTimeframe, field.TypeString, value)
+	if value, ok := _u.mutation.CreatedBy(); ok {
+		_spec.SetField(strategy.FieldCreatedBy, field.TypeUUID, value)
 	}
-	if value, ok := _u.mutation.IsActive(); ok {
-		_spec.SetField(strategy.FieldIsActive, field.TypeBool, value)
+	if value, ok := _u.mutation.UpdatedAt(); ok {
+		_spec.SetField(strategy.FieldUpdatedAt, field.TypeTime, value)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -325,59 +334,44 @@ func (_u *StrategyUpdateOne) ClearExecutionRule() *StrategyUpdateOne {
 	return _u
 }
 
-// SetExchangeID sets the "exchange_id" field.
-func (_u *StrategyUpdateOne) SetExchangeID(v string) *StrategyUpdateOne {
-	_u.mutation.SetExchangeID(v)
+// SetVersion sets the "version" field.
+func (_u *StrategyUpdateOne) SetVersion(v int) *StrategyUpdateOne {
+	_u.mutation.ResetVersion()
+	_u.mutation.SetVersion(v)
 	return _u
 }
 
-// SetNillableExchangeID sets the "exchange_id" field if the given value is not nil.
-func (_u *StrategyUpdateOne) SetNillableExchangeID(v *string) *StrategyUpdateOne {
+// SetNillableVersion sets the "version" field if the given value is not nil.
+func (_u *StrategyUpdateOne) SetNillableVersion(v *int) *StrategyUpdateOne {
 	if v != nil {
-		_u.SetExchangeID(*v)
+		_u.SetVersion(*v)
 	}
 	return _u
 }
 
-// SetPair sets the "pair" field.
-func (_u *StrategyUpdateOne) SetPair(v string) *StrategyUpdateOne {
-	_u.mutation.SetPair(v)
+// AddVersion adds value to the "version" field.
+func (_u *StrategyUpdateOne) AddVersion(v int) *StrategyUpdateOne {
+	_u.mutation.AddVersion(v)
 	return _u
 }
 
-// SetNillablePair sets the "pair" field if the given value is not nil.
-func (_u *StrategyUpdateOne) SetNillablePair(v *string) *StrategyUpdateOne {
+// SetCreatedBy sets the "created_by" field.
+func (_u *StrategyUpdateOne) SetCreatedBy(v uuid.UUID) *StrategyUpdateOne {
+	_u.mutation.SetCreatedBy(v)
+	return _u
+}
+
+// SetNillableCreatedBy sets the "created_by" field if the given value is not nil.
+func (_u *StrategyUpdateOne) SetNillableCreatedBy(v *uuid.UUID) *StrategyUpdateOne {
 	if v != nil {
-		_u.SetPair(*v)
+		_u.SetCreatedBy(*v)
 	}
 	return _u
 }
 
-// SetTimeframe sets the "timeframe" field.
-func (_u *StrategyUpdateOne) SetTimeframe(v string) *StrategyUpdateOne {
-	_u.mutation.SetTimeframe(v)
-	return _u
-}
-
-// SetNillableTimeframe sets the "timeframe" field if the given value is not nil.
-func (_u *StrategyUpdateOne) SetNillableTimeframe(v *string) *StrategyUpdateOne {
-	if v != nil {
-		_u.SetTimeframe(*v)
-	}
-	return _u
-}
-
-// SetIsActive sets the "is_active" field.
-func (_u *StrategyUpdateOne) SetIsActive(v bool) *StrategyUpdateOne {
-	_u.mutation.SetIsActive(v)
-	return _u
-}
-
-// SetNillableIsActive sets the "is_active" field if the given value is not nil.
-func (_u *StrategyUpdateOne) SetNillableIsActive(v *bool) *StrategyUpdateOne {
-	if v != nil {
-		_u.SetIsActive(*v)
-	}
+// SetUpdatedAt sets the "updated_at" field.
+func (_u *StrategyUpdateOne) SetUpdatedAt(v time.Time) *StrategyUpdateOne {
+	_u.mutation.SetUpdatedAt(v)
 	return _u
 }
 
@@ -401,6 +395,7 @@ func (_u *StrategyUpdateOne) Select(field string, fields ...string) *StrategyUpd
 
 // Save executes the query and returns the updated Strategy entity.
 func (_u *StrategyUpdateOne) Save(ctx context.Context) (*Strategy, error) {
+	_u.defaults()
 	return withHooks(ctx, _u.sqlSave, _u.mutation, _u.hooks)
 }
 
@@ -426,7 +421,28 @@ func (_u *StrategyUpdateOne) ExecX(ctx context.Context) {
 	}
 }
 
+// defaults sets the default values of the builder before save.
+func (_u *StrategyUpdateOne) defaults() {
+	if _, ok := _u.mutation.UpdatedAt(); !ok {
+		v := strategy.UpdateDefaultUpdatedAt()
+		_u.mutation.SetUpdatedAt(v)
+	}
+}
+
+// check runs all checks and user-defined validators on the builder.
+func (_u *StrategyUpdateOne) check() error {
+	if v, ok := _u.mutation.Name(); ok {
+		if err := strategy.NameValidator(v); err != nil {
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Strategy.name": %w`, err)}
+		}
+	}
+	return nil
+}
+
 func (_u *StrategyUpdateOne) sqlSave(ctx context.Context) (_node *Strategy, err error) {
+	if err := _u.check(); err != nil {
+		return _node, err
+	}
 	_spec := sqlgraph.NewUpdateSpec(strategy.Table, strategy.Columns, sqlgraph.NewFieldSpec(strategy.FieldID, field.TypeUUID))
 	id, ok := _u.mutation.ID()
 	if !ok {
@@ -473,17 +489,17 @@ func (_u *StrategyUpdateOne) sqlSave(ctx context.Context) (_node *Strategy, err 
 	if _u.mutation.ExecutionRuleCleared() {
 		_spec.ClearField(strategy.FieldExecutionRule, field.TypeString)
 	}
-	if value, ok := _u.mutation.ExchangeID(); ok {
-		_spec.SetField(strategy.FieldExchangeID, field.TypeString, value)
+	if value, ok := _u.mutation.Version(); ok {
+		_spec.SetField(strategy.FieldVersion, field.TypeInt, value)
 	}
-	if value, ok := _u.mutation.Pair(); ok {
-		_spec.SetField(strategy.FieldPair, field.TypeString, value)
+	if value, ok := _u.mutation.AddedVersion(); ok {
+		_spec.AddField(strategy.FieldVersion, field.TypeInt, value)
 	}
-	if value, ok := _u.mutation.Timeframe(); ok {
-		_spec.SetField(strategy.FieldTimeframe, field.TypeString, value)
+	if value, ok := _u.mutation.CreatedBy(); ok {
+		_spec.SetField(strategy.FieldCreatedBy, field.TypeUUID, value)
 	}
-	if value, ok := _u.mutation.IsActive(); ok {
-		_spec.SetField(strategy.FieldIsActive, field.TypeBool, value)
+	if value, ok := _u.mutation.UpdatedAt(); ok {
+		_spec.SetField(strategy.FieldUpdatedAt, field.TypeTime, value)
 	}
 	_node = &Strategy{config: _u.config}
 	_spec.Assign = _node.assignValues

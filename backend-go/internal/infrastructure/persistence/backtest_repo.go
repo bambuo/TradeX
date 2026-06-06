@@ -32,7 +32,6 @@ func (r *backtestRepo) CreateTask(ctx context.Context, task *domain.BacktestTask
 		SetTimeframe(task.Timeframe).
 		SetInitialCapital(f64(task.InitialCapital)).
 		SetNillablePositionSize(f64Ptr(task.PositionSize)).
-		SetFeeRate(f64(task.FeeRate)).
 		SetStartAt(task.StartAt).
 		SetEndAt(task.EndAt).
 		SetStatus(backtesttask.Status(task.Status)).
@@ -57,13 +56,6 @@ func (r *backtestRepo) UpdateTaskStatus(ctx context.Context, id uuid.UUID, statu
 		upd.SetPhase(backtesttask.Phase(*phase))
 	}
 	_, err := upd.Save(ctx)
-	return err
-}
-
-func (r *backtestRepo) UpdateTaskProgress(ctx context.Context, id uuid.UUID, progress int) error {
-	_, err := r.client.BacktestTask.Update().Where(backtesttask.ID(id)).
-		SetProgress(progress).
-		Save(ctx)
 	return err
 }
 
@@ -114,6 +106,11 @@ func (r *backtestRepo) SaveResult(ctx context.Context, taskID uuid.UUID, result 
 	_, err = r.client.BacktestResult.Create().
 		SetTask(task).
 		SetStrategyName(result.StrategyName).
+		SetPair(result.Pair).
+		SetTimeframe(result.Timeframe).
+		SetStartAt(result.StartAt).
+		SetEndAt(result.EndAt).
+		SetInitialCapital(f64(result.InitialCapital)).
 		SetFinalValue(f64(result.FinalValue)).
 		SetTotalReturnPercent(f64(result.TotalReturnPercent)).
 		SetAnnualizedReturnPercent(f64(result.AnnualizedReturnPercent)).
@@ -140,12 +137,16 @@ func (r *backtestRepo) SaveAnalysisBatch(ctx context.Context, taskID uuid.UUID, 
 			SetClose(f64(a.Close)).
 			SetVolume(f64(a.Volume)).
 			SetIndicatorValues(a.IndicatorValues).
-			SetEntryConditionResult(a.EntryConditionResult).
-			SetExitConditionResult(a.ExitConditionResult).
+			SetNillableEntryConditionResult(boolPtr(a.EntryConditionResult)).
+			SetNillableExitConditionResult(boolPtr(a.ExitConditionResult)).
 			SetInPosition(a.InPosition).
 			SetAction(a.Action).
-			SetPositionValue(f64(a.PositionValue)).
-			SetPositionPnl(f64(a.PositionPnl))
+			SetNillableAvgEntryPrice(f64Ptr(a.AvgEntryPrice)).
+			SetNillablePositionQuantity(f64Ptr(a.PositionQuantity)).
+			SetNillablePositionCost(f64Ptr(a.PositionCost)).
+			SetNillablePositionValue(f64Ptr(a.PositionValue)).
+			SetNillablePositionPnl(f64Ptr(a.PositionPnl)).
+			SetNillablePositionPnlPercent(f64Ptr(a.PositionPnlPercent))
 	}
 	_, err := r.client.BacktestKlineAnalysis.CreateBulk(builders...).Save(ctx)
 	return err
@@ -169,6 +170,12 @@ func (r *backtestRepo) GetResult(ctx context.Context, taskID uuid.UUID) (*domain
 	}
 
 	result := &domain.BacktestResult{
+		StrategyName:            row.StrategyName,
+		Pair:                    row.Pair,
+		Timeframe:               row.Timeframe,
+		StartAt:                 row.StartAt,
+		EndAt:                   row.EndAt,
+		InitialCapital:          dec(row.InitialCapital),
 		FinalValue:              dec(row.FinalValue),
 		TotalReturnPercent:      dec(row.TotalReturnPercent),
 		AnnualizedReturnPercent: dec(row.AnnualizedReturnPercent),
@@ -207,12 +214,12 @@ func (r *backtestRepo) GetStrategy(ctx context.Context, id uuid.UUID) (*domain.S
 		return nil, err
 	}
 	s := &domain.Strategy{
-		ID:         row.ID,
-		Name:       row.Name,
-		ExchangeID: row.ExchangeID,
-		Pair:       row.Pair,
-		Timeframe:  row.Timeframe,
-		IsActive:   row.IsActive,
+		ID:        row.ID,
+		Name:      row.Name,
+		Version:   row.Version,
+		CreatedBy: row.CreatedBy,
+		CreatedAt: row.CreatedAt,
+		UpdatedAt: row.UpdatedAt,
 	}
 	if row.EntryCondition != "" {
 		s.EntryCondition = json.RawMessage(row.EntryCondition)
@@ -270,13 +277,10 @@ func rowToTask(row *ent.BacktestTask) *domain.BacktestTask {
 		Pair:           row.Pair,
 		Timeframe:      row.Timeframe,
 		InitialCapital: dec(row.InitialCapital),
-		FeeRate:        dec(row.FeeRate),
 		StartAt:        row.StartAt,
 		EndAt:          row.EndAt,
 		Status:         domain.BacktestTaskStatus(row.Status),
-		Progress:       row.Progress,
 		CreatedAt:      row.CreatedAt,
-		UpdatedAt:      row.UpdatedAt,
 	}
 	if row.PositionSize != nil {
 		v := dec(*row.PositionSize)
@@ -289,28 +293,21 @@ func rowToTask(row *ent.BacktestTask) *domain.BacktestTask {
 		p := domain.BacktestPhase(row.Phase)
 		task.Phase = &p
 	}
-	if row.ErrorMessage != nil {
-		task.ErrorMessage = row.ErrorMessage
-	}
 	return task
 }
 
 func rowToAnalysis(row *ent.BacktestKlineAnalysis) *domain.BacktestKlineAnalysis {
 	a := &domain.BacktestKlineAnalysis{
-		KlineIndex:           row.KlineIndex,
-		Timestamp:            row.Timestamp,
-		Open:                 dec(row.Open),
-		High:                 dec(row.High),
-		Low:                  dec(row.Low),
-		Close:                dec(row.Close),
-		Volume:               dec(row.Volume),
-		IndicatorValues:      make(map[string]float64),
-		EntryConditionResult: make(map[string]any),
-		ExitConditionResult:  make(map[string]any),
-		InPosition:           row.InPosition,
-		Action:               row.Action,
-		PositionValue:        dec(row.PositionValue),
-		PositionPnl:          dec(row.PositionPnl),
+		KlineIndex:      row.KlineIndex,
+		Timestamp:       row.Timestamp,
+		Open:            dec(row.Open),
+		High:            dec(row.High),
+		Low:             dec(row.Low),
+		Close:           dec(row.Close),
+		Volume:          dec(row.Volume),
+		IndicatorValues: make(map[string]float64),
+		InPosition:      row.InPosition,
+		Action:          row.Action,
 	}
 	if row.IndicatorValues != nil {
 		a.IndicatorValues = row.IndicatorValues
@@ -321,12 +318,43 @@ func rowToAnalysis(row *ent.BacktestKlineAnalysis) *domain.BacktestKlineAnalysis
 	if row.ExitConditionResult != nil {
 		a.ExitConditionResult = row.ExitConditionResult
 	}
+	if row.AvgEntryPrice != nil {
+		v := dec(*row.AvgEntryPrice)
+		a.AvgEntryPrice = &v
+	}
+	if row.PositionQuantity != nil {
+		v := dec(*row.PositionQuantity)
+		a.PositionQuantity = &v
+	}
+	if row.PositionCost != nil {
+		v := dec(*row.PositionCost)
+		a.PositionCost = &v
+	}
+	if row.PositionValue != nil {
+		v := dec(*row.PositionValue)
+		a.PositionValue = &v
+	}
+	if row.PositionPnl != nil {
+		v := dec(*row.PositionPnl)
+		a.PositionPnl = &v
+	}
+	if row.PositionPnlPercent != nil {
+		v := dec(*row.PositionPnlPercent)
+		a.PositionPnlPercent = &v
+	}
 	return a
 }
 
 func f64(d decimal.Decimal) float64 {
 	v, _ := d.Float64()
 	return v
+}
+
+func boolPtr(b *bool) *bool {
+	if b == nil {
+		return nil
+	}
+	return b
 }
 
 func f64Ptr(d *decimal.Decimal) *float64 {

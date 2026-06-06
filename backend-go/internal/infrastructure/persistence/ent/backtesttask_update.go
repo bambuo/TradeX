@@ -73,13 +73,13 @@ func (_u *BacktestTaskUpdate) SetNillableCreatedBy(v *uuid.UUID) *BacktestTaskUp
 }
 
 // SetExchangeID sets the "exchange_id" field.
-func (_u *BacktestTaskUpdate) SetExchangeID(v string) *BacktestTaskUpdate {
+func (_u *BacktestTaskUpdate) SetExchangeID(v uuid.UUID) *BacktestTaskUpdate {
 	_u.mutation.SetExchangeID(v)
 	return _u
 }
 
 // SetNillableExchangeID sets the "exchange_id" field if the given value is not nil.
-func (_u *BacktestTaskUpdate) SetNillableExchangeID(v *string) *BacktestTaskUpdate {
+func (_u *BacktestTaskUpdate) SetNillableExchangeID(v *uuid.UUID) *BacktestTaskUpdate {
 	if v != nil {
 		_u.SetExchangeID(*v)
 	}
@@ -159,27 +159,6 @@ func (_u *BacktestTaskUpdate) AddPositionSize(v float64) *BacktestTaskUpdate {
 // ClearPositionSize clears the value of the "position_size" field.
 func (_u *BacktestTaskUpdate) ClearPositionSize() *BacktestTaskUpdate {
 	_u.mutation.ClearPositionSize()
-	return _u
-}
-
-// SetFeeRate sets the "fee_rate" field.
-func (_u *BacktestTaskUpdate) SetFeeRate(v float64) *BacktestTaskUpdate {
-	_u.mutation.ResetFeeRate()
-	_u.mutation.SetFeeRate(v)
-	return _u
-}
-
-// SetNillableFeeRate sets the "fee_rate" field if the given value is not nil.
-func (_u *BacktestTaskUpdate) SetNillableFeeRate(v *float64) *BacktestTaskUpdate {
-	if v != nil {
-		_u.SetFeeRate(*v)
-	}
-	return _u
-}
-
-// AddFeeRate adds value to the "fee_rate" field.
-func (_u *BacktestTaskUpdate) AddFeeRate(v float64) *BacktestTaskUpdate {
-	_u.mutation.AddFeeRate(v)
 	return _u
 }
 
@@ -265,53 +244,6 @@ func (_u *BacktestTaskUpdate) ClearPhase() *BacktestTaskUpdate {
 	return _u
 }
 
-// SetProgress sets the "progress" field.
-func (_u *BacktestTaskUpdate) SetProgress(v int) *BacktestTaskUpdate {
-	_u.mutation.ResetProgress()
-	_u.mutation.SetProgress(v)
-	return _u
-}
-
-// SetNillableProgress sets the "progress" field if the given value is not nil.
-func (_u *BacktestTaskUpdate) SetNillableProgress(v *int) *BacktestTaskUpdate {
-	if v != nil {
-		_u.SetProgress(*v)
-	}
-	return _u
-}
-
-// AddProgress adds value to the "progress" field.
-func (_u *BacktestTaskUpdate) AddProgress(v int) *BacktestTaskUpdate {
-	_u.mutation.AddProgress(v)
-	return _u
-}
-
-// SetErrorMessage sets the "error_message" field.
-func (_u *BacktestTaskUpdate) SetErrorMessage(v string) *BacktestTaskUpdate {
-	_u.mutation.SetErrorMessage(v)
-	return _u
-}
-
-// SetNillableErrorMessage sets the "error_message" field if the given value is not nil.
-func (_u *BacktestTaskUpdate) SetNillableErrorMessage(v *string) *BacktestTaskUpdate {
-	if v != nil {
-		_u.SetErrorMessage(*v)
-	}
-	return _u
-}
-
-// ClearErrorMessage clears the value of the "error_message" field.
-func (_u *BacktestTaskUpdate) ClearErrorMessage() *BacktestTaskUpdate {
-	_u.mutation.ClearErrorMessage()
-	return _u
-}
-
-// SetUpdatedAt sets the "updated_at" field.
-func (_u *BacktestTaskUpdate) SetUpdatedAt(v time.Time) *BacktestTaskUpdate {
-	_u.mutation.SetUpdatedAt(v)
-	return _u
-}
-
 // SetResultID sets the "result" edge to the BacktestResult entity by ID.
 func (_u *BacktestTaskUpdate) SetResultID(id uuid.UUID) *BacktestTaskUpdate {
 	_u.mutation.SetResultID(id)
@@ -344,7 +276,6 @@ func (_u *BacktestTaskUpdate) ClearResult() *BacktestTaskUpdate {
 
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (_u *BacktestTaskUpdate) Save(ctx context.Context) (int, error) {
-	_u.defaults()
 	return withHooks(ctx, _u.sqlSave, _u.mutation, _u.hooks)
 }
 
@@ -370,16 +301,23 @@ func (_u *BacktestTaskUpdate) ExecX(ctx context.Context) {
 	}
 }
 
-// defaults sets the default values of the builder before save.
-func (_u *BacktestTaskUpdate) defaults() {
-	if _, ok := _u.mutation.UpdatedAt(); !ok {
-		v := backtesttask.UpdateDefaultUpdatedAt()
-		_u.mutation.SetUpdatedAt(v)
-	}
-}
-
 // check runs all checks and user-defined validators on the builder.
 func (_u *BacktestTaskUpdate) check() error {
+	if v, ok := _u.mutation.StrategyName(); ok {
+		if err := backtesttask.StrategyNameValidator(v); err != nil {
+			return &ValidationError{Name: "strategy_name", err: fmt.Errorf(`ent: validator failed for field "BacktestTask.strategy_name": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.Pair(); ok {
+		if err := backtesttask.PairValidator(v); err != nil {
+			return &ValidationError{Name: "pair", err: fmt.Errorf(`ent: validator failed for field "BacktestTask.pair": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.Timeframe(); ok {
+		if err := backtesttask.TimeframeValidator(v); err != nil {
+			return &ValidationError{Name: "timeframe", err: fmt.Errorf(`ent: validator failed for field "BacktestTask.timeframe": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := backtesttask.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "BacktestTask.status": %w`, err)}
@@ -415,7 +353,7 @@ func (_u *BacktestTaskUpdate) sqlSave(ctx context.Context) (_node int, err error
 		_spec.SetField(backtesttask.FieldCreatedBy, field.TypeUUID, value)
 	}
 	if value, ok := _u.mutation.ExchangeID(); ok {
-		_spec.SetField(backtesttask.FieldExchangeID, field.TypeString, value)
+		_spec.SetField(backtesttask.FieldExchangeID, field.TypeUUID, value)
 	}
 	if value, ok := _u.mutation.Pair(); ok {
 		_spec.SetField(backtesttask.FieldPair, field.TypeString, value)
@@ -438,12 +376,6 @@ func (_u *BacktestTaskUpdate) sqlSave(ctx context.Context) (_node int, err error
 	if _u.mutation.PositionSizeCleared() {
 		_spec.ClearField(backtesttask.FieldPositionSize, field.TypeFloat64)
 	}
-	if value, ok := _u.mutation.FeeRate(); ok {
-		_spec.SetField(backtesttask.FieldFeeRate, field.TypeFloat64, value)
-	}
-	if value, ok := _u.mutation.AddedFeeRate(); ok {
-		_spec.AddField(backtesttask.FieldFeeRate, field.TypeFloat64, value)
-	}
 	if value, ok := _u.mutation.StartAt(); ok {
 		_spec.SetField(backtesttask.FieldStartAt, field.TypeTime, value)
 	}
@@ -464,21 +396,6 @@ func (_u *BacktestTaskUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if _u.mutation.PhaseCleared() {
 		_spec.ClearField(backtesttask.FieldPhase, field.TypeEnum)
-	}
-	if value, ok := _u.mutation.Progress(); ok {
-		_spec.SetField(backtesttask.FieldProgress, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.AddedProgress(); ok {
-		_spec.AddField(backtesttask.FieldProgress, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.ErrorMessage(); ok {
-		_spec.SetField(backtesttask.FieldErrorMessage, field.TypeString, value)
-	}
-	if _u.mutation.ErrorMessageCleared() {
-		_spec.ClearField(backtesttask.FieldErrorMessage, field.TypeString)
-	}
-	if value, ok := _u.mutation.UpdatedAt(); ok {
-		_spec.SetField(backtesttask.FieldUpdatedAt, field.TypeTime, value)
 	}
 	if _u.mutation.ResultCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -572,13 +489,13 @@ func (_u *BacktestTaskUpdateOne) SetNillableCreatedBy(v *uuid.UUID) *BacktestTas
 }
 
 // SetExchangeID sets the "exchange_id" field.
-func (_u *BacktestTaskUpdateOne) SetExchangeID(v string) *BacktestTaskUpdateOne {
+func (_u *BacktestTaskUpdateOne) SetExchangeID(v uuid.UUID) *BacktestTaskUpdateOne {
 	_u.mutation.SetExchangeID(v)
 	return _u
 }
 
 // SetNillableExchangeID sets the "exchange_id" field if the given value is not nil.
-func (_u *BacktestTaskUpdateOne) SetNillableExchangeID(v *string) *BacktestTaskUpdateOne {
+func (_u *BacktestTaskUpdateOne) SetNillableExchangeID(v *uuid.UUID) *BacktestTaskUpdateOne {
 	if v != nil {
 		_u.SetExchangeID(*v)
 	}
@@ -658,27 +575,6 @@ func (_u *BacktestTaskUpdateOne) AddPositionSize(v float64) *BacktestTaskUpdateO
 // ClearPositionSize clears the value of the "position_size" field.
 func (_u *BacktestTaskUpdateOne) ClearPositionSize() *BacktestTaskUpdateOne {
 	_u.mutation.ClearPositionSize()
-	return _u
-}
-
-// SetFeeRate sets the "fee_rate" field.
-func (_u *BacktestTaskUpdateOne) SetFeeRate(v float64) *BacktestTaskUpdateOne {
-	_u.mutation.ResetFeeRate()
-	_u.mutation.SetFeeRate(v)
-	return _u
-}
-
-// SetNillableFeeRate sets the "fee_rate" field if the given value is not nil.
-func (_u *BacktestTaskUpdateOne) SetNillableFeeRate(v *float64) *BacktestTaskUpdateOne {
-	if v != nil {
-		_u.SetFeeRate(*v)
-	}
-	return _u
-}
-
-// AddFeeRate adds value to the "fee_rate" field.
-func (_u *BacktestTaskUpdateOne) AddFeeRate(v float64) *BacktestTaskUpdateOne {
-	_u.mutation.AddFeeRate(v)
 	return _u
 }
 
@@ -764,53 +660,6 @@ func (_u *BacktestTaskUpdateOne) ClearPhase() *BacktestTaskUpdateOne {
 	return _u
 }
 
-// SetProgress sets the "progress" field.
-func (_u *BacktestTaskUpdateOne) SetProgress(v int) *BacktestTaskUpdateOne {
-	_u.mutation.ResetProgress()
-	_u.mutation.SetProgress(v)
-	return _u
-}
-
-// SetNillableProgress sets the "progress" field if the given value is not nil.
-func (_u *BacktestTaskUpdateOne) SetNillableProgress(v *int) *BacktestTaskUpdateOne {
-	if v != nil {
-		_u.SetProgress(*v)
-	}
-	return _u
-}
-
-// AddProgress adds value to the "progress" field.
-func (_u *BacktestTaskUpdateOne) AddProgress(v int) *BacktestTaskUpdateOne {
-	_u.mutation.AddProgress(v)
-	return _u
-}
-
-// SetErrorMessage sets the "error_message" field.
-func (_u *BacktestTaskUpdateOne) SetErrorMessage(v string) *BacktestTaskUpdateOne {
-	_u.mutation.SetErrorMessage(v)
-	return _u
-}
-
-// SetNillableErrorMessage sets the "error_message" field if the given value is not nil.
-func (_u *BacktestTaskUpdateOne) SetNillableErrorMessage(v *string) *BacktestTaskUpdateOne {
-	if v != nil {
-		_u.SetErrorMessage(*v)
-	}
-	return _u
-}
-
-// ClearErrorMessage clears the value of the "error_message" field.
-func (_u *BacktestTaskUpdateOne) ClearErrorMessage() *BacktestTaskUpdateOne {
-	_u.mutation.ClearErrorMessage()
-	return _u
-}
-
-// SetUpdatedAt sets the "updated_at" field.
-func (_u *BacktestTaskUpdateOne) SetUpdatedAt(v time.Time) *BacktestTaskUpdateOne {
-	_u.mutation.SetUpdatedAt(v)
-	return _u
-}
-
 // SetResultID sets the "result" edge to the BacktestResult entity by ID.
 func (_u *BacktestTaskUpdateOne) SetResultID(id uuid.UUID) *BacktestTaskUpdateOne {
 	_u.mutation.SetResultID(id)
@@ -856,7 +705,6 @@ func (_u *BacktestTaskUpdateOne) Select(field string, fields ...string) *Backtes
 
 // Save executes the query and returns the updated BacktestTask entity.
 func (_u *BacktestTaskUpdateOne) Save(ctx context.Context) (*BacktestTask, error) {
-	_u.defaults()
 	return withHooks(ctx, _u.sqlSave, _u.mutation, _u.hooks)
 }
 
@@ -882,16 +730,23 @@ func (_u *BacktestTaskUpdateOne) ExecX(ctx context.Context) {
 	}
 }
 
-// defaults sets the default values of the builder before save.
-func (_u *BacktestTaskUpdateOne) defaults() {
-	if _, ok := _u.mutation.UpdatedAt(); !ok {
-		v := backtesttask.UpdateDefaultUpdatedAt()
-		_u.mutation.SetUpdatedAt(v)
-	}
-}
-
 // check runs all checks and user-defined validators on the builder.
 func (_u *BacktestTaskUpdateOne) check() error {
+	if v, ok := _u.mutation.StrategyName(); ok {
+		if err := backtesttask.StrategyNameValidator(v); err != nil {
+			return &ValidationError{Name: "strategy_name", err: fmt.Errorf(`ent: validator failed for field "BacktestTask.strategy_name": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.Pair(); ok {
+		if err := backtesttask.PairValidator(v); err != nil {
+			return &ValidationError{Name: "pair", err: fmt.Errorf(`ent: validator failed for field "BacktestTask.pair": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.Timeframe(); ok {
+		if err := backtesttask.TimeframeValidator(v); err != nil {
+			return &ValidationError{Name: "timeframe", err: fmt.Errorf(`ent: validator failed for field "BacktestTask.timeframe": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := backtesttask.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "BacktestTask.status": %w`, err)}
@@ -944,7 +799,7 @@ func (_u *BacktestTaskUpdateOne) sqlSave(ctx context.Context) (_node *BacktestTa
 		_spec.SetField(backtesttask.FieldCreatedBy, field.TypeUUID, value)
 	}
 	if value, ok := _u.mutation.ExchangeID(); ok {
-		_spec.SetField(backtesttask.FieldExchangeID, field.TypeString, value)
+		_spec.SetField(backtesttask.FieldExchangeID, field.TypeUUID, value)
 	}
 	if value, ok := _u.mutation.Pair(); ok {
 		_spec.SetField(backtesttask.FieldPair, field.TypeString, value)
@@ -967,12 +822,6 @@ func (_u *BacktestTaskUpdateOne) sqlSave(ctx context.Context) (_node *BacktestTa
 	if _u.mutation.PositionSizeCleared() {
 		_spec.ClearField(backtesttask.FieldPositionSize, field.TypeFloat64)
 	}
-	if value, ok := _u.mutation.FeeRate(); ok {
-		_spec.SetField(backtesttask.FieldFeeRate, field.TypeFloat64, value)
-	}
-	if value, ok := _u.mutation.AddedFeeRate(); ok {
-		_spec.AddField(backtesttask.FieldFeeRate, field.TypeFloat64, value)
-	}
 	if value, ok := _u.mutation.StartAt(); ok {
 		_spec.SetField(backtesttask.FieldStartAt, field.TypeTime, value)
 	}
@@ -993,21 +842,6 @@ func (_u *BacktestTaskUpdateOne) sqlSave(ctx context.Context) (_node *BacktestTa
 	}
 	if _u.mutation.PhaseCleared() {
 		_spec.ClearField(backtesttask.FieldPhase, field.TypeEnum)
-	}
-	if value, ok := _u.mutation.Progress(); ok {
-		_spec.SetField(backtesttask.FieldProgress, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.AddedProgress(); ok {
-		_spec.AddField(backtesttask.FieldProgress, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.ErrorMessage(); ok {
-		_spec.SetField(backtesttask.FieldErrorMessage, field.TypeString, value)
-	}
-	if _u.mutation.ErrorMessageCleared() {
-		_spec.ClearField(backtesttask.FieldErrorMessage, field.TypeString)
-	}
-	if value, ok := _u.mutation.UpdatedAt(); ok {
-		_spec.SetField(backtesttask.FieldUpdatedAt, field.TypeTime, value)
 	}
 	if _u.mutation.ResultCleared() {
 		edge := &sqlgraph.EdgeSpec{

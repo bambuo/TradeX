@@ -17,6 +17,16 @@ const (
 	FieldID = "id"
 	// FieldStrategyName holds the string denoting the strategy_name field in the database.
 	FieldStrategyName = "strategy_name"
+	// FieldPair holds the string denoting the pair field in the database.
+	FieldPair = "pair"
+	// FieldTimeframe holds the string denoting the timeframe field in the database.
+	FieldTimeframe = "timeframe"
+	// FieldStartAt holds the string denoting the start_at field in the database.
+	FieldStartAt = "start_at"
+	// FieldEndAt holds the string denoting the end_at field in the database.
+	FieldEndAt = "end_at"
+	// FieldInitialCapital holds the string denoting the initial_capital field in the database.
+	FieldInitialCapital = "initial_capital"
 	// FieldFinalValue holds the string denoting the final_value field in the database.
 	FieldFinalValue = "final_value"
 	// FieldTotalReturnPercent holds the string denoting the total_return_percent field in the database.
@@ -54,6 +64,11 @@ const (
 var Columns = []string{
 	FieldID,
 	FieldStrategyName,
+	FieldPair,
+	FieldTimeframe,
+	FieldStartAt,
+	FieldEndAt,
+	FieldInitialCapital,
 	FieldFinalValue,
 	FieldTotalReturnPercent,
 	FieldAnnualizedReturnPercent,
@@ -90,6 +105,10 @@ func ValidColumn(column string) bool {
 var (
 	// DefaultStrategyName holds the default value on creation for the "strategy_name" field.
 	DefaultStrategyName string
+	// DefaultPair holds the default value on creation for the "pair" field.
+	DefaultPair string
+	// DefaultTimeframe holds the default value on creation for the "timeframe" field.
+	DefaultTimeframe string
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 	// DefaultID holds the default value on creation for the "id" field.
@@ -107,6 +126,31 @@ func ByID(opts ...sql.OrderTermOption) OrderOption {
 // ByStrategyName orders the results by the strategy_name field.
 func ByStrategyName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStrategyName, opts...).ToFunc()
+}
+
+// ByPair orders the results by the pair field.
+func ByPair(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPair, opts...).ToFunc()
+}
+
+// ByTimeframe orders the results by the timeframe field.
+func ByTimeframe(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTimeframe, opts...).ToFunc()
+}
+
+// ByStartAt orders the results by the start_at field.
+func ByStartAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldStartAt, opts...).ToFunc()
+}
+
+// ByEndAt orders the results by the end_at field.
+func ByEndAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEndAt, opts...).ToFunc()
+}
+
+// ByInitialCapital orders the results by the initial_capital field.
+func ByInitialCapital(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldInitialCapital, opts...).ToFunc()
 }
 
 // ByFinalValue orders the results by the final_value field.

@@ -5,6 +5,7 @@ package ent
 import (
 	"fmt"
 	"strings"
+	"time"
 	"tradex/internal/infrastructure/persistence/ent/strategy"
 
 	"entgo.io/ent"
@@ -25,14 +26,14 @@ type Strategy struct {
 	ExitCondition string `json:"exit_condition,omitempty"`
 	// ExecutionRule holds the value of the "execution_rule" field.
 	ExecutionRule string `json:"execution_rule,omitempty"`
-	// ExchangeID holds the value of the "exchange_id" field.
-	ExchangeID string `json:"exchange_id,omitempty"`
-	// Pair holds the value of the "pair" field.
-	Pair string `json:"pair,omitempty"`
-	// Timeframe holds the value of the "timeframe" field.
-	Timeframe string `json:"timeframe,omitempty"`
-	// IsActive holds the value of the "is_active" field.
-	IsActive     bool `json:"is_active,omitempty"`
+	// Version holds the value of the "version" field.
+	Version int `json:"version,omitempty"`
+	// CreatedBy holds the value of the "created_by" field.
+	CreatedBy uuid.UUID `json:"created_by,omitempty"`
+	// CreatedAt holds the value of the "created_at" field.
+	CreatedAt time.Time `json:"created_at,omitempty"`
+	// UpdatedAt holds the value of the "updated_at" field.
+	UpdatedAt    time.Time `json:"updated_at,omitempty"`
 	selectValues sql.SelectValues
 }
 
@@ -41,11 +42,13 @@ func (*Strategy) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case strategy.FieldIsActive:
-			values[i] = new(sql.NullBool)
-		case strategy.FieldName, strategy.FieldEntryCondition, strategy.FieldExitCondition, strategy.FieldExecutionRule, strategy.FieldExchangeID, strategy.FieldPair, strategy.FieldTimeframe:
+		case strategy.FieldVersion:
+			values[i] = new(sql.NullInt64)
+		case strategy.FieldName, strategy.FieldEntryCondition, strategy.FieldExitCondition, strategy.FieldExecutionRule:
 			values[i] = new(sql.NullString)
-		case strategy.FieldID:
+		case strategy.FieldCreatedAt, strategy.FieldUpdatedAt:
+			values[i] = new(sql.NullTime)
+		case strategy.FieldID, strategy.FieldCreatedBy:
 			values[i] = new(uuid.UUID)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -92,29 +95,29 @@ func (_m *Strategy) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.ExecutionRule = value.String
 			}
-		case strategy.FieldExchangeID:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field exchange_id", values[i])
+		case strategy.FieldVersion:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field version", values[i])
 			} else if value.Valid {
-				_m.ExchangeID = value.String
+				_m.Version = int(value.Int64)
 			}
-		case strategy.FieldPair:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field pair", values[i])
-			} else if value.Valid {
-				_m.Pair = value.String
+		case strategy.FieldCreatedBy:
+			if value, ok := values[i].(*uuid.UUID); !ok {
+				return fmt.Errorf("unexpected type %T for field created_by", values[i])
+			} else if value != nil {
+				_m.CreatedBy = *value
 			}
-		case strategy.FieldTimeframe:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field timeframe", values[i])
+		case strategy.FieldCreatedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field created_at", values[i])
 			} else if value.Valid {
-				_m.Timeframe = value.String
+				_m.CreatedAt = value.Time
 			}
-		case strategy.FieldIsActive:
-			if value, ok := values[i].(*sql.NullBool); !ok {
-				return fmt.Errorf("unexpected type %T for field is_active", values[i])
+		case strategy.FieldUpdatedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field updated_at", values[i])
 			} else if value.Valid {
-				_m.IsActive = value.Bool
+				_m.UpdatedAt = value.Time
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -164,17 +167,17 @@ func (_m *Strategy) String() string {
 	builder.WriteString("execution_rule=")
 	builder.WriteString(_m.ExecutionRule)
 	builder.WriteString(", ")
-	builder.WriteString("exchange_id=")
-	builder.WriteString(_m.ExchangeID)
+	builder.WriteString("version=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Version))
 	builder.WriteString(", ")
-	builder.WriteString("pair=")
-	builder.WriteString(_m.Pair)
+	builder.WriteString("created_by=")
+	builder.WriteString(fmt.Sprintf("%v", _m.CreatedBy))
 	builder.WriteString(", ")
-	builder.WriteString("timeframe=")
-	builder.WriteString(_m.Timeframe)
+	builder.WriteString("created_at=")
+	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))
 	builder.WriteString(", ")
-	builder.WriteString("is_active=")
-	builder.WriteString(fmt.Sprintf("%v", _m.IsActive))
+	builder.WriteString("updated_at=")
+	builder.WriteString(_m.UpdatedAt.Format(time.ANSIC))
 	builder.WriteByte(')')
 	return builder.String()
 }

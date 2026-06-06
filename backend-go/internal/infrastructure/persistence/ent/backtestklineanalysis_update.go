@@ -196,8 +196,16 @@ func (_u *BacktestKlineAnalysisUpdate) ClearIndicatorValues() *BacktestKlineAnal
 }
 
 // SetEntryConditionResult sets the "entry_condition_result" field.
-func (_u *BacktestKlineAnalysisUpdate) SetEntryConditionResult(v map[string]interface{}) *BacktestKlineAnalysisUpdate {
+func (_u *BacktestKlineAnalysisUpdate) SetEntryConditionResult(v bool) *BacktestKlineAnalysisUpdate {
 	_u.mutation.SetEntryConditionResult(v)
+	return _u
+}
+
+// SetNillableEntryConditionResult sets the "entry_condition_result" field if the given value is not nil.
+func (_u *BacktestKlineAnalysisUpdate) SetNillableEntryConditionResult(v *bool) *BacktestKlineAnalysisUpdate {
+	if v != nil {
+		_u.SetEntryConditionResult(*v)
+	}
 	return _u
 }
 
@@ -208,8 +216,16 @@ func (_u *BacktestKlineAnalysisUpdate) ClearEntryConditionResult() *BacktestKlin
 }
 
 // SetExitConditionResult sets the "exit_condition_result" field.
-func (_u *BacktestKlineAnalysisUpdate) SetExitConditionResult(v map[string]interface{}) *BacktestKlineAnalysisUpdate {
+func (_u *BacktestKlineAnalysisUpdate) SetExitConditionResult(v bool) *BacktestKlineAnalysisUpdate {
 	_u.mutation.SetExitConditionResult(v)
+	return _u
+}
+
+// SetNillableExitConditionResult sets the "exit_condition_result" field if the given value is not nil.
+func (_u *BacktestKlineAnalysisUpdate) SetNillableExitConditionResult(v *bool) *BacktestKlineAnalysisUpdate {
+	if v != nil {
+		_u.SetExitConditionResult(*v)
+	}
 	return _u
 }
 
@@ -247,6 +263,87 @@ func (_u *BacktestKlineAnalysisUpdate) SetNillableAction(v *string) *BacktestKli
 	return _u
 }
 
+// SetAvgEntryPrice sets the "avg_entry_price" field.
+func (_u *BacktestKlineAnalysisUpdate) SetAvgEntryPrice(v float64) *BacktestKlineAnalysisUpdate {
+	_u.mutation.ResetAvgEntryPrice()
+	_u.mutation.SetAvgEntryPrice(v)
+	return _u
+}
+
+// SetNillableAvgEntryPrice sets the "avg_entry_price" field if the given value is not nil.
+func (_u *BacktestKlineAnalysisUpdate) SetNillableAvgEntryPrice(v *float64) *BacktestKlineAnalysisUpdate {
+	if v != nil {
+		_u.SetAvgEntryPrice(*v)
+	}
+	return _u
+}
+
+// AddAvgEntryPrice adds value to the "avg_entry_price" field.
+func (_u *BacktestKlineAnalysisUpdate) AddAvgEntryPrice(v float64) *BacktestKlineAnalysisUpdate {
+	_u.mutation.AddAvgEntryPrice(v)
+	return _u
+}
+
+// ClearAvgEntryPrice clears the value of the "avg_entry_price" field.
+func (_u *BacktestKlineAnalysisUpdate) ClearAvgEntryPrice() *BacktestKlineAnalysisUpdate {
+	_u.mutation.ClearAvgEntryPrice()
+	return _u
+}
+
+// SetPositionQuantity sets the "position_quantity" field.
+func (_u *BacktestKlineAnalysisUpdate) SetPositionQuantity(v float64) *BacktestKlineAnalysisUpdate {
+	_u.mutation.ResetPositionQuantity()
+	_u.mutation.SetPositionQuantity(v)
+	return _u
+}
+
+// SetNillablePositionQuantity sets the "position_quantity" field if the given value is not nil.
+func (_u *BacktestKlineAnalysisUpdate) SetNillablePositionQuantity(v *float64) *BacktestKlineAnalysisUpdate {
+	if v != nil {
+		_u.SetPositionQuantity(*v)
+	}
+	return _u
+}
+
+// AddPositionQuantity adds value to the "position_quantity" field.
+func (_u *BacktestKlineAnalysisUpdate) AddPositionQuantity(v float64) *BacktestKlineAnalysisUpdate {
+	_u.mutation.AddPositionQuantity(v)
+	return _u
+}
+
+// ClearPositionQuantity clears the value of the "position_quantity" field.
+func (_u *BacktestKlineAnalysisUpdate) ClearPositionQuantity() *BacktestKlineAnalysisUpdate {
+	_u.mutation.ClearPositionQuantity()
+	return _u
+}
+
+// SetPositionCost sets the "position_cost" field.
+func (_u *BacktestKlineAnalysisUpdate) SetPositionCost(v float64) *BacktestKlineAnalysisUpdate {
+	_u.mutation.ResetPositionCost()
+	_u.mutation.SetPositionCost(v)
+	return _u
+}
+
+// SetNillablePositionCost sets the "position_cost" field if the given value is not nil.
+func (_u *BacktestKlineAnalysisUpdate) SetNillablePositionCost(v *float64) *BacktestKlineAnalysisUpdate {
+	if v != nil {
+		_u.SetPositionCost(*v)
+	}
+	return _u
+}
+
+// AddPositionCost adds value to the "position_cost" field.
+func (_u *BacktestKlineAnalysisUpdate) AddPositionCost(v float64) *BacktestKlineAnalysisUpdate {
+	_u.mutation.AddPositionCost(v)
+	return _u
+}
+
+// ClearPositionCost clears the value of the "position_cost" field.
+func (_u *BacktestKlineAnalysisUpdate) ClearPositionCost() *BacktestKlineAnalysisUpdate {
+	_u.mutation.ClearPositionCost()
+	return _u
+}
+
 // SetPositionValue sets the "position_value" field.
 func (_u *BacktestKlineAnalysisUpdate) SetPositionValue(v float64) *BacktestKlineAnalysisUpdate {
 	_u.mutation.ResetPositionValue()
@@ -268,6 +365,12 @@ func (_u *BacktestKlineAnalysisUpdate) AddPositionValue(v float64) *BacktestKlin
 	return _u
 }
 
+// ClearPositionValue clears the value of the "position_value" field.
+func (_u *BacktestKlineAnalysisUpdate) ClearPositionValue() *BacktestKlineAnalysisUpdate {
+	_u.mutation.ClearPositionValue()
+	return _u
+}
+
 // SetPositionPnl sets the "position_pnl" field.
 func (_u *BacktestKlineAnalysisUpdate) SetPositionPnl(v float64) *BacktestKlineAnalysisUpdate {
 	_u.mutation.ResetPositionPnl()
@@ -286,6 +389,39 @@ func (_u *BacktestKlineAnalysisUpdate) SetNillablePositionPnl(v *float64) *Backt
 // AddPositionPnl adds value to the "position_pnl" field.
 func (_u *BacktestKlineAnalysisUpdate) AddPositionPnl(v float64) *BacktestKlineAnalysisUpdate {
 	_u.mutation.AddPositionPnl(v)
+	return _u
+}
+
+// ClearPositionPnl clears the value of the "position_pnl" field.
+func (_u *BacktestKlineAnalysisUpdate) ClearPositionPnl() *BacktestKlineAnalysisUpdate {
+	_u.mutation.ClearPositionPnl()
+	return _u
+}
+
+// SetPositionPnlPercent sets the "position_pnl_percent" field.
+func (_u *BacktestKlineAnalysisUpdate) SetPositionPnlPercent(v float64) *BacktestKlineAnalysisUpdate {
+	_u.mutation.ResetPositionPnlPercent()
+	_u.mutation.SetPositionPnlPercent(v)
+	return _u
+}
+
+// SetNillablePositionPnlPercent sets the "position_pnl_percent" field if the given value is not nil.
+func (_u *BacktestKlineAnalysisUpdate) SetNillablePositionPnlPercent(v *float64) *BacktestKlineAnalysisUpdate {
+	if v != nil {
+		_u.SetPositionPnlPercent(*v)
+	}
+	return _u
+}
+
+// AddPositionPnlPercent adds value to the "position_pnl_percent" field.
+func (_u *BacktestKlineAnalysisUpdate) AddPositionPnlPercent(v float64) *BacktestKlineAnalysisUpdate {
+	_u.mutation.AddPositionPnlPercent(v)
+	return _u
+}
+
+// ClearPositionPnlPercent clears the value of the "position_pnl_percent" field.
+func (_u *BacktestKlineAnalysisUpdate) ClearPositionPnlPercent() *BacktestKlineAnalysisUpdate {
+	_u.mutation.ClearPositionPnlPercent()
 	return _u
 }
 
@@ -321,7 +457,20 @@ func (_u *BacktestKlineAnalysisUpdate) ExecX(ctx context.Context) {
 	}
 }
 
+// check runs all checks and user-defined validators on the builder.
+func (_u *BacktestKlineAnalysisUpdate) check() error {
+	if v, ok := _u.mutation.Action(); ok {
+		if err := backtestklineanalysis.ActionValidator(v); err != nil {
+			return &ValidationError{Name: "action", err: fmt.Errorf(`ent: validator failed for field "BacktestKlineAnalysis.action": %w`, err)}
+		}
+	}
+	return nil
+}
+
 func (_u *BacktestKlineAnalysisUpdate) sqlSave(ctx context.Context) (_node int, err error) {
+	if err := _u.check(); err != nil {
+		return _node, err
+	}
 	_spec := sqlgraph.NewUpdateSpec(backtestklineanalysis.Table, backtestklineanalysis.Columns, sqlgraph.NewFieldSpec(backtestklineanalysis.FieldID, field.TypeUUID))
 	if ps := _u.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
@@ -379,16 +528,16 @@ func (_u *BacktestKlineAnalysisUpdate) sqlSave(ctx context.Context) (_node int, 
 		_spec.ClearField(backtestklineanalysis.FieldIndicatorValues, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.EntryConditionResult(); ok {
-		_spec.SetField(backtestklineanalysis.FieldEntryConditionResult, field.TypeJSON, value)
+		_spec.SetField(backtestklineanalysis.FieldEntryConditionResult, field.TypeBool, value)
 	}
 	if _u.mutation.EntryConditionResultCleared() {
-		_spec.ClearField(backtestklineanalysis.FieldEntryConditionResult, field.TypeJSON)
+		_spec.ClearField(backtestklineanalysis.FieldEntryConditionResult, field.TypeBool)
 	}
 	if value, ok := _u.mutation.ExitConditionResult(); ok {
-		_spec.SetField(backtestklineanalysis.FieldExitConditionResult, field.TypeJSON, value)
+		_spec.SetField(backtestklineanalysis.FieldExitConditionResult, field.TypeBool, value)
 	}
 	if _u.mutation.ExitConditionResultCleared() {
-		_spec.ClearField(backtestklineanalysis.FieldExitConditionResult, field.TypeJSON)
+		_spec.ClearField(backtestklineanalysis.FieldExitConditionResult, field.TypeBool)
 	}
 	if value, ok := _u.mutation.InPosition(); ok {
 		_spec.SetField(backtestklineanalysis.FieldInPosition, field.TypeBool, value)
@@ -396,17 +545,59 @@ func (_u *BacktestKlineAnalysisUpdate) sqlSave(ctx context.Context) (_node int, 
 	if value, ok := _u.mutation.Action(); ok {
 		_spec.SetField(backtestklineanalysis.FieldAction, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.AvgEntryPrice(); ok {
+		_spec.SetField(backtestklineanalysis.FieldAvgEntryPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedAvgEntryPrice(); ok {
+		_spec.AddField(backtestklineanalysis.FieldAvgEntryPrice, field.TypeFloat64, value)
+	}
+	if _u.mutation.AvgEntryPriceCleared() {
+		_spec.ClearField(backtestklineanalysis.FieldAvgEntryPrice, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.PositionQuantity(); ok {
+		_spec.SetField(backtestklineanalysis.FieldPositionQuantity, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedPositionQuantity(); ok {
+		_spec.AddField(backtestklineanalysis.FieldPositionQuantity, field.TypeFloat64, value)
+	}
+	if _u.mutation.PositionQuantityCleared() {
+		_spec.ClearField(backtestklineanalysis.FieldPositionQuantity, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.PositionCost(); ok {
+		_spec.SetField(backtestklineanalysis.FieldPositionCost, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedPositionCost(); ok {
+		_spec.AddField(backtestklineanalysis.FieldPositionCost, field.TypeFloat64, value)
+	}
+	if _u.mutation.PositionCostCleared() {
+		_spec.ClearField(backtestklineanalysis.FieldPositionCost, field.TypeFloat64)
+	}
 	if value, ok := _u.mutation.PositionValue(); ok {
 		_spec.SetField(backtestklineanalysis.FieldPositionValue, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.AddedPositionValue(); ok {
 		_spec.AddField(backtestklineanalysis.FieldPositionValue, field.TypeFloat64, value)
 	}
+	if _u.mutation.PositionValueCleared() {
+		_spec.ClearField(backtestklineanalysis.FieldPositionValue, field.TypeFloat64)
+	}
 	if value, ok := _u.mutation.PositionPnl(); ok {
 		_spec.SetField(backtestklineanalysis.FieldPositionPnl, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.AddedPositionPnl(); ok {
 		_spec.AddField(backtestklineanalysis.FieldPositionPnl, field.TypeFloat64, value)
+	}
+	if _u.mutation.PositionPnlCleared() {
+		_spec.ClearField(backtestklineanalysis.FieldPositionPnl, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.PositionPnlPercent(); ok {
+		_spec.SetField(backtestklineanalysis.FieldPositionPnlPercent, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedPositionPnlPercent(); ok {
+		_spec.AddField(backtestklineanalysis.FieldPositionPnlPercent, field.TypeFloat64, value)
+	}
+	if _u.mutation.PositionPnlPercentCleared() {
+		_spec.ClearField(backtestklineanalysis.FieldPositionPnlPercent, field.TypeFloat64)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -595,8 +786,16 @@ func (_u *BacktestKlineAnalysisUpdateOne) ClearIndicatorValues() *BacktestKlineA
 }
 
 // SetEntryConditionResult sets the "entry_condition_result" field.
-func (_u *BacktestKlineAnalysisUpdateOne) SetEntryConditionResult(v map[string]interface{}) *BacktestKlineAnalysisUpdateOne {
+func (_u *BacktestKlineAnalysisUpdateOne) SetEntryConditionResult(v bool) *BacktestKlineAnalysisUpdateOne {
 	_u.mutation.SetEntryConditionResult(v)
+	return _u
+}
+
+// SetNillableEntryConditionResult sets the "entry_condition_result" field if the given value is not nil.
+func (_u *BacktestKlineAnalysisUpdateOne) SetNillableEntryConditionResult(v *bool) *BacktestKlineAnalysisUpdateOne {
+	if v != nil {
+		_u.SetEntryConditionResult(*v)
+	}
 	return _u
 }
 
@@ -607,8 +806,16 @@ func (_u *BacktestKlineAnalysisUpdateOne) ClearEntryConditionResult() *BacktestK
 }
 
 // SetExitConditionResult sets the "exit_condition_result" field.
-func (_u *BacktestKlineAnalysisUpdateOne) SetExitConditionResult(v map[string]interface{}) *BacktestKlineAnalysisUpdateOne {
+func (_u *BacktestKlineAnalysisUpdateOne) SetExitConditionResult(v bool) *BacktestKlineAnalysisUpdateOne {
 	_u.mutation.SetExitConditionResult(v)
+	return _u
+}
+
+// SetNillableExitConditionResult sets the "exit_condition_result" field if the given value is not nil.
+func (_u *BacktestKlineAnalysisUpdateOne) SetNillableExitConditionResult(v *bool) *BacktestKlineAnalysisUpdateOne {
+	if v != nil {
+		_u.SetExitConditionResult(*v)
+	}
 	return _u
 }
 
@@ -646,6 +853,87 @@ func (_u *BacktestKlineAnalysisUpdateOne) SetNillableAction(v *string) *Backtest
 	return _u
 }
 
+// SetAvgEntryPrice sets the "avg_entry_price" field.
+func (_u *BacktestKlineAnalysisUpdateOne) SetAvgEntryPrice(v float64) *BacktestKlineAnalysisUpdateOne {
+	_u.mutation.ResetAvgEntryPrice()
+	_u.mutation.SetAvgEntryPrice(v)
+	return _u
+}
+
+// SetNillableAvgEntryPrice sets the "avg_entry_price" field if the given value is not nil.
+func (_u *BacktestKlineAnalysisUpdateOne) SetNillableAvgEntryPrice(v *float64) *BacktestKlineAnalysisUpdateOne {
+	if v != nil {
+		_u.SetAvgEntryPrice(*v)
+	}
+	return _u
+}
+
+// AddAvgEntryPrice adds value to the "avg_entry_price" field.
+func (_u *BacktestKlineAnalysisUpdateOne) AddAvgEntryPrice(v float64) *BacktestKlineAnalysisUpdateOne {
+	_u.mutation.AddAvgEntryPrice(v)
+	return _u
+}
+
+// ClearAvgEntryPrice clears the value of the "avg_entry_price" field.
+func (_u *BacktestKlineAnalysisUpdateOne) ClearAvgEntryPrice() *BacktestKlineAnalysisUpdateOne {
+	_u.mutation.ClearAvgEntryPrice()
+	return _u
+}
+
+// SetPositionQuantity sets the "position_quantity" field.
+func (_u *BacktestKlineAnalysisUpdateOne) SetPositionQuantity(v float64) *BacktestKlineAnalysisUpdateOne {
+	_u.mutation.ResetPositionQuantity()
+	_u.mutation.SetPositionQuantity(v)
+	return _u
+}
+
+// SetNillablePositionQuantity sets the "position_quantity" field if the given value is not nil.
+func (_u *BacktestKlineAnalysisUpdateOne) SetNillablePositionQuantity(v *float64) *BacktestKlineAnalysisUpdateOne {
+	if v != nil {
+		_u.SetPositionQuantity(*v)
+	}
+	return _u
+}
+
+// AddPositionQuantity adds value to the "position_quantity" field.
+func (_u *BacktestKlineAnalysisUpdateOne) AddPositionQuantity(v float64) *BacktestKlineAnalysisUpdateOne {
+	_u.mutation.AddPositionQuantity(v)
+	return _u
+}
+
+// ClearPositionQuantity clears the value of the "position_quantity" field.
+func (_u *BacktestKlineAnalysisUpdateOne) ClearPositionQuantity() *BacktestKlineAnalysisUpdateOne {
+	_u.mutation.ClearPositionQuantity()
+	return _u
+}
+
+// SetPositionCost sets the "position_cost" field.
+func (_u *BacktestKlineAnalysisUpdateOne) SetPositionCost(v float64) *BacktestKlineAnalysisUpdateOne {
+	_u.mutation.ResetPositionCost()
+	_u.mutation.SetPositionCost(v)
+	return _u
+}
+
+// SetNillablePositionCost sets the "position_cost" field if the given value is not nil.
+func (_u *BacktestKlineAnalysisUpdateOne) SetNillablePositionCost(v *float64) *BacktestKlineAnalysisUpdateOne {
+	if v != nil {
+		_u.SetPositionCost(*v)
+	}
+	return _u
+}
+
+// AddPositionCost adds value to the "position_cost" field.
+func (_u *BacktestKlineAnalysisUpdateOne) AddPositionCost(v float64) *BacktestKlineAnalysisUpdateOne {
+	_u.mutation.AddPositionCost(v)
+	return _u
+}
+
+// ClearPositionCost clears the value of the "position_cost" field.
+func (_u *BacktestKlineAnalysisUpdateOne) ClearPositionCost() *BacktestKlineAnalysisUpdateOne {
+	_u.mutation.ClearPositionCost()
+	return _u
+}
+
 // SetPositionValue sets the "position_value" field.
 func (_u *BacktestKlineAnalysisUpdateOne) SetPositionValue(v float64) *BacktestKlineAnalysisUpdateOne {
 	_u.mutation.ResetPositionValue()
@@ -667,6 +955,12 @@ func (_u *BacktestKlineAnalysisUpdateOne) AddPositionValue(v float64) *BacktestK
 	return _u
 }
 
+// ClearPositionValue clears the value of the "position_value" field.
+func (_u *BacktestKlineAnalysisUpdateOne) ClearPositionValue() *BacktestKlineAnalysisUpdateOne {
+	_u.mutation.ClearPositionValue()
+	return _u
+}
+
 // SetPositionPnl sets the "position_pnl" field.
 func (_u *BacktestKlineAnalysisUpdateOne) SetPositionPnl(v float64) *BacktestKlineAnalysisUpdateOne {
 	_u.mutation.ResetPositionPnl()
@@ -685,6 +979,39 @@ func (_u *BacktestKlineAnalysisUpdateOne) SetNillablePositionPnl(v *float64) *Ba
 // AddPositionPnl adds value to the "position_pnl" field.
 func (_u *BacktestKlineAnalysisUpdateOne) AddPositionPnl(v float64) *BacktestKlineAnalysisUpdateOne {
 	_u.mutation.AddPositionPnl(v)
+	return _u
+}
+
+// ClearPositionPnl clears the value of the "position_pnl" field.
+func (_u *BacktestKlineAnalysisUpdateOne) ClearPositionPnl() *BacktestKlineAnalysisUpdateOne {
+	_u.mutation.ClearPositionPnl()
+	return _u
+}
+
+// SetPositionPnlPercent sets the "position_pnl_percent" field.
+func (_u *BacktestKlineAnalysisUpdateOne) SetPositionPnlPercent(v float64) *BacktestKlineAnalysisUpdateOne {
+	_u.mutation.ResetPositionPnlPercent()
+	_u.mutation.SetPositionPnlPercent(v)
+	return _u
+}
+
+// SetNillablePositionPnlPercent sets the "position_pnl_percent" field if the given value is not nil.
+func (_u *BacktestKlineAnalysisUpdateOne) SetNillablePositionPnlPercent(v *float64) *BacktestKlineAnalysisUpdateOne {
+	if v != nil {
+		_u.SetPositionPnlPercent(*v)
+	}
+	return _u
+}
+
+// AddPositionPnlPercent adds value to the "position_pnl_percent" field.
+func (_u *BacktestKlineAnalysisUpdateOne) AddPositionPnlPercent(v float64) *BacktestKlineAnalysisUpdateOne {
+	_u.mutation.AddPositionPnlPercent(v)
+	return _u
+}
+
+// ClearPositionPnlPercent clears the value of the "position_pnl_percent" field.
+func (_u *BacktestKlineAnalysisUpdateOne) ClearPositionPnlPercent() *BacktestKlineAnalysisUpdateOne {
+	_u.mutation.ClearPositionPnlPercent()
 	return _u
 }
 
@@ -733,7 +1060,20 @@ func (_u *BacktestKlineAnalysisUpdateOne) ExecX(ctx context.Context) {
 	}
 }
 
+// check runs all checks and user-defined validators on the builder.
+func (_u *BacktestKlineAnalysisUpdateOne) check() error {
+	if v, ok := _u.mutation.Action(); ok {
+		if err := backtestklineanalysis.ActionValidator(v); err != nil {
+			return &ValidationError{Name: "action", err: fmt.Errorf(`ent: validator failed for field "BacktestKlineAnalysis.action": %w`, err)}
+		}
+	}
+	return nil
+}
+
 func (_u *BacktestKlineAnalysisUpdateOne) sqlSave(ctx context.Context) (_node *BacktestKlineAnalysis, err error) {
+	if err := _u.check(); err != nil {
+		return _node, err
+	}
 	_spec := sqlgraph.NewUpdateSpec(backtestklineanalysis.Table, backtestklineanalysis.Columns, sqlgraph.NewFieldSpec(backtestklineanalysis.FieldID, field.TypeUUID))
 	id, ok := _u.mutation.ID()
 	if !ok {
@@ -808,16 +1148,16 @@ func (_u *BacktestKlineAnalysisUpdateOne) sqlSave(ctx context.Context) (_node *B
 		_spec.ClearField(backtestklineanalysis.FieldIndicatorValues, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.EntryConditionResult(); ok {
-		_spec.SetField(backtestklineanalysis.FieldEntryConditionResult, field.TypeJSON, value)
+		_spec.SetField(backtestklineanalysis.FieldEntryConditionResult, field.TypeBool, value)
 	}
 	if _u.mutation.EntryConditionResultCleared() {
-		_spec.ClearField(backtestklineanalysis.FieldEntryConditionResult, field.TypeJSON)
+		_spec.ClearField(backtestklineanalysis.FieldEntryConditionResult, field.TypeBool)
 	}
 	if value, ok := _u.mutation.ExitConditionResult(); ok {
-		_spec.SetField(backtestklineanalysis.FieldExitConditionResult, field.TypeJSON, value)
+		_spec.SetField(backtestklineanalysis.FieldExitConditionResult, field.TypeBool, value)
 	}
 	if _u.mutation.ExitConditionResultCleared() {
-		_spec.ClearField(backtestklineanalysis.FieldExitConditionResult, field.TypeJSON)
+		_spec.ClearField(backtestklineanalysis.FieldExitConditionResult, field.TypeBool)
 	}
 	if value, ok := _u.mutation.InPosition(); ok {
 		_spec.SetField(backtestklineanalysis.FieldInPosition, field.TypeBool, value)
@@ -825,17 +1165,59 @@ func (_u *BacktestKlineAnalysisUpdateOne) sqlSave(ctx context.Context) (_node *B
 	if value, ok := _u.mutation.Action(); ok {
 		_spec.SetField(backtestklineanalysis.FieldAction, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.AvgEntryPrice(); ok {
+		_spec.SetField(backtestklineanalysis.FieldAvgEntryPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedAvgEntryPrice(); ok {
+		_spec.AddField(backtestklineanalysis.FieldAvgEntryPrice, field.TypeFloat64, value)
+	}
+	if _u.mutation.AvgEntryPriceCleared() {
+		_spec.ClearField(backtestklineanalysis.FieldAvgEntryPrice, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.PositionQuantity(); ok {
+		_spec.SetField(backtestklineanalysis.FieldPositionQuantity, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedPositionQuantity(); ok {
+		_spec.AddField(backtestklineanalysis.FieldPositionQuantity, field.TypeFloat64, value)
+	}
+	if _u.mutation.PositionQuantityCleared() {
+		_spec.ClearField(backtestklineanalysis.FieldPositionQuantity, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.PositionCost(); ok {
+		_spec.SetField(backtestklineanalysis.FieldPositionCost, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedPositionCost(); ok {
+		_spec.AddField(backtestklineanalysis.FieldPositionCost, field.TypeFloat64, value)
+	}
+	if _u.mutation.PositionCostCleared() {
+		_spec.ClearField(backtestklineanalysis.FieldPositionCost, field.TypeFloat64)
+	}
 	if value, ok := _u.mutation.PositionValue(); ok {
 		_spec.SetField(backtestklineanalysis.FieldPositionValue, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.AddedPositionValue(); ok {
 		_spec.AddField(backtestklineanalysis.FieldPositionValue, field.TypeFloat64, value)
 	}
+	if _u.mutation.PositionValueCleared() {
+		_spec.ClearField(backtestklineanalysis.FieldPositionValue, field.TypeFloat64)
+	}
 	if value, ok := _u.mutation.PositionPnl(); ok {
 		_spec.SetField(backtestklineanalysis.FieldPositionPnl, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.AddedPositionPnl(); ok {
 		_spec.AddField(backtestklineanalysis.FieldPositionPnl, field.TypeFloat64, value)
+	}
+	if _u.mutation.PositionPnlCleared() {
+		_spec.ClearField(backtestklineanalysis.FieldPositionPnl, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.PositionPnlPercent(); ok {
+		_spec.SetField(backtestklineanalysis.FieldPositionPnlPercent, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedPositionPnlPercent(); ok {
+		_spec.AddField(backtestklineanalysis.FieldPositionPnlPercent, field.TypeFloat64, value)
+	}
+	if _u.mutation.PositionPnlPercentCleared() {
+		_spec.ClearField(backtestklineanalysis.FieldPositionPnlPercent, field.TypeFloat64)
 	}
 	_node = &BacktestKlineAnalysis{config: _u.config}
 	_spec.Assign = _node.assignValues

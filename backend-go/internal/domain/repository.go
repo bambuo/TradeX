@@ -10,7 +10,6 @@ type BacktestRepository interface {
 	CreateTask(ctx context.Context, task *BacktestTask) error
 	GetTask(ctx context.Context, id uuid.UUID) (*BacktestTask, error)
 	UpdateTaskStatus(ctx context.Context, id uuid.UUID, status BacktestTaskStatus, phase *BacktestPhase) error
-	UpdateTaskProgress(ctx context.Context, id uuid.UUID, progress int) error
 	ListTasks(ctx context.Context, filter TaskFilter) ([]*BacktestTask, int, error)
 	SaveResult(ctx context.Context, taskID uuid.UUID, result *BacktestResult, trades []BacktestTrade) error
 	GetResult(ctx context.Context, taskID uuid.UUID) (*BacktestResult, []BacktestTrade, error)

@@ -57,7 +57,7 @@ func (_c *BacktestTaskCreate) SetNillableCreatedBy(v *uuid.UUID) *BacktestTaskCr
 }
 
 // SetExchangeID sets the "exchange_id" field.
-func (_c *BacktestTaskCreate) SetExchangeID(v string) *BacktestTaskCreate {
+func (_c *BacktestTaskCreate) SetExchangeID(v uuid.UUID) *BacktestTaskCreate {
 	_c.mutation.SetExchangeID(v)
 	return _c
 }
@@ -90,20 +90,6 @@ func (_c *BacktestTaskCreate) SetPositionSize(v float64) *BacktestTaskCreate {
 func (_c *BacktestTaskCreate) SetNillablePositionSize(v *float64) *BacktestTaskCreate {
 	if v != nil {
 		_c.SetPositionSize(*v)
-	}
-	return _c
-}
-
-// SetFeeRate sets the "fee_rate" field.
-func (_c *BacktestTaskCreate) SetFeeRate(v float64) *BacktestTaskCreate {
-	_c.mutation.SetFeeRate(v)
-	return _c
-}
-
-// SetNillableFeeRate sets the "fee_rate" field if the given value is not nil.
-func (_c *BacktestTaskCreate) SetNillableFeeRate(v *float64) *BacktestTaskCreate {
-	if v != nil {
-		_c.SetFeeRate(*v)
 	}
 	return _c
 }
@@ -162,34 +148,6 @@ func (_c *BacktestTaskCreate) SetNillablePhase(v *backtesttask.Phase) *BacktestT
 	return _c
 }
 
-// SetProgress sets the "progress" field.
-func (_c *BacktestTaskCreate) SetProgress(v int) *BacktestTaskCreate {
-	_c.mutation.SetProgress(v)
-	return _c
-}
-
-// SetNillableProgress sets the "progress" field if the given value is not nil.
-func (_c *BacktestTaskCreate) SetNillableProgress(v *int) *BacktestTaskCreate {
-	if v != nil {
-		_c.SetProgress(*v)
-	}
-	return _c
-}
-
-// SetErrorMessage sets the "error_message" field.
-func (_c *BacktestTaskCreate) SetErrorMessage(v string) *BacktestTaskCreate {
-	_c.mutation.SetErrorMessage(v)
-	return _c
-}
-
-// SetNillableErrorMessage sets the "error_message" field if the given value is not nil.
-func (_c *BacktestTaskCreate) SetNillableErrorMessage(v *string) *BacktestTaskCreate {
-	if v != nil {
-		_c.SetErrorMessage(*v)
-	}
-	return _c
-}
-
 // SetCreatedAt sets the "created_at" field.
 func (_c *BacktestTaskCreate) SetCreatedAt(v time.Time) *BacktestTaskCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -200,20 +158,6 @@ func (_c *BacktestTaskCreate) SetCreatedAt(v time.Time) *BacktestTaskCreate {
 func (_c *BacktestTaskCreate) SetNillableCreatedAt(v *time.Time) *BacktestTaskCreate {
 	if v != nil {
 		_c.SetCreatedAt(*v)
-	}
-	return _c
-}
-
-// SetUpdatedAt sets the "updated_at" field.
-func (_c *BacktestTaskCreate) SetUpdatedAt(v time.Time) *BacktestTaskCreate {
-	_c.mutation.SetUpdatedAt(v)
-	return _c
-}
-
-// SetNillableUpdatedAt sets the "updated_at" field if the given value is not nil.
-func (_c *BacktestTaskCreate) SetNillableUpdatedAt(v *time.Time) *BacktestTaskCreate {
-	if v != nil {
-		_c.SetUpdatedAt(*v)
 	}
 	return _c
 }
@@ -294,25 +238,13 @@ func (_c *BacktestTaskCreate) defaults() {
 		v := backtesttask.DefaultCreatedBy()
 		_c.mutation.SetCreatedBy(v)
 	}
-	if _, ok := _c.mutation.FeeRate(); !ok {
-		v := backtesttask.DefaultFeeRate
-		_c.mutation.SetFeeRate(v)
-	}
 	if _, ok := _c.mutation.Status(); !ok {
 		v := backtesttask.DefaultStatus
 		_c.mutation.SetStatus(v)
 	}
-	if _, ok := _c.mutation.Progress(); !ok {
-		v := backtesttask.DefaultProgress
-		_c.mutation.SetProgress(v)
-	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := backtesttask.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
-	}
-	if _, ok := _c.mutation.UpdatedAt(); !ok {
-		v := backtesttask.DefaultUpdatedAt()
-		_c.mutation.SetUpdatedAt(v)
 	}
 	if _, ok := _c.mutation.ID(); !ok {
 		v := backtesttask.DefaultID()
@@ -328,6 +260,11 @@ func (_c *BacktestTaskCreate) check() error {
 	if _, ok := _c.mutation.StrategyName(); !ok {
 		return &ValidationError{Name: "strategy_name", err: errors.New(`ent: missing required field "BacktestTask.strategy_name"`)}
 	}
+	if v, ok := _c.mutation.StrategyName(); ok {
+		if err := backtesttask.StrategyNameValidator(v); err != nil {
+			return &ValidationError{Name: "strategy_name", err: fmt.Errorf(`ent: validator failed for field "BacktestTask.strategy_name": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.CreatedBy(); !ok {
 		return &ValidationError{Name: "created_by", err: errors.New(`ent: missing required field "BacktestTask.created_by"`)}
 	}
@@ -337,14 +274,21 @@ func (_c *BacktestTaskCreate) check() error {
 	if _, ok := _c.mutation.Pair(); !ok {
 		return &ValidationError{Name: "pair", err: errors.New(`ent: missing required field "BacktestTask.pair"`)}
 	}
+	if v, ok := _c.mutation.Pair(); ok {
+		if err := backtesttask.PairValidator(v); err != nil {
+			return &ValidationError{Name: "pair", err: fmt.Errorf(`ent: validator failed for field "BacktestTask.pair": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.Timeframe(); !ok {
 		return &ValidationError{Name: "timeframe", err: errors.New(`ent: missing required field "BacktestTask.timeframe"`)}
 	}
+	if v, ok := _c.mutation.Timeframe(); ok {
+		if err := backtesttask.TimeframeValidator(v); err != nil {
+			return &ValidationError{Name: "timeframe", err: fmt.Errorf(`ent: validator failed for field "BacktestTask.timeframe": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.InitialCapital(); !ok {
 		return &ValidationError{Name: "initial_capital", err: errors.New(`ent: missing required field "BacktestTask.initial_capital"`)}
-	}
-	if _, ok := _c.mutation.FeeRate(); !ok {
-		return &ValidationError{Name: "fee_rate", err: errors.New(`ent: missing required field "BacktestTask.fee_rate"`)}
 	}
 	if _, ok := _c.mutation.StartAt(); !ok {
 		return &ValidationError{Name: "start_at", err: errors.New(`ent: missing required field "BacktestTask.start_at"`)}
@@ -365,14 +309,8 @@ func (_c *BacktestTaskCreate) check() error {
 			return &ValidationError{Name: "phase", err: fmt.Errorf(`ent: validator failed for field "BacktestTask.phase": %w`, err)}
 		}
 	}
-	if _, ok := _c.mutation.Progress(); !ok {
-		return &ValidationError{Name: "progress", err: errors.New(`ent: missing required field "BacktestTask.progress"`)}
-	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "BacktestTask.created_at"`)}
-	}
-	if _, ok := _c.mutation.UpdatedAt(); !ok {
-		return &ValidationError{Name: "updated_at", err: errors.New(`ent: missing required field "BacktestTask.updated_at"`)}
 	}
 	return nil
 }
@@ -422,7 +360,7 @@ func (_c *BacktestTaskCreate) createSpec() (*BacktestTask, *sqlgraph.CreateSpec)
 		_node.CreatedBy = value
 	}
 	if value, ok := _c.mutation.ExchangeID(); ok {
-		_spec.SetField(backtesttask.FieldExchangeID, field.TypeString, value)
+		_spec.SetField(backtesttask.FieldExchangeID, field.TypeUUID, value)
 		_node.ExchangeID = value
 	}
 	if value, ok := _c.mutation.Pair(); ok {
@@ -440,10 +378,6 @@ func (_c *BacktestTaskCreate) createSpec() (*BacktestTask, *sqlgraph.CreateSpec)
 	if value, ok := _c.mutation.PositionSize(); ok {
 		_spec.SetField(backtesttask.FieldPositionSize, field.TypeFloat64, value)
 		_node.PositionSize = &value
-	}
-	if value, ok := _c.mutation.FeeRate(); ok {
-		_spec.SetField(backtesttask.FieldFeeRate, field.TypeFloat64, value)
-		_node.FeeRate = value
 	}
 	if value, ok := _c.mutation.StartAt(); ok {
 		_spec.SetField(backtesttask.FieldStartAt, field.TypeTime, value)
@@ -465,21 +399,9 @@ func (_c *BacktestTaskCreate) createSpec() (*BacktestTask, *sqlgraph.CreateSpec)
 		_spec.SetField(backtesttask.FieldPhase, field.TypeEnum, value)
 		_node.Phase = value
 	}
-	if value, ok := _c.mutation.Progress(); ok {
-		_spec.SetField(backtesttask.FieldProgress, field.TypeInt, value)
-		_node.Progress = value
-	}
-	if value, ok := _c.mutation.ErrorMessage(); ok {
-		_spec.SetField(backtesttask.FieldErrorMessage, field.TypeString, value)
-		_node.ErrorMessage = &value
-	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(backtesttask.FieldCreatedAt, field.TypeTime, value)
 		_node.CreatedAt = value
-	}
-	if value, ok := _c.mutation.UpdatedAt(); ok {
-		_spec.SetField(backtesttask.FieldUpdatedAt, field.TypeTime, value)
-		_node.UpdatedAt = value
 	}
 	if nodes := _c.mutation.ResultIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

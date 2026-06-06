@@ -3,6 +3,8 @@
 package strategy
 
 import (
+	"time"
+
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
 )
@@ -20,14 +22,14 @@ const (
 	FieldExitCondition = "exit_condition"
 	// FieldExecutionRule holds the string denoting the execution_rule field in the database.
 	FieldExecutionRule = "execution_rule"
-	// FieldExchangeID holds the string denoting the exchange_id field in the database.
-	FieldExchangeID = "exchange_id"
-	// FieldPair holds the string denoting the pair field in the database.
-	FieldPair = "pair"
-	// FieldTimeframe holds the string denoting the timeframe field in the database.
-	FieldTimeframe = "timeframe"
-	// FieldIsActive holds the string denoting the is_active field in the database.
-	FieldIsActive = "is_active"
+	// FieldVersion holds the string denoting the version field in the database.
+	FieldVersion = "version"
+	// FieldCreatedBy holds the string denoting the created_by field in the database.
+	FieldCreatedBy = "created_by"
+	// FieldCreatedAt holds the string denoting the created_at field in the database.
+	FieldCreatedAt = "created_at"
+	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
+	FieldUpdatedAt = "updated_at"
 	// Table holds the table name of the strategy in the database.
 	Table = "strategies"
 )
@@ -39,10 +41,10 @@ var Columns = []string{
 	FieldEntryCondition,
 	FieldExitCondition,
 	FieldExecutionRule,
-	FieldExchangeID,
-	FieldPair,
-	FieldTimeframe,
-	FieldIsActive,
+	FieldVersion,
+	FieldCreatedBy,
+	FieldCreatedAt,
+	FieldUpdatedAt,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -56,8 +58,18 @@ func ValidColumn(column string) bool {
 }
 
 var (
-	// DefaultIsActive holds the default value on creation for the "is_active" field.
-	DefaultIsActive bool
+	// NameValidator is a validator for the "name" field. It is called by the builders before save.
+	NameValidator func(string) error
+	// DefaultVersion holds the default value on creation for the "version" field.
+	DefaultVersion int
+	// DefaultCreatedBy holds the default value on creation for the "created_by" field.
+	DefaultCreatedBy func() uuid.UUID
+	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
+	DefaultCreatedAt func() time.Time
+	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
+	DefaultUpdatedAt func() time.Time
+	// UpdateDefaultUpdatedAt holds the default value on update for the "updated_at" field.
+	UpdateDefaultUpdatedAt func() time.Time
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
@@ -90,22 +102,22 @@ func ByExecutionRule(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldExecutionRule, opts...).ToFunc()
 }
 
-// ByExchangeID orders the results by the exchange_id field.
-func ByExchangeID(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldExchangeID, opts...).ToFunc()
+// ByVersion orders the results by the version field.
+func ByVersion(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldVersion, opts...).ToFunc()
 }
 
-// ByPair orders the results by the pair field.
-func ByPair(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldPair, opts...).ToFunc()
+// ByCreatedBy orders the results by the created_by field.
+func ByCreatedBy(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCreatedBy, opts...).ToFunc()
 }
 
-// ByTimeframe orders the results by the timeframe field.
-func ByTimeframe(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldTimeframe, opts...).ToFunc()
+// ByCreatedAt orders the results by the created_at field.
+func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCreatedAt, opts...).ToFunc()
 }
 
-// ByIsActive orders the results by the is_active field.
-func ByIsActive(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldIsActive, opts...).ToFunc()
+// ByUpdatedAt orders the results by the updated_at field.
+func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldUpdatedAt, opts...).ToFunc()
 }

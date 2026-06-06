@@ -61,6 +61,31 @@ func StrategyName(v string) predicate.BacktestResult {
 	return predicate.BacktestResult(sql.FieldEQ(FieldStrategyName, v))
 }
 
+// Pair applies equality check predicate on the "pair" field. It's identical to PairEQ.
+func Pair(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldEQ(FieldPair, v))
+}
+
+// Timeframe applies equality check predicate on the "timeframe" field. It's identical to TimeframeEQ.
+func Timeframe(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldEQ(FieldTimeframe, v))
+}
+
+// StartAt applies equality check predicate on the "start_at" field. It's identical to StartAtEQ.
+func StartAt(v time.Time) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldEQ(FieldStartAt, v))
+}
+
+// EndAt applies equality check predicate on the "end_at" field. It's identical to EndAtEQ.
+func EndAt(v time.Time) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldEQ(FieldEndAt, v))
+}
+
+// InitialCapital applies equality check predicate on the "initial_capital" field. It's identical to InitialCapitalEQ.
+func InitialCapital(v float64) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldEQ(FieldInitialCapital, v))
+}
+
 // FinalValue applies equality check predicate on the "final_value" field. It's identical to FinalValueEQ.
 func FinalValue(v float64) predicate.BacktestResult {
 	return predicate.BacktestResult(sql.FieldEQ(FieldFinalValue, v))
@@ -169,6 +194,256 @@ func StrategyNameEqualFold(v string) predicate.BacktestResult {
 // StrategyNameContainsFold applies the ContainsFold predicate on the "strategy_name" field.
 func StrategyNameContainsFold(v string) predicate.BacktestResult {
 	return predicate.BacktestResult(sql.FieldContainsFold(FieldStrategyName, v))
+}
+
+// PairEQ applies the EQ predicate on the "pair" field.
+func PairEQ(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldEQ(FieldPair, v))
+}
+
+// PairNEQ applies the NEQ predicate on the "pair" field.
+func PairNEQ(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldNEQ(FieldPair, v))
+}
+
+// PairIn applies the In predicate on the "pair" field.
+func PairIn(vs ...string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldIn(FieldPair, vs...))
+}
+
+// PairNotIn applies the NotIn predicate on the "pair" field.
+func PairNotIn(vs ...string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldNotIn(FieldPair, vs...))
+}
+
+// PairGT applies the GT predicate on the "pair" field.
+func PairGT(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldGT(FieldPair, v))
+}
+
+// PairGTE applies the GTE predicate on the "pair" field.
+func PairGTE(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldGTE(FieldPair, v))
+}
+
+// PairLT applies the LT predicate on the "pair" field.
+func PairLT(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldLT(FieldPair, v))
+}
+
+// PairLTE applies the LTE predicate on the "pair" field.
+func PairLTE(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldLTE(FieldPair, v))
+}
+
+// PairContains applies the Contains predicate on the "pair" field.
+func PairContains(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldContains(FieldPair, v))
+}
+
+// PairHasPrefix applies the HasPrefix predicate on the "pair" field.
+func PairHasPrefix(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldHasPrefix(FieldPair, v))
+}
+
+// PairHasSuffix applies the HasSuffix predicate on the "pair" field.
+func PairHasSuffix(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldHasSuffix(FieldPair, v))
+}
+
+// PairEqualFold applies the EqualFold predicate on the "pair" field.
+func PairEqualFold(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldEqualFold(FieldPair, v))
+}
+
+// PairContainsFold applies the ContainsFold predicate on the "pair" field.
+func PairContainsFold(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldContainsFold(FieldPair, v))
+}
+
+// TimeframeEQ applies the EQ predicate on the "timeframe" field.
+func TimeframeEQ(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldEQ(FieldTimeframe, v))
+}
+
+// TimeframeNEQ applies the NEQ predicate on the "timeframe" field.
+func TimeframeNEQ(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldNEQ(FieldTimeframe, v))
+}
+
+// TimeframeIn applies the In predicate on the "timeframe" field.
+func TimeframeIn(vs ...string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldIn(FieldTimeframe, vs...))
+}
+
+// TimeframeNotIn applies the NotIn predicate on the "timeframe" field.
+func TimeframeNotIn(vs ...string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldNotIn(FieldTimeframe, vs...))
+}
+
+// TimeframeGT applies the GT predicate on the "timeframe" field.
+func TimeframeGT(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldGT(FieldTimeframe, v))
+}
+
+// TimeframeGTE applies the GTE predicate on the "timeframe" field.
+func TimeframeGTE(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldGTE(FieldTimeframe, v))
+}
+
+// TimeframeLT applies the LT predicate on the "timeframe" field.
+func TimeframeLT(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldLT(FieldTimeframe, v))
+}
+
+// TimeframeLTE applies the LTE predicate on the "timeframe" field.
+func TimeframeLTE(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldLTE(FieldTimeframe, v))
+}
+
+// TimeframeContains applies the Contains predicate on the "timeframe" field.
+func TimeframeContains(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldContains(FieldTimeframe, v))
+}
+
+// TimeframeHasPrefix applies the HasPrefix predicate on the "timeframe" field.
+func TimeframeHasPrefix(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldHasPrefix(FieldTimeframe, v))
+}
+
+// TimeframeHasSuffix applies the HasSuffix predicate on the "timeframe" field.
+func TimeframeHasSuffix(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldHasSuffix(FieldTimeframe, v))
+}
+
+// TimeframeEqualFold applies the EqualFold predicate on the "timeframe" field.
+func TimeframeEqualFold(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldEqualFold(FieldTimeframe, v))
+}
+
+// TimeframeContainsFold applies the ContainsFold predicate on the "timeframe" field.
+func TimeframeContainsFold(v string) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldContainsFold(FieldTimeframe, v))
+}
+
+// StartAtEQ applies the EQ predicate on the "start_at" field.
+func StartAtEQ(v time.Time) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldEQ(FieldStartAt, v))
+}
+
+// StartAtNEQ applies the NEQ predicate on the "start_at" field.
+func StartAtNEQ(v time.Time) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldNEQ(FieldStartAt, v))
+}
+
+// StartAtIn applies the In predicate on the "start_at" field.
+func StartAtIn(vs ...time.Time) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldIn(FieldStartAt, vs...))
+}
+
+// StartAtNotIn applies the NotIn predicate on the "start_at" field.
+func StartAtNotIn(vs ...time.Time) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldNotIn(FieldStartAt, vs...))
+}
+
+// StartAtGT applies the GT predicate on the "start_at" field.
+func StartAtGT(v time.Time) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldGT(FieldStartAt, v))
+}
+
+// StartAtGTE applies the GTE predicate on the "start_at" field.
+func StartAtGTE(v time.Time) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldGTE(FieldStartAt, v))
+}
+
+// StartAtLT applies the LT predicate on the "start_at" field.
+func StartAtLT(v time.Time) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldLT(FieldStartAt, v))
+}
+
+// StartAtLTE applies the LTE predicate on the "start_at" field.
+func StartAtLTE(v time.Time) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldLTE(FieldStartAt, v))
+}
+
+// EndAtEQ applies the EQ predicate on the "end_at" field.
+func EndAtEQ(v time.Time) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldEQ(FieldEndAt, v))
+}
+
+// EndAtNEQ applies the NEQ predicate on the "end_at" field.
+func EndAtNEQ(v time.Time) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldNEQ(FieldEndAt, v))
+}
+
+// EndAtIn applies the In predicate on the "end_at" field.
+func EndAtIn(vs ...time.Time) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldIn(FieldEndAt, vs...))
+}
+
+// EndAtNotIn applies the NotIn predicate on the "end_at" field.
+func EndAtNotIn(vs ...time.Time) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldNotIn(FieldEndAt, vs...))
+}
+
+// EndAtGT applies the GT predicate on the "end_at" field.
+func EndAtGT(v time.Time) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldGT(FieldEndAt, v))
+}
+
+// EndAtGTE applies the GTE predicate on the "end_at" field.
+func EndAtGTE(v time.Time) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldGTE(FieldEndAt, v))
+}
+
+// EndAtLT applies the LT predicate on the "end_at" field.
+func EndAtLT(v time.Time) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldLT(FieldEndAt, v))
+}
+
+// EndAtLTE applies the LTE predicate on the "end_at" field.
+func EndAtLTE(v time.Time) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldLTE(FieldEndAt, v))
+}
+
+// InitialCapitalEQ applies the EQ predicate on the "initial_capital" field.
+func InitialCapitalEQ(v float64) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldEQ(FieldInitialCapital, v))
+}
+
+// InitialCapitalNEQ applies the NEQ predicate on the "initial_capital" field.
+func InitialCapitalNEQ(v float64) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldNEQ(FieldInitialCapital, v))
+}
+
+// InitialCapitalIn applies the In predicate on the "initial_capital" field.
+func InitialCapitalIn(vs ...float64) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldIn(FieldInitialCapital, vs...))
+}
+
+// InitialCapitalNotIn applies the NotIn predicate on the "initial_capital" field.
+func InitialCapitalNotIn(vs ...float64) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldNotIn(FieldInitialCapital, vs...))
+}
+
+// InitialCapitalGT applies the GT predicate on the "initial_capital" field.
+func InitialCapitalGT(v float64) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldGT(FieldInitialCapital, v))
+}
+
+// InitialCapitalGTE applies the GTE predicate on the "initial_capital" field.
+func InitialCapitalGTE(v float64) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldGTE(FieldInitialCapital, v))
+}
+
+// InitialCapitalLT applies the LT predicate on the "initial_capital" field.
+func InitialCapitalLT(v float64) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldLT(FieldInitialCapital, v))
+}
+
+// InitialCapitalLTE applies the LTE predicate on the "initial_capital" field.
+func InitialCapitalLTE(v float64) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldLTE(FieldInitialCapital, v))
 }
 
 // FinalValueEQ applies the EQ predicate on the "final_value" field.

@@ -51,37 +51,20 @@ const entryNode = ref<ConditionNode>({ operator: 'AND', conditions: [] })
 const exitNode = ref<ConditionNode>({ operator: 'AND', conditions: [] })
 const formExecutionRule = ref('{"type":"custom"}')
 
-function toPascalCaseNode(node: ConditionNode): Record<string, unknown> {
-  const result: Record<string, unknown> = {}
-  if (node.operator !== undefined) result['Operator'] = node.operator
-  if (node.conditions !== undefined) {
-    result['Conditions'] = node.conditions.map(toPascalCaseNode)
-  }
-  if (node.indicator !== undefined) result['Indicator'] = node.indicator
-  if (node.parameters !== undefined) result['Parameters'] = node.parameters
-  if (node.comparison !== undefined) result['Comparison'] = node.comparison
-  if (node.value !== undefined) result['Value'] = node.value
-  return result
-}
-
-function toCamelCaseNode(obj: Record<string, unknown>): ConditionNode {
-  const node: ConditionNode = {}
-  if (obj['Operator'] !== undefined) node.operator = obj['Operator'] as string
-  if (obj['Conditions'] !== undefined) {
-    node.conditions = (obj['Conditions'] as Record<string, unknown>[]).map(toCamelCaseNode)
-  }
-  if (obj['Indicator'] !== undefined) node.indicator = obj['Indicator'] as string
-  if (obj['Parameters'] !== undefined) node.parameters = obj['Parameters'] as Record<string, number>
-  if (obj['Comparison'] !== undefined) node.comparison = obj['Comparison'] as string
-  if (obj['Value'] !== undefined) node.value = obj['Value'] as number
-  return node
-}
-
 function conditionToNode(json: string): ConditionNode {
   try {
     const parsed = JSON.parse(json)
     if (parsed.Indicator || parsed.Operator) {
-      return toCamelCaseNode(parsed)
+      const node: ConditionNode = {}
+      if (parsed['Operator'] !== undefined) node.operator = parsed['Operator'] as string
+      if (parsed['Conditions'] !== undefined) {
+        node.conditions = (parsed['Conditions'] as Record<string, unknown>[]).map(conditionToNode)
+      }
+      if (parsed['Indicator'] !== undefined) node.indicator = parsed['Indicator'] as string
+      if (parsed['Parameters'] !== undefined) node.parameters = parsed['Parameters'] as Record<string, number>
+      if (parsed['Comparison'] !== undefined) node.comparison = parsed['Comparison'] as string
+      if (parsed['Value'] !== undefined) node.value = parsed['Value'] as number
+      return node
     }
     if (!parsed.operator && !parsed.conditions && !parsed.indicator) {
       return { operator: 'AND', conditions: [] }
@@ -98,14 +81,14 @@ function conditionToNode(json: string): ConditionNode {
 function nodeToCondition(node: ConditionNode): string {
   if (!node.conditions || node.conditions.length === 0) {
     if (node.indicator) {
-      return JSON.stringify(toPascalCaseNode(node))
+      return JSON.stringify(node)
     }
     return '{}'
   }
   if (node.conditions.length === 1 && !node.conditions[0].indicator && !node.conditions[0].conditions) {
-    return JSON.stringify(toPascalCaseNode(node.conditions[0]))
+    return JSON.stringify(node.conditions[0])
   }
-  return JSON.stringify(toPascalCaseNode(node))
+  return JSON.stringify(node)
 }
 
 async function load() {

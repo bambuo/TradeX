@@ -38,20 +38,26 @@ type BacktestKlineAnalysis struct {
 	// IndicatorValues holds the value of the "indicator_values" field.
 	IndicatorValues map[string]float64 `json:"indicator_values,omitempty"`
 	// EntryConditionResult holds the value of the "entry_condition_result" field.
-	EntryConditionResult map[string]interface{} `json:"entry_condition_result,omitempty"`
+	EntryConditionResult *bool `json:"entry_condition_result,omitempty"`
 	// ExitConditionResult holds the value of the "exit_condition_result" field.
-	ExitConditionResult map[string]interface{} `json:"exit_condition_result,omitempty"`
+	ExitConditionResult *bool `json:"exit_condition_result,omitempty"`
 	// InPosition holds the value of the "in_position" field.
 	InPosition bool `json:"in_position,omitempty"`
 	// Action holds the value of the "action" field.
 	Action string `json:"action,omitempty"`
+	// AvgEntryPrice holds the value of the "avg_entry_price" field.
+	AvgEntryPrice *float64 `json:"avg_entry_price,omitempty"`
+	// PositionQuantity holds the value of the "position_quantity" field.
+	PositionQuantity *float64 `json:"position_quantity,omitempty"`
+	// PositionCost holds the value of the "position_cost" field.
+	PositionCost *float64 `json:"position_cost,omitempty"`
 	// PositionValue holds the value of the "position_value" field.
-	PositionValue float64 `json:"position_value,omitempty"`
+	PositionValue *float64 `json:"position_value,omitempty"`
 	// PositionPnl holds the value of the "position_pnl" field.
-	PositionPnl float64 `json:"position_pnl,omitempty"`
-	// CreatedAt holds the value of the "created_at" field.
-	CreatedAt    time.Time `json:"created_at,omitempty"`
-	selectValues sql.SelectValues
+	PositionPnl *float64 `json:"position_pnl,omitempty"`
+	// PositionPnlPercent holds the value of the "position_pnl_percent" field.
+	PositionPnlPercent *float64 `json:"position_pnl_percent,omitempty"`
+	selectValues       sql.SelectValues
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -59,17 +65,17 @@ func (*BacktestKlineAnalysis) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case backtestklineanalysis.FieldIndicatorValues, backtestklineanalysis.FieldEntryConditionResult, backtestklineanalysis.FieldExitConditionResult:
+		case backtestklineanalysis.FieldIndicatorValues:
 			values[i] = new([]byte)
-		case backtestklineanalysis.FieldInPosition:
+		case backtestklineanalysis.FieldEntryConditionResult, backtestklineanalysis.FieldExitConditionResult, backtestklineanalysis.FieldInPosition:
 			values[i] = new(sql.NullBool)
-		case backtestklineanalysis.FieldOpen, backtestklineanalysis.FieldHigh, backtestklineanalysis.FieldLow, backtestklineanalysis.FieldClose, backtestklineanalysis.FieldVolume, backtestklineanalysis.FieldPositionValue, backtestklineanalysis.FieldPositionPnl:
+		case backtestklineanalysis.FieldOpen, backtestklineanalysis.FieldHigh, backtestklineanalysis.FieldLow, backtestklineanalysis.FieldClose, backtestklineanalysis.FieldVolume, backtestklineanalysis.FieldAvgEntryPrice, backtestklineanalysis.FieldPositionQuantity, backtestklineanalysis.FieldPositionCost, backtestklineanalysis.FieldPositionValue, backtestklineanalysis.FieldPositionPnl, backtestklineanalysis.FieldPositionPnlPercent:
 			values[i] = new(sql.NullFloat64)
 		case backtestklineanalysis.FieldKlineIndex:
 			values[i] = new(sql.NullInt64)
 		case backtestklineanalysis.FieldAction:
 			values[i] = new(sql.NullString)
-		case backtestklineanalysis.FieldTimestamp, backtestklineanalysis.FieldCreatedAt:
+		case backtestklineanalysis.FieldTimestamp:
 			values[i] = new(sql.NullTime)
 		case backtestklineanalysis.FieldID, backtestklineanalysis.FieldTaskID:
 			values[i] = new(uuid.UUID)
@@ -151,20 +157,18 @@ func (_m *BacktestKlineAnalysis) assignValues(columns []string, values []any) er
 				}
 			}
 		case backtestklineanalysis.FieldEntryConditionResult:
-			if value, ok := values[i].(*[]byte); !ok {
+			if value, ok := values[i].(*sql.NullBool); !ok {
 				return fmt.Errorf("unexpected type %T for field entry_condition_result", values[i])
-			} else if value != nil && len(*value) > 0 {
-				if err := json.Unmarshal(*value, &_m.EntryConditionResult); err != nil {
-					return fmt.Errorf("unmarshal field entry_condition_result: %w", err)
-				}
+			} else if value.Valid {
+				_m.EntryConditionResult = new(bool)
+				*_m.EntryConditionResult = value.Bool
 			}
 		case backtestklineanalysis.FieldExitConditionResult:
-			if value, ok := values[i].(*[]byte); !ok {
+			if value, ok := values[i].(*sql.NullBool); !ok {
 				return fmt.Errorf("unexpected type %T for field exit_condition_result", values[i])
-			} else if value != nil && len(*value) > 0 {
-				if err := json.Unmarshal(*value, &_m.ExitConditionResult); err != nil {
-					return fmt.Errorf("unmarshal field exit_condition_result: %w", err)
-				}
+			} else if value.Valid {
+				_m.ExitConditionResult = new(bool)
+				*_m.ExitConditionResult = value.Bool
 			}
 		case backtestklineanalysis.FieldInPosition:
 			if value, ok := values[i].(*sql.NullBool); !ok {
@@ -178,23 +182,47 @@ func (_m *BacktestKlineAnalysis) assignValues(columns []string, values []any) er
 			} else if value.Valid {
 				_m.Action = value.String
 			}
+		case backtestklineanalysis.FieldAvgEntryPrice:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field avg_entry_price", values[i])
+			} else if value.Valid {
+				_m.AvgEntryPrice = new(float64)
+				*_m.AvgEntryPrice = value.Float64
+			}
+		case backtestklineanalysis.FieldPositionQuantity:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field position_quantity", values[i])
+			} else if value.Valid {
+				_m.PositionQuantity = new(float64)
+				*_m.PositionQuantity = value.Float64
+			}
+		case backtestklineanalysis.FieldPositionCost:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field position_cost", values[i])
+			} else if value.Valid {
+				_m.PositionCost = new(float64)
+				*_m.PositionCost = value.Float64
+			}
 		case backtestklineanalysis.FieldPositionValue:
 			if value, ok := values[i].(*sql.NullFloat64); !ok {
 				return fmt.Errorf("unexpected type %T for field position_value", values[i])
 			} else if value.Valid {
-				_m.PositionValue = value.Float64
+				_m.PositionValue = new(float64)
+				*_m.PositionValue = value.Float64
 			}
 		case backtestklineanalysis.FieldPositionPnl:
 			if value, ok := values[i].(*sql.NullFloat64); !ok {
 				return fmt.Errorf("unexpected type %T for field position_pnl", values[i])
 			} else if value.Valid {
-				_m.PositionPnl = value.Float64
+				_m.PositionPnl = new(float64)
+				*_m.PositionPnl = value.Float64
 			}
-		case backtestklineanalysis.FieldCreatedAt:
-			if value, ok := values[i].(*sql.NullTime); !ok {
-				return fmt.Errorf("unexpected type %T for field created_at", values[i])
+		case backtestklineanalysis.FieldPositionPnlPercent:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field position_pnl_percent", values[i])
 			} else if value.Valid {
-				_m.CreatedAt = value.Time
+				_m.PositionPnlPercent = new(float64)
+				*_m.PositionPnlPercent = value.Float64
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -259,11 +287,15 @@ func (_m *BacktestKlineAnalysis) String() string {
 	builder.WriteString("indicator_values=")
 	builder.WriteString(fmt.Sprintf("%v", _m.IndicatorValues))
 	builder.WriteString(", ")
-	builder.WriteString("entry_condition_result=")
-	builder.WriteString(fmt.Sprintf("%v", _m.EntryConditionResult))
+	if v := _m.EntryConditionResult; v != nil {
+		builder.WriteString("entry_condition_result=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
-	builder.WriteString("exit_condition_result=")
-	builder.WriteString(fmt.Sprintf("%v", _m.ExitConditionResult))
+	if v := _m.ExitConditionResult; v != nil {
+		builder.WriteString("exit_condition_result=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("in_position=")
 	builder.WriteString(fmt.Sprintf("%v", _m.InPosition))
@@ -271,14 +303,35 @@ func (_m *BacktestKlineAnalysis) String() string {
 	builder.WriteString("action=")
 	builder.WriteString(_m.Action)
 	builder.WriteString(", ")
-	builder.WriteString("position_value=")
-	builder.WriteString(fmt.Sprintf("%v", _m.PositionValue))
+	if v := _m.AvgEntryPrice; v != nil {
+		builder.WriteString("avg_entry_price=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
-	builder.WriteString("position_pnl=")
-	builder.WriteString(fmt.Sprintf("%v", _m.PositionPnl))
+	if v := _m.PositionQuantity; v != nil {
+		builder.WriteString("position_quantity=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
-	builder.WriteString("created_at=")
-	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))
+	if v := _m.PositionCost; v != nil {
+		builder.WriteString("position_cost=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.PositionValue; v != nil {
+		builder.WriteString("position_value=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.PositionPnl; v != nil {
+		builder.WriteString("position_pnl=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.PositionPnlPercent; v != nil {
+		builder.WriteString("position_pnl_percent=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

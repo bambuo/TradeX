@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"time"
 
 	"github.com/shopspring/decimal"
 
@@ -28,15 +29,15 @@ type EngineInput struct {
 }
 
 type EngineOutput struct {
-	Result   domain.BacktestResult
-	Trades   []domain.BacktestTrade
-	Analysis []domain.BacktestKlineAnalysis
+	Result      domain.BacktestResult
+	Trades      []domain.BacktestTrade
+	Analysis    []domain.BacktestKlineAnalysis
 	EquityCurve []decimal.Decimal
 }
 
 type BacktestEngine struct {
-	registry  *indicator.Registry
-	decision  *StrategyDecisionEngine
+	registry *indicator.Registry
+	decision *StrategyDecisionEngine
 }
 
 func NewBacktestEngine(registry *indicator.Registry) *BacktestEngine {
@@ -61,6 +62,7 @@ func (e *BacktestEngine) Run(ctx context.Context, input EngineInput) (EngineOutp
 	var positionSize decimal.Decimal
 	var avgEntryPrice decimal.Decimal
 	var positionCount int
+	var entryTimestamp time.Time
 
 	e.registry.ComputeAll(input.Klines)
 
@@ -103,8 +105,8 @@ func (e *BacktestEngine) Run(ctx context.Context, input EngineInput) (EngineOutp
 			}
 
 			qty := amount.Div(closePrice)
-			fee := amount.Mul(input.FeeRate).Div(decimal.NewFromInt(100))
-			capital = capital.Sub(fee)
+			fee := amount.Mul(input.FeeRate)
+			capital = capital.Sub(*amount).Sub(fee)
 
 			if !inPosition {
 				positionSize = qty
@@ -119,12 +121,13 @@ func (e *BacktestEngine) Run(ctx context.Context, input EngineInput) (EngineOutp
 				positionCount++
 			}
 
+			entryTimestamp = candle.Timestamp
 			inPosition = true
 
 		case DecisionExit:
 			if inPosition {
 				sellValue := positionSize.Mul(closePrice)
-				fee := sellValue.Mul(input.FeeRate).Div(decimal.NewFromInt(100))
+				fee := sellValue.Mul(input.FeeRate)
 				pnl := positionSize.Mul(closePrice.Sub(avgEntryPrice))
 
 				totalFee := fee
@@ -133,13 +136,13 @@ func (e *BacktestEngine) Run(ctx context.Context, input EngineInput) (EngineOutp
 				trade := domain.BacktestTrade{
 					EntryIndex: 0,
 					ExitIndex:  i,
+					EnteredAt:  entryTimestamp,
+					ExitedAt:   candle.Timestamp,
 					EntryPrice: avgEntryPrice,
 					ExitPrice:  closePrice,
 					Quantity:   positionSize,
 					PnL:        pnl,
 					PnLPercent: pnl.Div(avgEntryPrice.Mul(positionSize)).Mul(decimal.NewFromInt(100)),
-					EntryFee:   decimal.Zero,
-					ExitFee:    fee,
 				}
 				if len(trades) > 0 {
 					prev := trades[len(trades)-1]
@@ -163,6 +166,9 @@ func (e *BacktestEngine) Run(ctx context.Context, input EngineInput) (EngineOutp
 
 		equityCurve[i] = equity
 
+		posValue := positionSize.Mul(closePrice)
+		posPnl := positionSize.Mul(closePrice.Sub(avgEntryPrice))
+
 		analysisEntry := domain.BacktestKlineAnalysis{
 			KlineIndex: i,
 			Timestamp:  candle.Timestamp,
@@ -173,8 +179,13 @@ func (e *BacktestEngine) Run(ctx context.Context, input EngineInput) (EngineOutp
 			Volume:     candle.Volume,
 			InPosition: inPosition,
 			Action:     string(decision.Type),
-			PositionValue: positionSize.Mul(closePrice),
-			PositionPnl:   positionSize.Mul(closePrice.Sub(avgEntryPrice)),
+		}
+		if inPosition {
+			avgPrice := avgEntryPrice
+			analysisEntry.AvgEntryPrice = &avgPrice
+			analysisEntry.PositionQuantity = &positionSize
+			analysisEntry.PositionValue = &posValue
+			analysisEntry.PositionPnl = &posPnl
 		}
 
 		indicatorValues := make(map[string]float64)

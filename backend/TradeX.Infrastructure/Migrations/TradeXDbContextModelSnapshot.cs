@@ -779,7 +779,7 @@ namespace TradeX.Infrastructure.Migrations
                     b.HasIndex("OpeningOrderId")
                         .IsUnique()
                         .HasDatabaseName("ix_positions_opening_order_id")
-                        .HasFilter("\"opening_order_id\" IS NOT NULL");
+                        .HasFilter("opening_order_id IS NOT NULL");
 
                     b.HasIndex("TraderId", "Status")
                         .HasDatabaseName("ix_positions_trader_id_status");

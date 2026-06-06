@@ -76,14 +76,30 @@ func (_c *BacktestKlineAnalysisCreate) SetIndicatorValues(v map[string]float64) 
 }
 
 // SetEntryConditionResult sets the "entry_condition_result" field.
-func (_c *BacktestKlineAnalysisCreate) SetEntryConditionResult(v map[string]interface{}) *BacktestKlineAnalysisCreate {
+func (_c *BacktestKlineAnalysisCreate) SetEntryConditionResult(v bool) *BacktestKlineAnalysisCreate {
 	_c.mutation.SetEntryConditionResult(v)
 	return _c
 }
 
+// SetNillableEntryConditionResult sets the "entry_condition_result" field if the given value is not nil.
+func (_c *BacktestKlineAnalysisCreate) SetNillableEntryConditionResult(v *bool) *BacktestKlineAnalysisCreate {
+	if v != nil {
+		_c.SetEntryConditionResult(*v)
+	}
+	return _c
+}
+
 // SetExitConditionResult sets the "exit_condition_result" field.
-func (_c *BacktestKlineAnalysisCreate) SetExitConditionResult(v map[string]interface{}) *BacktestKlineAnalysisCreate {
+func (_c *BacktestKlineAnalysisCreate) SetExitConditionResult(v bool) *BacktestKlineAnalysisCreate {
 	_c.mutation.SetExitConditionResult(v)
+	return _c
+}
+
+// SetNillableExitConditionResult sets the "exit_condition_result" field if the given value is not nil.
+func (_c *BacktestKlineAnalysisCreate) SetNillableExitConditionResult(v *bool) *BacktestKlineAnalysisCreate {
+	if v != nil {
+		_c.SetExitConditionResult(*v)
+	}
 	return _c
 }
 
@@ -111,6 +127,48 @@ func (_c *BacktestKlineAnalysisCreate) SetAction(v string) *BacktestKlineAnalysi
 func (_c *BacktestKlineAnalysisCreate) SetNillableAction(v *string) *BacktestKlineAnalysisCreate {
 	if v != nil {
 		_c.SetAction(*v)
+	}
+	return _c
+}
+
+// SetAvgEntryPrice sets the "avg_entry_price" field.
+func (_c *BacktestKlineAnalysisCreate) SetAvgEntryPrice(v float64) *BacktestKlineAnalysisCreate {
+	_c.mutation.SetAvgEntryPrice(v)
+	return _c
+}
+
+// SetNillableAvgEntryPrice sets the "avg_entry_price" field if the given value is not nil.
+func (_c *BacktestKlineAnalysisCreate) SetNillableAvgEntryPrice(v *float64) *BacktestKlineAnalysisCreate {
+	if v != nil {
+		_c.SetAvgEntryPrice(*v)
+	}
+	return _c
+}
+
+// SetPositionQuantity sets the "position_quantity" field.
+func (_c *BacktestKlineAnalysisCreate) SetPositionQuantity(v float64) *BacktestKlineAnalysisCreate {
+	_c.mutation.SetPositionQuantity(v)
+	return _c
+}
+
+// SetNillablePositionQuantity sets the "position_quantity" field if the given value is not nil.
+func (_c *BacktestKlineAnalysisCreate) SetNillablePositionQuantity(v *float64) *BacktestKlineAnalysisCreate {
+	if v != nil {
+		_c.SetPositionQuantity(*v)
+	}
+	return _c
+}
+
+// SetPositionCost sets the "position_cost" field.
+func (_c *BacktestKlineAnalysisCreate) SetPositionCost(v float64) *BacktestKlineAnalysisCreate {
+	_c.mutation.SetPositionCost(v)
+	return _c
+}
+
+// SetNillablePositionCost sets the "position_cost" field if the given value is not nil.
+func (_c *BacktestKlineAnalysisCreate) SetNillablePositionCost(v *float64) *BacktestKlineAnalysisCreate {
+	if v != nil {
+		_c.SetPositionCost(*v)
 	}
 	return _c
 }
@@ -143,16 +201,16 @@ func (_c *BacktestKlineAnalysisCreate) SetNillablePositionPnl(v *float64) *Backt
 	return _c
 }
 
-// SetCreatedAt sets the "created_at" field.
-func (_c *BacktestKlineAnalysisCreate) SetCreatedAt(v time.Time) *BacktestKlineAnalysisCreate {
-	_c.mutation.SetCreatedAt(v)
+// SetPositionPnlPercent sets the "position_pnl_percent" field.
+func (_c *BacktestKlineAnalysisCreate) SetPositionPnlPercent(v float64) *BacktestKlineAnalysisCreate {
+	_c.mutation.SetPositionPnlPercent(v)
 	return _c
 }
 
-// SetNillableCreatedAt sets the "created_at" field if the given value is not nil.
-func (_c *BacktestKlineAnalysisCreate) SetNillableCreatedAt(v *time.Time) *BacktestKlineAnalysisCreate {
+// SetNillablePositionPnlPercent sets the "position_pnl_percent" field if the given value is not nil.
+func (_c *BacktestKlineAnalysisCreate) SetNillablePositionPnlPercent(v *float64) *BacktestKlineAnalysisCreate {
 	if v != nil {
-		_c.SetCreatedAt(*v)
+		_c.SetPositionPnlPercent(*v)
 	}
 	return _c
 }
@@ -214,18 +272,6 @@ func (_c *BacktestKlineAnalysisCreate) defaults() {
 		v := backtestklineanalysis.DefaultAction
 		_c.mutation.SetAction(v)
 	}
-	if _, ok := _c.mutation.PositionValue(); !ok {
-		v := backtestklineanalysis.DefaultPositionValue
-		_c.mutation.SetPositionValue(v)
-	}
-	if _, ok := _c.mutation.PositionPnl(); !ok {
-		v := backtestklineanalysis.DefaultPositionPnl
-		_c.mutation.SetPositionPnl(v)
-	}
-	if _, ok := _c.mutation.CreatedAt(); !ok {
-		v := backtestklineanalysis.DefaultCreatedAt()
-		_c.mutation.SetCreatedAt(v)
-	}
 	if _, ok := _c.mutation.ID(); !ok {
 		v := backtestklineanalysis.DefaultID()
 		_c.mutation.SetID(v)
@@ -264,14 +310,10 @@ func (_c *BacktestKlineAnalysisCreate) check() error {
 	if _, ok := _c.mutation.Action(); !ok {
 		return &ValidationError{Name: "action", err: errors.New(`ent: missing required field "BacktestKlineAnalysis.action"`)}
 	}
-	if _, ok := _c.mutation.PositionValue(); !ok {
-		return &ValidationError{Name: "position_value", err: errors.New(`ent: missing required field "BacktestKlineAnalysis.position_value"`)}
-	}
-	if _, ok := _c.mutation.PositionPnl(); !ok {
-		return &ValidationError{Name: "position_pnl", err: errors.New(`ent: missing required field "BacktestKlineAnalysis.position_pnl"`)}
-	}
-	if _, ok := _c.mutation.CreatedAt(); !ok {
-		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "BacktestKlineAnalysis.created_at"`)}
+	if v, ok := _c.mutation.Action(); ok {
+		if err := backtestklineanalysis.ActionValidator(v); err != nil {
+			return &ValidationError{Name: "action", err: fmt.Errorf(`ent: validator failed for field "BacktestKlineAnalysis.action": %w`, err)}
+		}
 	}
 	return nil
 }
@@ -345,12 +387,12 @@ func (_c *BacktestKlineAnalysisCreate) createSpec() (*BacktestKlineAnalysis, *sq
 		_node.IndicatorValues = value
 	}
 	if value, ok := _c.mutation.EntryConditionResult(); ok {
-		_spec.SetField(backtestklineanalysis.FieldEntryConditionResult, field.TypeJSON, value)
-		_node.EntryConditionResult = value
+		_spec.SetField(backtestklineanalysis.FieldEntryConditionResult, field.TypeBool, value)
+		_node.EntryConditionResult = &value
 	}
 	if value, ok := _c.mutation.ExitConditionResult(); ok {
-		_spec.SetField(backtestklineanalysis.FieldExitConditionResult, field.TypeJSON, value)
-		_node.ExitConditionResult = value
+		_spec.SetField(backtestklineanalysis.FieldExitConditionResult, field.TypeBool, value)
+		_node.ExitConditionResult = &value
 	}
 	if value, ok := _c.mutation.InPosition(); ok {
 		_spec.SetField(backtestklineanalysis.FieldInPosition, field.TypeBool, value)
@@ -360,17 +402,29 @@ func (_c *BacktestKlineAnalysisCreate) createSpec() (*BacktestKlineAnalysis, *sq
 		_spec.SetField(backtestklineanalysis.FieldAction, field.TypeString, value)
 		_node.Action = value
 	}
+	if value, ok := _c.mutation.AvgEntryPrice(); ok {
+		_spec.SetField(backtestklineanalysis.FieldAvgEntryPrice, field.TypeFloat64, value)
+		_node.AvgEntryPrice = &value
+	}
+	if value, ok := _c.mutation.PositionQuantity(); ok {
+		_spec.SetField(backtestklineanalysis.FieldPositionQuantity, field.TypeFloat64, value)
+		_node.PositionQuantity = &value
+	}
+	if value, ok := _c.mutation.PositionCost(); ok {
+		_spec.SetField(backtestklineanalysis.FieldPositionCost, field.TypeFloat64, value)
+		_node.PositionCost = &value
+	}
 	if value, ok := _c.mutation.PositionValue(); ok {
 		_spec.SetField(backtestklineanalysis.FieldPositionValue, field.TypeFloat64, value)
-		_node.PositionValue = value
+		_node.PositionValue = &value
 	}
 	if value, ok := _c.mutation.PositionPnl(); ok {
 		_spec.SetField(backtestklineanalysis.FieldPositionPnl, field.TypeFloat64, value)
-		_node.PositionPnl = value
+		_node.PositionPnl = &value
 	}
-	if value, ok := _c.mutation.CreatedAt(); ok {
-		_spec.SetField(backtestklineanalysis.FieldCreatedAt, field.TypeTime, value)
-		_node.CreatedAt = value
+	if value, ok := _c.mutation.PositionPnlPercent(); ok {
+		_spec.SetField(backtestklineanalysis.FieldPositionPnlPercent, field.TypeFloat64, value)
+		_node.PositionPnlPercent = &value
 	}
 	return _node, _spec
 }

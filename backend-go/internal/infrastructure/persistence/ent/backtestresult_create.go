@@ -36,6 +36,52 @@ func (_c *BacktestResultCreate) SetNillableStrategyName(v *string) *BacktestResu
 	return _c
 }
 
+// SetPair sets the "pair" field.
+func (_c *BacktestResultCreate) SetPair(v string) *BacktestResultCreate {
+	_c.mutation.SetPair(v)
+	return _c
+}
+
+// SetNillablePair sets the "pair" field if the given value is not nil.
+func (_c *BacktestResultCreate) SetNillablePair(v *string) *BacktestResultCreate {
+	if v != nil {
+		_c.SetPair(*v)
+	}
+	return _c
+}
+
+// SetTimeframe sets the "timeframe" field.
+func (_c *BacktestResultCreate) SetTimeframe(v string) *BacktestResultCreate {
+	_c.mutation.SetTimeframe(v)
+	return _c
+}
+
+// SetNillableTimeframe sets the "timeframe" field if the given value is not nil.
+func (_c *BacktestResultCreate) SetNillableTimeframe(v *string) *BacktestResultCreate {
+	if v != nil {
+		_c.SetTimeframe(*v)
+	}
+	return _c
+}
+
+// SetStartAt sets the "start_at" field.
+func (_c *BacktestResultCreate) SetStartAt(v time.Time) *BacktestResultCreate {
+	_c.mutation.SetStartAt(v)
+	return _c
+}
+
+// SetEndAt sets the "end_at" field.
+func (_c *BacktestResultCreate) SetEndAt(v time.Time) *BacktestResultCreate {
+	_c.mutation.SetEndAt(v)
+	return _c
+}
+
+// SetInitialCapital sets the "initial_capital" field.
+func (_c *BacktestResultCreate) SetInitialCapital(v float64) *BacktestResultCreate {
+	_c.mutation.SetInitialCapital(v)
+	return _c
+}
+
 // SetFinalValue sets the "final_value" field.
 func (_c *BacktestResultCreate) SetFinalValue(v float64) *BacktestResultCreate {
 	_c.mutation.SetFinalValue(v)
@@ -168,6 +214,14 @@ func (_c *BacktestResultCreate) defaults() {
 		v := backtestresult.DefaultStrategyName
 		_c.mutation.SetStrategyName(v)
 	}
+	if _, ok := _c.mutation.Pair(); !ok {
+		v := backtestresult.DefaultPair
+		_c.mutation.SetPair(v)
+	}
+	if _, ok := _c.mutation.Timeframe(); !ok {
+		v := backtestresult.DefaultTimeframe
+		_c.mutation.SetTimeframe(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := backtestresult.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
@@ -182,6 +236,21 @@ func (_c *BacktestResultCreate) defaults() {
 func (_c *BacktestResultCreate) check() error {
 	if _, ok := _c.mutation.StrategyName(); !ok {
 		return &ValidationError{Name: "strategy_name", err: errors.New(`ent: missing required field "BacktestResult.strategy_name"`)}
+	}
+	if _, ok := _c.mutation.Pair(); !ok {
+		return &ValidationError{Name: "pair", err: errors.New(`ent: missing required field "BacktestResult.pair"`)}
+	}
+	if _, ok := _c.mutation.Timeframe(); !ok {
+		return &ValidationError{Name: "timeframe", err: errors.New(`ent: missing required field "BacktestResult.timeframe"`)}
+	}
+	if _, ok := _c.mutation.StartAt(); !ok {
+		return &ValidationError{Name: "start_at", err: errors.New(`ent: missing required field "BacktestResult.start_at"`)}
+	}
+	if _, ok := _c.mutation.EndAt(); !ok {
+		return &ValidationError{Name: "end_at", err: errors.New(`ent: missing required field "BacktestResult.end_at"`)}
+	}
+	if _, ok := _c.mutation.InitialCapital(); !ok {
+		return &ValidationError{Name: "initial_capital", err: errors.New(`ent: missing required field "BacktestResult.initial_capital"`)}
 	}
 	if _, ok := _c.mutation.FinalValue(); !ok {
 		return &ValidationError{Name: "final_value", err: errors.New(`ent: missing required field "BacktestResult.final_value"`)}
@@ -251,6 +320,26 @@ func (_c *BacktestResultCreate) createSpec() (*BacktestResult, *sqlgraph.CreateS
 	if value, ok := _c.mutation.StrategyName(); ok {
 		_spec.SetField(backtestresult.FieldStrategyName, field.TypeString, value)
 		_node.StrategyName = value
+	}
+	if value, ok := _c.mutation.Pair(); ok {
+		_spec.SetField(backtestresult.FieldPair, field.TypeString, value)
+		_node.Pair = value
+	}
+	if value, ok := _c.mutation.Timeframe(); ok {
+		_spec.SetField(backtestresult.FieldTimeframe, field.TypeString, value)
+		_node.Timeframe = value
+	}
+	if value, ok := _c.mutation.StartAt(); ok {
+		_spec.SetField(backtestresult.FieldStartAt, field.TypeTime, value)
+		_node.StartAt = value
+	}
+	if value, ok := _c.mutation.EndAt(); ok {
+		_spec.SetField(backtestresult.FieldEndAt, field.TypeTime, value)
+		_node.EndAt = value
+	}
+	if value, ok := _c.mutation.InitialCapital(); ok {
+		_spec.SetField(backtestresult.FieldInitialCapital, field.TypeFloat64, value)
+		_node.InitialCapital = value
 	}
 	if value, ok := _c.mutation.FinalValue(); ok {
 		_spec.SetField(backtestresult.FieldFinalValue, field.TypeFloat64, value)

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 	"tradex/internal/infrastructure/persistence/ent/backtestresult"
 	"tradex/internal/infrastructure/persistence/ent/backtesttask"
 	"tradex/internal/infrastructure/persistence/ent/predicate"
@@ -41,6 +42,83 @@ func (_u *BacktestResultUpdate) SetNillableStrategyName(v *string) *BacktestResu
 	if v != nil {
 		_u.SetStrategyName(*v)
 	}
+	return _u
+}
+
+// SetPair sets the "pair" field.
+func (_u *BacktestResultUpdate) SetPair(v string) *BacktestResultUpdate {
+	_u.mutation.SetPair(v)
+	return _u
+}
+
+// SetNillablePair sets the "pair" field if the given value is not nil.
+func (_u *BacktestResultUpdate) SetNillablePair(v *string) *BacktestResultUpdate {
+	if v != nil {
+		_u.SetPair(*v)
+	}
+	return _u
+}
+
+// SetTimeframe sets the "timeframe" field.
+func (_u *BacktestResultUpdate) SetTimeframe(v string) *BacktestResultUpdate {
+	_u.mutation.SetTimeframe(v)
+	return _u
+}
+
+// SetNillableTimeframe sets the "timeframe" field if the given value is not nil.
+func (_u *BacktestResultUpdate) SetNillableTimeframe(v *string) *BacktestResultUpdate {
+	if v != nil {
+		_u.SetTimeframe(*v)
+	}
+	return _u
+}
+
+// SetStartAt sets the "start_at" field.
+func (_u *BacktestResultUpdate) SetStartAt(v time.Time) *BacktestResultUpdate {
+	_u.mutation.SetStartAt(v)
+	return _u
+}
+
+// SetNillableStartAt sets the "start_at" field if the given value is not nil.
+func (_u *BacktestResultUpdate) SetNillableStartAt(v *time.Time) *BacktestResultUpdate {
+	if v != nil {
+		_u.SetStartAt(*v)
+	}
+	return _u
+}
+
+// SetEndAt sets the "end_at" field.
+func (_u *BacktestResultUpdate) SetEndAt(v time.Time) *BacktestResultUpdate {
+	_u.mutation.SetEndAt(v)
+	return _u
+}
+
+// SetNillableEndAt sets the "end_at" field if the given value is not nil.
+func (_u *BacktestResultUpdate) SetNillableEndAt(v *time.Time) *BacktestResultUpdate {
+	if v != nil {
+		_u.SetEndAt(*v)
+	}
+	return _u
+}
+
+// SetInitialCapital sets the "initial_capital" field.
+func (_u *BacktestResultUpdate) SetInitialCapital(v float64) *BacktestResultUpdate {
+	_u.mutation.ResetInitialCapital()
+	_u.mutation.SetInitialCapital(v)
+	return _u
+}
+
+// SetNillableInitialCapital sets the "initial_capital" field if the given value is not nil.
+func (_u *BacktestResultUpdate) SetNillableInitialCapital(v *float64) *BacktestResultUpdate {
+	if v != nil {
+		_u.SetInitialCapital(*v)
+	}
+	return _u
+}
+
+// AddInitialCapital adds value to the "initial_capital" field.
+func (_u *BacktestResultUpdate) AddInitialCapital(v float64) *BacktestResultUpdate {
+	_u.mutation.AddInitialCapital(v)
 	return _u
 }
 
@@ -302,6 +380,24 @@ func (_u *BacktestResultUpdate) sqlSave(ctx context.Context) (_node int, err err
 	if value, ok := _u.mutation.StrategyName(); ok {
 		_spec.SetField(backtestresult.FieldStrategyName, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.Pair(); ok {
+		_spec.SetField(backtestresult.FieldPair, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Timeframe(); ok {
+		_spec.SetField(backtestresult.FieldTimeframe, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.StartAt(); ok {
+		_spec.SetField(backtestresult.FieldStartAt, field.TypeTime, value)
+	}
+	if value, ok := _u.mutation.EndAt(); ok {
+		_spec.SetField(backtestresult.FieldEndAt, field.TypeTime, value)
+	}
+	if value, ok := _u.mutation.InitialCapital(); ok {
+		_spec.SetField(backtestresult.FieldInitialCapital, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedInitialCapital(); ok {
+		_spec.AddField(backtestresult.FieldInitialCapital, field.TypeFloat64, value)
+	}
 	if value, ok := _u.mutation.FinalValue(); ok {
 		_spec.SetField(backtestresult.FieldFinalValue, field.TypeFloat64, value)
 	}
@@ -421,6 +517,83 @@ func (_u *BacktestResultUpdateOne) SetNillableStrategyName(v *string) *BacktestR
 	if v != nil {
 		_u.SetStrategyName(*v)
 	}
+	return _u
+}
+
+// SetPair sets the "pair" field.
+func (_u *BacktestResultUpdateOne) SetPair(v string) *BacktestResultUpdateOne {
+	_u.mutation.SetPair(v)
+	return _u
+}
+
+// SetNillablePair sets the "pair" field if the given value is not nil.
+func (_u *BacktestResultUpdateOne) SetNillablePair(v *string) *BacktestResultUpdateOne {
+	if v != nil {
+		_u.SetPair(*v)
+	}
+	return _u
+}
+
+// SetTimeframe sets the "timeframe" field.
+func (_u *BacktestResultUpdateOne) SetTimeframe(v string) *BacktestResultUpdateOne {
+	_u.mutation.SetTimeframe(v)
+	return _u
+}
+
+// SetNillableTimeframe sets the "timeframe" field if the given value is not nil.
+func (_u *BacktestResultUpdateOne) SetNillableTimeframe(v *string) *BacktestResultUpdateOne {
+	if v != nil {
+		_u.SetTimeframe(*v)
+	}
+	return _u
+}
+
+// SetStartAt sets the "start_at" field.
+func (_u *BacktestResultUpdateOne) SetStartAt(v time.Time) *BacktestResultUpdateOne {
+	_u.mutation.SetStartAt(v)
+	return _u
+}
+
+// SetNillableStartAt sets the "start_at" field if the given value is not nil.
+func (_u *BacktestResultUpdateOne) SetNillableStartAt(v *time.Time) *BacktestResultUpdateOne {
+	if v != nil {
+		_u.SetStartAt(*v)
+	}
+	return _u
+}
+
+// SetEndAt sets the "end_at" field.
+func (_u *BacktestResultUpdateOne) SetEndAt(v time.Time) *BacktestResultUpdateOne {
+	_u.mutation.SetEndAt(v)
+	return _u
+}
+
+// SetNillableEndAt sets the "end_at" field if the given value is not nil.
+func (_u *BacktestResultUpdateOne) SetNillableEndAt(v *time.Time) *BacktestResultUpdateOne {
+	if v != nil {
+		_u.SetEndAt(*v)
+	}
+	return _u
+}
+
+// SetInitialCapital sets the "initial_capital" field.
+func (_u *BacktestResultUpdateOne) SetInitialCapital(v float64) *BacktestResultUpdateOne {
+	_u.mutation.ResetInitialCapital()
+	_u.mutation.SetInitialCapital(v)
+	return _u
+}
+
+// SetNillableInitialCapital sets the "initial_capital" field if the given value is not nil.
+func (_u *BacktestResultUpdateOne) SetNillableInitialCapital(v *float64) *BacktestResultUpdateOne {
+	if v != nil {
+		_u.SetInitialCapital(*v)
+	}
+	return _u
+}
+
+// AddInitialCapital adds value to the "initial_capital" field.
+func (_u *BacktestResultUpdateOne) AddInitialCapital(v float64) *BacktestResultUpdateOne {
+	_u.mutation.AddInitialCapital(v)
 	return _u
 }
 
@@ -711,6 +884,24 @@ func (_u *BacktestResultUpdateOne) sqlSave(ctx context.Context) (_node *Backtest
 	}
 	if value, ok := _u.mutation.StrategyName(); ok {
 		_spec.SetField(backtestresult.FieldStrategyName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Pair(); ok {
+		_spec.SetField(backtestresult.FieldPair, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Timeframe(); ok {
+		_spec.SetField(backtestresult.FieldTimeframe, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.StartAt(); ok {
+		_spec.SetField(backtestresult.FieldStartAt, field.TypeTime, value)
+	}
+	if value, ok := _u.mutation.EndAt(); ok {
+		_spec.SetField(backtestresult.FieldEndAt, field.TypeTime, value)
+	}
+	if value, ok := _u.mutation.InitialCapital(); ok {
+		_spec.SetField(backtestresult.FieldInitialCapital, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedInitialCapital(); ok {
+		_spec.AddField(backtestresult.FieldInitialCapital, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.FinalValue(); ok {
 		_spec.SetField(backtestresult.FieldFinalValue, field.TypeFloat64, value)

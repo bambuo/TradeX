@@ -37,37 +37,44 @@ const (
 // BacktestKlineAnalysisMutation represents an operation that mutates the BacktestKlineAnalysis nodes in the graph.
 type BacktestKlineAnalysisMutation struct {
 	config
-	op                     Op
-	typ                    string
-	id                     *uuid.UUID
-	task_id                *uuid.UUID
-	kline_index            *int
-	addkline_index         *int
-	timestamp              *time.Time
-	open                   *float64
-	addopen                *float64
-	high                   *float64
-	addhigh                *float64
-	low                    *float64
-	addlow                 *float64
-	close                  *float64
-	addclose               *float64
-	volume                 *float64
-	addvolume              *float64
-	indicator_values       *map[string]float64
-	entry_condition_result *map[string]interface{}
-	exit_condition_result  *map[string]interface{}
-	in_position            *bool
-	action                 *string
-	position_value         *float64
-	addposition_value      *float64
-	position_pnl           *float64
-	addposition_pnl        *float64
-	created_at             *time.Time
-	clearedFields          map[string]struct{}
-	done                   bool
-	oldValue               func(context.Context) (*BacktestKlineAnalysis, error)
-	predicates             []predicate.BacktestKlineAnalysis
+	op                      Op
+	typ                     string
+	id                      *uuid.UUID
+	task_id                 *uuid.UUID
+	kline_index             *int
+	addkline_index          *int
+	timestamp               *time.Time
+	open                    *float64
+	addopen                 *float64
+	high                    *float64
+	addhigh                 *float64
+	low                     *float64
+	addlow                  *float64
+	close                   *float64
+	addclose                *float64
+	volume                  *float64
+	addvolume               *float64
+	indicator_values        *map[string]float64
+	entry_condition_result  *bool
+	exit_condition_result   *bool
+	in_position             *bool
+	action                  *string
+	avg_entry_price         *float64
+	addavg_entry_price      *float64
+	position_quantity       *float64
+	addposition_quantity    *float64
+	position_cost           *float64
+	addposition_cost        *float64
+	position_value          *float64
+	addposition_value       *float64
+	position_pnl            *float64
+	addposition_pnl         *float64
+	position_pnl_percent    *float64
+	addposition_pnl_percent *float64
+	clearedFields           map[string]struct{}
+	done                    bool
+	oldValue                func(context.Context) (*BacktestKlineAnalysis, error)
+	predicates              []predicate.BacktestKlineAnalysis
 }
 
 var _ ent.Mutation = (*BacktestKlineAnalysisMutation)(nil)
@@ -632,12 +639,12 @@ func (m *BacktestKlineAnalysisMutation) ResetIndicatorValues() {
 }
 
 // SetEntryConditionResult sets the "entry_condition_result" field.
-func (m *BacktestKlineAnalysisMutation) SetEntryConditionResult(value map[string]interface{}) {
-	m.entry_condition_result = &value
+func (m *BacktestKlineAnalysisMutation) SetEntryConditionResult(b bool) {
+	m.entry_condition_result = &b
 }
 
 // EntryConditionResult returns the value of the "entry_condition_result" field in the mutation.
-func (m *BacktestKlineAnalysisMutation) EntryConditionResult() (r map[string]interface{}, exists bool) {
+func (m *BacktestKlineAnalysisMutation) EntryConditionResult() (r bool, exists bool) {
 	v := m.entry_condition_result
 	if v == nil {
 		return
@@ -648,7 +655,7 @@ func (m *BacktestKlineAnalysisMutation) EntryConditionResult() (r map[string]int
 // OldEntryConditionResult returns the old "entry_condition_result" field's value of the BacktestKlineAnalysis entity.
 // If the BacktestKlineAnalysis object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *BacktestKlineAnalysisMutation) OldEntryConditionResult(ctx context.Context) (v map[string]interface{}, err error) {
+func (m *BacktestKlineAnalysisMutation) OldEntryConditionResult(ctx context.Context) (v *bool, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldEntryConditionResult is only allowed on UpdateOne operations")
 	}
@@ -681,12 +688,12 @@ func (m *BacktestKlineAnalysisMutation) ResetEntryConditionResult() {
 }
 
 // SetExitConditionResult sets the "exit_condition_result" field.
-func (m *BacktestKlineAnalysisMutation) SetExitConditionResult(value map[string]interface{}) {
-	m.exit_condition_result = &value
+func (m *BacktestKlineAnalysisMutation) SetExitConditionResult(b bool) {
+	m.exit_condition_result = &b
 }
 
 // ExitConditionResult returns the value of the "exit_condition_result" field in the mutation.
-func (m *BacktestKlineAnalysisMutation) ExitConditionResult() (r map[string]interface{}, exists bool) {
+func (m *BacktestKlineAnalysisMutation) ExitConditionResult() (r bool, exists bool) {
 	v := m.exit_condition_result
 	if v == nil {
 		return
@@ -697,7 +704,7 @@ func (m *BacktestKlineAnalysisMutation) ExitConditionResult() (r map[string]inte
 // OldExitConditionResult returns the old "exit_condition_result" field's value of the BacktestKlineAnalysis entity.
 // If the BacktestKlineAnalysis object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *BacktestKlineAnalysisMutation) OldExitConditionResult(ctx context.Context) (v map[string]interface{}, err error) {
+func (m *BacktestKlineAnalysisMutation) OldExitConditionResult(ctx context.Context) (v *bool, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldExitConditionResult is only allowed on UpdateOne operations")
 	}
@@ -801,6 +808,216 @@ func (m *BacktestKlineAnalysisMutation) ResetAction() {
 	m.action = nil
 }
 
+// SetAvgEntryPrice sets the "avg_entry_price" field.
+func (m *BacktestKlineAnalysisMutation) SetAvgEntryPrice(f float64) {
+	m.avg_entry_price = &f
+	m.addavg_entry_price = nil
+}
+
+// AvgEntryPrice returns the value of the "avg_entry_price" field in the mutation.
+func (m *BacktestKlineAnalysisMutation) AvgEntryPrice() (r float64, exists bool) {
+	v := m.avg_entry_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAvgEntryPrice returns the old "avg_entry_price" field's value of the BacktestKlineAnalysis entity.
+// If the BacktestKlineAnalysis object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BacktestKlineAnalysisMutation) OldAvgEntryPrice(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAvgEntryPrice is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAvgEntryPrice requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAvgEntryPrice: %w", err)
+	}
+	return oldValue.AvgEntryPrice, nil
+}
+
+// AddAvgEntryPrice adds f to the "avg_entry_price" field.
+func (m *BacktestKlineAnalysisMutation) AddAvgEntryPrice(f float64) {
+	if m.addavg_entry_price != nil {
+		*m.addavg_entry_price += f
+	} else {
+		m.addavg_entry_price = &f
+	}
+}
+
+// AddedAvgEntryPrice returns the value that was added to the "avg_entry_price" field in this mutation.
+func (m *BacktestKlineAnalysisMutation) AddedAvgEntryPrice() (r float64, exists bool) {
+	v := m.addavg_entry_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearAvgEntryPrice clears the value of the "avg_entry_price" field.
+func (m *BacktestKlineAnalysisMutation) ClearAvgEntryPrice() {
+	m.avg_entry_price = nil
+	m.addavg_entry_price = nil
+	m.clearedFields[backtestklineanalysis.FieldAvgEntryPrice] = struct{}{}
+}
+
+// AvgEntryPriceCleared returns if the "avg_entry_price" field was cleared in this mutation.
+func (m *BacktestKlineAnalysisMutation) AvgEntryPriceCleared() bool {
+	_, ok := m.clearedFields[backtestklineanalysis.FieldAvgEntryPrice]
+	return ok
+}
+
+// ResetAvgEntryPrice resets all changes to the "avg_entry_price" field.
+func (m *BacktestKlineAnalysisMutation) ResetAvgEntryPrice() {
+	m.avg_entry_price = nil
+	m.addavg_entry_price = nil
+	delete(m.clearedFields, backtestklineanalysis.FieldAvgEntryPrice)
+}
+
+// SetPositionQuantity sets the "position_quantity" field.
+func (m *BacktestKlineAnalysisMutation) SetPositionQuantity(f float64) {
+	m.position_quantity = &f
+	m.addposition_quantity = nil
+}
+
+// PositionQuantity returns the value of the "position_quantity" field in the mutation.
+func (m *BacktestKlineAnalysisMutation) PositionQuantity() (r float64, exists bool) {
+	v := m.position_quantity
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPositionQuantity returns the old "position_quantity" field's value of the BacktestKlineAnalysis entity.
+// If the BacktestKlineAnalysis object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BacktestKlineAnalysisMutation) OldPositionQuantity(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPositionQuantity is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPositionQuantity requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPositionQuantity: %w", err)
+	}
+	return oldValue.PositionQuantity, nil
+}
+
+// AddPositionQuantity adds f to the "position_quantity" field.
+func (m *BacktestKlineAnalysisMutation) AddPositionQuantity(f float64) {
+	if m.addposition_quantity != nil {
+		*m.addposition_quantity += f
+	} else {
+		m.addposition_quantity = &f
+	}
+}
+
+// AddedPositionQuantity returns the value that was added to the "position_quantity" field in this mutation.
+func (m *BacktestKlineAnalysisMutation) AddedPositionQuantity() (r float64, exists bool) {
+	v := m.addposition_quantity
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearPositionQuantity clears the value of the "position_quantity" field.
+func (m *BacktestKlineAnalysisMutation) ClearPositionQuantity() {
+	m.position_quantity = nil
+	m.addposition_quantity = nil
+	m.clearedFields[backtestklineanalysis.FieldPositionQuantity] = struct{}{}
+}
+
+// PositionQuantityCleared returns if the "position_quantity" field was cleared in this mutation.
+func (m *BacktestKlineAnalysisMutation) PositionQuantityCleared() bool {
+	_, ok := m.clearedFields[backtestklineanalysis.FieldPositionQuantity]
+	return ok
+}
+
+// ResetPositionQuantity resets all changes to the "position_quantity" field.
+func (m *BacktestKlineAnalysisMutation) ResetPositionQuantity() {
+	m.position_quantity = nil
+	m.addposition_quantity = nil
+	delete(m.clearedFields, backtestklineanalysis.FieldPositionQuantity)
+}
+
+// SetPositionCost sets the "position_cost" field.
+func (m *BacktestKlineAnalysisMutation) SetPositionCost(f float64) {
+	m.position_cost = &f
+	m.addposition_cost = nil
+}
+
+// PositionCost returns the value of the "position_cost" field in the mutation.
+func (m *BacktestKlineAnalysisMutation) PositionCost() (r float64, exists bool) {
+	v := m.position_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPositionCost returns the old "position_cost" field's value of the BacktestKlineAnalysis entity.
+// If the BacktestKlineAnalysis object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BacktestKlineAnalysisMutation) OldPositionCost(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPositionCost is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPositionCost requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPositionCost: %w", err)
+	}
+	return oldValue.PositionCost, nil
+}
+
+// AddPositionCost adds f to the "position_cost" field.
+func (m *BacktestKlineAnalysisMutation) AddPositionCost(f float64) {
+	if m.addposition_cost != nil {
+		*m.addposition_cost += f
+	} else {
+		m.addposition_cost = &f
+	}
+}
+
+// AddedPositionCost returns the value that was added to the "position_cost" field in this mutation.
+func (m *BacktestKlineAnalysisMutation) AddedPositionCost() (r float64, exists bool) {
+	v := m.addposition_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearPositionCost clears the value of the "position_cost" field.
+func (m *BacktestKlineAnalysisMutation) ClearPositionCost() {
+	m.position_cost = nil
+	m.addposition_cost = nil
+	m.clearedFields[backtestklineanalysis.FieldPositionCost] = struct{}{}
+}
+
+// PositionCostCleared returns if the "position_cost" field was cleared in this mutation.
+func (m *BacktestKlineAnalysisMutation) PositionCostCleared() bool {
+	_, ok := m.clearedFields[backtestklineanalysis.FieldPositionCost]
+	return ok
+}
+
+// ResetPositionCost resets all changes to the "position_cost" field.
+func (m *BacktestKlineAnalysisMutation) ResetPositionCost() {
+	m.position_cost = nil
+	m.addposition_cost = nil
+	delete(m.clearedFields, backtestklineanalysis.FieldPositionCost)
+}
+
 // SetPositionValue sets the "position_value" field.
 func (m *BacktestKlineAnalysisMutation) SetPositionValue(f float64) {
 	m.position_value = &f
@@ -819,7 +1036,7 @@ func (m *BacktestKlineAnalysisMutation) PositionValue() (r float64, exists bool)
 // OldPositionValue returns the old "position_value" field's value of the BacktestKlineAnalysis entity.
 // If the BacktestKlineAnalysis object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *BacktestKlineAnalysisMutation) OldPositionValue(ctx context.Context) (v float64, err error) {
+func (m *BacktestKlineAnalysisMutation) OldPositionValue(ctx context.Context) (v *float64, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldPositionValue is only allowed on UpdateOne operations")
 	}
@@ -851,10 +1068,24 @@ func (m *BacktestKlineAnalysisMutation) AddedPositionValue() (r float64, exists 
 	return *v, true
 }
 
+// ClearPositionValue clears the value of the "position_value" field.
+func (m *BacktestKlineAnalysisMutation) ClearPositionValue() {
+	m.position_value = nil
+	m.addposition_value = nil
+	m.clearedFields[backtestklineanalysis.FieldPositionValue] = struct{}{}
+}
+
+// PositionValueCleared returns if the "position_value" field was cleared in this mutation.
+func (m *BacktestKlineAnalysisMutation) PositionValueCleared() bool {
+	_, ok := m.clearedFields[backtestklineanalysis.FieldPositionValue]
+	return ok
+}
+
 // ResetPositionValue resets all changes to the "position_value" field.
 func (m *BacktestKlineAnalysisMutation) ResetPositionValue() {
 	m.position_value = nil
 	m.addposition_value = nil
+	delete(m.clearedFields, backtestklineanalysis.FieldPositionValue)
 }
 
 // SetPositionPnl sets the "position_pnl" field.
@@ -875,7 +1106,7 @@ func (m *BacktestKlineAnalysisMutation) PositionPnl() (r float64, exists bool) {
 // OldPositionPnl returns the old "position_pnl" field's value of the BacktestKlineAnalysis entity.
 // If the BacktestKlineAnalysis object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *BacktestKlineAnalysisMutation) OldPositionPnl(ctx context.Context) (v float64, err error) {
+func (m *BacktestKlineAnalysisMutation) OldPositionPnl(ctx context.Context) (v *float64, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldPositionPnl is only allowed on UpdateOne operations")
 	}
@@ -907,46 +1138,94 @@ func (m *BacktestKlineAnalysisMutation) AddedPositionPnl() (r float64, exists bo
 	return *v, true
 }
 
+// ClearPositionPnl clears the value of the "position_pnl" field.
+func (m *BacktestKlineAnalysisMutation) ClearPositionPnl() {
+	m.position_pnl = nil
+	m.addposition_pnl = nil
+	m.clearedFields[backtestklineanalysis.FieldPositionPnl] = struct{}{}
+}
+
+// PositionPnlCleared returns if the "position_pnl" field was cleared in this mutation.
+func (m *BacktestKlineAnalysisMutation) PositionPnlCleared() bool {
+	_, ok := m.clearedFields[backtestklineanalysis.FieldPositionPnl]
+	return ok
+}
+
 // ResetPositionPnl resets all changes to the "position_pnl" field.
 func (m *BacktestKlineAnalysisMutation) ResetPositionPnl() {
 	m.position_pnl = nil
 	m.addposition_pnl = nil
+	delete(m.clearedFields, backtestklineanalysis.FieldPositionPnl)
 }
 
-// SetCreatedAt sets the "created_at" field.
-func (m *BacktestKlineAnalysisMutation) SetCreatedAt(t time.Time) {
-	m.created_at = &t
+// SetPositionPnlPercent sets the "position_pnl_percent" field.
+func (m *BacktestKlineAnalysisMutation) SetPositionPnlPercent(f float64) {
+	m.position_pnl_percent = &f
+	m.addposition_pnl_percent = nil
 }
 
-// CreatedAt returns the value of the "created_at" field in the mutation.
-func (m *BacktestKlineAnalysisMutation) CreatedAt() (r time.Time, exists bool) {
-	v := m.created_at
+// PositionPnlPercent returns the value of the "position_pnl_percent" field in the mutation.
+func (m *BacktestKlineAnalysisMutation) PositionPnlPercent() (r float64, exists bool) {
+	v := m.position_pnl_percent
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldCreatedAt returns the old "created_at" field's value of the BacktestKlineAnalysis entity.
+// OldPositionPnlPercent returns the old "position_pnl_percent" field's value of the BacktestKlineAnalysis entity.
 // If the BacktestKlineAnalysis object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *BacktestKlineAnalysisMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+func (m *BacktestKlineAnalysisMutation) OldPositionPnlPercent(ctx context.Context) (v *float64, err error) {
 	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+		return v, errors.New("OldPositionPnlPercent is only allowed on UpdateOne operations")
 	}
 	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+		return v, errors.New("OldPositionPnlPercent requires an ID field in the mutation")
 	}
 	oldValue, err := m.oldValue(ctx)
 	if err != nil {
-		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+		return v, fmt.Errorf("querying old value for OldPositionPnlPercent: %w", err)
 	}
-	return oldValue.CreatedAt, nil
+	return oldValue.PositionPnlPercent, nil
 }
 
-// ResetCreatedAt resets all changes to the "created_at" field.
-func (m *BacktestKlineAnalysisMutation) ResetCreatedAt() {
-	m.created_at = nil
+// AddPositionPnlPercent adds f to the "position_pnl_percent" field.
+func (m *BacktestKlineAnalysisMutation) AddPositionPnlPercent(f float64) {
+	if m.addposition_pnl_percent != nil {
+		*m.addposition_pnl_percent += f
+	} else {
+		m.addposition_pnl_percent = &f
+	}
+}
+
+// AddedPositionPnlPercent returns the value that was added to the "position_pnl_percent" field in this mutation.
+func (m *BacktestKlineAnalysisMutation) AddedPositionPnlPercent() (r float64, exists bool) {
+	v := m.addposition_pnl_percent
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearPositionPnlPercent clears the value of the "position_pnl_percent" field.
+func (m *BacktestKlineAnalysisMutation) ClearPositionPnlPercent() {
+	m.position_pnl_percent = nil
+	m.addposition_pnl_percent = nil
+	m.clearedFields[backtestklineanalysis.FieldPositionPnlPercent] = struct{}{}
+}
+
+// PositionPnlPercentCleared returns if the "position_pnl_percent" field was cleared in this mutation.
+func (m *BacktestKlineAnalysisMutation) PositionPnlPercentCleared() bool {
+	_, ok := m.clearedFields[backtestklineanalysis.FieldPositionPnlPercent]
+	return ok
+}
+
+// ResetPositionPnlPercent resets all changes to the "position_pnl_percent" field.
+func (m *BacktestKlineAnalysisMutation) ResetPositionPnlPercent() {
+	m.position_pnl_percent = nil
+	m.addposition_pnl_percent = nil
+	delete(m.clearedFields, backtestklineanalysis.FieldPositionPnlPercent)
 }
 
 // Where appends a list predicates to the BacktestKlineAnalysisMutation builder.
@@ -983,7 +1262,7 @@ func (m *BacktestKlineAnalysisMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *BacktestKlineAnalysisMutation) Fields() []string {
-	fields := make([]string, 0, 16)
+	fields := make([]string, 0, 19)
 	if m.task_id != nil {
 		fields = append(fields, backtestklineanalysis.FieldTaskID)
 	}
@@ -1023,14 +1302,23 @@ func (m *BacktestKlineAnalysisMutation) Fields() []string {
 	if m.action != nil {
 		fields = append(fields, backtestklineanalysis.FieldAction)
 	}
+	if m.avg_entry_price != nil {
+		fields = append(fields, backtestklineanalysis.FieldAvgEntryPrice)
+	}
+	if m.position_quantity != nil {
+		fields = append(fields, backtestklineanalysis.FieldPositionQuantity)
+	}
+	if m.position_cost != nil {
+		fields = append(fields, backtestklineanalysis.FieldPositionCost)
+	}
 	if m.position_value != nil {
 		fields = append(fields, backtestklineanalysis.FieldPositionValue)
 	}
 	if m.position_pnl != nil {
 		fields = append(fields, backtestklineanalysis.FieldPositionPnl)
 	}
-	if m.created_at != nil {
-		fields = append(fields, backtestklineanalysis.FieldCreatedAt)
+	if m.position_pnl_percent != nil {
+		fields = append(fields, backtestklineanalysis.FieldPositionPnlPercent)
 	}
 	return fields
 }
@@ -1066,12 +1354,18 @@ func (m *BacktestKlineAnalysisMutation) Field(name string) (ent.Value, bool) {
 		return m.InPosition()
 	case backtestklineanalysis.FieldAction:
 		return m.Action()
+	case backtestklineanalysis.FieldAvgEntryPrice:
+		return m.AvgEntryPrice()
+	case backtestklineanalysis.FieldPositionQuantity:
+		return m.PositionQuantity()
+	case backtestklineanalysis.FieldPositionCost:
+		return m.PositionCost()
 	case backtestklineanalysis.FieldPositionValue:
 		return m.PositionValue()
 	case backtestklineanalysis.FieldPositionPnl:
 		return m.PositionPnl()
-	case backtestklineanalysis.FieldCreatedAt:
-		return m.CreatedAt()
+	case backtestklineanalysis.FieldPositionPnlPercent:
+		return m.PositionPnlPercent()
 	}
 	return nil, false
 }
@@ -1107,12 +1401,18 @@ func (m *BacktestKlineAnalysisMutation) OldField(ctx context.Context, name strin
 		return m.OldInPosition(ctx)
 	case backtestklineanalysis.FieldAction:
 		return m.OldAction(ctx)
+	case backtestklineanalysis.FieldAvgEntryPrice:
+		return m.OldAvgEntryPrice(ctx)
+	case backtestklineanalysis.FieldPositionQuantity:
+		return m.OldPositionQuantity(ctx)
+	case backtestklineanalysis.FieldPositionCost:
+		return m.OldPositionCost(ctx)
 	case backtestklineanalysis.FieldPositionValue:
 		return m.OldPositionValue(ctx)
 	case backtestklineanalysis.FieldPositionPnl:
 		return m.OldPositionPnl(ctx)
-	case backtestklineanalysis.FieldCreatedAt:
-		return m.OldCreatedAt(ctx)
+	case backtestklineanalysis.FieldPositionPnlPercent:
+		return m.OldPositionPnlPercent(ctx)
 	}
 	return nil, fmt.Errorf("unknown BacktestKlineAnalysis field %s", name)
 }
@@ -1186,14 +1486,14 @@ func (m *BacktestKlineAnalysisMutation) SetField(name string, value ent.Value) e
 		m.SetIndicatorValues(v)
 		return nil
 	case backtestklineanalysis.FieldEntryConditionResult:
-		v, ok := value.(map[string]interface{})
+		v, ok := value.(bool)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetEntryConditionResult(v)
 		return nil
 	case backtestklineanalysis.FieldExitConditionResult:
-		v, ok := value.(map[string]interface{})
+		v, ok := value.(bool)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
@@ -1213,6 +1513,27 @@ func (m *BacktestKlineAnalysisMutation) SetField(name string, value ent.Value) e
 		}
 		m.SetAction(v)
 		return nil
+	case backtestklineanalysis.FieldAvgEntryPrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAvgEntryPrice(v)
+		return nil
+	case backtestklineanalysis.FieldPositionQuantity:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPositionQuantity(v)
+		return nil
+	case backtestklineanalysis.FieldPositionCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPositionCost(v)
+		return nil
 	case backtestklineanalysis.FieldPositionValue:
 		v, ok := value.(float64)
 		if !ok {
@@ -1227,12 +1548,12 @@ func (m *BacktestKlineAnalysisMutation) SetField(name string, value ent.Value) e
 		}
 		m.SetPositionPnl(v)
 		return nil
-	case backtestklineanalysis.FieldCreatedAt:
-		v, ok := value.(time.Time)
+	case backtestklineanalysis.FieldPositionPnlPercent:
+		v, ok := value.(float64)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetCreatedAt(v)
+		m.SetPositionPnlPercent(v)
 		return nil
 	}
 	return fmt.Errorf("unknown BacktestKlineAnalysis field %s", name)
@@ -1260,11 +1581,23 @@ func (m *BacktestKlineAnalysisMutation) AddedFields() []string {
 	if m.addvolume != nil {
 		fields = append(fields, backtestklineanalysis.FieldVolume)
 	}
+	if m.addavg_entry_price != nil {
+		fields = append(fields, backtestklineanalysis.FieldAvgEntryPrice)
+	}
+	if m.addposition_quantity != nil {
+		fields = append(fields, backtestklineanalysis.FieldPositionQuantity)
+	}
+	if m.addposition_cost != nil {
+		fields = append(fields, backtestklineanalysis.FieldPositionCost)
+	}
 	if m.addposition_value != nil {
 		fields = append(fields, backtestklineanalysis.FieldPositionValue)
 	}
 	if m.addposition_pnl != nil {
 		fields = append(fields, backtestklineanalysis.FieldPositionPnl)
+	}
+	if m.addposition_pnl_percent != nil {
+		fields = append(fields, backtestklineanalysis.FieldPositionPnlPercent)
 	}
 	return fields
 }
@@ -1286,10 +1619,18 @@ func (m *BacktestKlineAnalysisMutation) AddedField(name string) (ent.Value, bool
 		return m.AddedClose()
 	case backtestklineanalysis.FieldVolume:
 		return m.AddedVolume()
+	case backtestklineanalysis.FieldAvgEntryPrice:
+		return m.AddedAvgEntryPrice()
+	case backtestklineanalysis.FieldPositionQuantity:
+		return m.AddedPositionQuantity()
+	case backtestklineanalysis.FieldPositionCost:
+		return m.AddedPositionCost()
 	case backtestklineanalysis.FieldPositionValue:
 		return m.AddedPositionValue()
 	case backtestklineanalysis.FieldPositionPnl:
 		return m.AddedPositionPnl()
+	case backtestklineanalysis.FieldPositionPnlPercent:
+		return m.AddedPositionPnlPercent()
 	}
 	return nil, false
 }
@@ -1341,6 +1682,27 @@ func (m *BacktestKlineAnalysisMutation) AddField(name string, value ent.Value) e
 		}
 		m.AddVolume(v)
 		return nil
+	case backtestklineanalysis.FieldAvgEntryPrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAvgEntryPrice(v)
+		return nil
+	case backtestklineanalysis.FieldPositionQuantity:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPositionQuantity(v)
+		return nil
+	case backtestklineanalysis.FieldPositionCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPositionCost(v)
+		return nil
 	case backtestklineanalysis.FieldPositionValue:
 		v, ok := value.(float64)
 		if !ok {
@@ -1354,6 +1716,13 @@ func (m *BacktestKlineAnalysisMutation) AddField(name string, value ent.Value) e
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddPositionPnl(v)
+		return nil
+	case backtestklineanalysis.FieldPositionPnlPercent:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPositionPnlPercent(v)
 		return nil
 	}
 	return fmt.Errorf("unknown BacktestKlineAnalysis numeric field %s", name)
@@ -1371,6 +1740,24 @@ func (m *BacktestKlineAnalysisMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(backtestklineanalysis.FieldExitConditionResult) {
 		fields = append(fields, backtestklineanalysis.FieldExitConditionResult)
+	}
+	if m.FieldCleared(backtestklineanalysis.FieldAvgEntryPrice) {
+		fields = append(fields, backtestklineanalysis.FieldAvgEntryPrice)
+	}
+	if m.FieldCleared(backtestklineanalysis.FieldPositionQuantity) {
+		fields = append(fields, backtestklineanalysis.FieldPositionQuantity)
+	}
+	if m.FieldCleared(backtestklineanalysis.FieldPositionCost) {
+		fields = append(fields, backtestklineanalysis.FieldPositionCost)
+	}
+	if m.FieldCleared(backtestklineanalysis.FieldPositionValue) {
+		fields = append(fields, backtestklineanalysis.FieldPositionValue)
+	}
+	if m.FieldCleared(backtestklineanalysis.FieldPositionPnl) {
+		fields = append(fields, backtestklineanalysis.FieldPositionPnl)
+	}
+	if m.FieldCleared(backtestklineanalysis.FieldPositionPnlPercent) {
+		fields = append(fields, backtestklineanalysis.FieldPositionPnlPercent)
 	}
 	return fields
 }
@@ -1394,6 +1781,24 @@ func (m *BacktestKlineAnalysisMutation) ClearField(name string) error {
 		return nil
 	case backtestklineanalysis.FieldExitConditionResult:
 		m.ClearExitConditionResult()
+		return nil
+	case backtestklineanalysis.FieldAvgEntryPrice:
+		m.ClearAvgEntryPrice()
+		return nil
+	case backtestklineanalysis.FieldPositionQuantity:
+		m.ClearPositionQuantity()
+		return nil
+	case backtestklineanalysis.FieldPositionCost:
+		m.ClearPositionCost()
+		return nil
+	case backtestklineanalysis.FieldPositionValue:
+		m.ClearPositionValue()
+		return nil
+	case backtestklineanalysis.FieldPositionPnl:
+		m.ClearPositionPnl()
+		return nil
+	case backtestklineanalysis.FieldPositionPnlPercent:
+		m.ClearPositionPnlPercent()
 		return nil
 	}
 	return fmt.Errorf("unknown BacktestKlineAnalysis nullable field %s", name)
@@ -1442,14 +1847,23 @@ func (m *BacktestKlineAnalysisMutation) ResetField(name string) error {
 	case backtestklineanalysis.FieldAction:
 		m.ResetAction()
 		return nil
+	case backtestklineanalysis.FieldAvgEntryPrice:
+		m.ResetAvgEntryPrice()
+		return nil
+	case backtestklineanalysis.FieldPositionQuantity:
+		m.ResetPositionQuantity()
+		return nil
+	case backtestklineanalysis.FieldPositionCost:
+		m.ResetPositionCost()
+		return nil
 	case backtestklineanalysis.FieldPositionValue:
 		m.ResetPositionValue()
 		return nil
 	case backtestklineanalysis.FieldPositionPnl:
 		m.ResetPositionPnl()
 		return nil
-	case backtestklineanalysis.FieldCreatedAt:
-		m.ResetCreatedAt()
+	case backtestklineanalysis.FieldPositionPnlPercent:
+		m.ResetPositionPnlPercent()
 		return nil
 	}
 	return fmt.Errorf("unknown BacktestKlineAnalysis field %s", name)
@@ -1510,6 +1924,12 @@ type BacktestResultMutation struct {
 	typ                          string
 	id                           *uuid.UUID
 	strategy_name                *string
+	pair                         *string
+	timeframe                    *string
+	start_at                     *time.Time
+	end_at                       *time.Time
+	initial_capital              *float64
+	addinitial_capital           *float64
 	final_value                  *float64
 	addfinal_value               *float64
 	total_return_percent         *float64
@@ -1675,6 +2095,206 @@ func (m *BacktestResultMutation) OldStrategyName(ctx context.Context) (v string,
 // ResetStrategyName resets all changes to the "strategy_name" field.
 func (m *BacktestResultMutation) ResetStrategyName() {
 	m.strategy_name = nil
+}
+
+// SetPair sets the "pair" field.
+func (m *BacktestResultMutation) SetPair(s string) {
+	m.pair = &s
+}
+
+// Pair returns the value of the "pair" field in the mutation.
+func (m *BacktestResultMutation) Pair() (r string, exists bool) {
+	v := m.pair
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPair returns the old "pair" field's value of the BacktestResult entity.
+// If the BacktestResult object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BacktestResultMutation) OldPair(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPair is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPair requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPair: %w", err)
+	}
+	return oldValue.Pair, nil
+}
+
+// ResetPair resets all changes to the "pair" field.
+func (m *BacktestResultMutation) ResetPair() {
+	m.pair = nil
+}
+
+// SetTimeframe sets the "timeframe" field.
+func (m *BacktestResultMutation) SetTimeframe(s string) {
+	m.timeframe = &s
+}
+
+// Timeframe returns the value of the "timeframe" field in the mutation.
+func (m *BacktestResultMutation) Timeframe() (r string, exists bool) {
+	v := m.timeframe
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTimeframe returns the old "timeframe" field's value of the BacktestResult entity.
+// If the BacktestResult object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BacktestResultMutation) OldTimeframe(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTimeframe is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTimeframe requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTimeframe: %w", err)
+	}
+	return oldValue.Timeframe, nil
+}
+
+// ResetTimeframe resets all changes to the "timeframe" field.
+func (m *BacktestResultMutation) ResetTimeframe() {
+	m.timeframe = nil
+}
+
+// SetStartAt sets the "start_at" field.
+func (m *BacktestResultMutation) SetStartAt(t time.Time) {
+	m.start_at = &t
+}
+
+// StartAt returns the value of the "start_at" field in the mutation.
+func (m *BacktestResultMutation) StartAt() (r time.Time, exists bool) {
+	v := m.start_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStartAt returns the old "start_at" field's value of the BacktestResult entity.
+// If the BacktestResult object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BacktestResultMutation) OldStartAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStartAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStartAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStartAt: %w", err)
+	}
+	return oldValue.StartAt, nil
+}
+
+// ResetStartAt resets all changes to the "start_at" field.
+func (m *BacktestResultMutation) ResetStartAt() {
+	m.start_at = nil
+}
+
+// SetEndAt sets the "end_at" field.
+func (m *BacktestResultMutation) SetEndAt(t time.Time) {
+	m.end_at = &t
+}
+
+// EndAt returns the value of the "end_at" field in the mutation.
+func (m *BacktestResultMutation) EndAt() (r time.Time, exists bool) {
+	v := m.end_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEndAt returns the old "end_at" field's value of the BacktestResult entity.
+// If the BacktestResult object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BacktestResultMutation) OldEndAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEndAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEndAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEndAt: %w", err)
+	}
+	return oldValue.EndAt, nil
+}
+
+// ResetEndAt resets all changes to the "end_at" field.
+func (m *BacktestResultMutation) ResetEndAt() {
+	m.end_at = nil
+}
+
+// SetInitialCapital sets the "initial_capital" field.
+func (m *BacktestResultMutation) SetInitialCapital(f float64) {
+	m.initial_capital = &f
+	m.addinitial_capital = nil
+}
+
+// InitialCapital returns the value of the "initial_capital" field in the mutation.
+func (m *BacktestResultMutation) InitialCapital() (r float64, exists bool) {
+	v := m.initial_capital
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInitialCapital returns the old "initial_capital" field's value of the BacktestResult entity.
+// If the BacktestResult object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BacktestResultMutation) OldInitialCapital(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInitialCapital is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInitialCapital requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInitialCapital: %w", err)
+	}
+	return oldValue.InitialCapital, nil
+}
+
+// AddInitialCapital adds f to the "initial_capital" field.
+func (m *BacktestResultMutation) AddInitialCapital(f float64) {
+	if m.addinitial_capital != nil {
+		*m.addinitial_capital += f
+	} else {
+		m.addinitial_capital = &f
+	}
+}
+
+// AddedInitialCapital returns the value that was added to the "initial_capital" field in this mutation.
+func (m *BacktestResultMutation) AddedInitialCapital() (r float64, exists bool) {
+	v := m.addinitial_capital
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetInitialCapital resets all changes to the "initial_capital" field.
+func (m *BacktestResultMutation) ResetInitialCapital() {
+	m.initial_capital = nil
+	m.addinitial_capital = nil
 }
 
 // SetFinalValue sets the "final_value" field.
@@ -2299,9 +2919,24 @@ func (m *BacktestResultMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *BacktestResultMutation) Fields() []string {
-	fields := make([]string, 0, 11)
+	fields := make([]string, 0, 16)
 	if m.strategy_name != nil {
 		fields = append(fields, backtestresult.FieldStrategyName)
+	}
+	if m.pair != nil {
+		fields = append(fields, backtestresult.FieldPair)
+	}
+	if m.timeframe != nil {
+		fields = append(fields, backtestresult.FieldTimeframe)
+	}
+	if m.start_at != nil {
+		fields = append(fields, backtestresult.FieldStartAt)
+	}
+	if m.end_at != nil {
+		fields = append(fields, backtestresult.FieldEndAt)
+	}
+	if m.initial_capital != nil {
+		fields = append(fields, backtestresult.FieldInitialCapital)
 	}
 	if m.final_value != nil {
 		fields = append(fields, backtestresult.FieldFinalValue)
@@ -2343,6 +2978,16 @@ func (m *BacktestResultMutation) Field(name string) (ent.Value, bool) {
 	switch name {
 	case backtestresult.FieldStrategyName:
 		return m.StrategyName()
+	case backtestresult.FieldPair:
+		return m.Pair()
+	case backtestresult.FieldTimeframe:
+		return m.Timeframe()
+	case backtestresult.FieldStartAt:
+		return m.StartAt()
+	case backtestresult.FieldEndAt:
+		return m.EndAt()
+	case backtestresult.FieldInitialCapital:
+		return m.InitialCapital()
 	case backtestresult.FieldFinalValue:
 		return m.FinalValue()
 	case backtestresult.FieldTotalReturnPercent:
@@ -2374,6 +3019,16 @@ func (m *BacktestResultMutation) OldField(ctx context.Context, name string) (ent
 	switch name {
 	case backtestresult.FieldStrategyName:
 		return m.OldStrategyName(ctx)
+	case backtestresult.FieldPair:
+		return m.OldPair(ctx)
+	case backtestresult.FieldTimeframe:
+		return m.OldTimeframe(ctx)
+	case backtestresult.FieldStartAt:
+		return m.OldStartAt(ctx)
+	case backtestresult.FieldEndAt:
+		return m.OldEndAt(ctx)
+	case backtestresult.FieldInitialCapital:
+		return m.OldInitialCapital(ctx)
 	case backtestresult.FieldFinalValue:
 		return m.OldFinalValue(ctx)
 	case backtestresult.FieldTotalReturnPercent:
@@ -2409,6 +3064,41 @@ func (m *BacktestResultMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetStrategyName(v)
+		return nil
+	case backtestresult.FieldPair:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPair(v)
+		return nil
+	case backtestresult.FieldTimeframe:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTimeframe(v)
+		return nil
+	case backtestresult.FieldStartAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStartAt(v)
+		return nil
+	case backtestresult.FieldEndAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEndAt(v)
+		return nil
+	case backtestresult.FieldInitialCapital:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInitialCapital(v)
 		return nil
 	case backtestresult.FieldFinalValue:
 		v, ok := value.(float64)
@@ -2488,6 +3178,9 @@ func (m *BacktestResultMutation) SetField(name string, value ent.Value) error {
 // this mutation.
 func (m *BacktestResultMutation) AddedFields() []string {
 	var fields []string
+	if m.addinitial_capital != nil {
+		fields = append(fields, backtestresult.FieldInitialCapital)
+	}
 	if m.addfinal_value != nil {
 		fields = append(fields, backtestresult.FieldFinalValue)
 	}
@@ -2520,6 +3213,8 @@ func (m *BacktestResultMutation) AddedFields() []string {
 // was not set, or was not defined in the schema.
 func (m *BacktestResultMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
+	case backtestresult.FieldInitialCapital:
+		return m.AddedInitialCapital()
 	case backtestresult.FieldFinalValue:
 		return m.AddedFinalValue()
 	case backtestresult.FieldTotalReturnPercent:
@@ -2545,6 +3240,13 @@ func (m *BacktestResultMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *BacktestResultMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case backtestresult.FieldInitialCapital:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddInitialCapital(v)
+		return nil
 	case backtestresult.FieldFinalValue:
 		v, ok := value.(float64)
 		if !ok {
@@ -2639,6 +3341,21 @@ func (m *BacktestResultMutation) ResetField(name string) error {
 	switch name {
 	case backtestresult.FieldStrategyName:
 		m.ResetStrategyName()
+		return nil
+	case backtestresult.FieldPair:
+		m.ResetPair()
+		return nil
+	case backtestresult.FieldTimeframe:
+		m.ResetTimeframe()
+		return nil
+	case backtestresult.FieldStartAt:
+		m.ResetStartAt()
+		return nil
+	case backtestresult.FieldEndAt:
+		m.ResetEndAt()
+		return nil
+	case backtestresult.FieldInitialCapital:
+		m.ResetInitialCapital()
 		return nil
 	case backtestresult.FieldFinalValue:
 		m.ResetFinalValue()
@@ -2757,25 +3474,19 @@ type BacktestTaskMutation struct {
 	strategy_id        *uuid.UUID
 	strategy_name      *string
 	created_by         *uuid.UUID
-	exchange_id        *string
+	exchange_id        *uuid.UUID
 	pair               *string
 	timeframe          *string
 	initial_capital    *float64
 	addinitial_capital *float64
 	position_size      *float64
 	addposition_size   *float64
-	fee_rate           *float64
-	addfee_rate        *float64
 	start_at           *time.Time
 	end_at             *time.Time
 	completed_at       *time.Time
 	status             *backtesttask.Status
 	phase              *backtesttask.Phase
-	progress           *int
-	addprogress        *int
-	error_message      *string
 	created_at         *time.Time
-	updated_at         *time.Time
 	clearedFields      map[string]struct{}
 	result             *uuid.UUID
 	clearedresult      bool
@@ -2997,12 +3708,12 @@ func (m *BacktestTaskMutation) ResetCreatedBy() {
 }
 
 // SetExchangeID sets the "exchange_id" field.
-func (m *BacktestTaskMutation) SetExchangeID(s string) {
-	m.exchange_id = &s
+func (m *BacktestTaskMutation) SetExchangeID(u uuid.UUID) {
+	m.exchange_id = &u
 }
 
 // ExchangeID returns the value of the "exchange_id" field in the mutation.
-func (m *BacktestTaskMutation) ExchangeID() (r string, exists bool) {
+func (m *BacktestTaskMutation) ExchangeID() (r uuid.UUID, exists bool) {
 	v := m.exchange_id
 	if v == nil {
 		return
@@ -3013,7 +3724,7 @@ func (m *BacktestTaskMutation) ExchangeID() (r string, exists bool) {
 // OldExchangeID returns the old "exchange_id" field's value of the BacktestTask entity.
 // If the BacktestTask object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *BacktestTaskMutation) OldExchangeID(ctx context.Context) (v string, err error) {
+func (m *BacktestTaskMutation) OldExchangeID(ctx context.Context) (v uuid.UUID, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldExchangeID is only allowed on UpdateOne operations")
 	}
@@ -3230,62 +3941,6 @@ func (m *BacktestTaskMutation) ResetPositionSize() {
 	delete(m.clearedFields, backtesttask.FieldPositionSize)
 }
 
-// SetFeeRate sets the "fee_rate" field.
-func (m *BacktestTaskMutation) SetFeeRate(f float64) {
-	m.fee_rate = &f
-	m.addfee_rate = nil
-}
-
-// FeeRate returns the value of the "fee_rate" field in the mutation.
-func (m *BacktestTaskMutation) FeeRate() (r float64, exists bool) {
-	v := m.fee_rate
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldFeeRate returns the old "fee_rate" field's value of the BacktestTask entity.
-// If the BacktestTask object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *BacktestTaskMutation) OldFeeRate(ctx context.Context) (v float64, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldFeeRate is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldFeeRate requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldFeeRate: %w", err)
-	}
-	return oldValue.FeeRate, nil
-}
-
-// AddFeeRate adds f to the "fee_rate" field.
-func (m *BacktestTaskMutation) AddFeeRate(f float64) {
-	if m.addfee_rate != nil {
-		*m.addfee_rate += f
-	} else {
-		m.addfee_rate = &f
-	}
-}
-
-// AddedFeeRate returns the value that was added to the "fee_rate" field in this mutation.
-func (m *BacktestTaskMutation) AddedFeeRate() (r float64, exists bool) {
-	v := m.addfee_rate
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// ResetFeeRate resets all changes to the "fee_rate" field.
-func (m *BacktestTaskMutation) ResetFeeRate() {
-	m.fee_rate = nil
-	m.addfee_rate = nil
-}
-
 // SetStartAt sets the "start_at" field.
 func (m *BacktestTaskMutation) SetStartAt(t time.Time) {
 	m.start_at = &t
@@ -3492,111 +4147,6 @@ func (m *BacktestTaskMutation) ResetPhase() {
 	delete(m.clearedFields, backtesttask.FieldPhase)
 }
 
-// SetProgress sets the "progress" field.
-func (m *BacktestTaskMutation) SetProgress(i int) {
-	m.progress = &i
-	m.addprogress = nil
-}
-
-// Progress returns the value of the "progress" field in the mutation.
-func (m *BacktestTaskMutation) Progress() (r int, exists bool) {
-	v := m.progress
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldProgress returns the old "progress" field's value of the BacktestTask entity.
-// If the BacktestTask object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *BacktestTaskMutation) OldProgress(ctx context.Context) (v int, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldProgress is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldProgress requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldProgress: %w", err)
-	}
-	return oldValue.Progress, nil
-}
-
-// AddProgress adds i to the "progress" field.
-func (m *BacktestTaskMutation) AddProgress(i int) {
-	if m.addprogress != nil {
-		*m.addprogress += i
-	} else {
-		m.addprogress = &i
-	}
-}
-
-// AddedProgress returns the value that was added to the "progress" field in this mutation.
-func (m *BacktestTaskMutation) AddedProgress() (r int, exists bool) {
-	v := m.addprogress
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// ResetProgress resets all changes to the "progress" field.
-func (m *BacktestTaskMutation) ResetProgress() {
-	m.progress = nil
-	m.addprogress = nil
-}
-
-// SetErrorMessage sets the "error_message" field.
-func (m *BacktestTaskMutation) SetErrorMessage(s string) {
-	m.error_message = &s
-}
-
-// ErrorMessage returns the value of the "error_message" field in the mutation.
-func (m *BacktestTaskMutation) ErrorMessage() (r string, exists bool) {
-	v := m.error_message
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldErrorMessage returns the old "error_message" field's value of the BacktestTask entity.
-// If the BacktestTask object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *BacktestTaskMutation) OldErrorMessage(ctx context.Context) (v *string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldErrorMessage is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldErrorMessage requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldErrorMessage: %w", err)
-	}
-	return oldValue.ErrorMessage, nil
-}
-
-// ClearErrorMessage clears the value of the "error_message" field.
-func (m *BacktestTaskMutation) ClearErrorMessage() {
-	m.error_message = nil
-	m.clearedFields[backtesttask.FieldErrorMessage] = struct{}{}
-}
-
-// ErrorMessageCleared returns if the "error_message" field was cleared in this mutation.
-func (m *BacktestTaskMutation) ErrorMessageCleared() bool {
-	_, ok := m.clearedFields[backtesttask.FieldErrorMessage]
-	return ok
-}
-
-// ResetErrorMessage resets all changes to the "error_message" field.
-func (m *BacktestTaskMutation) ResetErrorMessage() {
-	m.error_message = nil
-	delete(m.clearedFields, backtesttask.FieldErrorMessage)
-}
-
 // SetCreatedAt sets the "created_at" field.
 func (m *BacktestTaskMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -3631,42 +4181,6 @@ func (m *BacktestTaskMutation) OldCreatedAt(ctx context.Context) (v time.Time, e
 // ResetCreatedAt resets all changes to the "created_at" field.
 func (m *BacktestTaskMutation) ResetCreatedAt() {
 	m.created_at = nil
-}
-
-// SetUpdatedAt sets the "updated_at" field.
-func (m *BacktestTaskMutation) SetUpdatedAt(t time.Time) {
-	m.updated_at = &t
-}
-
-// UpdatedAt returns the value of the "updated_at" field in the mutation.
-func (m *BacktestTaskMutation) UpdatedAt() (r time.Time, exists bool) {
-	v := m.updated_at
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldUpdatedAt returns the old "updated_at" field's value of the BacktestTask entity.
-// If the BacktestTask object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *BacktestTaskMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
-	}
-	return oldValue.UpdatedAt, nil
-}
-
-// ResetUpdatedAt resets all changes to the "updated_at" field.
-func (m *BacktestTaskMutation) ResetUpdatedAt() {
-	m.updated_at = nil
 }
 
 // SetResultID sets the "result" edge to the BacktestResult entity by id.
@@ -3742,7 +4256,7 @@ func (m *BacktestTaskMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *BacktestTaskMutation) Fields() []string {
-	fields := make([]string, 0, 18)
+	fields := make([]string, 0, 14)
 	if m.strategy_id != nil {
 		fields = append(fields, backtesttask.FieldStrategyID)
 	}
@@ -3767,9 +4281,6 @@ func (m *BacktestTaskMutation) Fields() []string {
 	if m.position_size != nil {
 		fields = append(fields, backtesttask.FieldPositionSize)
 	}
-	if m.fee_rate != nil {
-		fields = append(fields, backtesttask.FieldFeeRate)
-	}
 	if m.start_at != nil {
 		fields = append(fields, backtesttask.FieldStartAt)
 	}
@@ -3785,17 +4296,8 @@ func (m *BacktestTaskMutation) Fields() []string {
 	if m.phase != nil {
 		fields = append(fields, backtesttask.FieldPhase)
 	}
-	if m.progress != nil {
-		fields = append(fields, backtesttask.FieldProgress)
-	}
-	if m.error_message != nil {
-		fields = append(fields, backtesttask.FieldErrorMessage)
-	}
 	if m.created_at != nil {
 		fields = append(fields, backtesttask.FieldCreatedAt)
-	}
-	if m.updated_at != nil {
-		fields = append(fields, backtesttask.FieldUpdatedAt)
 	}
 	return fields
 }
@@ -3821,8 +4323,6 @@ func (m *BacktestTaskMutation) Field(name string) (ent.Value, bool) {
 		return m.InitialCapital()
 	case backtesttask.FieldPositionSize:
 		return m.PositionSize()
-	case backtesttask.FieldFeeRate:
-		return m.FeeRate()
 	case backtesttask.FieldStartAt:
 		return m.StartAt()
 	case backtesttask.FieldEndAt:
@@ -3833,14 +4333,8 @@ func (m *BacktestTaskMutation) Field(name string) (ent.Value, bool) {
 		return m.Status()
 	case backtesttask.FieldPhase:
 		return m.Phase()
-	case backtesttask.FieldProgress:
-		return m.Progress()
-	case backtesttask.FieldErrorMessage:
-		return m.ErrorMessage()
 	case backtesttask.FieldCreatedAt:
 		return m.CreatedAt()
-	case backtesttask.FieldUpdatedAt:
-		return m.UpdatedAt()
 	}
 	return nil, false
 }
@@ -3866,8 +4360,6 @@ func (m *BacktestTaskMutation) OldField(ctx context.Context, name string) (ent.V
 		return m.OldInitialCapital(ctx)
 	case backtesttask.FieldPositionSize:
 		return m.OldPositionSize(ctx)
-	case backtesttask.FieldFeeRate:
-		return m.OldFeeRate(ctx)
 	case backtesttask.FieldStartAt:
 		return m.OldStartAt(ctx)
 	case backtesttask.FieldEndAt:
@@ -3878,14 +4370,8 @@ func (m *BacktestTaskMutation) OldField(ctx context.Context, name string) (ent.V
 		return m.OldStatus(ctx)
 	case backtesttask.FieldPhase:
 		return m.OldPhase(ctx)
-	case backtesttask.FieldProgress:
-		return m.OldProgress(ctx)
-	case backtesttask.FieldErrorMessage:
-		return m.OldErrorMessage(ctx)
 	case backtesttask.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
-	case backtesttask.FieldUpdatedAt:
-		return m.OldUpdatedAt(ctx)
 	}
 	return nil, fmt.Errorf("unknown BacktestTask field %s", name)
 }
@@ -3917,7 +4403,7 @@ func (m *BacktestTaskMutation) SetField(name string, value ent.Value) error {
 		m.SetCreatedBy(v)
 		return nil
 	case backtesttask.FieldExchangeID:
-		v, ok := value.(string)
+		v, ok := value.(uuid.UUID)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
@@ -3950,13 +4436,6 @@ func (m *BacktestTaskMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetPositionSize(v)
-		return nil
-	case backtesttask.FieldFeeRate:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetFeeRate(v)
 		return nil
 	case backtesttask.FieldStartAt:
 		v, ok := value.(time.Time)
@@ -3993,33 +4472,12 @@ func (m *BacktestTaskMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetPhase(v)
 		return nil
-	case backtesttask.FieldProgress:
-		v, ok := value.(int)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetProgress(v)
-		return nil
-	case backtesttask.FieldErrorMessage:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetErrorMessage(v)
-		return nil
 	case backtesttask.FieldCreatedAt:
 		v, ok := value.(time.Time)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetCreatedAt(v)
-		return nil
-	case backtesttask.FieldUpdatedAt:
-		v, ok := value.(time.Time)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetUpdatedAt(v)
 		return nil
 	}
 	return fmt.Errorf("unknown BacktestTask field %s", name)
@@ -4035,12 +4493,6 @@ func (m *BacktestTaskMutation) AddedFields() []string {
 	if m.addposition_size != nil {
 		fields = append(fields, backtesttask.FieldPositionSize)
 	}
-	if m.addfee_rate != nil {
-		fields = append(fields, backtesttask.FieldFeeRate)
-	}
-	if m.addprogress != nil {
-		fields = append(fields, backtesttask.FieldProgress)
-	}
 	return fields
 }
 
@@ -4053,10 +4505,6 @@ func (m *BacktestTaskMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedInitialCapital()
 	case backtesttask.FieldPositionSize:
 		return m.AddedPositionSize()
-	case backtesttask.FieldFeeRate:
-		return m.AddedFeeRate()
-	case backtesttask.FieldProgress:
-		return m.AddedProgress()
 	}
 	return nil, false
 }
@@ -4080,20 +4528,6 @@ func (m *BacktestTaskMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddPositionSize(v)
 		return nil
-	case backtesttask.FieldFeeRate:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddFeeRate(v)
-		return nil
-	case backtesttask.FieldProgress:
-		v, ok := value.(int)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddProgress(v)
-		return nil
 	}
 	return fmt.Errorf("unknown BacktestTask numeric field %s", name)
 }
@@ -4110,9 +4544,6 @@ func (m *BacktestTaskMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(backtesttask.FieldPhase) {
 		fields = append(fields, backtesttask.FieldPhase)
-	}
-	if m.FieldCleared(backtesttask.FieldErrorMessage) {
-		fields = append(fields, backtesttask.FieldErrorMessage)
 	}
 	return fields
 }
@@ -4136,9 +4567,6 @@ func (m *BacktestTaskMutation) ClearField(name string) error {
 		return nil
 	case backtesttask.FieldPhase:
 		m.ClearPhase()
-		return nil
-	case backtesttask.FieldErrorMessage:
-		m.ClearErrorMessage()
 		return nil
 	}
 	return fmt.Errorf("unknown BacktestTask nullable field %s", name)
@@ -4172,9 +4600,6 @@ func (m *BacktestTaskMutation) ResetField(name string) error {
 	case backtesttask.FieldPositionSize:
 		m.ResetPositionSize()
 		return nil
-	case backtesttask.FieldFeeRate:
-		m.ResetFeeRate()
-		return nil
 	case backtesttask.FieldStartAt:
 		m.ResetStartAt()
 		return nil
@@ -4190,17 +4615,8 @@ func (m *BacktestTaskMutation) ResetField(name string) error {
 	case backtesttask.FieldPhase:
 		m.ResetPhase()
 		return nil
-	case backtesttask.FieldProgress:
-		m.ResetProgress()
-		return nil
-	case backtesttask.FieldErrorMessage:
-		m.ResetErrorMessage()
-		return nil
 	case backtesttask.FieldCreatedAt:
 		m.ResetCreatedAt()
-		return nil
-	case backtesttask.FieldUpdatedAt:
-		m.ResetUpdatedAt()
 		return nil
 	}
 	return fmt.Errorf("unknown BacktestTask field %s", name)
@@ -4290,10 +4706,11 @@ type StrategyMutation struct {
 	entry_condition *string
 	exit_condition  *string
 	execution_rule  *string
-	exchange_id     *string
-	pair            *string
-	timeframe       *string
-	is_active       *bool
+	version         *int
+	addversion      *int
+	created_by      *uuid.UUID
+	created_at      *time.Time
+	updated_at      *time.Time
 	clearedFields   map[string]struct{}
 	done            bool
 	oldValue        func(context.Context) (*Strategy, error)
@@ -4587,148 +5004,168 @@ func (m *StrategyMutation) ResetExecutionRule() {
 	delete(m.clearedFields, strategy.FieldExecutionRule)
 }
 
-// SetExchangeID sets the "exchange_id" field.
-func (m *StrategyMutation) SetExchangeID(s string) {
-	m.exchange_id = &s
+// SetVersion sets the "version" field.
+func (m *StrategyMutation) SetVersion(i int) {
+	m.version = &i
+	m.addversion = nil
 }
 
-// ExchangeID returns the value of the "exchange_id" field in the mutation.
-func (m *StrategyMutation) ExchangeID() (r string, exists bool) {
-	v := m.exchange_id
+// Version returns the value of the "version" field in the mutation.
+func (m *StrategyMutation) Version() (r int, exists bool) {
+	v := m.version
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldExchangeID returns the old "exchange_id" field's value of the Strategy entity.
+// OldVersion returns the old "version" field's value of the Strategy entity.
 // If the Strategy object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *StrategyMutation) OldExchangeID(ctx context.Context) (v string, err error) {
+func (m *StrategyMutation) OldVersion(ctx context.Context) (v int, err error) {
 	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldExchangeID is only allowed on UpdateOne operations")
+		return v, errors.New("OldVersion is only allowed on UpdateOne operations")
 	}
 	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldExchangeID requires an ID field in the mutation")
+		return v, errors.New("OldVersion requires an ID field in the mutation")
 	}
 	oldValue, err := m.oldValue(ctx)
 	if err != nil {
-		return v, fmt.Errorf("querying old value for OldExchangeID: %w", err)
+		return v, fmt.Errorf("querying old value for OldVersion: %w", err)
 	}
-	return oldValue.ExchangeID, nil
+	return oldValue.Version, nil
 }
 
-// ResetExchangeID resets all changes to the "exchange_id" field.
-func (m *StrategyMutation) ResetExchangeID() {
-	m.exchange_id = nil
+// AddVersion adds i to the "version" field.
+func (m *StrategyMutation) AddVersion(i int) {
+	if m.addversion != nil {
+		*m.addversion += i
+	} else {
+		m.addversion = &i
+	}
 }
 
-// SetPair sets the "pair" field.
-func (m *StrategyMutation) SetPair(s string) {
-	m.pair = &s
-}
-
-// Pair returns the value of the "pair" field in the mutation.
-func (m *StrategyMutation) Pair() (r string, exists bool) {
-	v := m.pair
+// AddedVersion returns the value that was added to the "version" field in this mutation.
+func (m *StrategyMutation) AddedVersion() (r int, exists bool) {
+	v := m.addversion
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldPair returns the old "pair" field's value of the Strategy entity.
-// If the Strategy object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *StrategyMutation) OldPair(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldPair is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldPair requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldPair: %w", err)
-	}
-	return oldValue.Pair, nil
+// ResetVersion resets all changes to the "version" field.
+func (m *StrategyMutation) ResetVersion() {
+	m.version = nil
+	m.addversion = nil
 }
 
-// ResetPair resets all changes to the "pair" field.
-func (m *StrategyMutation) ResetPair() {
-	m.pair = nil
+// SetCreatedBy sets the "created_by" field.
+func (m *StrategyMutation) SetCreatedBy(u uuid.UUID) {
+	m.created_by = &u
 }
 
-// SetTimeframe sets the "timeframe" field.
-func (m *StrategyMutation) SetTimeframe(s string) {
-	m.timeframe = &s
-}
-
-// Timeframe returns the value of the "timeframe" field in the mutation.
-func (m *StrategyMutation) Timeframe() (r string, exists bool) {
-	v := m.timeframe
+// CreatedBy returns the value of the "created_by" field in the mutation.
+func (m *StrategyMutation) CreatedBy() (r uuid.UUID, exists bool) {
+	v := m.created_by
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldTimeframe returns the old "timeframe" field's value of the Strategy entity.
+// OldCreatedBy returns the old "created_by" field's value of the Strategy entity.
 // If the Strategy object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *StrategyMutation) OldTimeframe(ctx context.Context) (v string, err error) {
+func (m *StrategyMutation) OldCreatedBy(ctx context.Context) (v uuid.UUID, err error) {
 	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldTimeframe is only allowed on UpdateOne operations")
+		return v, errors.New("OldCreatedBy is only allowed on UpdateOne operations")
 	}
 	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldTimeframe requires an ID field in the mutation")
+		return v, errors.New("OldCreatedBy requires an ID field in the mutation")
 	}
 	oldValue, err := m.oldValue(ctx)
 	if err != nil {
-		return v, fmt.Errorf("querying old value for OldTimeframe: %w", err)
+		return v, fmt.Errorf("querying old value for OldCreatedBy: %w", err)
 	}
-	return oldValue.Timeframe, nil
+	return oldValue.CreatedBy, nil
 }
 
-// ResetTimeframe resets all changes to the "timeframe" field.
-func (m *StrategyMutation) ResetTimeframe() {
-	m.timeframe = nil
+// ResetCreatedBy resets all changes to the "created_by" field.
+func (m *StrategyMutation) ResetCreatedBy() {
+	m.created_by = nil
 }
 
-// SetIsActive sets the "is_active" field.
-func (m *StrategyMutation) SetIsActive(b bool) {
-	m.is_active = &b
+// SetCreatedAt sets the "created_at" field.
+func (m *StrategyMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
 }
 
-// IsActive returns the value of the "is_active" field in the mutation.
-func (m *StrategyMutation) IsActive() (r bool, exists bool) {
-	v := m.is_active
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *StrategyMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldIsActive returns the old "is_active" field's value of the Strategy entity.
+// OldCreatedAt returns the old "created_at" field's value of the Strategy entity.
 // If the Strategy object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *StrategyMutation) OldIsActive(ctx context.Context) (v bool, err error) {
+func (m *StrategyMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
 	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldIsActive is only allowed on UpdateOne operations")
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
 	}
 	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldIsActive requires an ID field in the mutation")
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
 	}
 	oldValue, err := m.oldValue(ctx)
 	if err != nil {
-		return v, fmt.Errorf("querying old value for OldIsActive: %w", err)
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
 	}
-	return oldValue.IsActive, nil
+	return oldValue.CreatedAt, nil
 }
 
-// ResetIsActive resets all changes to the "is_active" field.
-func (m *StrategyMutation) ResetIsActive() {
-	m.is_active = nil
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *StrategyMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *StrategyMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *StrategyMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the Strategy entity.
+// If the Strategy object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *StrategyMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *StrategyMutation) ResetUpdatedAt() {
+	m.updated_at = nil
 }
 
 // Where appends a list predicates to the StrategyMutation builder.
@@ -4778,17 +5215,17 @@ func (m *StrategyMutation) Fields() []string {
 	if m.execution_rule != nil {
 		fields = append(fields, strategy.FieldExecutionRule)
 	}
-	if m.exchange_id != nil {
-		fields = append(fields, strategy.FieldExchangeID)
+	if m.version != nil {
+		fields = append(fields, strategy.FieldVersion)
 	}
-	if m.pair != nil {
-		fields = append(fields, strategy.FieldPair)
+	if m.created_by != nil {
+		fields = append(fields, strategy.FieldCreatedBy)
 	}
-	if m.timeframe != nil {
-		fields = append(fields, strategy.FieldTimeframe)
+	if m.created_at != nil {
+		fields = append(fields, strategy.FieldCreatedAt)
 	}
-	if m.is_active != nil {
-		fields = append(fields, strategy.FieldIsActive)
+	if m.updated_at != nil {
+		fields = append(fields, strategy.FieldUpdatedAt)
 	}
 	return fields
 }
@@ -4806,14 +5243,14 @@ func (m *StrategyMutation) Field(name string) (ent.Value, bool) {
 		return m.ExitCondition()
 	case strategy.FieldExecutionRule:
 		return m.ExecutionRule()
-	case strategy.FieldExchangeID:
-		return m.ExchangeID()
-	case strategy.FieldPair:
-		return m.Pair()
-	case strategy.FieldTimeframe:
-		return m.Timeframe()
-	case strategy.FieldIsActive:
-		return m.IsActive()
+	case strategy.FieldVersion:
+		return m.Version()
+	case strategy.FieldCreatedBy:
+		return m.CreatedBy()
+	case strategy.FieldCreatedAt:
+		return m.CreatedAt()
+	case strategy.FieldUpdatedAt:
+		return m.UpdatedAt()
 	}
 	return nil, false
 }
@@ -4831,14 +5268,14 @@ func (m *StrategyMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldExitCondition(ctx)
 	case strategy.FieldExecutionRule:
 		return m.OldExecutionRule(ctx)
-	case strategy.FieldExchangeID:
-		return m.OldExchangeID(ctx)
-	case strategy.FieldPair:
-		return m.OldPair(ctx)
-	case strategy.FieldTimeframe:
-		return m.OldTimeframe(ctx)
-	case strategy.FieldIsActive:
-		return m.OldIsActive(ctx)
+	case strategy.FieldVersion:
+		return m.OldVersion(ctx)
+	case strategy.FieldCreatedBy:
+		return m.OldCreatedBy(ctx)
+	case strategy.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case strategy.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
 	}
 	return nil, fmt.Errorf("unknown Strategy field %s", name)
 }
@@ -4876,33 +5313,33 @@ func (m *StrategyMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetExecutionRule(v)
 		return nil
-	case strategy.FieldExchangeID:
-		v, ok := value.(string)
+	case strategy.FieldVersion:
+		v, ok := value.(int)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetExchangeID(v)
+		m.SetVersion(v)
 		return nil
-	case strategy.FieldPair:
-		v, ok := value.(string)
+	case strategy.FieldCreatedBy:
+		v, ok := value.(uuid.UUID)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetPair(v)
+		m.SetCreatedBy(v)
 		return nil
-	case strategy.FieldTimeframe:
-		v, ok := value.(string)
+	case strategy.FieldCreatedAt:
+		v, ok := value.(time.Time)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetTimeframe(v)
+		m.SetCreatedAt(v)
 		return nil
-	case strategy.FieldIsActive:
-		v, ok := value.(bool)
+	case strategy.FieldUpdatedAt:
+		v, ok := value.(time.Time)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetIsActive(v)
+		m.SetUpdatedAt(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Strategy field %s", name)
@@ -4911,13 +5348,21 @@ func (m *StrategyMutation) SetField(name string, value ent.Value) error {
 // AddedFields returns all numeric fields that were incremented/decremented during
 // this mutation.
 func (m *StrategyMutation) AddedFields() []string {
-	return nil
+	var fields []string
+	if m.addversion != nil {
+		fields = append(fields, strategy.FieldVersion)
+	}
+	return fields
 }
 
 // AddedField returns the numeric value that was incremented/decremented on a field
 // with the given name. The second boolean return value indicates that this field
 // was not set, or was not defined in the schema.
 func (m *StrategyMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case strategy.FieldVersion:
+		return m.AddedVersion()
+	}
 	return nil, false
 }
 
@@ -4926,6 +5371,13 @@ func (m *StrategyMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *StrategyMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case strategy.FieldVersion:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddVersion(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Strategy numeric field %s", name)
 }
@@ -4986,17 +5438,17 @@ func (m *StrategyMutation) ResetField(name string) error {
 	case strategy.FieldExecutionRule:
 		m.ResetExecutionRule()
 		return nil
-	case strategy.FieldExchangeID:
-		m.ResetExchangeID()
+	case strategy.FieldVersion:
+		m.ResetVersion()
 		return nil
-	case strategy.FieldPair:
-		m.ResetPair()
+	case strategy.FieldCreatedBy:
+		m.ResetCreatedBy()
 		return nil
-	case strategy.FieldTimeframe:
-		m.ResetTimeframe()
+	case strategy.FieldCreatedAt:
+		m.ResetCreatedAt()
 		return nil
-	case strategy.FieldIsActive:
-		m.ResetIsActive()
+	case strategy.FieldUpdatedAt:
+		m.ResetUpdatedAt()
 		return nil
 	}
 	return fmt.Errorf("unknown Strategy field %s", name)

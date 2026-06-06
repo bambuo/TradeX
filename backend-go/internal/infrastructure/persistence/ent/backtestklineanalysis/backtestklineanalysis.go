@@ -3,8 +3,6 @@
 package backtestklineanalysis
 
 import (
-	"time"
-
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
 )
@@ -40,12 +38,18 @@ const (
 	FieldInPosition = "in_position"
 	// FieldAction holds the string denoting the action field in the database.
 	FieldAction = "action"
+	// FieldAvgEntryPrice holds the string denoting the avg_entry_price field in the database.
+	FieldAvgEntryPrice = "avg_entry_price"
+	// FieldPositionQuantity holds the string denoting the position_quantity field in the database.
+	FieldPositionQuantity = "position_quantity"
+	// FieldPositionCost holds the string denoting the position_cost field in the database.
+	FieldPositionCost = "position_cost"
 	// FieldPositionValue holds the string denoting the position_value field in the database.
 	FieldPositionValue = "position_value"
 	// FieldPositionPnl holds the string denoting the position_pnl field in the database.
 	FieldPositionPnl = "position_pnl"
-	// FieldCreatedAt holds the string denoting the created_at field in the database.
-	FieldCreatedAt = "created_at"
+	// FieldPositionPnlPercent holds the string denoting the position_pnl_percent field in the database.
+	FieldPositionPnlPercent = "position_pnl_percent"
 	// Table holds the table name of the backtestklineanalysis in the database.
 	Table = "backtest_kline_analyses"
 )
@@ -66,9 +70,12 @@ var Columns = []string{
 	FieldExitConditionResult,
 	FieldInPosition,
 	FieldAction,
+	FieldAvgEntryPrice,
+	FieldPositionQuantity,
+	FieldPositionCost,
 	FieldPositionValue,
 	FieldPositionPnl,
-	FieldCreatedAt,
+	FieldPositionPnlPercent,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -86,12 +93,8 @@ var (
 	DefaultInPosition bool
 	// DefaultAction holds the default value on creation for the "action" field.
 	DefaultAction string
-	// DefaultPositionValue holds the default value on creation for the "position_value" field.
-	DefaultPositionValue float64
-	// DefaultPositionPnl holds the default value on creation for the "position_pnl" field.
-	DefaultPositionPnl float64
-	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
-	DefaultCreatedAt func() time.Time
+	// ActionValidator is a validator for the "action" field. It is called by the builders before save.
+	ActionValidator func(string) error
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
@@ -144,6 +147,16 @@ func ByVolume(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldVolume, opts...).ToFunc()
 }
 
+// ByEntryConditionResult orders the results by the entry_condition_result field.
+func ByEntryConditionResult(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEntryConditionResult, opts...).ToFunc()
+}
+
+// ByExitConditionResult orders the results by the exit_condition_result field.
+func ByExitConditionResult(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldExitConditionResult, opts...).ToFunc()
+}
+
 // ByInPosition orders the results by the in_position field.
 func ByInPosition(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldInPosition, opts...).ToFunc()
@@ -152,6 +165,21 @@ func ByInPosition(opts ...sql.OrderTermOption) OrderOption {
 // ByAction orders the results by the action field.
 func ByAction(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAction, opts...).ToFunc()
+}
+
+// ByAvgEntryPrice orders the results by the avg_entry_price field.
+func ByAvgEntryPrice(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAvgEntryPrice, opts...).ToFunc()
+}
+
+// ByPositionQuantity orders the results by the position_quantity field.
+func ByPositionQuantity(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPositionQuantity, opts...).ToFunc()
+}
+
+// ByPositionCost orders the results by the position_cost field.
+func ByPositionCost(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPositionCost, opts...).ToFunc()
 }
 
 // ByPositionValue orders the results by the position_value field.
@@ -164,7 +192,7 @@ func ByPositionPnl(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldPositionPnl, opts...).ToFunc()
 }
 
-// ByCreatedAt orders the results by the created_at field.
-func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldCreatedAt, opts...).ToFunc()
+// ByPositionPnlPercent orders the results by the position_pnl_percent field.
+func ByPositionPnlPercent(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPositionPnlPercent, opts...).ToFunc()
 }

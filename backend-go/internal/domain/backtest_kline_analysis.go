@@ -17,12 +17,15 @@ type BacktestKlineAnalysis struct {
 	Volume decimal.Decimal
 
 	IndicatorValues      map[string]float64
-	EntryConditionResult map[string]any
-	ExitConditionResult  map[string]any
+	EntryConditionResult *bool
+	ExitConditionResult  *bool
 
-	InPosition bool
-	Action     string // "enter" | "exit" | "hold"
-
-	PositionValue decimal.Decimal
-	PositionPnl   decimal.Decimal
+	InPosition         bool
+	Action             string // "enter" | "exit" | "hold"
+	AvgEntryPrice      *decimal.Decimal
+	PositionQuantity   *decimal.Decimal
+	PositionCost       *decimal.Decimal
+	PositionValue      *decimal.Decimal
+	PositionPnl        *decimal.Decimal
+	PositionPnlPercent *decimal.Decimal
 }
