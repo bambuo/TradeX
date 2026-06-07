@@ -15,5 +15,20 @@ type BacktestResult func(*sql.Selector)
 // BacktestTask is the predicate function for backtesttask builders.
 type BacktestTask func(*sql.Selector)
 
+// Exchange is the predicate function for exchange builders.
+type Exchange func(*sql.Selector)
+
+// ExchangeOrderHistory is the predicate function for exchangeorderhistory builders.
+type ExchangeOrderHistory func(*sql.Selector)
+
+// Order is the predicate function for order builders.
+type Order func(*sql.Selector)
+
+// Position is the predicate function for position builders.
+type Position func(*sql.Selector)
+
 // Strategy is the predicate function for strategy builders.
 type Strategy func(*sql.Selector)
+
+// StrategyBinding is the predicate function for strategybinding builders.
+type StrategyBinding func(*sql.Selector)

@@ -3,12 +3,11 @@ package engine
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"math"
 	"testing"
 
 	"github.com/shopspring/decimal"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"tradex/internal/domain"
 	"tradex/internal/domain/indicator"
@@ -25,7 +24,7 @@ func newTestEngine() *BacktestEngine {
 	return NewBacktestEngine(reg)
 }
 
-func sineCandles(n int) []domain.Candle {
+func sineCandles(n int) []domain.Kline {
 	return buildSineCandles(n, decimal.NewFromInt(50000), 42)
 }
 
@@ -45,9 +44,15 @@ func TestRun_NoEntryCondition_ReturnsZeroTrades(t *testing.T) {
 		InitialCapital: decimal.NewFromInt(1000),
 	})
 
-	require.NoError(t, err)
-	assert.Empty(t, out.Trades)
-	assert.Equal(t, 0, out.Result.TotalTrades)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(out.Trades) != 0 {
+		t.Errorf("expected empty trades, got %d", len(out.Trades))
+	}
+	if out.Result.TotalTrades != 0 {
+		t.Errorf("expected TotalTrades=0, got %d", out.Result.TotalTrades)
+	}
 }
 
 func TestRun_EntryAlwaysTrue_ExitAlwaysTrue_ProducesTrades(t *testing.T) {
@@ -66,9 +71,15 @@ func TestRun_EntryAlwaysTrue_ExitAlwaysTrue_ProducesTrades(t *testing.T) {
 		InitialCapital: decimal.NewFromInt(1000),
 	})
 
-	require.NoError(t, err)
-	assert.GreaterOrEqual(t, out.Result.TotalTrades, 1)
-	assert.NotEqual(t, decimal.Zero, out.Result.TotalReturnPercent)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out.Result.TotalTrades < 1 {
+		t.Errorf("expected TotalTrades >= 1, got %d", out.Result.TotalTrades)
+	}
+	if out.Result.TotalReturnPercent.Equal(decimal.Zero) {
+		t.Errorf("expected non-zero TotalReturnPercent")
+	}
 }
 
 func TestRun_InsufficientData_ReturnsEmptyResult(t *testing.T) {
@@ -87,9 +98,15 @@ func TestRun_InsufficientData_ReturnsEmptyResult(t *testing.T) {
 		InitialCapital: decimal.NewFromInt(1000),
 	})
 
-	require.NoError(t, err)
-	assert.Equal(t, 0, out.Result.TotalTrades, "insufficient data should produce 0 trades")
-	assert.Equal(t, 0, len(out.Trades))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out.Result.TotalTrades != 0 {
+		t.Errorf("insufficient data should produce 0 trades, got %d", out.Result.TotalTrades)
+	}
+	if len(out.Trades) != 0 {
+		t.Errorf("expected 0 trades, got %d", len(out.Trades))
+	}
 }
 
 func TestRun_EmptyEntryCondition_ProducesZeroTrades(t *testing.T) {
@@ -108,9 +125,15 @@ func TestRun_EmptyEntryCondition_ProducesZeroTrades(t *testing.T) {
 		InitialCapital: decimal.NewFromInt(1000),
 	})
 
-	require.NoError(t, err)
-	assert.Empty(t, out.Trades)
-	assert.Equal(t, 0, out.Result.TotalTrades)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(out.Trades) != 0 {
+		t.Errorf("expected empty trades, got %d", len(out.Trades))
+	}
+	if out.Result.TotalTrades != 0 {
+		t.Errorf("expected TotalTrades=0, got %d", out.Result.TotalTrades)
+	}
 }
 
 func TestRun_MalformedJson_DoesNotCrashEngine(t *testing.T) {
@@ -129,8 +152,12 @@ func TestRun_MalformedJson_DoesNotCrashEngine(t *testing.T) {
 		InitialCapital: decimal.NewFromInt(1000),
 	})
 
-	require.NoError(t, err)
-	assert.Empty(t, out.Trades)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(out.Trades) != 0 {
+		t.Errorf("expected empty trades, got %d", len(out.Trades))
+	}
 }
 
 func TestRun_CalculatesMetrics_Correctly(t *testing.T) {
@@ -149,22 +176,38 @@ func TestRun_CalculatesMetrics_Correctly(t *testing.T) {
 		InitialCapital: decimal.NewFromInt(1000),
 	})
 
-	require.NoError(t, err)
-	assert.Equal(t, len(out.Trades), out.Result.TotalTrades)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(out.Trades) != out.Result.TotalTrades {
+		t.Errorf("expected TotalTrades=%d, got %d", len(out.Trades), out.Result.TotalTrades)
+	}
 
 	dd, _ := out.Result.MaxDrawdownPercent.Float64()
-	assert.GreaterOrEqual(t, dd, -100.0)
-	assert.True(t, dd <= 0.0, "max drawdown should be <= 0, got %f", dd)
+	if dd < -100.0 {
+		t.Errorf("expected MaxDrawdownPercent >= -100, got %f", dd)
+	}
+	if dd > 0.0 {
+		t.Errorf("max drawdown should be <= 0, got %f", dd)
+	}
 
 	wr, _ := out.Result.WinRate.Float64()
-	assert.GreaterOrEqual(t, wr, 0.0)
-	assert.LessOrEqual(t, wr, 100.0)
+	if wr < 0.0 {
+		t.Errorf("expected WinRate >= 0, got %f", wr)
+	}
+	if wr > 100.0 {
+		t.Errorf("expected WinRate <= 100, got %f", wr)
+	}
 
 	sr, _ := out.Result.SharpeRatio.Float64()
-	assert.False(t, math.IsNaN(sr), "SharpeRatio should not be NaN")
+	if math.IsNaN(sr) {
+		t.Errorf("SharpeRatio should not be NaN")
+	}
 
 	plr, _ := out.Result.ProfitLossRatio.Float64()
-	assert.GreaterOrEqual(t, plr, 0.0)
+	if plr < 0.0 {
+		t.Errorf("expected ProfitLossRatio >= 0, got %f", plr)
+	}
 }
 
 func TestRun_WithFee_ProducesLowerFinalValue(t *testing.T) {
@@ -184,8 +227,12 @@ func TestRun_WithFee_ProducesLowerFinalValue(t *testing.T) {
 		InitialCapital: decimal.NewFromInt(1000),
 		FeeRate:        decimal.Zero,
 	})
-	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(noFeeOut.Trades), 1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(noFeeOut.Trades) < 1 {
+		t.Fatal("expected at least 1 trade")
+	}
 
 	withFeeOut, err := engine.Run(context.Background(), EngineInput{
 		Strategy:       strategy,
@@ -194,11 +241,14 @@ func TestRun_WithFee_ProducesLowerFinalValue(t *testing.T) {
 		InitialCapital: decimal.NewFromInt(1000),
 		FeeRate:        decimal.NewFromFloat(0.001),
 	})
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	assert.True(t, withFeeOut.Result.FinalValue.LessThan(noFeeOut.Result.FinalValue),
-		"with fee final value (%s) should be lower than no fee (%s)",
-		withFeeOut.Result.FinalValue.String(), noFeeOut.Result.FinalValue.String())
+	if !withFeeOut.Result.FinalValue.LessThan(noFeeOut.Result.FinalValue) {
+		t.Errorf("with fee final value (%s) should be lower than no fee (%s)",
+			withFeeOut.Result.FinalValue.String(), noFeeOut.Result.FinalValue.String())
+	}
 }
 
 func TestRun_Analysis_HasIndicatorValues(t *testing.T) {
@@ -216,15 +266,29 @@ func TestRun_Analysis_HasIndicatorValues(t *testing.T) {
 		Klines:         candles,
 		InitialCapital: decimal.NewFromInt(1000),
 	})
-	require.NoError(t, err)
-	require.NotEmpty(t, out.Analysis)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(out.Analysis) == 0 {
+		t.Fatal("expected non-empty analysis")
+	}
 
 	last := out.Analysis[len(out.Analysis)-1]
-	assert.Contains(t, last.IndicatorValues, "sma")
-	assert.Contains(t, last.IndicatorValues, "ema")
-	assert.Contains(t, last.IndicatorValues, "rsi")
-	assert.Contains(t, last.IndicatorValues, "macd")
-	assert.Contains(t, last.IndicatorValues, "bollinger")
+	if _, ok := last.IndicatorValues["sma"]; !ok {
+		t.Errorf("expected sma in IndicatorValues")
+	}
+	if _, ok := last.IndicatorValues["ema"]; !ok {
+		t.Errorf("expected ema in IndicatorValues")
+	}
+	if _, ok := last.IndicatorValues["rsi"]; !ok {
+		t.Errorf("expected rsi in IndicatorValues")
+	}
+	if _, ok := last.IndicatorValues["macd"]; !ok {
+		t.Errorf("expected macd in IndicatorValues")
+	}
+	if _, ok := last.IndicatorValues["bollinger"]; !ok {
+		t.Errorf("expected bollinger in IndicatorValues")
+	}
 }
 
 func TestRun_RespectsCancellation(t *testing.T) {
@@ -246,7 +310,9 @@ func TestRun_RespectsCancellation(t *testing.T) {
 		InitialCapital: decimal.NewFromInt(1000),
 	})
 
-	require.ErrorIs(t, err, context.Canceled)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context.Canceled, got %v", err)
+	}
 }
 
 func TestRun_CancellationMidRun_StopsQuickly(t *testing.T) {
@@ -271,7 +337,9 @@ func TestRun_CancellationMidRun_StopsQuickly(t *testing.T) {
 		InitialCapital: decimal.NewFromInt(1000),
 	})
 
-	require.ErrorIs(t, err, context.Canceled)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context.Canceled, got %v", err)
+	}
 }
 
 func TestRun_Analysis_HasPositionCostAndConditionResult(t *testing.T) {
@@ -289,28 +357,44 @@ func TestRun_Analysis_HasPositionCostAndConditionResult(t *testing.T) {
 		Klines:         candles,
 		InitialCapital: decimal.NewFromInt(1000),
 	})
-	require.NoError(t, err)
-	require.NotEmpty(t, out.Analysis)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(out.Analysis) == 0 {
+		t.Fatal("expected non-empty analysis")
+	}
 
-	// 找一条入场后的 K 线验证 PositionCost
 	for _, a := range out.Analysis {
 		if a.InPosition {
-			t.Logf("PositionCost set at index %d: %v", a.KlineIndex, a.PositionCost)
-			assert.NotNil(t, a.PositionCost, "PositionCost should be set when in position")
-			assert.NotNil(t, a.AvgEntryPrice)
-			assert.NotNil(t, a.PositionQuantity)
-			assert.NotNil(t, a.PositionValue)
-			assert.NotNil(t, a.PositionPnl)
-			assert.NotNil(t, a.PositionPnlPercent)
+			t.Logf("PositionCost set at index %d: %v", a.Index, a.PositionCost)
+			if a.PositionCost == nil {
+				t.Errorf("PositionCost should be set when in position")
+			}
+			if a.AvgEntryPrice == nil {
+				t.Errorf("AvgEntryPrice should be set when in position")
+			}
+			if a.PositionQuantity == nil {
+				t.Errorf("PositionQuantity should be set when in position")
+			}
+			if a.PositionValue == nil {
+				t.Errorf("PositionValue should be set when in position")
+			}
+			if a.PositionPnl == nil {
+				t.Errorf("PositionPnl should be set when in position")
+			}
+			if a.PositionPnlPercent == nil {
+				t.Errorf("PositionPnlPercent should be set when in position")
+			}
 			break
 		}
 	}
 
-	// 找一条有 EntryConditionResult 的 K 线
 	for _, a := range out.Analysis {
 		if a.EntryConditionResult != nil {
-			t.Logf("EntryConditionResult set at index %d: %v", a.KlineIndex, *a.EntryConditionResult)
-			assert.True(t, *a.EntryConditionResult)
+			t.Logf("EntryConditionResult set at index %d: %v", a.Index, *a.EntryConditionResult)
+			if !*a.EntryConditionResult {
+				t.Errorf("expected EntryConditionResult to be true")
+			}
 			break
 		}
 	}
@@ -319,7 +403,6 @@ func TestRun_Analysis_HasPositionCostAndConditionResult(t *testing.T) {
 func TestRun_ForcedExitOnLastKline(t *testing.T) {
 	engine := newTestEngine()
 
-	// 创建一条入场 always true 但出场永远不触发的策略
 	exitNeverTrueStrategy := domain.Strategy{
 		EntryCondition: json.RawMessage(`{"operator":"","indicator":"RSI","comparison":">","value":0}`),
 		ExitCondition:  json.RawMessage(`{"operator":"","indicator":"RSI","comparison":">","value":200}`),
@@ -332,11 +415,13 @@ func TestRun_ForcedExitOnLastKline(t *testing.T) {
 		Klines:         candles,
 		InitialCapital: decimal.NewFromInt(1000),
 	})
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	// 必须有至少一笔交易（最后 K 线强制平仓）
-	assert.GreaterOrEqual(t, out.Result.TotalTrades, 1,
-		"should have at least one trade from forced exit on last bar")
+	if out.Result.TotalTrades < 1 {
+		t.Errorf("should have at least one trade from forced exit on last bar, got %d", out.Result.TotalTrades)
+	}
 }
 
 func TestRun_TwoLegFee_ReducesPnL(t *testing.T) {
@@ -356,8 +441,12 @@ func TestRun_TwoLegFee_ReducesPnL(t *testing.T) {
 		InitialCapital: decimal.NewFromInt(1000),
 		FeeRate:        decimal.Zero,
 	})
-	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(zeroFee.Trades), 1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(zeroFee.Trades) < 1 {
+		t.Fatal("expected at least 1 trade")
+	}
 
 	withFee, err := engine.Run(context.Background(), EngineInput{
 		Strategy:       strategy,
@@ -366,15 +455,17 @@ func TestRun_TwoLegFee_ReducesPnL(t *testing.T) {
 		InitialCapital: decimal.NewFromInt(1000),
 		FeeRate:        decimal.NewFromFloat(0.001),
 	})
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	if len(zeroFee.Trades) > 0 && len(withFee.Trades) > 0 {
-		// 有手续费时的单笔 PnL 应低于无手续费
 		for i := range zeroFee.Trades {
 			if i < len(withFee.Trades) {
-				assert.True(t, withFee.Trades[i].PnL.LessThan(zeroFee.Trades[i].PnL) || withFee.Trades[i].PnL.Equal(zeroFee.Trades[i].PnL),
-					"trade %d: with-fee PnL (%s) should be <= zero-fee PnL (%s)",
-					i, withFee.Trades[i].PnL.String(), zeroFee.Trades[i].PnL.String())
+				if !(withFee.Trades[i].Pnl.LessThan(zeroFee.Trades[i].Pnl) || withFee.Trades[i].Pnl.Equal(zeroFee.Trades[i].Pnl)) {
+					t.Errorf("trade %d: with-fee Pnl (%s) should be <= zero-fee Pnl (%s)",
+						i, withFee.Trades[i].Pnl.String(), zeroFee.Trades[i].Pnl.String())
+				}
 			}
 		}
 	}
@@ -397,8 +488,12 @@ func TestRun_WithFeeRate_PercentageCorrect(t *testing.T) {
 		InitialCapital: decimal.NewFromInt(1000),
 		FeeRate:        decimal.NewFromFloat(0.001),
 	})
-	require.NoError(t, err)
-	require.NotEmpty(t, out.Trades)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(out.Trades) == 0 {
+		t.Fatal("expected at least 1 trade")
+	}
 
 	for range out.Trades {
 	}
@@ -425,7 +520,9 @@ func TestRun_VolatilityGrid_ProducesMultipleLevels(t *testing.T) {
 		Klines:         candles,
 		InitialCapital: decimal.NewFromInt(10000),
 	})
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	t.Logf("Grid trades: %d, final value: %s", out.Result.TotalTrades, out.Result.FinalValue.String())
 }

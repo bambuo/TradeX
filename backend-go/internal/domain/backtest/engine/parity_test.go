@@ -6,8 +6,6 @@ import (
 	"testing"
 
 	"github.com/shopspring/decimal"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"tradex/internal/domain"
 	"tradex/internal/domain/indicator"
@@ -48,7 +46,7 @@ func (l *legacySMA) Compute(v []float64) []float64 {
 	return sma.Compute(v)
 }
 
-func parityCandles(n int) []domain.Candle {
+func parityCandles(n int) []domain.Kline {
 	return buildSineCandles(n, decimal.NewFromInt(50000), 42)
 }
 
@@ -67,8 +65,12 @@ func TestParity_LegacyCrossoverCodes_CA_CB_Evaluate(t *testing.T) {
 		Klines:         parityCandles(400),
 		InitialCapital: decimal.NewFromInt(1000),
 	})
-	require.NoError(t, err)
-	assert.NotEmpty(t, out.Trades, "CA/CB legacy codes should produce trades")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(out.Trades) == 0 {
+		t.Errorf("CA/CB legacy codes should produce trades")
+	}
 }
 
 // C# parity: RelativeComparison_WithRef_ComparesAgainstScaledIndicator
@@ -88,18 +90,23 @@ func TestParity_RelativeComparison_WithRef(t *testing.T) {
 	refOut, err := engine.Run(context.Background(), EngineInput{
 		Strategy: refStrategy, Pair: "BTCUSDT", Klines: candles, InitialCapital: decimal.NewFromInt(1000),
 	})
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	literalOut, err := engine.Run(context.Background(), EngineInput{
 		Strategy: literalStrategy, Pair: "BTCUSDT", Klines: candles, InitialCapital: decimal.NewFromInt(1000),
 	})
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	refCount := len(refOut.Trades)
 	litCount := len(literalOut.Trades)
 
-	assert.NotEqual(t, litCount, refCount,
-		"ref strategy and literal strategy should produce different trade counts")
+	if litCount == refCount {
+		t.Errorf("ref strategy and literal strategy should produce different trade counts, both got %d", refCount)
+	}
 }
 
 // C# parity: WhitespaceEntryCondition_ProducesZeroTrades
@@ -117,8 +124,12 @@ func TestParity_WhitespaceEntryCondition_ProducesZeroTrades(t *testing.T) {
 		Klines:         parityCandles(200),
 		InitialCapital: decimal.NewFromInt(1000),
 	})
-	require.NoError(t, err)
-	assert.Empty(t, out.Trades)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(out.Trades) != 0 {
+		t.Errorf("expected empty trades, got %d", len(out.Trades))
+	}
 }
 
 // C# parity: Run_CancellationTokenCancelledMidRun_StopsWithinFewIterations
@@ -145,5 +156,7 @@ func TestParity_CancellationMidRun_StopsWithinFewIterations(t *testing.T) {
 		Klines:         candles,
 		InitialCapital: decimal.NewFromInt(1000),
 	})
-	assert.ErrorIs(t, err, context.Canceled)
+	if err != context.Canceled {
+		t.Errorf("expected context.Canceled, got %v", err)
+	}
 }

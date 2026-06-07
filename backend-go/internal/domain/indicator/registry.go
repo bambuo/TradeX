@@ -23,7 +23,7 @@ func (r *Registry) Register(ind Indicator) {
 	r.indicators[ind.Name()] = ind
 }
 
-func (r *Registry) ComputeAll(candles []domain.Candle) map[string][]float64 {
+func (r *Registry) ComputeAll(candles []domain.Kline) map[string][]float64 {
 	close := candlesToF64Close(candles)
 	volume := candlesToF64Volume(candles)
 
@@ -59,7 +59,7 @@ func (r *Registry) Indicators() []string {
 	return names
 }
 
-func candlesToF64Close(candles []domain.Candle) []float64 {
+func candlesToF64Close(candles []domain.Kline) []float64 {
 	out := make([]float64, len(candles))
 	for i, c := range candles {
 		out[i], _ = c.Close.Float64()
@@ -67,7 +67,7 @@ func candlesToF64Close(candles []domain.Candle) []float64 {
 	return out
 }
 
-func candlesToF64Volume(candles []domain.Candle) []float64 {
+func candlesToF64Volume(candles []domain.Kline) []float64 {
 	out := make([]float64, len(candles))
 	for i, c := range candles {
 		out[i], _ = c.Volume.Float64()

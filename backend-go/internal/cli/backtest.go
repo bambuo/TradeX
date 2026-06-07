@@ -18,11 +18,11 @@ import (
 
 	"tradex/internal/domain/indicator"
 	"tradex/internal/infra/analysis"
+	"tradex/internal/infra/backtest"
 	"tradex/internal/infra/eventbus"
 	"tradex/internal/infra/exchange"
 	"tradex/internal/infra/persistence"
 	"tradex/internal/infra/telemetry"
-	"tradex/internal/infra/worker"
 )
 
 func NewBacktestCmd() *cobra.Command {
@@ -68,22 +68,22 @@ func NewBacktestCmd() *cobra.Command {
 			var wg sync.WaitGroup
 
 			// PG advisory lock for single-instance guard
-			var guard *worker.BacktestWorkerGuard
+			var guard *backtest.BacktestWorkerGuard
 			if dsn != "" {
 				if sqlDB, err := sql.Open("pgx", dsn); err == nil {
-					guard = worker.NewBacktestWorkerGuard(sqlDB)
+					guard = backtest.NewBacktestWorkerGuard(sqlDB)
 					defer sqlDB.Close()
 				}
 			}
 
-			rmCfg := worker.ResourceMonitorConfig{
+			rmCfg := backtest.ResourceMonitorConfig{
 				MonitorIntervalSec: viper.GetInt("monitor_interval_sec"),
 				CpuWarningPercent:  viper.GetInt("cpu_warning_pct"),
 				CpuCriticalPercent: viper.GetInt("cpu_critical_pct"),
 				CpuAbsolutePercent: viper.GetInt("cpu_absolute_pct"),
 			}
 			// set defaults if zero
-			def := worker.DefaultResourceMonitorConfig()
+			def := backtest.DefaultResourceMonitorConfig()
 			if rmCfg.MonitorIntervalSec == 0 {
 				rmCfg.MonitorIntervalSec = def.MonitorIntervalSec
 			}
@@ -98,9 +98,9 @@ func NewBacktestCmd() *cobra.Command {
 			}
 
 			btRepo := persistence.NewBacktestRepo(client)
-			taskQueue := worker.NewTaskQueue(maxConcurrency * 2)
-			resMon := worker.NewResourceMonitor(ctx, maxConcurrency, rmCfg)
-			tracker := worker.NewRunningBacktestTracker()
+			taskQueue := backtest.NewTaskQueue(maxConcurrency * 2)
+			resMon := backtest.NewResourceMonitor(ctx, maxConcurrency, rmCfg)
+			tracker := backtest.NewRunningBacktestTracker()
 			analysisStore := analysis.NewStore()
 
 			klineCache := persistence.NewKlineCache(10 * time.Minute)
@@ -115,7 +115,7 @@ func NewBacktestCmd() *cobra.Command {
 			reg.Register(indicator.NewBollingerBands(20, 2))
 			reg.Register(indicator.NewStochastic(5, 3))
 
-			sch := worker.NewBacktestScheduler(btRepo, taskQueue, resMon, reg, klineCache, klineClient, tracker, analysisStore, log)
+			sch := backtest.NewBacktestScheduler(btRepo, taskQueue, resMon, reg, klineCache, klineClient, tracker, analysisStore, log)
 
 			var redisBus *eventbus.RedisEventBus
 			if redisAddr != "" {
@@ -124,14 +124,14 @@ func NewBacktestCmd() *cobra.Command {
 
 				redisBus = eventbus.NewRedisEventBus(rdb)
 
-				listener := worker.NewTaskListener(btRepo, taskQueue, redisBus, log)
+				listener := backtest.NewTaskListener(btRepo, taskQueue, redisBus, log)
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
 					listener.Start(ctx)
 				}()
 
-				cancelConsumer := worker.NewCancellationConsumer(tracker, redisBus, log)
+				cancelConsumer := backtest.NewCancellationConsumer(tracker, redisBus, log)
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
@@ -148,7 +148,7 @@ func NewBacktestCmd() *cobra.Command {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				sch.Run(ctx, worker.SchedulerConfig{
+				sch.Run(ctx, backtest.SchedulerConfig{
 					MaxConcurrency:     maxConcurrency,
 					TaskTimeoutMinutes: taskTimeout,
 					FeeRate:            feeRate,

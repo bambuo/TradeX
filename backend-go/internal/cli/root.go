@@ -14,6 +14,7 @@ func NewRootCmd() *cobra.Command {
 
 	cmd.AddCommand(NewAPICmd())
 	cmd.AddCommand(NewBacktestCmd())
+	cmd.AddCommand(NewWorkerCmd())
 
 	return cmd
 }

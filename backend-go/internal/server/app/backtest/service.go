@@ -59,10 +59,6 @@ func (s *Service) CreateTask(ctx context.Context, req CreateBacktestRequest) (*b
 		return nil, fmt.Errorf("%w: 结束时间格式无效，请使用 RFC3339", domain.ErrInvalidInput)
 	}
 
-	if endAt.Before(startAt) {
-		return nil, fmt.Errorf("%w: 结束时间必须晚于开始时间", domain.ErrInvalidInput)
-	}
-
 	task := &bt.BacktestTask{
 		ID:             uuid.New(),
 		StrategyID:     strategyID,
@@ -76,6 +72,9 @@ func (s *Service) CreateTask(ctx context.Context, req CreateBacktestRequest) (*b
 		EndAt:          endAt,
 		Status:         bt.TaskStatusPending,
 		CreatedAt:      time.Now(),
+	}
+	if err := task.Validate(); err != nil {
+		return nil, fmt.Errorf("%w: %w", domain.ErrInvalidInput, err)
 	}
 	if req.PositionSize != nil {
 		v := decimal.NewFromFloat(*req.PositionSize)
@@ -102,13 +101,20 @@ func (s *Service) CancelTask(ctx context.Context, id uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-	if task.Status == bt.TaskStatusCompleted || task.Status == bt.TaskStatusFailed || task.Status == bt.TaskStatusCancelled {
-		return fmt.Errorf("%w: 任务已结束，无法取消", domain.ErrConflict)
+	if err := task.Cancel(); err != nil {
+		return err
 	}
-	return s.repo.UpdateTaskStatus(ctx, id, bt.TaskStatusCancelled, nil)
+	return s.repo.SaveTask(ctx, task)
 }
 
 func (s *Service) GetResult(ctx context.Context, id uuid.UUID) (*bt.BacktestResult, []bt.BacktestTrade, error) {
+	task, err := s.repo.GetTask(ctx, id)
+	if err != nil {
+		return nil, nil, err
+	}
+	if task.Status != bt.TaskStatusCompleted {
+		return nil, nil, fmt.Errorf("%w: 任务尚未完成", domain.ErrConflict)
+	}
 	return s.repo.GetResult(ctx, id)
 }
 

@@ -44,6 +44,54 @@ func (f BacktestTaskFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.BacktestTaskMutation", m)
 }
 
+// The ExchangeFunc type is an adapter to allow the use of ordinary
+// function as Exchange mutator.
+type ExchangeFunc func(context.Context, *ent.ExchangeMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ExchangeFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ExchangeMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ExchangeMutation", m)
+}
+
+// The ExchangeOrderHistoryFunc type is an adapter to allow the use of ordinary
+// function as ExchangeOrderHistory mutator.
+type ExchangeOrderHistoryFunc func(context.Context, *ent.ExchangeOrderHistoryMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ExchangeOrderHistoryFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ExchangeOrderHistoryMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ExchangeOrderHistoryMutation", m)
+}
+
+// The OrderFunc type is an adapter to allow the use of ordinary
+// function as Order mutator.
+type OrderFunc func(context.Context, *ent.OrderMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f OrderFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.OrderMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.OrderMutation", m)
+}
+
+// The PositionFunc type is an adapter to allow the use of ordinary
+// function as Position mutator.
+type PositionFunc func(context.Context, *ent.PositionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f PositionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.PositionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PositionMutation", m)
+}
+
 // The StrategyFunc type is an adapter to allow the use of ordinary
 // function as Strategy mutator.
 type StrategyFunc func(context.Context, *ent.StrategyMutation) (ent.Value, error)
@@ -54,6 +102,18 @@ func (f StrategyFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, er
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.StrategyMutation", m)
+}
+
+// The StrategyBindingFunc type is an adapter to allow the use of ordinary
+// function as StrategyBinding mutator.
+type StrategyBindingFunc func(context.Context, *ent.StrategyBindingMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f StrategyBindingFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.StrategyBindingMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.StrategyBindingMutation", m)
 }
 
 // Condition is a hook condition function.

@@ -30,7 +30,7 @@ func (m *mockRepo) CreateTask(_ context.Context, _ *bt.BacktestTask) error {
 func (m *mockRepo) GetTask(_ context.Context, _ uuid.UUID) (*bt.BacktestTask, error) {
 	return nil, errMock
 }
-func (m *mockRepo) UpdateTaskStatus(_ context.Context, _ uuid.UUID, _ bt.BacktestTaskStatus, _ *bt.BacktestPhase) error {
+func (m *mockRepo) SaveTask(_ context.Context, _ *bt.BacktestTask) error {
 	return nil
 }
 func (m *mockRepo) UpdateTaskProgress(_ context.Context, _ uuid.UUID, _ int) error {
@@ -66,7 +66,7 @@ func (m *mockRepo) GetStrategy(_ context.Context, _ uuid.UUID) (*domain.Strategy
 func (m *mockRepo) ExecuteInTransaction(_ context.Context, fn func(bt.BacktestRepository) error) error {
 	return fn(m)
 }
-func (m *mockRepo) TryAcquireTask(_ context.Context, _ uuid.UUID, _ bt.BacktestTaskStatus, _ bt.BacktestPhase) (bool, error) {
+func (m *mockRepo) ClaimTask(_ context.Context, _ uuid.UUID, _ bt.BacktestTaskStatus, _ bt.BacktestPhase) (bool, error) {
 	return true, nil
 }
 

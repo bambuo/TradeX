@@ -12,7 +12,7 @@ type BacktestRepository interface {
 	domain.StrategyRepository
 	CreateTask(ctx context.Context, task *BacktestTask) error
 	GetTask(ctx context.Context, id uuid.UUID) (*BacktestTask, error)
-	UpdateTaskStatus(ctx context.Context, id uuid.UUID, status BacktestTaskStatus, phase *BacktestPhase) error
+	SaveTask(ctx context.Context, task *BacktestTask) error
 	ListTasks(ctx context.Context, filter TaskFilter) ([]*BacktestTask, int, error)
 	SaveResult(ctx context.Context, taskID uuid.UUID, result *BacktestResult, trades []BacktestTrade) error
 	GetResult(ctx context.Context, taskID uuid.UUID) (*BacktestResult, []BacktestTrade, error)
@@ -22,8 +22,7 @@ type BacktestRepository interface {
 	GetPendingTasks(ctx context.Context) ([]*BacktestTask, error)
 	GetRunningTasks(ctx context.Context) ([]*BacktestTask, error)
 	ExecuteInTransaction(ctx context.Context, fn func(BacktestRepository) error) error
-	TryAcquireTask(ctx context.Context, id uuid.UUID, fromStatus BacktestTaskStatus, phase BacktestPhase) (bool, error)
-	domain.StrategyRepository
+	ClaimTask(ctx context.Context, id uuid.UUID, fromStatus BacktestTaskStatus, phase BacktestPhase) (bool, error)
 }
 
 type TaskFilter struct {

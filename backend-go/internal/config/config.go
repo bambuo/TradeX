@@ -28,6 +28,10 @@ func init() {
 		os.Setenv("REDIS_ADDR", addr)
 	}
 
+	if os.Getenv("ENCRYPTION_KEY") == "" && os.Getenv("TX_ENCRYPTION_KEY") != "" {
+		os.Setenv("ENCRYPTION_KEY", os.Getenv("TX_ENCRYPTION_KEY"))
+	}
+
 	setDefault("LISTEN", ":8080")
 	setDefault("ENVIRONMENT", "development")
 }

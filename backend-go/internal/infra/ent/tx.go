@@ -18,8 +18,18 @@ type Tx struct {
 	BacktestResult *BacktestResultClient
 	// BacktestTask is the client for interacting with the BacktestTask builders.
 	BacktestTask *BacktestTaskClient
+	// Exchange is the client for interacting with the Exchange builders.
+	Exchange *ExchangeClient
+	// ExchangeOrderHistory is the client for interacting with the ExchangeOrderHistory builders.
+	ExchangeOrderHistory *ExchangeOrderHistoryClient
+	// Order is the client for interacting with the Order builders.
+	Order *OrderClient
+	// Position is the client for interacting with the Position builders.
+	Position *PositionClient
 	// Strategy is the client for interacting with the Strategy builders.
 	Strategy *StrategyClient
+	// StrategyBinding is the client for interacting with the StrategyBinding builders.
+	StrategyBinding *StrategyBindingClient
 
 	// lazily loaded.
 	client     *Client
@@ -154,7 +164,12 @@ func (tx *Tx) init() {
 	tx.BacktestKlineAnalysis = NewBacktestKlineAnalysisClient(tx.config)
 	tx.BacktestResult = NewBacktestResultClient(tx.config)
 	tx.BacktestTask = NewBacktestTaskClient(tx.config)
+	tx.Exchange = NewExchangeClient(tx.config)
+	tx.ExchangeOrderHistory = NewExchangeOrderHistoryClient(tx.config)
+	tx.Order = NewOrderClient(tx.config)
+	tx.Position = NewPositionClient(tx.config)
 	tx.Strategy = NewStrategyClient(tx.config)
+	tx.StrategyBinding = NewStrategyBindingClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.

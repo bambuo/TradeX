@@ -11,7 +11,12 @@ import (
 	"tradex/internal/infra/ent/backtestklineanalysis"
 	"tradex/internal/infra/ent/backtestresult"
 	"tradex/internal/infra/ent/backtesttask"
+	"tradex/internal/infra/ent/exchange"
+	"tradex/internal/infra/ent/exchangeorderhistory"
+	"tradex/internal/infra/ent/order"
+	"tradex/internal/infra/ent/position"
 	"tradex/internal/infra/ent/strategy"
+	"tradex/internal/infra/ent/strategybinding"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
@@ -79,7 +84,12 @@ func checkColumn(t, c string) error {
 			backtestklineanalysis.Table: backtestklineanalysis.ValidColumn,
 			backtestresult.Table:        backtestresult.ValidColumn,
 			backtesttask.Table:          backtesttask.ValidColumn,
+			exchange.Table:              exchange.ValidColumn,
+			exchangeorderhistory.Table:  exchangeorderhistory.ValidColumn,
+			order.Table:                 order.ValidColumn,
+			position.Table:              position.ValidColumn,
 			strategy.Table:              strategy.ValidColumn,
+			strategybinding.Table:       strategybinding.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

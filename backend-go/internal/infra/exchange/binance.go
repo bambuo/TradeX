@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -15,22 +16,15 @@ import (
 	"tradex/internal/domain"
 )
 
-const maxRetries = 3
-
-type binanceKline struct {
-	OpenTime         int64
-	Open             string
-	High             string
-	Low              string
-	Close            string
-	Volume           string
-	CloseTime        int64
-	QuoteAssetVolume string
-	NumberOfTrades   int
-	TakerBuyBaseVol  string
-	TakerBuyQuoteVol string
-	UnusedField      string
+func safeDecimal(s string, label string) decimal.Decimal {
+	d, err := decimal.NewFromString(s)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARN: exchange: parse %s %q: %v\n", label, s, err)
+	}
+	return d
 }
+
+const maxRetries = 3
 
 type BinanceClient struct {
 	baseURL string
@@ -44,12 +38,12 @@ func NewBinanceClient() *BinanceClient {
 	}
 }
 
-func (b *BinanceClient) FetchKlines(ctx context.Context, pair, timeframe string, start, end time.Time) ([]domain.Candle, error) {
+func (b *BinanceClient) FetchKlines(ctx context.Context, pair, timeframe string, start, end time.Time) ([]domain.Kline, error) {
 	limit := 1000
 	stepMs := intervalMs(timeframe)
 	cursor := start
 
-	var all []domain.Candle
+	var all []domain.Kline
 	seen := make(map[int64]bool)
 
 	for cursor.Before(end) {
@@ -89,7 +83,7 @@ func (b *BinanceClient) FetchKlines(ctx context.Context, pair, timeframe string,
 	return all, nil
 }
 
-func (b *BinanceClient) fetchBatch(ctx context.Context, url string) ([]domain.Candle, error) {
+func (b *BinanceClient) fetchBatch(ctx context.Context, url string) ([]domain.Kline, error) {
 	var lastErr error
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
@@ -121,7 +115,7 @@ func (b *BinanceClient) fetchBatch(ctx context.Context, url string) ([]domain.Ca
 		}
 
 		if resp.StatusCode != 200 {
-			lastErr = fmt.Errorf("Binance API 错误 %d: %s", resp.StatusCode, string(body))
+			lastErr = fmt.Errorf("binance API 错误 %d: %s", resp.StatusCode, string(body))
 			continue
 		}
 
@@ -131,13 +125,13 @@ func (b *BinanceClient) fetchBatch(ctx context.Context, url string) ([]domain.Ca
 	return nil, fmt.Errorf("获取K线失败（已重试%d次）: %w", maxRetries, lastErr)
 }
 
-func parseKlines(body []byte) ([]domain.Candle, error) {
+func parseKlines(body []byte) ([]domain.Kline, error) {
 	var raw [][]json.RawMessage
 	if err := json.Unmarshal(body, &raw); err != nil {
 		return nil, fmt.Errorf("解析K线失败: %w", err)
 	}
 
-	candles := make([]domain.Candle, 0, len(raw))
+	candles := make([]domain.Kline, 0, len(raw))
 	for _, item := range raw {
 		if len(item) < 11 {
 			continue
@@ -150,13 +144,13 @@ func parseKlines(body []byte) ([]domain.Candle, error) {
 		closeStr, _ := strconv.Unquote(string(item[4]))
 		volumeStr, _ := strconv.Unquote(string(item[5]))
 
-		open, _ := decimal.NewFromString(openStr)
-		high, _ := decimal.NewFromString(highStr)
-		low, _ := decimal.NewFromString(lowStr)
-		close_, _ := decimal.NewFromString(closeStr)
-		volume, _ := decimal.NewFromString(volumeStr)
+		open := safeDecimal(openStr, "kline.open")
+		high := safeDecimal(highStr, "kline.high")
+		low := safeDecimal(lowStr, "kline.low")
+		close_ := safeDecimal(closeStr, "kline.close")
+		volume := safeDecimal(volumeStr, "kline.volume")
 
-		candles = append(candles, domain.Candle{
+		candles = append(candles, domain.Kline{
 			Timestamp: time.UnixMilli(openTime),
 			Open:      open,
 			High:      high,

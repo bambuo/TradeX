@@ -15,7 +15,7 @@ var (
 	rateLimitRPS  int
 )
 
-func init() {
+func getRateLimitRPS() int {
 	rateLimitOnce.Do(func() {
 		raw := os.Getenv("TX_RATE_LIMIT")
 		if raw == "" {
@@ -28,6 +28,7 @@ func init() {
 			rateLimitRPS = 100
 		}
 	})
+	return rateLimitRPS
 }
 
 type visitor struct {
@@ -53,7 +54,7 @@ func RateLimitMiddleware() gin.HandlerFunc {
 		}
 		vis.window = vis.window[j:]
 
-		if len(vis.window) >= rateLimitRPS {
+		if len(vis.window) >= getRateLimitRPS() {
 			vis.mu.Unlock()
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "请求过于频繁，请稍后重试"})
 			return

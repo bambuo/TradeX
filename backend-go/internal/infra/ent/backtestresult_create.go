@@ -10,6 +10,8 @@ import (
 	"tradex/internal/infra/ent/backtestresult"
 	"tradex/internal/infra/ent/backtesttask"
 
+	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
@@ -20,6 +22,7 @@ type BacktestResultCreate struct {
 	config
 	mutation *BacktestResultMutation
 	hooks    []Hook
+	conflict []sql.ConflictOption
 }
 
 // SetTaskID sets the "task_id" field.
@@ -316,6 +319,7 @@ func (_c *BacktestResultCreate) createSpec() (*BacktestResult, *sqlgraph.CreateS
 		_node = &BacktestResult{config: _c.config}
 		_spec = sqlgraph.NewCreateSpec(backtestresult.Table, sqlgraph.NewFieldSpec(backtestresult.FieldID, field.TypeUUID))
 	)
+	_spec.OnConflict = _c.conflict
 	if id, ok := _c.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = &id
@@ -404,11 +408,696 @@ func (_c *BacktestResultCreate) createSpec() (*BacktestResult, *sqlgraph.CreateS
 	return _node, _spec
 }
 
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.BacktestResult.Create().
+//		SetTaskID(v).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.BacktestResultUpsert) {
+//			SetTaskID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *BacktestResultCreate) OnConflict(opts ...sql.ConflictOption) *BacktestResultUpsertOne {
+	_c.conflict = opts
+	return &BacktestResultUpsertOne{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.BacktestResult.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *BacktestResultCreate) OnConflictColumns(columns ...string) *BacktestResultUpsertOne {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &BacktestResultUpsertOne{
+		create: _c,
+	}
+}
+
+type (
+	// BacktestResultUpsertOne is the builder for "upsert"-ing
+	//  one BacktestResult node.
+	BacktestResultUpsertOne struct {
+		create *BacktestResultCreate
+	}
+
+	// BacktestResultUpsert is the "OnConflict" setter.
+	BacktestResultUpsert struct {
+		*sql.UpdateSet
+	}
+)
+
+// SetTaskID sets the "task_id" field.
+func (u *BacktestResultUpsert) SetTaskID(v uuid.UUID) *BacktestResultUpsert {
+	u.Set(backtestresult.FieldTaskID, v)
+	return u
+}
+
+// UpdateTaskID sets the "task_id" field to the value that was provided on create.
+func (u *BacktestResultUpsert) UpdateTaskID() *BacktestResultUpsert {
+	u.SetExcluded(backtestresult.FieldTaskID)
+	return u
+}
+
+// SetStrategyName sets the "strategy_name" field.
+func (u *BacktestResultUpsert) SetStrategyName(v string) *BacktestResultUpsert {
+	u.Set(backtestresult.FieldStrategyName, v)
+	return u
+}
+
+// UpdateStrategyName sets the "strategy_name" field to the value that was provided on create.
+func (u *BacktestResultUpsert) UpdateStrategyName() *BacktestResultUpsert {
+	u.SetExcluded(backtestresult.FieldStrategyName)
+	return u
+}
+
+// SetPair sets the "pair" field.
+func (u *BacktestResultUpsert) SetPair(v string) *BacktestResultUpsert {
+	u.Set(backtestresult.FieldPair, v)
+	return u
+}
+
+// UpdatePair sets the "pair" field to the value that was provided on create.
+func (u *BacktestResultUpsert) UpdatePair() *BacktestResultUpsert {
+	u.SetExcluded(backtestresult.FieldPair)
+	return u
+}
+
+// SetTimeframe sets the "timeframe" field.
+func (u *BacktestResultUpsert) SetTimeframe(v string) *BacktestResultUpsert {
+	u.Set(backtestresult.FieldTimeframe, v)
+	return u
+}
+
+// UpdateTimeframe sets the "timeframe" field to the value that was provided on create.
+func (u *BacktestResultUpsert) UpdateTimeframe() *BacktestResultUpsert {
+	u.SetExcluded(backtestresult.FieldTimeframe)
+	return u
+}
+
+// SetStartAt sets the "start_at" field.
+func (u *BacktestResultUpsert) SetStartAt(v time.Time) *BacktestResultUpsert {
+	u.Set(backtestresult.FieldStartAt, v)
+	return u
+}
+
+// UpdateStartAt sets the "start_at" field to the value that was provided on create.
+func (u *BacktestResultUpsert) UpdateStartAt() *BacktestResultUpsert {
+	u.SetExcluded(backtestresult.FieldStartAt)
+	return u
+}
+
+// SetEndAt sets the "end_at" field.
+func (u *BacktestResultUpsert) SetEndAt(v time.Time) *BacktestResultUpsert {
+	u.Set(backtestresult.FieldEndAt, v)
+	return u
+}
+
+// UpdateEndAt sets the "end_at" field to the value that was provided on create.
+func (u *BacktestResultUpsert) UpdateEndAt() *BacktestResultUpsert {
+	u.SetExcluded(backtestresult.FieldEndAt)
+	return u
+}
+
+// SetInitialCapital sets the "initial_capital" field.
+func (u *BacktestResultUpsert) SetInitialCapital(v float64) *BacktestResultUpsert {
+	u.Set(backtestresult.FieldInitialCapital, v)
+	return u
+}
+
+// UpdateInitialCapital sets the "initial_capital" field to the value that was provided on create.
+func (u *BacktestResultUpsert) UpdateInitialCapital() *BacktestResultUpsert {
+	u.SetExcluded(backtestresult.FieldInitialCapital)
+	return u
+}
+
+// AddInitialCapital adds v to the "initial_capital" field.
+func (u *BacktestResultUpsert) AddInitialCapital(v float64) *BacktestResultUpsert {
+	u.Add(backtestresult.FieldInitialCapital, v)
+	return u
+}
+
+// SetFinalValue sets the "final_value" field.
+func (u *BacktestResultUpsert) SetFinalValue(v float64) *BacktestResultUpsert {
+	u.Set(backtestresult.FieldFinalValue, v)
+	return u
+}
+
+// UpdateFinalValue sets the "final_value" field to the value that was provided on create.
+func (u *BacktestResultUpsert) UpdateFinalValue() *BacktestResultUpsert {
+	u.SetExcluded(backtestresult.FieldFinalValue)
+	return u
+}
+
+// AddFinalValue adds v to the "final_value" field.
+func (u *BacktestResultUpsert) AddFinalValue(v float64) *BacktestResultUpsert {
+	u.Add(backtestresult.FieldFinalValue, v)
+	return u
+}
+
+// SetTotalReturnPercent sets the "total_return_percent" field.
+func (u *BacktestResultUpsert) SetTotalReturnPercent(v float64) *BacktestResultUpsert {
+	u.Set(backtestresult.FieldTotalReturnPercent, v)
+	return u
+}
+
+// UpdateTotalReturnPercent sets the "total_return_percent" field to the value that was provided on create.
+func (u *BacktestResultUpsert) UpdateTotalReturnPercent() *BacktestResultUpsert {
+	u.SetExcluded(backtestresult.FieldTotalReturnPercent)
+	return u
+}
+
+// AddTotalReturnPercent adds v to the "total_return_percent" field.
+func (u *BacktestResultUpsert) AddTotalReturnPercent(v float64) *BacktestResultUpsert {
+	u.Add(backtestresult.FieldTotalReturnPercent, v)
+	return u
+}
+
+// SetAnnualizedReturnPercent sets the "annualized_return_percent" field.
+func (u *BacktestResultUpsert) SetAnnualizedReturnPercent(v float64) *BacktestResultUpsert {
+	u.Set(backtestresult.FieldAnnualizedReturnPercent, v)
+	return u
+}
+
+// UpdateAnnualizedReturnPercent sets the "annualized_return_percent" field to the value that was provided on create.
+func (u *BacktestResultUpsert) UpdateAnnualizedReturnPercent() *BacktestResultUpsert {
+	u.SetExcluded(backtestresult.FieldAnnualizedReturnPercent)
+	return u
+}
+
+// AddAnnualizedReturnPercent adds v to the "annualized_return_percent" field.
+func (u *BacktestResultUpsert) AddAnnualizedReturnPercent(v float64) *BacktestResultUpsert {
+	u.Add(backtestresult.FieldAnnualizedReturnPercent, v)
+	return u
+}
+
+// SetMaxDrawdownPercent sets the "max_drawdown_percent" field.
+func (u *BacktestResultUpsert) SetMaxDrawdownPercent(v float64) *BacktestResultUpsert {
+	u.Set(backtestresult.FieldMaxDrawdownPercent, v)
+	return u
+}
+
+// UpdateMaxDrawdownPercent sets the "max_drawdown_percent" field to the value that was provided on create.
+func (u *BacktestResultUpsert) UpdateMaxDrawdownPercent() *BacktestResultUpsert {
+	u.SetExcluded(backtestresult.FieldMaxDrawdownPercent)
+	return u
+}
+
+// AddMaxDrawdownPercent adds v to the "max_drawdown_percent" field.
+func (u *BacktestResultUpsert) AddMaxDrawdownPercent(v float64) *BacktestResultUpsert {
+	u.Add(backtestresult.FieldMaxDrawdownPercent, v)
+	return u
+}
+
+// SetWinRate sets the "win_rate" field.
+func (u *BacktestResultUpsert) SetWinRate(v float64) *BacktestResultUpsert {
+	u.Set(backtestresult.FieldWinRate, v)
+	return u
+}
+
+// UpdateWinRate sets the "win_rate" field to the value that was provided on create.
+func (u *BacktestResultUpsert) UpdateWinRate() *BacktestResultUpsert {
+	u.SetExcluded(backtestresult.FieldWinRate)
+	return u
+}
+
+// AddWinRate adds v to the "win_rate" field.
+func (u *BacktestResultUpsert) AddWinRate(v float64) *BacktestResultUpsert {
+	u.Add(backtestresult.FieldWinRate, v)
+	return u
+}
+
+// SetSharpeRatio sets the "sharpe_ratio" field.
+func (u *BacktestResultUpsert) SetSharpeRatio(v float64) *BacktestResultUpsert {
+	u.Set(backtestresult.FieldSharpeRatio, v)
+	return u
+}
+
+// UpdateSharpeRatio sets the "sharpe_ratio" field to the value that was provided on create.
+func (u *BacktestResultUpsert) UpdateSharpeRatio() *BacktestResultUpsert {
+	u.SetExcluded(backtestresult.FieldSharpeRatio)
+	return u
+}
+
+// AddSharpeRatio adds v to the "sharpe_ratio" field.
+func (u *BacktestResultUpsert) AddSharpeRatio(v float64) *BacktestResultUpsert {
+	u.Add(backtestresult.FieldSharpeRatio, v)
+	return u
+}
+
+// SetProfitLossRatio sets the "profit_loss_ratio" field.
+func (u *BacktestResultUpsert) SetProfitLossRatio(v float64) *BacktestResultUpsert {
+	u.Set(backtestresult.FieldProfitLossRatio, v)
+	return u
+}
+
+// UpdateProfitLossRatio sets the "profit_loss_ratio" field to the value that was provided on create.
+func (u *BacktestResultUpsert) UpdateProfitLossRatio() *BacktestResultUpsert {
+	u.SetExcluded(backtestresult.FieldProfitLossRatio)
+	return u
+}
+
+// AddProfitLossRatio adds v to the "profit_loss_ratio" field.
+func (u *BacktestResultUpsert) AddProfitLossRatio(v float64) *BacktestResultUpsert {
+	u.Add(backtestresult.FieldProfitLossRatio, v)
+	return u
+}
+
+// SetTotalTrades sets the "total_trades" field.
+func (u *BacktestResultUpsert) SetTotalTrades(v int) *BacktestResultUpsert {
+	u.Set(backtestresult.FieldTotalTrades, v)
+	return u
+}
+
+// UpdateTotalTrades sets the "total_trades" field to the value that was provided on create.
+func (u *BacktestResultUpsert) UpdateTotalTrades() *BacktestResultUpsert {
+	u.SetExcluded(backtestresult.FieldTotalTrades)
+	return u
+}
+
+// AddTotalTrades adds v to the "total_trades" field.
+func (u *BacktestResultUpsert) AddTotalTrades(v int) *BacktestResultUpsert {
+	u.Add(backtestresult.FieldTotalTrades, v)
+	return u
+}
+
+// SetDetails sets the "details" field.
+func (u *BacktestResultUpsert) SetDetails(v []uint8) *BacktestResultUpsert {
+	u.Set(backtestresult.FieldDetails, v)
+	return u
+}
+
+// UpdateDetails sets the "details" field to the value that was provided on create.
+func (u *BacktestResultUpsert) UpdateDetails() *BacktestResultUpsert {
+	u.SetExcluded(backtestresult.FieldDetails)
+	return u
+}
+
+// ClearDetails clears the value of the "details" field.
+func (u *BacktestResultUpsert) ClearDetails() *BacktestResultUpsert {
+	u.SetNull(backtestresult.FieldDetails)
+	return u
+}
+
+// UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
+// Using this option is equivalent to using:
+//
+//	client.BacktestResult.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(backtestresult.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *BacktestResultUpsertOne) UpdateNewValues() *BacktestResultUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		if _, exists := u.create.mutation.ID(); exists {
+			s.SetIgnore(backtestresult.FieldID)
+		}
+		if _, exists := u.create.mutation.CreatedAt(); exists {
+			s.SetIgnore(backtestresult.FieldCreatedAt)
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.BacktestResult.Create().
+//	    OnConflict(sql.ResolveWithIgnore()).
+//	    Exec(ctx)
+func (u *BacktestResultUpsertOne) Ignore() *BacktestResultUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *BacktestResultUpsertOne) DoNothing() *BacktestResultUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the BacktestResultCreate.OnConflict
+// documentation for more info.
+func (u *BacktestResultUpsertOne) Update(set func(*BacktestResultUpsert)) *BacktestResultUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&BacktestResultUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetTaskID sets the "task_id" field.
+func (u *BacktestResultUpsertOne) SetTaskID(v uuid.UUID) *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetTaskID(v)
+	})
+}
+
+// UpdateTaskID sets the "task_id" field to the value that was provided on create.
+func (u *BacktestResultUpsertOne) UpdateTaskID() *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateTaskID()
+	})
+}
+
+// SetStrategyName sets the "strategy_name" field.
+func (u *BacktestResultUpsertOne) SetStrategyName(v string) *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetStrategyName(v)
+	})
+}
+
+// UpdateStrategyName sets the "strategy_name" field to the value that was provided on create.
+func (u *BacktestResultUpsertOne) UpdateStrategyName() *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateStrategyName()
+	})
+}
+
+// SetPair sets the "pair" field.
+func (u *BacktestResultUpsertOne) SetPair(v string) *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetPair(v)
+	})
+}
+
+// UpdatePair sets the "pair" field to the value that was provided on create.
+func (u *BacktestResultUpsertOne) UpdatePair() *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdatePair()
+	})
+}
+
+// SetTimeframe sets the "timeframe" field.
+func (u *BacktestResultUpsertOne) SetTimeframe(v string) *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetTimeframe(v)
+	})
+}
+
+// UpdateTimeframe sets the "timeframe" field to the value that was provided on create.
+func (u *BacktestResultUpsertOne) UpdateTimeframe() *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateTimeframe()
+	})
+}
+
+// SetStartAt sets the "start_at" field.
+func (u *BacktestResultUpsertOne) SetStartAt(v time.Time) *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetStartAt(v)
+	})
+}
+
+// UpdateStartAt sets the "start_at" field to the value that was provided on create.
+func (u *BacktestResultUpsertOne) UpdateStartAt() *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateStartAt()
+	})
+}
+
+// SetEndAt sets the "end_at" field.
+func (u *BacktestResultUpsertOne) SetEndAt(v time.Time) *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetEndAt(v)
+	})
+}
+
+// UpdateEndAt sets the "end_at" field to the value that was provided on create.
+func (u *BacktestResultUpsertOne) UpdateEndAt() *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateEndAt()
+	})
+}
+
+// SetInitialCapital sets the "initial_capital" field.
+func (u *BacktestResultUpsertOne) SetInitialCapital(v float64) *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetInitialCapital(v)
+	})
+}
+
+// AddInitialCapital adds v to the "initial_capital" field.
+func (u *BacktestResultUpsertOne) AddInitialCapital(v float64) *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.AddInitialCapital(v)
+	})
+}
+
+// UpdateInitialCapital sets the "initial_capital" field to the value that was provided on create.
+func (u *BacktestResultUpsertOne) UpdateInitialCapital() *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateInitialCapital()
+	})
+}
+
+// SetFinalValue sets the "final_value" field.
+func (u *BacktestResultUpsertOne) SetFinalValue(v float64) *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetFinalValue(v)
+	})
+}
+
+// AddFinalValue adds v to the "final_value" field.
+func (u *BacktestResultUpsertOne) AddFinalValue(v float64) *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.AddFinalValue(v)
+	})
+}
+
+// UpdateFinalValue sets the "final_value" field to the value that was provided on create.
+func (u *BacktestResultUpsertOne) UpdateFinalValue() *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateFinalValue()
+	})
+}
+
+// SetTotalReturnPercent sets the "total_return_percent" field.
+func (u *BacktestResultUpsertOne) SetTotalReturnPercent(v float64) *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetTotalReturnPercent(v)
+	})
+}
+
+// AddTotalReturnPercent adds v to the "total_return_percent" field.
+func (u *BacktestResultUpsertOne) AddTotalReturnPercent(v float64) *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.AddTotalReturnPercent(v)
+	})
+}
+
+// UpdateTotalReturnPercent sets the "total_return_percent" field to the value that was provided on create.
+func (u *BacktestResultUpsertOne) UpdateTotalReturnPercent() *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateTotalReturnPercent()
+	})
+}
+
+// SetAnnualizedReturnPercent sets the "annualized_return_percent" field.
+func (u *BacktestResultUpsertOne) SetAnnualizedReturnPercent(v float64) *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetAnnualizedReturnPercent(v)
+	})
+}
+
+// AddAnnualizedReturnPercent adds v to the "annualized_return_percent" field.
+func (u *BacktestResultUpsertOne) AddAnnualizedReturnPercent(v float64) *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.AddAnnualizedReturnPercent(v)
+	})
+}
+
+// UpdateAnnualizedReturnPercent sets the "annualized_return_percent" field to the value that was provided on create.
+func (u *BacktestResultUpsertOne) UpdateAnnualizedReturnPercent() *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateAnnualizedReturnPercent()
+	})
+}
+
+// SetMaxDrawdownPercent sets the "max_drawdown_percent" field.
+func (u *BacktestResultUpsertOne) SetMaxDrawdownPercent(v float64) *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetMaxDrawdownPercent(v)
+	})
+}
+
+// AddMaxDrawdownPercent adds v to the "max_drawdown_percent" field.
+func (u *BacktestResultUpsertOne) AddMaxDrawdownPercent(v float64) *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.AddMaxDrawdownPercent(v)
+	})
+}
+
+// UpdateMaxDrawdownPercent sets the "max_drawdown_percent" field to the value that was provided on create.
+func (u *BacktestResultUpsertOne) UpdateMaxDrawdownPercent() *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateMaxDrawdownPercent()
+	})
+}
+
+// SetWinRate sets the "win_rate" field.
+func (u *BacktestResultUpsertOne) SetWinRate(v float64) *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetWinRate(v)
+	})
+}
+
+// AddWinRate adds v to the "win_rate" field.
+func (u *BacktestResultUpsertOne) AddWinRate(v float64) *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.AddWinRate(v)
+	})
+}
+
+// UpdateWinRate sets the "win_rate" field to the value that was provided on create.
+func (u *BacktestResultUpsertOne) UpdateWinRate() *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateWinRate()
+	})
+}
+
+// SetSharpeRatio sets the "sharpe_ratio" field.
+func (u *BacktestResultUpsertOne) SetSharpeRatio(v float64) *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetSharpeRatio(v)
+	})
+}
+
+// AddSharpeRatio adds v to the "sharpe_ratio" field.
+func (u *BacktestResultUpsertOne) AddSharpeRatio(v float64) *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.AddSharpeRatio(v)
+	})
+}
+
+// UpdateSharpeRatio sets the "sharpe_ratio" field to the value that was provided on create.
+func (u *BacktestResultUpsertOne) UpdateSharpeRatio() *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateSharpeRatio()
+	})
+}
+
+// SetProfitLossRatio sets the "profit_loss_ratio" field.
+func (u *BacktestResultUpsertOne) SetProfitLossRatio(v float64) *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetProfitLossRatio(v)
+	})
+}
+
+// AddProfitLossRatio adds v to the "profit_loss_ratio" field.
+func (u *BacktestResultUpsertOne) AddProfitLossRatio(v float64) *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.AddProfitLossRatio(v)
+	})
+}
+
+// UpdateProfitLossRatio sets the "profit_loss_ratio" field to the value that was provided on create.
+func (u *BacktestResultUpsertOne) UpdateProfitLossRatio() *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateProfitLossRatio()
+	})
+}
+
+// SetTotalTrades sets the "total_trades" field.
+func (u *BacktestResultUpsertOne) SetTotalTrades(v int) *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetTotalTrades(v)
+	})
+}
+
+// AddTotalTrades adds v to the "total_trades" field.
+func (u *BacktestResultUpsertOne) AddTotalTrades(v int) *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.AddTotalTrades(v)
+	})
+}
+
+// UpdateTotalTrades sets the "total_trades" field to the value that was provided on create.
+func (u *BacktestResultUpsertOne) UpdateTotalTrades() *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateTotalTrades()
+	})
+}
+
+// SetDetails sets the "details" field.
+func (u *BacktestResultUpsertOne) SetDetails(v []uint8) *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetDetails(v)
+	})
+}
+
+// UpdateDetails sets the "details" field to the value that was provided on create.
+func (u *BacktestResultUpsertOne) UpdateDetails() *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateDetails()
+	})
+}
+
+// ClearDetails clears the value of the "details" field.
+func (u *BacktestResultUpsertOne) ClearDetails() *BacktestResultUpsertOne {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.ClearDetails()
+	})
+}
+
+// Exec executes the query.
+func (u *BacktestResultUpsertOne) Exec(ctx context.Context) error {
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for BacktestResultCreate.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *BacktestResultUpsertOne) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// Exec executes the UPSERT query and returns the inserted/updated ID.
+func (u *BacktestResultUpsertOne) ID(ctx context.Context) (id uuid.UUID, err error) {
+	if u.create.driver.Dialect() == dialect.MySQL {
+		// In case of "ON CONFLICT", there is no way to get back non-numeric ID
+		// fields from the database since MySQL does not support the RETURNING clause.
+		return id, errors.New("ent: BacktestResultUpsertOne.ID is not supported by MySQL driver. Use BacktestResultUpsertOne.Exec instead")
+	}
+	node, err := u.create.Save(ctx)
+	if err != nil {
+		return id, err
+	}
+	return node.ID, nil
+}
+
+// IDX is like ID, but panics if an error occurs.
+func (u *BacktestResultUpsertOne) IDX(ctx context.Context) uuid.UUID {
+	id, err := u.ID(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
 // BacktestResultCreateBulk is the builder for creating many BacktestResult entities in bulk.
 type BacktestResultCreateBulk struct {
 	config
 	err      error
 	builders []*BacktestResultCreate
+	conflict []sql.ConflictOption
 }
 
 // Save creates the BacktestResult entities in the database.
@@ -438,6 +1127,7 @@ func (_c *BacktestResultCreateBulk) Save(ctx context.Context) ([]*BacktestResult
 					_, err = mutators[i+1].Mutate(root, _c.builders[i+1].mutation)
 				} else {
 					spec := &sqlgraph.BatchCreateSpec{Nodes: specs}
+					spec.OnConflict = _c.conflict
 					// Invoke the actual operation on the latest mutation in the chain.
 					if err = sqlgraph.BatchCreate(ctx, _c.driver, spec); err != nil {
 						if sqlgraph.IsConstraintError(err) {
@@ -484,6 +1174,417 @@ func (_c *BacktestResultCreateBulk) Exec(ctx context.Context) error {
 // ExecX is like Exec, but panics if an error occurs.
 func (_c *BacktestResultCreateBulk) ExecX(ctx context.Context) {
 	if err := _c.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.BacktestResult.CreateBulk(builders...).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.BacktestResultUpsert) {
+//			SetTaskID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *BacktestResultCreateBulk) OnConflict(opts ...sql.ConflictOption) *BacktestResultUpsertBulk {
+	_c.conflict = opts
+	return &BacktestResultUpsertBulk{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.BacktestResult.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *BacktestResultCreateBulk) OnConflictColumns(columns ...string) *BacktestResultUpsertBulk {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &BacktestResultUpsertBulk{
+		create: _c,
+	}
+}
+
+// BacktestResultUpsertBulk is the builder for "upsert"-ing
+// a bulk of BacktestResult nodes.
+type BacktestResultUpsertBulk struct {
+	create *BacktestResultCreateBulk
+}
+
+// UpdateNewValues updates the mutable fields using the new values that
+// were set on create. Using this option is equivalent to using:
+//
+//	client.BacktestResult.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(backtestresult.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *BacktestResultUpsertBulk) UpdateNewValues() *BacktestResultUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		for _, b := range u.create.builders {
+			if _, exists := b.mutation.ID(); exists {
+				s.SetIgnore(backtestresult.FieldID)
+			}
+			if _, exists := b.mutation.CreatedAt(); exists {
+				s.SetIgnore(backtestresult.FieldCreatedAt)
+			}
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.BacktestResult.Create().
+//		OnConflict(sql.ResolveWithIgnore()).
+//		Exec(ctx)
+func (u *BacktestResultUpsertBulk) Ignore() *BacktestResultUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *BacktestResultUpsertBulk) DoNothing() *BacktestResultUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the BacktestResultCreateBulk.OnConflict
+// documentation for more info.
+func (u *BacktestResultUpsertBulk) Update(set func(*BacktestResultUpsert)) *BacktestResultUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&BacktestResultUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetTaskID sets the "task_id" field.
+func (u *BacktestResultUpsertBulk) SetTaskID(v uuid.UUID) *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetTaskID(v)
+	})
+}
+
+// UpdateTaskID sets the "task_id" field to the value that was provided on create.
+func (u *BacktestResultUpsertBulk) UpdateTaskID() *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateTaskID()
+	})
+}
+
+// SetStrategyName sets the "strategy_name" field.
+func (u *BacktestResultUpsertBulk) SetStrategyName(v string) *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetStrategyName(v)
+	})
+}
+
+// UpdateStrategyName sets the "strategy_name" field to the value that was provided on create.
+func (u *BacktestResultUpsertBulk) UpdateStrategyName() *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateStrategyName()
+	})
+}
+
+// SetPair sets the "pair" field.
+func (u *BacktestResultUpsertBulk) SetPair(v string) *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetPair(v)
+	})
+}
+
+// UpdatePair sets the "pair" field to the value that was provided on create.
+func (u *BacktestResultUpsertBulk) UpdatePair() *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdatePair()
+	})
+}
+
+// SetTimeframe sets the "timeframe" field.
+func (u *BacktestResultUpsertBulk) SetTimeframe(v string) *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetTimeframe(v)
+	})
+}
+
+// UpdateTimeframe sets the "timeframe" field to the value that was provided on create.
+func (u *BacktestResultUpsertBulk) UpdateTimeframe() *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateTimeframe()
+	})
+}
+
+// SetStartAt sets the "start_at" field.
+func (u *BacktestResultUpsertBulk) SetStartAt(v time.Time) *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetStartAt(v)
+	})
+}
+
+// UpdateStartAt sets the "start_at" field to the value that was provided on create.
+func (u *BacktestResultUpsertBulk) UpdateStartAt() *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateStartAt()
+	})
+}
+
+// SetEndAt sets the "end_at" field.
+func (u *BacktestResultUpsertBulk) SetEndAt(v time.Time) *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetEndAt(v)
+	})
+}
+
+// UpdateEndAt sets the "end_at" field to the value that was provided on create.
+func (u *BacktestResultUpsertBulk) UpdateEndAt() *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateEndAt()
+	})
+}
+
+// SetInitialCapital sets the "initial_capital" field.
+func (u *BacktestResultUpsertBulk) SetInitialCapital(v float64) *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetInitialCapital(v)
+	})
+}
+
+// AddInitialCapital adds v to the "initial_capital" field.
+func (u *BacktestResultUpsertBulk) AddInitialCapital(v float64) *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.AddInitialCapital(v)
+	})
+}
+
+// UpdateInitialCapital sets the "initial_capital" field to the value that was provided on create.
+func (u *BacktestResultUpsertBulk) UpdateInitialCapital() *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateInitialCapital()
+	})
+}
+
+// SetFinalValue sets the "final_value" field.
+func (u *BacktestResultUpsertBulk) SetFinalValue(v float64) *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetFinalValue(v)
+	})
+}
+
+// AddFinalValue adds v to the "final_value" field.
+func (u *BacktestResultUpsertBulk) AddFinalValue(v float64) *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.AddFinalValue(v)
+	})
+}
+
+// UpdateFinalValue sets the "final_value" field to the value that was provided on create.
+func (u *BacktestResultUpsertBulk) UpdateFinalValue() *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateFinalValue()
+	})
+}
+
+// SetTotalReturnPercent sets the "total_return_percent" field.
+func (u *BacktestResultUpsertBulk) SetTotalReturnPercent(v float64) *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetTotalReturnPercent(v)
+	})
+}
+
+// AddTotalReturnPercent adds v to the "total_return_percent" field.
+func (u *BacktestResultUpsertBulk) AddTotalReturnPercent(v float64) *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.AddTotalReturnPercent(v)
+	})
+}
+
+// UpdateTotalReturnPercent sets the "total_return_percent" field to the value that was provided on create.
+func (u *BacktestResultUpsertBulk) UpdateTotalReturnPercent() *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateTotalReturnPercent()
+	})
+}
+
+// SetAnnualizedReturnPercent sets the "annualized_return_percent" field.
+func (u *BacktestResultUpsertBulk) SetAnnualizedReturnPercent(v float64) *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetAnnualizedReturnPercent(v)
+	})
+}
+
+// AddAnnualizedReturnPercent adds v to the "annualized_return_percent" field.
+func (u *BacktestResultUpsertBulk) AddAnnualizedReturnPercent(v float64) *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.AddAnnualizedReturnPercent(v)
+	})
+}
+
+// UpdateAnnualizedReturnPercent sets the "annualized_return_percent" field to the value that was provided on create.
+func (u *BacktestResultUpsertBulk) UpdateAnnualizedReturnPercent() *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateAnnualizedReturnPercent()
+	})
+}
+
+// SetMaxDrawdownPercent sets the "max_drawdown_percent" field.
+func (u *BacktestResultUpsertBulk) SetMaxDrawdownPercent(v float64) *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetMaxDrawdownPercent(v)
+	})
+}
+
+// AddMaxDrawdownPercent adds v to the "max_drawdown_percent" field.
+func (u *BacktestResultUpsertBulk) AddMaxDrawdownPercent(v float64) *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.AddMaxDrawdownPercent(v)
+	})
+}
+
+// UpdateMaxDrawdownPercent sets the "max_drawdown_percent" field to the value that was provided on create.
+func (u *BacktestResultUpsertBulk) UpdateMaxDrawdownPercent() *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateMaxDrawdownPercent()
+	})
+}
+
+// SetWinRate sets the "win_rate" field.
+func (u *BacktestResultUpsertBulk) SetWinRate(v float64) *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetWinRate(v)
+	})
+}
+
+// AddWinRate adds v to the "win_rate" field.
+func (u *BacktestResultUpsertBulk) AddWinRate(v float64) *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.AddWinRate(v)
+	})
+}
+
+// UpdateWinRate sets the "win_rate" field to the value that was provided on create.
+func (u *BacktestResultUpsertBulk) UpdateWinRate() *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateWinRate()
+	})
+}
+
+// SetSharpeRatio sets the "sharpe_ratio" field.
+func (u *BacktestResultUpsertBulk) SetSharpeRatio(v float64) *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetSharpeRatio(v)
+	})
+}
+
+// AddSharpeRatio adds v to the "sharpe_ratio" field.
+func (u *BacktestResultUpsertBulk) AddSharpeRatio(v float64) *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.AddSharpeRatio(v)
+	})
+}
+
+// UpdateSharpeRatio sets the "sharpe_ratio" field to the value that was provided on create.
+func (u *BacktestResultUpsertBulk) UpdateSharpeRatio() *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateSharpeRatio()
+	})
+}
+
+// SetProfitLossRatio sets the "profit_loss_ratio" field.
+func (u *BacktestResultUpsertBulk) SetProfitLossRatio(v float64) *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetProfitLossRatio(v)
+	})
+}
+
+// AddProfitLossRatio adds v to the "profit_loss_ratio" field.
+func (u *BacktestResultUpsertBulk) AddProfitLossRatio(v float64) *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.AddProfitLossRatio(v)
+	})
+}
+
+// UpdateProfitLossRatio sets the "profit_loss_ratio" field to the value that was provided on create.
+func (u *BacktestResultUpsertBulk) UpdateProfitLossRatio() *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateProfitLossRatio()
+	})
+}
+
+// SetTotalTrades sets the "total_trades" field.
+func (u *BacktestResultUpsertBulk) SetTotalTrades(v int) *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetTotalTrades(v)
+	})
+}
+
+// AddTotalTrades adds v to the "total_trades" field.
+func (u *BacktestResultUpsertBulk) AddTotalTrades(v int) *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.AddTotalTrades(v)
+	})
+}
+
+// UpdateTotalTrades sets the "total_trades" field to the value that was provided on create.
+func (u *BacktestResultUpsertBulk) UpdateTotalTrades() *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateTotalTrades()
+	})
+}
+
+// SetDetails sets the "details" field.
+func (u *BacktestResultUpsertBulk) SetDetails(v []uint8) *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.SetDetails(v)
+	})
+}
+
+// UpdateDetails sets the "details" field to the value that was provided on create.
+func (u *BacktestResultUpsertBulk) UpdateDetails() *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.UpdateDetails()
+	})
+}
+
+// ClearDetails clears the value of the "details" field.
+func (u *BacktestResultUpsertBulk) ClearDetails() *BacktestResultUpsertBulk {
+	return u.Update(func(s *BacktestResultUpsert) {
+		s.ClearDetails()
+	})
+}
+
+// Exec executes the query.
+func (u *BacktestResultUpsertBulk) Exec(ctx context.Context) error {
+	if u.create.err != nil {
+		return u.create.err
+	}
+	for i, b := range u.create.builders {
+		if len(b.conflict) != 0 {
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the BacktestResultCreateBulk instead", i)
+		}
+	}
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for BacktestResultCreateBulk.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *BacktestResultUpsertBulk) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
 		panic(err)
 	}
 }

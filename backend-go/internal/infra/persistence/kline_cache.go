@@ -11,8 +11,8 @@ import (
 )
 
 type KlineCache interface {
-	Get(ctx context.Context, exchangeID uuid.UUID, pair, timeframe string, start, end time.Time) ([]domain.Candle, bool)
-	Set(ctx context.Context, exchangeID uuid.UUID, pair, timeframe string, candles []domain.Candle)
+	Get(ctx context.Context, exchangeID uuid.UUID, pair, timeframe string, start, end time.Time) ([]domain.Kline, bool)
+	Set(ctx context.Context, exchangeID uuid.UUID, pair, timeframe string, candles []domain.Kline)
 }
 
 type memoryKlineCache struct {
@@ -22,7 +22,7 @@ type memoryKlineCache struct {
 }
 
 type cacheEntry struct {
-	candles   []domain.Candle
+	candles   []domain.Kline
 	expiresAt time.Time
 }
 
@@ -37,7 +37,7 @@ func (c *memoryKlineCache) cacheKey(exchangeID uuid.UUID, pair, timeframe string
 	return exchangeID.String() + ":" + pair + ":" + timeframe
 }
 
-func (c *memoryKlineCache) Get(_ context.Context, exchangeID uuid.UUID, pair, timeframe string, start, end time.Time) ([]domain.Candle, bool) {
+func (c *memoryKlineCache) Get(_ context.Context, exchangeID uuid.UUID, pair, timeframe string, start, end time.Time) ([]domain.Kline, bool) {
 	c.mu.RLock()
 	entry, ok := c.entries[c.cacheKey(exchangeID, pair, timeframe)]
 	c.mu.RUnlock()
@@ -51,7 +51,7 @@ func (c *memoryKlineCache) Get(_ context.Context, exchangeID uuid.UUID, pair, ti
 		return nil, false
 	}
 
-	filtered := make([]domain.Candle, 0, len(entry.candles))
+	filtered := make([]domain.Kline, 0, len(entry.candles))
 	for _, candle := range entry.candles {
 		if (candle.Timestamp.Equal(start) || candle.Timestamp.After(start)) &&
 			(candle.Timestamp.Equal(end) || candle.Timestamp.Before(end)) {
@@ -65,11 +65,11 @@ func (c *memoryKlineCache) Get(_ context.Context, exchangeID uuid.UUID, pair, ti
 	return filtered, true
 }
 
-func (c *memoryKlineCache) Set(_ context.Context, exchangeID uuid.UUID, pair, timeframe string, candles []domain.Candle) {
+func (c *memoryKlineCache) Set(_ context.Context, exchangeID uuid.UUID, pair, timeframe string, candles []domain.Kline) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	deduped := make([]domain.Candle, 0, len(candles))
+	deduped := make([]domain.Kline, 0, len(candles))
 	seen := make(map[int64]struct{})
 	for _, candle := range candles {
 		ts := candle.Timestamp.Unix()

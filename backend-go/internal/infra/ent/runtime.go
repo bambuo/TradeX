@@ -7,8 +7,13 @@ import (
 	"tradex/internal/infra/ent/backtestklineanalysis"
 	"tradex/internal/infra/ent/backtestresult"
 	"tradex/internal/infra/ent/backtesttask"
+	"tradex/internal/infra/ent/exchange"
+	"tradex/internal/infra/ent/exchangeorderhistory"
+	"tradex/internal/infra/ent/order"
+	"tradex/internal/infra/ent/position"
 	"tradex/internal/infra/ent/schema"
 	"tradex/internal/infra/ent/strategy"
+	"tradex/internal/infra/ent/strategybinding"
 
 	"github.com/google/uuid"
 )
@@ -83,6 +88,100 @@ func init() {
 	backtesttaskDescID := backtesttaskFields[0].Descriptor()
 	// backtesttask.DefaultID holds the default value on creation for the id field.
 	backtesttask.DefaultID = backtesttaskDescID.Default.(func() uuid.UUID)
+	exchangeFields := schema.Exchange{}.Fields()
+	_ = exchangeFields
+	// exchangeDescName is the schema descriptor for name field.
+	exchangeDescName := exchangeFields[1].Descriptor()
+	// exchange.DefaultName holds the default value on creation for the name field.
+	exchange.DefaultName = exchangeDescName.Default.(string)
+	// exchangeDescType is the schema descriptor for type field.
+	exchangeDescType := exchangeFields[2].Descriptor()
+	// exchange.DefaultType holds the default value on creation for the type field.
+	exchange.DefaultType = exchangeDescType.Default.(string)
+	// exchangeDescAPIKeyEncrypted is the schema descriptor for api_key_encrypted field.
+	exchangeDescAPIKeyEncrypted := exchangeFields[3].Descriptor()
+	// exchange.DefaultAPIKeyEncrypted holds the default value on creation for the api_key_encrypted field.
+	exchange.DefaultAPIKeyEncrypted = exchangeDescAPIKeyEncrypted.Default.(string)
+	// exchangeDescSecretKeyEncrypted is the schema descriptor for secret_key_encrypted field.
+	exchangeDescSecretKeyEncrypted := exchangeFields[4].Descriptor()
+	// exchange.DefaultSecretKeyEncrypted holds the default value on creation for the secret_key_encrypted field.
+	exchange.DefaultSecretKeyEncrypted = exchangeDescSecretKeyEncrypted.Default.(string)
+	// exchangeDescStatus is the schema descriptor for status field.
+	exchangeDescStatus := exchangeFields[6].Descriptor()
+	// exchange.DefaultStatus holds the default value on creation for the status field.
+	exchange.DefaultStatus = exchangeDescStatus.Default.(string)
+	// exchangeDescCreatedBy is the schema descriptor for created_by field.
+	exchangeDescCreatedBy := exchangeFields[9].Descriptor()
+	// exchange.DefaultCreatedBy holds the default value on creation for the created_by field.
+	exchange.DefaultCreatedBy = exchangeDescCreatedBy.Default.(func() uuid.UUID)
+	// exchangeDescCreatedAt is the schema descriptor for created_at field.
+	exchangeDescCreatedAt := exchangeFields[10].Descriptor()
+	// exchange.DefaultCreatedAt holds the default value on creation for the created_at field.
+	exchange.DefaultCreatedAt = exchangeDescCreatedAt.Default.(func() time.Time)
+	// exchangeDescUpdatedAt is the schema descriptor for updated_at field.
+	exchangeDescUpdatedAt := exchangeFields[11].Descriptor()
+	// exchange.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	exchange.DefaultUpdatedAt = exchangeDescUpdatedAt.Default.(func() time.Time)
+	// exchange.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	exchange.UpdateDefaultUpdatedAt = exchangeDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// exchangeDescID is the schema descriptor for id field.
+	exchangeDescID := exchangeFields[0].Descriptor()
+	// exchange.DefaultID holds the default value on creation for the id field.
+	exchange.DefaultID = exchangeDescID.Default.(func() uuid.UUID)
+	exchangeorderhistoryFields := schema.ExchangeOrderHistory{}.Fields()
+	_ = exchangeorderhistoryFields
+	// exchangeorderhistoryDescPair is the schema descriptor for pair field.
+	exchangeorderhistoryDescPair := exchangeorderhistoryFields[2].Descriptor()
+	// exchangeorderhistory.DefaultPair holds the default value on creation for the pair field.
+	exchangeorderhistory.DefaultPair = exchangeorderhistoryDescPair.Default.(string)
+	// exchangeorderhistoryDescSide is the schema descriptor for side field.
+	exchangeorderhistoryDescSide := exchangeorderhistoryFields[3].Descriptor()
+	// exchangeorderhistory.DefaultSide holds the default value on creation for the side field.
+	exchangeorderhistory.DefaultSide = exchangeorderhistoryDescSide.Default.(string)
+	// exchangeorderhistoryDescType is the schema descriptor for type field.
+	exchangeorderhistoryDescType := exchangeorderhistoryFields[4].Descriptor()
+	// exchangeorderhistory.DefaultType holds the default value on creation for the type field.
+	exchangeorderhistory.DefaultType = exchangeorderhistoryDescType.Default.(string)
+	// exchangeorderhistoryDescStatus is the schema descriptor for status field.
+	exchangeorderhistoryDescStatus := exchangeorderhistoryFields[5].Descriptor()
+	// exchangeorderhistory.DefaultStatus holds the default value on creation for the status field.
+	exchangeorderhistory.DefaultStatus = exchangeorderhistoryDescStatus.Default.(string)
+	// exchangeorderhistoryDescPrice is the schema descriptor for price field.
+	exchangeorderhistoryDescPrice := exchangeorderhistoryFields[6].Descriptor()
+	// exchangeorderhistory.DefaultPrice holds the default value on creation for the price field.
+	exchangeorderhistory.DefaultPrice = exchangeorderhistoryDescPrice.Default.(float64)
+	// exchangeorderhistoryDescQuantity is the schema descriptor for quantity field.
+	exchangeorderhistoryDescQuantity := exchangeorderhistoryFields[7].Descriptor()
+	// exchangeorderhistory.DefaultQuantity holds the default value on creation for the quantity field.
+	exchangeorderhistory.DefaultQuantity = exchangeorderhistoryDescQuantity.Default.(float64)
+	// exchangeorderhistoryDescFilledQuantity is the schema descriptor for filled_quantity field.
+	exchangeorderhistoryDescFilledQuantity := exchangeorderhistoryFields[8].Descriptor()
+	// exchangeorderhistory.DefaultFilledQuantity holds the default value on creation for the filled_quantity field.
+	exchangeorderhistory.DefaultFilledQuantity = exchangeorderhistoryDescFilledQuantity.Default.(float64)
+	// exchangeorderhistoryDescExchangeOrderID is the schema descriptor for exchange_order_id field.
+	exchangeorderhistoryDescExchangeOrderID := exchangeorderhistoryFields[9].Descriptor()
+	// exchangeorderhistory.DefaultExchangeOrderID holds the default value on creation for the exchange_order_id field.
+	exchangeorderhistory.DefaultExchangeOrderID = exchangeorderhistoryDescExchangeOrderID.Default.(string)
+	// exchangeorderhistoryDescSyncedAt is the schema descriptor for synced_at field.
+	exchangeorderhistoryDescSyncedAt := exchangeorderhistoryFields[11].Descriptor()
+	// exchangeorderhistory.DefaultSyncedAt holds the default value on creation for the synced_at field.
+	exchangeorderhistory.DefaultSyncedAt = exchangeorderhistoryDescSyncedAt.Default.(func() time.Time)
+	// exchangeorderhistoryDescID is the schema descriptor for id field.
+	exchangeorderhistoryDescID := exchangeorderhistoryFields[0].Descriptor()
+	// exchangeorderhistory.DefaultID holds the default value on creation for the id field.
+	exchangeorderhistory.DefaultID = exchangeorderhistoryDescID.Default.(func() uuid.UUID)
+	orderFields := schema.Order{}.Fields()
+	_ = orderFields
+	// orderDescID is the schema descriptor for id field.
+	orderDescID := orderFields[0].Descriptor()
+	// order.DefaultID holds the default value on creation for the id field.
+	order.DefaultID = orderDescID.Default.(func() uuid.UUID)
+	positionFields := schema.Position{}.Fields()
+	_ = positionFields
+	// positionDescID is the schema descriptor for id field.
+	positionDescID := positionFields[0].Descriptor()
+	// position.DefaultID holds the default value on creation for the id field.
+	position.DefaultID = positionDescID.Default.(func() uuid.UUID)
 	strategyFields := schema.Strategy{}.Fields()
 	_ = strategyFields
 	// strategyDescName is the schema descriptor for name field.
@@ -111,4 +210,10 @@ func init() {
 	strategyDescID := strategyFields[0].Descriptor()
 	// strategy.DefaultID holds the default value on creation for the id field.
 	strategy.DefaultID = strategyDescID.Default.(func() uuid.UUID)
+	strategybindingFields := schema.StrategyBinding{}.Fields()
+	_ = strategybindingFields
+	// strategybindingDescID is the schema descriptor for id field.
+	strategybindingDescID := strategybindingFields[0].Descriptor()
+	// strategybinding.DefaultID holds the default value on creation for the id field.
+	strategybinding.DefaultID = strategybindingDescID.Default.(func() uuid.UUID)
 }

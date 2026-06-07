@@ -3,6 +3,7 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"strings"
 
 	"tradex/internal/domain"
@@ -11,7 +12,7 @@ import (
 
 type EvaluationContext struct {
 	Index    int
-	Klines   []domain.Candle
+	Klines   []domain.Kline
 	Registry *indicator.Registry
 }
 
@@ -134,7 +135,7 @@ func evalLegacyComparison(node *ConditionNode, ctx EvaluationContext) (bool, err
 	case "<=":
 		return leftVal <= rightVal, nil
 	case "==", "=":
-		return leftVal == rightVal, nil
+		return math.Abs(leftVal-rightVal) < 1e-9, nil
 	case "!=":
 		return leftVal != rightVal, nil
 	case "CA":
@@ -291,13 +292,6 @@ func resolveValue(node *ConditionNode, ctx EvaluationContext) (float64, error) {
 		return resolveRef(&RefNode{Name: node.Name, Period: node.Period}, ctx)
 	}
 
-	return resolveValueSimple(node, ctx)
-}
-
-func resolveValueSimple(node *ConditionNode, ctx EvaluationContext) (float64, error) {
-	if node.Ref != nil {
-		return resolveRef(node.Ref, ctx)
-	}
 	return 0, fmt.Errorf("cannot resolve value from node: %+v", node)
 }
 

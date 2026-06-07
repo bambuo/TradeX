@@ -7,25 +7,36 @@ import (
 )
 
 type BacktestKlineAnalysis struct {
-	KlineIndex int
-	Timestamp  time.Time
+	Index     int             `json:"index"`
+	Timestamp time.Time       `json:"timestamp"`
+	Open      decimal.Decimal `json:"open"`
+	High      decimal.Decimal `json:"high"`
+	Low       decimal.Decimal `json:"low"`
+	Close     decimal.Decimal `json:"close"`
+	Volume    decimal.Decimal `json:"volume"`
 
-	Open   decimal.Decimal
-	High   decimal.Decimal
-	Low    decimal.Decimal
-	Close  decimal.Decimal
-	Volume decimal.Decimal
+	IndicatorValues      map[string]float64 `json:"indicators,omitempty"`
+	EntryConditionResult *bool              `json:"entry,omitempty"`
+	ExitConditionResult  *bool              `json:"exit,omitempty"`
 
-	IndicatorValues      map[string]float64
-	EntryConditionResult *bool
-	ExitConditionResult  *bool
+	InPosition         bool             `json:"inPosition"`
+	Action             string           `json:"action"`
+	AvgEntryPrice      *decimal.Decimal `json:"avgEntryPrice,omitempty"`
+	PositionQuantity   *decimal.Decimal `json:"positionQuantity,omitempty"`
+	PositionCost       *decimal.Decimal `json:"positionCost,omitempty"`
+	PositionValue      *decimal.Decimal `json:"positionValue,omitempty"`
+	PositionPnl        *decimal.Decimal `json:"positionPnl,omitempty"`
+	PositionPnlPercent *decimal.Decimal `json:"positionPnlPercent,omitempty"`
+}
 
-	InPosition         bool
-	Action             string // "enter" | "exit" | "hold"
-	AvgEntryPrice      *decimal.Decimal
-	PositionQuantity   *decimal.Decimal
-	PositionCost       *decimal.Decimal
-	PositionValue      *decimal.Decimal
-	PositionPnl        *decimal.Decimal
-	PositionPnlPercent *decimal.Decimal
+func NewBacktestKlineAnalysis(index int, ts time.Time, open, high, low, close_, volume decimal.Decimal) BacktestKlineAnalysis {
+	return BacktestKlineAnalysis{
+		Index:     index,
+		Timestamp: ts,
+		Open:      open,
+		High:      high,
+		Low:       low,
+		Close:     close_,
+		Volume:    volume,
+	}
 }

@@ -12,7 +12,7 @@ internal sealed class EventConsumer<T>(Func<T, Guid, CancellationToken, Task> ha
 
     public async Task ConsumeAsync(string dataJson, Guid traceId, CancellationToken ct)
     {
-        var payload = JsonSerializer.Deserialize<T>(dataJson)
+        var payload = JsonSerializer.Deserialize<T>(dataJson, DomainEventBusBase.JsonOptions)
             ?? throw new InvalidOperationException($"无法反序列化事件 {typeof(T).Name} 载荷");
         await handler(payload, traceId, ct);
     }

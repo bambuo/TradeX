@@ -21,7 +21,7 @@ const (
 type EngineInput struct {
 	Strategy       domain.Strategy
 	Pair           string
-	Klines         []domain.Candle
+	Klines         []domain.Kline
 	InitialCapital decimal.Decimal
 	PositionSize   *decimal.Decimal
 	FeeRate        decimal.Decimal
@@ -38,13 +38,11 @@ type EngineOutput struct {
 
 type BacktestEngine struct {
 	registry *indicator.Registry
-	decision *StrategyDecisionEngine
 }
 
 func NewBacktestEngine(registry *indicator.Registry) *BacktestEngine {
 	return &BacktestEngine{
 		registry: registry,
-		decision: NewStrategyDecisionEngine(),
 	}
 }
 
@@ -88,30 +86,33 @@ func (e *BacktestEngine) Run(ctx context.Context, input EngineInput) (EngineOutp
 		candle := input.Klines[i]
 		closePrice := candle.Close
 
-		currentEquity := cash
-		if inPosition {
-			currentEquity = currentEquity.Add(positionSize.Mul(closePrice))
+		ctx := EvaluationContext{
+			Index:    i,
+			Klines:   input.Klines,
+			Registry: e.registry,
+		}
+		posCtx := domain.DecisionInput{
+			ExecutionRule:     input.Strategy.ExecutionRule,
+			CurrentPrice:      closePrice,
+			AverageEntryPrice: avgEntryPriceOrZero(inPosition, avgEntryPrice),
+			QuantityHeld:      positionSize,
+			LotCount:          positionCount,
 		}
 
-		decision := e.decision.Decide(DecisionInput{
-			Strategy:      input.Strategy,
-			Klines:        input.Klines,
-			Index:         i,
-			Registry:      e.registry,
-			InPosition:    inPosition,
-			CurrentEquity: currentEquity,
-			CurrentPrice:  closePrice,
-			PositionCount: positionCount,
-			AvgEntryPrice: avgEntryPriceOrNil(inPosition, avgEntryPrice),
-		})
+		var dec domain.StrategyDecision
+		if !inPosition {
+			dec = evaluateEntry(input.Strategy.EntryCondition, input.Strategy.ExecutionRule, ctx, posCtx)
+		} else {
+			dec = evaluateExit(input.Strategy.ExitCondition, input.Strategy.ExecutionRule, ctx, posCtx)
+		}
+		isEnter := dec.Action == domain.ActionEnter || dec.Action == domain.ActionAddGrid
+		isExit := dec.Action == domain.ActionExit || dec.Action == domain.ActionReduceGrid
 
-		action := string(decision.Type)
-
-		if !inPosition && decision.Type == DecisionEnter {
+		if !inPosition && isEnter {
 			// 入场
 			var capitalToUse decimal.Decimal
-			if decision.PositionSize != nil {
-				capitalToUse = minDecimal(*decision.PositionSize, cash)
+			if dec.QuoteSize.IsPositive() {
+				capitalToUse = minDecimal(dec.QuoteSize, cash)
 			} else if input.PositionSize != nil {
 				capitalToUse = minDecimal(*input.PositionSize, cash)
 			} else {
@@ -139,7 +140,7 @@ func (e *BacktestEngine) Run(ctx context.Context, input EngineInput) (EngineOutp
 
 			entryTimestamp = candle.Timestamp
 			inPosition = true
-		} else if inPosition && (decision.Type == DecisionExit || i == len(input.Klines)-1) {
+		} else if inPosition && (isExit || i == len(input.Klines)-1) {
 			// 出场（含最后 K 线强制平仓）
 			exitFee := positionSize.Mul(closePrice).Mul(input.FeeRate)
 			pnl := positionSize.Mul(closePrice.Sub(avgEntryPrice)).Sub(entryFee).Sub(exitFee)
@@ -160,8 +161,8 @@ func (e *BacktestEngine) Run(ctx context.Context, input EngineInput) (EngineOutp
 				EntryPrice: avgEntryPrice,
 				ExitPrice:  closePrice,
 				Quantity:   positionSize,
-				PnL:        pnl,
-				PnLPercent: pnlPercent,
+				Pnl:        pnl,
+				PnlPercent: pnlPercent,
 			}
 			if len(trades) > 0 {
 				prev := trades[len(trades)-1]
@@ -184,16 +185,16 @@ func (e *BacktestEngine) Run(ctx context.Context, input EngineInput) (EngineOutp
 
 		// 构建分析记录
 		var entryCondResult, exitCondResult *bool
-		if !inPosition && decision.Type == DecisionEnter {
-			entryCondResult = decision.ConditionResult
+		if !inPosition && isEnter {
+			entryCondResult = dec.ConditionResult
 		} else if inPosition {
-			exitCondResult = decision.ConditionResult
+			exitCondResult = dec.ConditionResult
 		} else {
-			entryCondResult = decision.ConditionResult
+			entryCondResult = dec.ConditionResult
 		}
 
 		analysisEntry := bt.BacktestKlineAnalysis{
-			KlineIndex:           i,
+			Index:                i,
 			Timestamp:            candle.Timestamp,
 			Open:                 candle.Open,
 			High:                 candle.High,
@@ -203,7 +204,7 @@ func (e *BacktestEngine) Run(ctx context.Context, input EngineInput) (EngineOutp
 			EntryConditionResult: entryCondResult,
 			ExitConditionResult:  exitCondResult,
 			InPosition:           inPosition,
-			Action:               action,
+			Action:               actionName(dec.Action),
 		}
 
 		if inPosition {
@@ -340,7 +341,7 @@ func (e *BacktestEngine) computeWinRate(trades []bt.BacktestTrade) decimal.Decim
 	}
 	wins := 0
 	for _, t := range trades {
-		if t.PnL.IsPositive() {
+		if t.Pnl.IsPositive() {
 			wins++
 		}
 	}
@@ -414,10 +415,10 @@ func (e *BacktestEngine) computeProfitLossRatio(trades []bt.BacktestTrade) decim
 	totalLoss := decimal.Zero
 
 	for _, t := range trades {
-		if t.PnL.IsPositive() {
-			totalProfit = totalProfit.Add(t.PnL)
+		if t.Pnl.IsPositive() {
+			totalProfit = totalProfit.Add(t.Pnl)
 		} else {
-			totalLoss = totalLoss.Add(t.PnL.Abs())
+			totalLoss = totalLoss.Add(t.Pnl.Abs())
 		}
 	}
 
@@ -431,9 +432,20 @@ func (e *BacktestEngine) computeProfitLossRatio(trades []bt.BacktestTrade) decim
 	return totalProfit.Div(totalLoss)
 }
 
-func avgEntryPriceOrNil(inPosition bool, price decimal.Decimal) *decimal.Decimal {
+func avgEntryPriceOrZero(inPosition bool, price decimal.Decimal) decimal.Decimal {
 	if inPosition {
-		return &price
+		return price
 	}
-	return nil
+	return decimal.Zero
+}
+
+func actionName(a domain.StrategyAction) string {
+	switch a {
+	case domain.ActionEnter, domain.ActionAddGrid:
+		return "enter"
+	case domain.ActionExit, domain.ActionReduceGrid:
+		return "exit"
+	default:
+		return "hold"
+	}
 }

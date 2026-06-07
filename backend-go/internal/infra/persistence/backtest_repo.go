@@ -3,7 +3,6 @@ package persistence
 import (
 	"context"
 	"encoding/json"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
@@ -52,18 +51,27 @@ func (r *backtestRepo) GetTask(ctx context.Context, id uuid.UUID) (*bt.BacktestT
 	return rowToTask(row), nil
 }
 
-func (r *backtestRepo) UpdateTaskStatus(ctx context.Context, id uuid.UUID, status bt.BacktestTaskStatus, phase *bt.BacktestPhase) error {
-	upd := r.client.BacktestTask.Update().Where(backtesttask.ID(id)).
-		SetStatus(backtesttask.Status(status))
-	if phase != nil {
-		upd.SetPhase(backtesttask.Phase(*phase))
+func (r *backtestRepo) SaveTask(ctx context.Context, task *bt.BacktestTask) error {
+	upd := r.client.BacktestTask.Update().Where(backtesttask.ID(task.ID)).
+		SetStrategyID(task.StrategyID).
+		SetStrategyName(task.StrategyName).
+		SetExchangeID(task.ExchangeID).
+		SetPair(task.Pair).
+		SetTimeframe(task.Timeframe).
+		SetInitialCapital(f64(task.InitialCapital)).
+		SetNillablePositionSize(f64Ptr(task.PositionSize)).
+		SetStartAt(task.StartAt).
+		SetEndAt(task.EndAt).
+		SetStatus(backtesttask.Status(task.Status))
+	if task.Phase != nil {
+		upd.SetPhase(backtesttask.Phase(*task.Phase))
 	} else {
 		upd.ClearPhase()
 	}
-	now := time.Now()
-	switch status {
-	case bt.TaskStatusCompleted, bt.TaskStatusFailed, bt.TaskStatusCancelled:
-		upd.SetCompletedAt(now)
+	if task.CompletedAt != nil {
+		upd.SetNillableCompletedAt(task.CompletedAt)
+	} else {
+		upd.ClearCompletedAt()
 	}
 	_, err := upd.Save(ctx)
 	return err
@@ -135,7 +143,7 @@ func (r *backtestRepo) SaveAnalysisBatch(ctx context.Context, taskID uuid.UUID, 
 	for i, a := range analysis {
 		builders[i] = r.client.BacktestKlineAnalysis.Create().
 			SetTaskID(taskID).
-			SetIndex(a.KlineIndex).
+			SetIndex(a.Index).
 			SetTimestamp(a.Timestamp).
 			SetOpen(f64(a.Open)).
 			SetHigh(f64(a.High)).
@@ -278,7 +286,7 @@ func (r *backtestRepo) GetRunningTasks(ctx context.Context) ([]*bt.BacktestTask,
 	return rowsToTasks(rows), nil
 }
 
-func (r *backtestRepo) TryAcquireTask(ctx context.Context, id uuid.UUID, fromStatus bt.BacktestTaskStatus, phase bt.BacktestPhase) (bool, error) {
+func (r *backtestRepo) ClaimTask(ctx context.Context, id uuid.UUID, fromStatus bt.BacktestTaskStatus, phase bt.BacktestPhase) (bool, error) {
 	n, err := r.client.BacktestTask.Update().
 		Where(backtesttask.ID(id), backtesttask.StatusEQ(backtesttask.Status(fromStatus))).
 		SetStatus(backtesttask.StatusRunning).
@@ -329,7 +337,7 @@ func rowToTask(row *ent.BacktestTask) *bt.BacktestTask {
 
 func rowToAnalysis(row *ent.BacktestKlineAnalysis) *bt.BacktestKlineAnalysis {
 	a := &bt.BacktestKlineAnalysis{
-		KlineIndex:      row.Index,
+		Index:           row.Index,
 		Timestamp:       row.Timestamp,
 		Open:            dec(row.Open),
 		High:            dec(row.High),

@@ -10,9 +10,9 @@ import (
 	"tradex/internal/domain"
 )
 
-func buildSineCandles(count int, basePrice decimal.Decimal, seed int64) []domain.Candle {
+func buildSineCandles(count int, basePrice decimal.Decimal, seed int64) []domain.Kline {
 	rng := rand.New(rand.NewSource(seed))
-	candles := make([]domain.Candle, count)
+	candles := make([]domain.Kline, count)
 	price := basePrice
 	t0 := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 
@@ -33,7 +33,7 @@ func buildSineCandles(count int, basePrice decimal.Decimal, seed int64) []domain
 
 		volume := decimal.NewFromFloat(rng.Float64()*1000 + 100)
 
-		candles[i] = domain.Candle{
+		candles[i] = domain.Kline{
 			Timestamp: t0.Add(time.Duration(i) * time.Hour),
 			Open:      open,
 			High:      high,

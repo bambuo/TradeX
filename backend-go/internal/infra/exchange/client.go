@@ -8,6 +8,6 @@ import (
 )
 
 type KlineClient interface {
-	FetchKlines(ctx context.Context, pair, timeframe string, start, end time.Time) ([]domain.Candle, error)
+	FetchKlines(ctx context.Context, pair, timeframe string, start, end time.Time) ([]domain.Kline, error)
 	Ping(ctx context.Context) error
 }

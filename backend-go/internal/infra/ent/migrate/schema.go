@@ -132,6 +132,103 @@ var (
 			},
 		},
 	}
+	// ExchangesColumns holds the columns for the "exchanges" table.
+	ExchangesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "name", Type: field.TypeString, Default: ""},
+		{Name: "type", Type: field.TypeString, Default: ""},
+		{Name: "api_key_encrypted", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "secret_key_encrypted", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "passphrase_encrypted", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "status", Type: field.TypeString, Default: "Enabled"},
+		{Name: "last_tested_at", Type: field.TypeTime, Nullable: true},
+		{Name: "test_result", Type: field.TypeString, Nullable: true},
+		{Name: "created_by", Type: field.TypeUUID},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// ExchangesTable holds the schema information for the "exchanges" table.
+	ExchangesTable = &schema.Table{
+		Name:       "exchanges",
+		Columns:    ExchangesColumns,
+		PrimaryKey: []*schema.Column{ExchangesColumns[0]},
+	}
+	// ExchangeOrderHistoriesColumns holds the columns for the "exchange_order_histories" table.
+	ExchangeOrderHistoriesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "exchange_id", Type: field.TypeUUID},
+		{Name: "pair", Type: field.TypeString, Default: ""},
+		{Name: "side", Type: field.TypeString, Default: ""},
+		{Name: "type", Type: field.TypeString, Default: ""},
+		{Name: "status", Type: field.TypeString, Default: ""},
+		{Name: "price", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "numeric(30,12)"}},
+		{Name: "quantity", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "numeric(30,12)"}},
+		{Name: "filled_quantity", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "numeric(30,12)"}},
+		{Name: "exchange_order_id", Type: field.TypeString, Default: ""},
+		{Name: "placed_at", Type: field.TypeTime},
+		{Name: "synced_at", Type: field.TypeTime},
+	}
+	// ExchangeOrderHistoriesTable holds the schema information for the "exchange_order_histories" table.
+	ExchangeOrderHistoriesTable = &schema.Table{
+		Name:       "exchange_order_histories",
+		Columns:    ExchangeOrderHistoriesColumns,
+		PrimaryKey: []*schema.Column{ExchangeOrderHistoriesColumns[0]},
+	}
+	// OrdersColumns holds the columns for the "orders" table.
+	OrdersColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "trader_id", Type: field.TypeUUID},
+		{Name: "client_order_id", Type: field.TypeUUID},
+		{Name: "exchange_order_id", Type: field.TypeString, Nullable: true},
+		{Name: "exchange_id", Type: field.TypeUUID},
+		{Name: "strategy_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "position_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "pair", Type: field.TypeString},
+		{Name: "side", Type: field.TypeString},
+		{Name: "type", Type: field.TypeString},
+		{Name: "status", Type: field.TypeString},
+		{Name: "price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "numeric(28,12)"}},
+		{Name: "quantity", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "numeric(28,12)"}},
+		{Name: "filled_quantity", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "numeric(28,12)"}},
+		{Name: "quote_quantity", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "numeric(28,12)"}},
+		{Name: "fee", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "numeric(28,12)"}},
+		{Name: "fee_asset", Type: field.TypeString, Nullable: true},
+		{Name: "is_manual", Type: field.TypeBool},
+		{Name: "placed_at_utc", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "version", Type: field.TypeUUID},
+	}
+	// OrdersTable holds the schema information for the "orders" table.
+	OrdersTable = &schema.Table{
+		Name:       "orders",
+		Columns:    OrdersColumns,
+		PrimaryKey: []*schema.Column{OrdersColumns[0]},
+	}
+	// PositionsColumns holds the columns for the "positions" table.
+	PositionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "trader_id", Type: field.TypeUUID},
+		{Name: "exchange_id", Type: field.TypeUUID},
+		{Name: "strategy_id", Type: field.TypeUUID},
+		{Name: "opening_order_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "pair", Type: field.TypeString},
+		{Name: "quantity", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "numeric(28,12)"}},
+		{Name: "entry_price", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "numeric(28,12)"}},
+		{Name: "current_price", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "numeric(28,12)"}},
+		{Name: "unrealized_pnl", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "numeric(28,12)"}},
+		{Name: "realized_pnl", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "numeric(28,12)"}},
+		{Name: "status", Type: field.TypeString},
+		{Name: "opened_at_utc", Type: field.TypeTime},
+		{Name: "closed_at_utc", Type: field.TypeTime, Nullable: true},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "version", Type: field.TypeUUID},
+	}
+	// PositionsTable holds the schema information for the "positions" table.
+	PositionsTable = &schema.Table{
+		Name:       "positions",
+		Columns:    PositionsColumns,
+		PrimaryKey: []*schema.Column{PositionsColumns[0]},
+	}
 	// StrategiesColumns holds the columns for the "strategies" table.
 	StrategiesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -157,12 +254,37 @@ var (
 			},
 		},
 	}
+	// StrategyBindingsColumns holds the columns for the "strategy_bindings" table.
+	StrategyBindingsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "strategy_id", Type: field.TypeUUID},
+		{Name: "name", Type: field.TypeString, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "trader_id", Type: field.TypeUUID},
+		{Name: "exchange_id", Type: field.TypeUUID},
+		{Name: "pairs", Type: field.TypeString},
+		{Name: "timeframe", Type: field.TypeString},
+		{Name: "status", Type: field.TypeString},
+		{Name: "created_by", Type: field.TypeUUID},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// StrategyBindingsTable holds the schema information for the "strategy_bindings" table.
+	StrategyBindingsTable = &schema.Table{
+		Name:       "strategy_bindings",
+		Columns:    StrategyBindingsColumns,
+		PrimaryKey: []*schema.Column{StrategyBindingsColumns[0]},
+	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		BacktestKlineAnalysesTable,
 		BacktestResultsTable,
 		BacktestTasksTable,
+		ExchangesTable,
+		ExchangeOrderHistoriesTable,
+		OrdersTable,
+		PositionsTable,
 		StrategiesTable,
+		StrategyBindingsTable,
 	}
 )
 

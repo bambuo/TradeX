@@ -14,7 +14,12 @@ import (
 	"tradex/internal/infra/ent/backtestklineanalysis"
 	"tradex/internal/infra/ent/backtestresult"
 	"tradex/internal/infra/ent/backtesttask"
+	"tradex/internal/infra/ent/exchange"
+	"tradex/internal/infra/ent/exchangeorderhistory"
+	"tradex/internal/infra/ent/order"
+	"tradex/internal/infra/ent/position"
 	"tradex/internal/infra/ent/strategy"
+	"tradex/internal/infra/ent/strategybinding"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
@@ -34,8 +39,18 @@ type Client struct {
 	BacktestResult *BacktestResultClient
 	// BacktestTask is the client for interacting with the BacktestTask builders.
 	BacktestTask *BacktestTaskClient
+	// Exchange is the client for interacting with the Exchange builders.
+	Exchange *ExchangeClient
+	// ExchangeOrderHistory is the client for interacting with the ExchangeOrderHistory builders.
+	ExchangeOrderHistory *ExchangeOrderHistoryClient
+	// Order is the client for interacting with the Order builders.
+	Order *OrderClient
+	// Position is the client for interacting with the Position builders.
+	Position *PositionClient
 	// Strategy is the client for interacting with the Strategy builders.
 	Strategy *StrategyClient
+	// StrategyBinding is the client for interacting with the StrategyBinding builders.
+	StrategyBinding *StrategyBindingClient
 }
 
 // NewClient creates a new client configured with the given options.
@@ -50,7 +65,12 @@ func (c *Client) init() {
 	c.BacktestKlineAnalysis = NewBacktestKlineAnalysisClient(c.config)
 	c.BacktestResult = NewBacktestResultClient(c.config)
 	c.BacktestTask = NewBacktestTaskClient(c.config)
+	c.Exchange = NewExchangeClient(c.config)
+	c.ExchangeOrderHistory = NewExchangeOrderHistoryClient(c.config)
+	c.Order = NewOrderClient(c.config)
+	c.Position = NewPositionClient(c.config)
 	c.Strategy = NewStrategyClient(c.config)
+	c.StrategyBinding = NewStrategyBindingClient(c.config)
 }
 
 type (
@@ -146,7 +166,12 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		BacktestKlineAnalysis: NewBacktestKlineAnalysisClient(cfg),
 		BacktestResult:        NewBacktestResultClient(cfg),
 		BacktestTask:          NewBacktestTaskClient(cfg),
+		Exchange:              NewExchangeClient(cfg),
+		ExchangeOrderHistory:  NewExchangeOrderHistoryClient(cfg),
+		Order:                 NewOrderClient(cfg),
+		Position:              NewPositionClient(cfg),
 		Strategy:              NewStrategyClient(cfg),
+		StrategyBinding:       NewStrategyBindingClient(cfg),
 	}, nil
 }
 
@@ -169,7 +194,12 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		BacktestKlineAnalysis: NewBacktestKlineAnalysisClient(cfg),
 		BacktestResult:        NewBacktestResultClient(cfg),
 		BacktestTask:          NewBacktestTaskClient(cfg),
+		Exchange:              NewExchangeClient(cfg),
+		ExchangeOrderHistory:  NewExchangeOrderHistoryClient(cfg),
+		Order:                 NewOrderClient(cfg),
+		Position:              NewPositionClient(cfg),
 		Strategy:              NewStrategyClient(cfg),
+		StrategyBinding:       NewStrategyBindingClient(cfg),
 	}, nil
 }
 
@@ -198,19 +228,23 @@ func (c *Client) Close() error {
 // Use adds the mutation hooks to all the entity clients.
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
-	c.BacktestKlineAnalysis.Use(hooks...)
-	c.BacktestResult.Use(hooks...)
-	c.BacktestTask.Use(hooks...)
-	c.Strategy.Use(hooks...)
+	for _, n := range []interface{ Use(...Hook) }{
+		c.BacktestKlineAnalysis, c.BacktestResult, c.BacktestTask, c.Exchange,
+		c.ExchangeOrderHistory, c.Order, c.Position, c.Strategy, c.StrategyBinding,
+	} {
+		n.Use(hooks...)
+	}
 }
 
 // Intercept adds the query interceptors to all the entity clients.
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
-	c.BacktestKlineAnalysis.Intercept(interceptors...)
-	c.BacktestResult.Intercept(interceptors...)
-	c.BacktestTask.Intercept(interceptors...)
-	c.Strategy.Intercept(interceptors...)
+	for _, n := range []interface{ Intercept(...Interceptor) }{
+		c.BacktestKlineAnalysis, c.BacktestResult, c.BacktestTask, c.Exchange,
+		c.ExchangeOrderHistory, c.Order, c.Position, c.Strategy, c.StrategyBinding,
+	} {
+		n.Intercept(interceptors...)
+	}
 }
 
 // Mutate implements the ent.Mutator interface.
@@ -222,8 +256,18 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.BacktestResult.mutate(ctx, m)
 	case *BacktestTaskMutation:
 		return c.BacktestTask.mutate(ctx, m)
+	case *ExchangeMutation:
+		return c.Exchange.mutate(ctx, m)
+	case *ExchangeOrderHistoryMutation:
+		return c.ExchangeOrderHistory.mutate(ctx, m)
+	case *OrderMutation:
+		return c.Order.mutate(ctx, m)
+	case *PositionMutation:
+		return c.Position.mutate(ctx, m)
 	case *StrategyMutation:
 		return c.Strategy.mutate(ctx, m)
+	case *StrategyBindingMutation:
+		return c.StrategyBinding.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
 	}
@@ -660,6 +704,538 @@ func (c *BacktestTaskClient) mutate(ctx context.Context, m *BacktestTaskMutation
 	}
 }
 
+// ExchangeClient is a client for the Exchange schema.
+type ExchangeClient struct {
+	config
+}
+
+// NewExchangeClient returns a client for the Exchange from the given config.
+func NewExchangeClient(c config) *ExchangeClient {
+	return &ExchangeClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `exchange.Hooks(f(g(h())))`.
+func (c *ExchangeClient) Use(hooks ...Hook) {
+	c.hooks.Exchange = append(c.hooks.Exchange, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `exchange.Intercept(f(g(h())))`.
+func (c *ExchangeClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Exchange = append(c.inters.Exchange, interceptors...)
+}
+
+// Create returns a builder for creating a Exchange entity.
+func (c *ExchangeClient) Create() *ExchangeCreate {
+	mutation := newExchangeMutation(c.config, OpCreate)
+	return &ExchangeCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Exchange entities.
+func (c *ExchangeClient) CreateBulk(builders ...*ExchangeCreate) *ExchangeCreateBulk {
+	return &ExchangeCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ExchangeClient) MapCreateBulk(slice any, setFunc func(*ExchangeCreate, int)) *ExchangeCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ExchangeCreateBulk{err: fmt.Errorf("calling to ExchangeClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ExchangeCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ExchangeCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Exchange.
+func (c *ExchangeClient) Update() *ExchangeUpdate {
+	mutation := newExchangeMutation(c.config, OpUpdate)
+	return &ExchangeUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ExchangeClient) UpdateOne(_m *Exchange) *ExchangeUpdateOne {
+	mutation := newExchangeMutation(c.config, OpUpdateOne, withExchange(_m))
+	return &ExchangeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ExchangeClient) UpdateOneID(id uuid.UUID) *ExchangeUpdateOne {
+	mutation := newExchangeMutation(c.config, OpUpdateOne, withExchangeID(id))
+	return &ExchangeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Exchange.
+func (c *ExchangeClient) Delete() *ExchangeDelete {
+	mutation := newExchangeMutation(c.config, OpDelete)
+	return &ExchangeDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ExchangeClient) DeleteOne(_m *Exchange) *ExchangeDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ExchangeClient) DeleteOneID(id uuid.UUID) *ExchangeDeleteOne {
+	builder := c.Delete().Where(exchange.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ExchangeDeleteOne{builder}
+}
+
+// Query returns a query builder for Exchange.
+func (c *ExchangeClient) Query() *ExchangeQuery {
+	return &ExchangeQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeExchange},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Exchange entity by its id.
+func (c *ExchangeClient) Get(ctx context.Context, id uuid.UUID) (*Exchange, error) {
+	return c.Query().Where(exchange.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ExchangeClient) GetX(ctx context.Context, id uuid.UUID) *Exchange {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *ExchangeClient) Hooks() []Hook {
+	return c.hooks.Exchange
+}
+
+// Interceptors returns the client interceptors.
+func (c *ExchangeClient) Interceptors() []Interceptor {
+	return c.inters.Exchange
+}
+
+func (c *ExchangeClient) mutate(ctx context.Context, m *ExchangeMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ExchangeCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ExchangeUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ExchangeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ExchangeDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Exchange mutation op: %q", m.Op())
+	}
+}
+
+// ExchangeOrderHistoryClient is a client for the ExchangeOrderHistory schema.
+type ExchangeOrderHistoryClient struct {
+	config
+}
+
+// NewExchangeOrderHistoryClient returns a client for the ExchangeOrderHistory from the given config.
+func NewExchangeOrderHistoryClient(c config) *ExchangeOrderHistoryClient {
+	return &ExchangeOrderHistoryClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `exchangeorderhistory.Hooks(f(g(h())))`.
+func (c *ExchangeOrderHistoryClient) Use(hooks ...Hook) {
+	c.hooks.ExchangeOrderHistory = append(c.hooks.ExchangeOrderHistory, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `exchangeorderhistory.Intercept(f(g(h())))`.
+func (c *ExchangeOrderHistoryClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ExchangeOrderHistory = append(c.inters.ExchangeOrderHistory, interceptors...)
+}
+
+// Create returns a builder for creating a ExchangeOrderHistory entity.
+func (c *ExchangeOrderHistoryClient) Create() *ExchangeOrderHistoryCreate {
+	mutation := newExchangeOrderHistoryMutation(c.config, OpCreate)
+	return &ExchangeOrderHistoryCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ExchangeOrderHistory entities.
+func (c *ExchangeOrderHistoryClient) CreateBulk(builders ...*ExchangeOrderHistoryCreate) *ExchangeOrderHistoryCreateBulk {
+	return &ExchangeOrderHistoryCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ExchangeOrderHistoryClient) MapCreateBulk(slice any, setFunc func(*ExchangeOrderHistoryCreate, int)) *ExchangeOrderHistoryCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ExchangeOrderHistoryCreateBulk{err: fmt.Errorf("calling to ExchangeOrderHistoryClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ExchangeOrderHistoryCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ExchangeOrderHistoryCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ExchangeOrderHistory.
+func (c *ExchangeOrderHistoryClient) Update() *ExchangeOrderHistoryUpdate {
+	mutation := newExchangeOrderHistoryMutation(c.config, OpUpdate)
+	return &ExchangeOrderHistoryUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ExchangeOrderHistoryClient) UpdateOne(_m *ExchangeOrderHistory) *ExchangeOrderHistoryUpdateOne {
+	mutation := newExchangeOrderHistoryMutation(c.config, OpUpdateOne, withExchangeOrderHistory(_m))
+	return &ExchangeOrderHistoryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ExchangeOrderHistoryClient) UpdateOneID(id uuid.UUID) *ExchangeOrderHistoryUpdateOne {
+	mutation := newExchangeOrderHistoryMutation(c.config, OpUpdateOne, withExchangeOrderHistoryID(id))
+	return &ExchangeOrderHistoryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ExchangeOrderHistory.
+func (c *ExchangeOrderHistoryClient) Delete() *ExchangeOrderHistoryDelete {
+	mutation := newExchangeOrderHistoryMutation(c.config, OpDelete)
+	return &ExchangeOrderHistoryDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ExchangeOrderHistoryClient) DeleteOne(_m *ExchangeOrderHistory) *ExchangeOrderHistoryDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ExchangeOrderHistoryClient) DeleteOneID(id uuid.UUID) *ExchangeOrderHistoryDeleteOne {
+	builder := c.Delete().Where(exchangeorderhistory.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ExchangeOrderHistoryDeleteOne{builder}
+}
+
+// Query returns a query builder for ExchangeOrderHistory.
+func (c *ExchangeOrderHistoryClient) Query() *ExchangeOrderHistoryQuery {
+	return &ExchangeOrderHistoryQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeExchangeOrderHistory},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ExchangeOrderHistory entity by its id.
+func (c *ExchangeOrderHistoryClient) Get(ctx context.Context, id uuid.UUID) (*ExchangeOrderHistory, error) {
+	return c.Query().Where(exchangeorderhistory.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ExchangeOrderHistoryClient) GetX(ctx context.Context, id uuid.UUID) *ExchangeOrderHistory {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *ExchangeOrderHistoryClient) Hooks() []Hook {
+	return c.hooks.ExchangeOrderHistory
+}
+
+// Interceptors returns the client interceptors.
+func (c *ExchangeOrderHistoryClient) Interceptors() []Interceptor {
+	return c.inters.ExchangeOrderHistory
+}
+
+func (c *ExchangeOrderHistoryClient) mutate(ctx context.Context, m *ExchangeOrderHistoryMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ExchangeOrderHistoryCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ExchangeOrderHistoryUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ExchangeOrderHistoryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ExchangeOrderHistoryDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ExchangeOrderHistory mutation op: %q", m.Op())
+	}
+}
+
+// OrderClient is a client for the Order schema.
+type OrderClient struct {
+	config
+}
+
+// NewOrderClient returns a client for the Order from the given config.
+func NewOrderClient(c config) *OrderClient {
+	return &OrderClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `order.Hooks(f(g(h())))`.
+func (c *OrderClient) Use(hooks ...Hook) {
+	c.hooks.Order = append(c.hooks.Order, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `order.Intercept(f(g(h())))`.
+func (c *OrderClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Order = append(c.inters.Order, interceptors...)
+}
+
+// Create returns a builder for creating a Order entity.
+func (c *OrderClient) Create() *OrderCreate {
+	mutation := newOrderMutation(c.config, OpCreate)
+	return &OrderCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Order entities.
+func (c *OrderClient) CreateBulk(builders ...*OrderCreate) *OrderCreateBulk {
+	return &OrderCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *OrderClient) MapCreateBulk(slice any, setFunc func(*OrderCreate, int)) *OrderCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &OrderCreateBulk{err: fmt.Errorf("calling to OrderClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*OrderCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &OrderCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Order.
+func (c *OrderClient) Update() *OrderUpdate {
+	mutation := newOrderMutation(c.config, OpUpdate)
+	return &OrderUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *OrderClient) UpdateOne(_m *Order) *OrderUpdateOne {
+	mutation := newOrderMutation(c.config, OpUpdateOne, withOrder(_m))
+	return &OrderUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *OrderClient) UpdateOneID(id uuid.UUID) *OrderUpdateOne {
+	mutation := newOrderMutation(c.config, OpUpdateOne, withOrderID(id))
+	return &OrderUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Order.
+func (c *OrderClient) Delete() *OrderDelete {
+	mutation := newOrderMutation(c.config, OpDelete)
+	return &OrderDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *OrderClient) DeleteOne(_m *Order) *OrderDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *OrderClient) DeleteOneID(id uuid.UUID) *OrderDeleteOne {
+	builder := c.Delete().Where(order.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &OrderDeleteOne{builder}
+}
+
+// Query returns a query builder for Order.
+func (c *OrderClient) Query() *OrderQuery {
+	return &OrderQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeOrder},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Order entity by its id.
+func (c *OrderClient) Get(ctx context.Context, id uuid.UUID) (*Order, error) {
+	return c.Query().Where(order.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *OrderClient) GetX(ctx context.Context, id uuid.UUID) *Order {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *OrderClient) Hooks() []Hook {
+	return c.hooks.Order
+}
+
+// Interceptors returns the client interceptors.
+func (c *OrderClient) Interceptors() []Interceptor {
+	return c.inters.Order
+}
+
+func (c *OrderClient) mutate(ctx context.Context, m *OrderMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&OrderCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&OrderUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&OrderUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&OrderDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Order mutation op: %q", m.Op())
+	}
+}
+
+// PositionClient is a client for the Position schema.
+type PositionClient struct {
+	config
+}
+
+// NewPositionClient returns a client for the Position from the given config.
+func NewPositionClient(c config) *PositionClient {
+	return &PositionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `position.Hooks(f(g(h())))`.
+func (c *PositionClient) Use(hooks ...Hook) {
+	c.hooks.Position = append(c.hooks.Position, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `position.Intercept(f(g(h())))`.
+func (c *PositionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Position = append(c.inters.Position, interceptors...)
+}
+
+// Create returns a builder for creating a Position entity.
+func (c *PositionClient) Create() *PositionCreate {
+	mutation := newPositionMutation(c.config, OpCreate)
+	return &PositionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Position entities.
+func (c *PositionClient) CreateBulk(builders ...*PositionCreate) *PositionCreateBulk {
+	return &PositionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *PositionClient) MapCreateBulk(slice any, setFunc func(*PositionCreate, int)) *PositionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &PositionCreateBulk{err: fmt.Errorf("calling to PositionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*PositionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &PositionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Position.
+func (c *PositionClient) Update() *PositionUpdate {
+	mutation := newPositionMutation(c.config, OpUpdate)
+	return &PositionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *PositionClient) UpdateOne(_m *Position) *PositionUpdateOne {
+	mutation := newPositionMutation(c.config, OpUpdateOne, withPosition(_m))
+	return &PositionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *PositionClient) UpdateOneID(id uuid.UUID) *PositionUpdateOne {
+	mutation := newPositionMutation(c.config, OpUpdateOne, withPositionID(id))
+	return &PositionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Position.
+func (c *PositionClient) Delete() *PositionDelete {
+	mutation := newPositionMutation(c.config, OpDelete)
+	return &PositionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *PositionClient) DeleteOne(_m *Position) *PositionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *PositionClient) DeleteOneID(id uuid.UUID) *PositionDeleteOne {
+	builder := c.Delete().Where(position.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &PositionDeleteOne{builder}
+}
+
+// Query returns a query builder for Position.
+func (c *PositionClient) Query() *PositionQuery {
+	return &PositionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypePosition},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Position entity by its id.
+func (c *PositionClient) Get(ctx context.Context, id uuid.UUID) (*Position, error) {
+	return c.Query().Where(position.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *PositionClient) GetX(ctx context.Context, id uuid.UUID) *Position {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *PositionClient) Hooks() []Hook {
+	return c.hooks.Position
+}
+
+// Interceptors returns the client interceptors.
+func (c *PositionClient) Interceptors() []Interceptor {
+	return c.inters.Position
+}
+
+func (c *PositionClient) mutate(ctx context.Context, m *PositionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&PositionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&PositionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&PositionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&PositionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Position mutation op: %q", m.Op())
+	}
+}
+
 // StrategyClient is a client for the Strategy schema.
 type StrategyClient struct {
 	config
@@ -793,12 +1369,148 @@ func (c *StrategyClient) mutate(ctx context.Context, m *StrategyMutation) (Value
 	}
 }
 
+// StrategyBindingClient is a client for the StrategyBinding schema.
+type StrategyBindingClient struct {
+	config
+}
+
+// NewStrategyBindingClient returns a client for the StrategyBinding from the given config.
+func NewStrategyBindingClient(c config) *StrategyBindingClient {
+	return &StrategyBindingClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `strategybinding.Hooks(f(g(h())))`.
+func (c *StrategyBindingClient) Use(hooks ...Hook) {
+	c.hooks.StrategyBinding = append(c.hooks.StrategyBinding, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `strategybinding.Intercept(f(g(h())))`.
+func (c *StrategyBindingClient) Intercept(interceptors ...Interceptor) {
+	c.inters.StrategyBinding = append(c.inters.StrategyBinding, interceptors...)
+}
+
+// Create returns a builder for creating a StrategyBinding entity.
+func (c *StrategyBindingClient) Create() *StrategyBindingCreate {
+	mutation := newStrategyBindingMutation(c.config, OpCreate)
+	return &StrategyBindingCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of StrategyBinding entities.
+func (c *StrategyBindingClient) CreateBulk(builders ...*StrategyBindingCreate) *StrategyBindingCreateBulk {
+	return &StrategyBindingCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *StrategyBindingClient) MapCreateBulk(slice any, setFunc func(*StrategyBindingCreate, int)) *StrategyBindingCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &StrategyBindingCreateBulk{err: fmt.Errorf("calling to StrategyBindingClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*StrategyBindingCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &StrategyBindingCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for StrategyBinding.
+func (c *StrategyBindingClient) Update() *StrategyBindingUpdate {
+	mutation := newStrategyBindingMutation(c.config, OpUpdate)
+	return &StrategyBindingUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *StrategyBindingClient) UpdateOne(_m *StrategyBinding) *StrategyBindingUpdateOne {
+	mutation := newStrategyBindingMutation(c.config, OpUpdateOne, withStrategyBinding(_m))
+	return &StrategyBindingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *StrategyBindingClient) UpdateOneID(id uuid.UUID) *StrategyBindingUpdateOne {
+	mutation := newStrategyBindingMutation(c.config, OpUpdateOne, withStrategyBindingID(id))
+	return &StrategyBindingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for StrategyBinding.
+func (c *StrategyBindingClient) Delete() *StrategyBindingDelete {
+	mutation := newStrategyBindingMutation(c.config, OpDelete)
+	return &StrategyBindingDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *StrategyBindingClient) DeleteOne(_m *StrategyBinding) *StrategyBindingDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *StrategyBindingClient) DeleteOneID(id uuid.UUID) *StrategyBindingDeleteOne {
+	builder := c.Delete().Where(strategybinding.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &StrategyBindingDeleteOne{builder}
+}
+
+// Query returns a query builder for StrategyBinding.
+func (c *StrategyBindingClient) Query() *StrategyBindingQuery {
+	return &StrategyBindingQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeStrategyBinding},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a StrategyBinding entity by its id.
+func (c *StrategyBindingClient) Get(ctx context.Context, id uuid.UUID) (*StrategyBinding, error) {
+	return c.Query().Where(strategybinding.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *StrategyBindingClient) GetX(ctx context.Context, id uuid.UUID) *StrategyBinding {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *StrategyBindingClient) Hooks() []Hook {
+	return c.hooks.StrategyBinding
+}
+
+// Interceptors returns the client interceptors.
+func (c *StrategyBindingClient) Interceptors() []Interceptor {
+	return c.inters.StrategyBinding
+}
+
+func (c *StrategyBindingClient) mutate(ctx context.Context, m *StrategyBindingMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&StrategyBindingCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&StrategyBindingUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&StrategyBindingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&StrategyBindingDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown StrategyBinding mutation op: %q", m.Op())
+	}
+}
+
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		BacktestKlineAnalysis, BacktestResult, BacktestTask, Strategy []ent.Hook
+		BacktestKlineAnalysis, BacktestResult, BacktestTask, Exchange,
+		ExchangeOrderHistory, Order, Position, Strategy, StrategyBinding []ent.Hook
 	}
 	inters struct {
-		BacktestKlineAnalysis, BacktestResult, BacktestTask, Strategy []ent.Interceptor
+		BacktestKlineAnalysis, BacktestResult, BacktestTask, Exchange,
+		ExchangeOrderHistory, Order, Position, Strategy,
+		StrategyBinding []ent.Interceptor
 	}
 )
