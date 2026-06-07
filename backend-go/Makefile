@@ -4,20 +4,20 @@ all: lint test build
 
 # ─── Build ───────────────────────────────────────────────
 build:
-	go build -o bin/tradex ./cmd/tradex
+	go build -o bin/tradex ./cmd/server
 
 build-api:
-	go build -o bin/tradex ./cmd/tradex
+	go build -o bin/tradex ./cmd/server
 
 build-worker:
-	go build -o bin/tradex ./cmd/tradex
+	go build -o bin/tradex ./cmd/server
 
 # ─── Run ─────────────────────────────────────────────────
 run-api:
-	go run ./cmd/tradex api
+	go run ./cmd/server api
 
 run-worker:
-	go run ./cmd/tradex worker
+	go run ./cmd/server worker
 
 # ─── Test ─────────────────────────────────────────────────
 test:
@@ -27,7 +27,7 @@ test-short:
 	go test ./... -count=1 -short
 
 test-parity:
-	go test ./internal/engine/ -run Parity -v -count=1
+	go test ./internal/domain/engine/ -run Parity -v -count=1
 
 test-coverage:
 	go test ./... -count=1 -race -coverprofile=coverage.out
@@ -39,7 +39,7 @@ lint:
 
 # ─── Database ────────────────────────────────────────────
 ent-gen:
-	go generate ./internal/infra/persistence/...
+	go generate ./internal/infra/ent/...
 
 # ─── Clean ───────────────────────────────────────────────
 clean:

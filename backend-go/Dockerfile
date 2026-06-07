@@ -12,8 +12,8 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 go build -o /build/api ./cmd/tradex
-RUN CGO_ENABLED=0 go build -o /build/worker ./cmd/tradex
+RUN CGO_ENABLED=0 go build -o /build/api ./cmd/server
+RUN CGO_ENABLED=0 go build -o /build/worker ./cmd/server
 
 # ─── API runtime ──────────────────────────────────────────
 FROM alpine:3.21 AS api
