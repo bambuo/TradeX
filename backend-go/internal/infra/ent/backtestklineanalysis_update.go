@@ -43,24 +43,24 @@ func (_u *BacktestKlineAnalysisUpdate) SetNillableTaskID(v *uuid.UUID) *Backtest
 	return _u
 }
 
-// SetKlineIndex sets the "kline_index" field.
-func (_u *BacktestKlineAnalysisUpdate) SetKlineIndex(v int) *BacktestKlineAnalysisUpdate {
-	_u.mutation.ResetKlineIndex()
-	_u.mutation.SetKlineIndex(v)
+// SetIndex sets the "index" field.
+func (_u *BacktestKlineAnalysisUpdate) SetIndex(v int) *BacktestKlineAnalysisUpdate {
+	_u.mutation.ResetIndex()
+	_u.mutation.SetIndex(v)
 	return _u
 }
 
-// SetNillableKlineIndex sets the "kline_index" field if the given value is not nil.
-func (_u *BacktestKlineAnalysisUpdate) SetNillableKlineIndex(v *int) *BacktestKlineAnalysisUpdate {
+// SetNillableIndex sets the "index" field if the given value is not nil.
+func (_u *BacktestKlineAnalysisUpdate) SetNillableIndex(v *int) *BacktestKlineAnalysisUpdate {
 	if v != nil {
-		_u.SetKlineIndex(*v)
+		_u.SetIndex(*v)
 	}
 	return _u
 }
 
-// AddKlineIndex adds value to the "kline_index" field.
-func (_u *BacktestKlineAnalysisUpdate) AddKlineIndex(v int) *BacktestKlineAnalysisUpdate {
-	_u.mutation.AddKlineIndex(v)
+// AddIndex adds value to the "index" field.
+func (_u *BacktestKlineAnalysisUpdate) AddIndex(v int) *BacktestKlineAnalysisUpdate {
+	_u.mutation.AddIndex(v)
 	return _u
 }
 
@@ -482,11 +482,11 @@ func (_u *BacktestKlineAnalysisUpdate) sqlSave(ctx context.Context) (_node int, 
 	if value, ok := _u.mutation.TaskID(); ok {
 		_spec.SetField(backtestklineanalysis.FieldTaskID, field.TypeUUID, value)
 	}
-	if value, ok := _u.mutation.KlineIndex(); ok {
-		_spec.SetField(backtestklineanalysis.FieldKlineIndex, field.TypeInt, value)
+	if value, ok := _u.mutation.Index(); ok {
+		_spec.SetField(backtestklineanalysis.FieldIndex, field.TypeInt, value)
 	}
-	if value, ok := _u.mutation.AddedKlineIndex(); ok {
-		_spec.AddField(backtestklineanalysis.FieldKlineIndex, field.TypeInt, value)
+	if value, ok := _u.mutation.AddedIndex(); ok {
+		_spec.AddField(backtestklineanalysis.FieldIndex, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.Timestamp(); ok {
 		_spec.SetField(backtestklineanalysis.FieldTimestamp, field.TypeTime, value)
@@ -633,24 +633,24 @@ func (_u *BacktestKlineAnalysisUpdateOne) SetNillableTaskID(v *uuid.UUID) *Backt
 	return _u
 }
 
-// SetKlineIndex sets the "kline_index" field.
-func (_u *BacktestKlineAnalysisUpdateOne) SetKlineIndex(v int) *BacktestKlineAnalysisUpdateOne {
-	_u.mutation.ResetKlineIndex()
-	_u.mutation.SetKlineIndex(v)
+// SetIndex sets the "index" field.
+func (_u *BacktestKlineAnalysisUpdateOne) SetIndex(v int) *BacktestKlineAnalysisUpdateOne {
+	_u.mutation.ResetIndex()
+	_u.mutation.SetIndex(v)
 	return _u
 }
 
-// SetNillableKlineIndex sets the "kline_index" field if the given value is not nil.
-func (_u *BacktestKlineAnalysisUpdateOne) SetNillableKlineIndex(v *int) *BacktestKlineAnalysisUpdateOne {
+// SetNillableIndex sets the "index" field if the given value is not nil.
+func (_u *BacktestKlineAnalysisUpdateOne) SetNillableIndex(v *int) *BacktestKlineAnalysisUpdateOne {
 	if v != nil {
-		_u.SetKlineIndex(*v)
+		_u.SetIndex(*v)
 	}
 	return _u
 }
 
-// AddKlineIndex adds value to the "kline_index" field.
-func (_u *BacktestKlineAnalysisUpdateOne) AddKlineIndex(v int) *BacktestKlineAnalysisUpdateOne {
-	_u.mutation.AddKlineIndex(v)
+// AddIndex adds value to the "index" field.
+func (_u *BacktestKlineAnalysisUpdateOne) AddIndex(v int) *BacktestKlineAnalysisUpdateOne {
+	_u.mutation.AddIndex(v)
 	return _u
 }
 
@@ -1102,11 +1102,11 @@ func (_u *BacktestKlineAnalysisUpdateOne) sqlSave(ctx context.Context) (_node *B
 	if value, ok := _u.mutation.TaskID(); ok {
 		_spec.SetField(backtestklineanalysis.FieldTaskID, field.TypeUUID, value)
 	}
-	if value, ok := _u.mutation.KlineIndex(); ok {
-		_spec.SetField(backtestklineanalysis.FieldKlineIndex, field.TypeInt, value)
+	if value, ok := _u.mutation.Index(); ok {
+		_spec.SetField(backtestklineanalysis.FieldIndex, field.TypeInt, value)
 	}
-	if value, ok := _u.mutation.AddedKlineIndex(); ok {
-		_spec.AddField(backtestklineanalysis.FieldKlineIndex, field.TypeInt, value)
+	if value, ok := _u.mutation.AddedIndex(); ok {
+		_spec.AddField(backtestklineanalysis.FieldIndex, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.Timestamp(); ok {
 		_spec.SetField(backtestklineanalysis.FieldTimestamp, field.TypeTime, value)

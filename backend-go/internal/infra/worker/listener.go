@@ -13,19 +13,17 @@ import (
 )
 
 const (
-	StreamKey         = "tradex:backtest"
-	ConsumerGroup     = "worker-backtest"
-	PollDelay         = 500 * time.Millisecond
-	ReclaimInterval   = 30 * time.Second
-	StaleIdleMs       = 60 * time.Second
-	SafetyNetInterval = 5 * time.Minute
+	StreamKey       = "tradex:backtest"
+	ConsumerGroup   = "worker-backtest"
+	PollDelay       = 500 * time.Millisecond
+	ReclaimInterval = 30 * time.Second
+	StaleIdleMs     = 60 * time.Second
 )
 
 type BacktestTaskListener struct {
 	repo  domain.BacktestRepository
 	queue TaskQueue
 	bus   *eventbus.RedisEventBus
-	rdb   *redis.Client
 	log   zerolog.Logger
 }
 
@@ -34,47 +32,42 @@ func NewTaskListener(repo domain.BacktestRepository, queue TaskQueue, bus *event
 		repo:  repo,
 		queue: queue,
 		bus:   bus,
-		rdb:   bus.Client(),
 		log:   log,
 	}
 }
 
 func (l *BacktestTaskListener) Start(ctx context.Context) {
 	if l.bus == nil {
-		l.log.Warn().Msg("redis bus not available, skipping stream listener")
+		l.log.Warn().Msg("Redis 不可用，跳过流监听器")
 		return
 	}
 
 	if err := l.bus.EnsureConsumerGroup(ctx, StreamKey, ConsumerGroup); err != nil {
-		l.log.Error().Err(err).Msg("failed to ensure consumer group")
+		l.log.Error().Err(err).Msg("确保消费者组失败")
 	}
 
 	consumer := eventbus.ConsumerName()
 
 	// 启动时排干 PEL
 	l.drainPEL(ctx, consumer)
-	// 启动时 DB 兜底
-	l.safetyNetDrain(ctx)
 
 	// 新消息消费循环
 	go l.readLoop(ctx, consumer)
 	// PEL 定期回收
 	go l.reclaimLoop(ctx, consumer)
-	// DB 兜底循环
-	go l.safetyNetLoop(ctx)
 }
 
 func (l *BacktestTaskListener) drainPEL(ctx context.Context, consumer string) {
 	msgs, err := l.bus.ConsumePending(ctx, StreamKey, ConsumerGroup, consumer, 100)
 	if err != nil {
-		l.log.Warn().Err(err).Msg("PEL drain failed, continuing")
+		l.log.Warn().Err(err).Msg("PEL 清理失败，继续执行")
 		return
 	}
 	for _, msg := range msgs {
 		l.processMessage(ctx, msg)
 	}
 	if len(msgs) > 0 {
-		l.log.Info().Int("count", len(msgs)).Msg("PEL drain completed")
+		l.log.Info().Int("count", len(msgs)).Msg("PEL 清理完成")
 	}
 }
 
@@ -91,7 +84,7 @@ func (l *BacktestTaskListener) readLoop(ctx context.Context, consumer string) {
 			if ctx.Err() != nil {
 				return
 			}
-			l.log.Warn().Err(err).Msg("stream read failed, retrying")
+			l.log.Warn().Err(err).Msg("读取流失败，重试中")
 			time.Sleep(PollDelay)
 			continue
 		}
@@ -117,44 +110,15 @@ func (l *BacktestTaskListener) reclaimLoop(ctx context.Context, consumer string)
 		case <-ticker.C:
 			reclaimed, err := l.bus.ClaimStale(ctx, StreamKey, ConsumerGroup, consumer, StaleIdleMs)
 			if err != nil {
-				l.log.Warn().Err(err).Msg("PEL reclaim failed")
+				l.log.Warn().Err(err).Msg("PEL 回收失败")
 				continue
 			}
 			for _, msg := range reclaimed {
 				l.processMessage(ctx, msg)
 			}
 			if len(reclaimed) > 0 {
-				l.log.Info().Int("count", len(reclaimed)).Msg("PEL reclaim completed")
+				l.log.Info().Int("count", len(reclaimed)).Msg("PEL 回收完成")
 			}
-		}
-	}
-}
-
-func (l *BacktestTaskListener) safetyNetDrain(ctx context.Context) {
-	tasks, err := l.repo.GetPendingTasks(ctx)
-	if err != nil {
-		l.log.Warn().Err(err).Msg("safety net drain failed")
-		return
-	}
-	for _, task := range tasks {
-		l.log.Info().Str("task_id", task.ID.String()).Msg("safety net enqueue")
-		l.queue.Enqueue(ctx, task.ID)
-	}
-}
-
-func (l *BacktestTaskListener) safetyNetLoop(ctx context.Context) {
-	ticker := time.NewTicker(SafetyNetInterval)
-	defer ticker.Stop()
-
-	// 首次立即执行
-	l.safetyNetDrain(ctx)
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			l.safetyNetDrain(ctx)
 		}
 	}
 }
@@ -171,22 +135,22 @@ func (l *BacktestTaskListener) processMessage(ctx context.Context, msg redis.XMe
 
 	raw, ok := eventbus.ParseTaskID(msg)
 	if !ok {
-		l.log.Warn().Str("entry_id", msg.ID).Msg("missing task_id in stream msg, acking")
+		l.log.Warn().Str("entry_id", msg.ID).Msg("流消息缺少 task_id，已确认")
 		l.bus.Ack(ctx, StreamKey, group, msg.ID)
 		return
 	}
 
 	taskID, err := uuid.Parse(raw)
 	if err != nil {
-		l.log.Warn().Err(err).Str("raw", raw).Msg("invalid task_id, acking")
+		l.log.Warn().Err(err).Str("raw", raw).Msg("无效的 task_id，已确认")
 		l.bus.Ack(ctx, StreamKey, group, msg.ID)
 		return
 	}
 
-	l.log.Info().Str("task_id", taskID.String()).Msg("received task from stream")
+	l.log.Info().Str("task_id", taskID.String()).Msg("从流收到任务")
 
 	if err := l.queue.Enqueue(ctx, taskID); err != nil {
-		l.log.Error().Err(err).Str("task_id", taskID.String()).Msg("enqueue failed, leaving in PEL")
+		l.log.Error().Err(err).Str("task_id", taskID.String()).Msg("入队失败，留在 PEL")
 		return
 	}
 

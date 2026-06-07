@@ -3,6 +3,7 @@ package persistence
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
@@ -10,6 +11,7 @@ import (
 	"tradex/internal/domain"
 	"tradex/internal/infra/ent"
 	"tradex/internal/infra/ent/backtestklineanalysis"
+	"tradex/internal/infra/ent/backtestresult"
 	"tradex/internal/infra/ent/backtesttask"
 )
 
@@ -54,6 +56,13 @@ func (r *backtestRepo) UpdateTaskStatus(ctx context.Context, id uuid.UUID, statu
 		SetStatus(backtesttask.Status(status))
 	if phase != nil {
 		upd.SetPhase(backtesttask.Phase(*phase))
+	} else {
+		upd.ClearPhase()
+	}
+	now := time.Now()
+	switch status {
+	case domain.TaskStatusCompleted, domain.TaskStatusFailed, domain.TaskStatusCancelled:
+		upd.SetCompletedAt(now)
 	}
 	_, err := upd.Save(ctx)
 	return err
@@ -99,12 +108,8 @@ func (r *backtestRepo) SaveResult(ctx context.Context, taskID uuid.UUID, result 
 	if err != nil {
 		return err
 	}
-	task, err := r.client.BacktestTask.Get(ctx, taskID)
-	if err != nil {
-		return err
-	}
 	_, err = r.client.BacktestResult.Create().
-		SetTask(task).
+		SetTaskID(taskID).
 		SetStrategyName(result.StrategyName).
 		SetPair(result.Pair).
 		SetTimeframe(result.Timeframe).
@@ -129,7 +134,7 @@ func (r *backtestRepo) SaveAnalysisBatch(ctx context.Context, taskID uuid.UUID, 
 	for i, a := range analysis {
 		builders[i] = r.client.BacktestKlineAnalysis.Create().
 			SetTaskID(taskID).
-			SetKlineIndex(a.KlineIndex).
+			SetIndex(a.KlineIndex).
 			SetTimestamp(a.Timestamp).
 			SetOpen(f64(a.Open)).
 			SetHigh(f64(a.High)).
@@ -152,12 +157,24 @@ func (r *backtestRepo) SaveAnalysisBatch(ctx context.Context, taskID uuid.UUID, 
 	return err
 }
 
-func (r *backtestRepo) GetResult(ctx context.Context, taskID uuid.UUID) (*domain.BacktestResult, []domain.BacktestTrade, error) {
-	task, err := r.client.BacktestTask.Get(ctx, taskID)
+func (r *backtestRepo) ExecuteInTransaction(ctx context.Context, fn func(domain.BacktestRepository) error) error {
+	tx, err := r.client.Tx(ctx)
 	if err != nil {
-		return nil, nil, err
+		return err
 	}
-	row, err := task.QueryResult().Only(ctx)
+	defer tx.Rollback()
+
+	txRepo := &backtestRepo{client: tx.Client()}
+	if err := fn(txRepo); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (r *backtestRepo) GetResult(ctx context.Context, taskID uuid.UUID) (*domain.BacktestResult, []domain.BacktestTrade, error) {
+	row, err := r.client.BacktestResult.Query().
+		Where(backtestresult.TaskID(taskID)).
+		Only(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -195,7 +212,8 @@ func (r *backtestRepo) GetAnalysis(ctx context.Context, taskID uuid.UUID, cursor
 	}
 	rows, err := r.client.BacktestKlineAnalysis.Query().
 		Where(backtestklineanalysis.TaskID(taskID)).
-		Order(ent.Asc(backtestklineanalysis.FieldKlineIndex)).
+		Order(ent.Asc(backtestklineanalysis.FieldIndex)).
+		Offset(cursor).
 		Limit(limit).
 		All(ctx)
 	if err != nil {
@@ -259,6 +277,18 @@ func (r *backtestRepo) GetRunningTasks(ctx context.Context) ([]*domain.BacktestT
 	return rowsToTasks(rows), nil
 }
 
+func (r *backtestRepo) TryAcquireTask(ctx context.Context, id uuid.UUID, fromStatus domain.BacktestTaskStatus, phase domain.BacktestPhase) (bool, error) {
+	n, err := r.client.BacktestTask.Update().
+		Where(backtesttask.ID(id), backtesttask.StatusEQ(backtesttask.Status(fromStatus))).
+		SetStatus(backtesttask.StatusRunning).
+		SetPhase(backtesttask.Phase(phase)).
+		Save(ctx)
+	if err != nil {
+		return false, err
+	}
+	return n == 1, nil
+}
+
 func rowsToTasks(rows []*ent.BacktestTask) []*domain.BacktestTask {
 	tasks := make([]*domain.BacktestTask, len(rows))
 	for i, row := range rows {
@@ -298,7 +328,7 @@ func rowToTask(row *ent.BacktestTask) *domain.BacktestTask {
 
 func rowToAnalysis(row *ent.BacktestKlineAnalysis) *domain.BacktestKlineAnalysis {
 	a := &domain.BacktestKlineAnalysis{
-		KlineIndex:      row.KlineIndex,
+		KlineIndex:      row.Index,
 		Timestamp:       row.Timestamp,
 		Open:            dec(row.Open),
 		High:            dec(row.High),

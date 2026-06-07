@@ -15,6 +15,8 @@ const (
 	Label = "backtest_result"
 	// FieldID holds the string denoting the id field in the database.
 	FieldID = "id"
+	// FieldTaskID holds the string denoting the task_id field in the database.
+	FieldTaskID = "task_id"
 	// FieldStrategyName holds the string denoting the strategy_name field in the database.
 	FieldStrategyName = "strategy_name"
 	// FieldPair holds the string denoting the pair field in the database.
@@ -57,12 +59,13 @@ const (
 	// It exists in this package in order to avoid circular dependency with the "backtesttask" package.
 	TaskInverseTable = "backtest_tasks"
 	// TaskColumn is the table column denoting the task relation/edge.
-	TaskColumn = "result_id"
+	TaskColumn = "task_id"
 )
 
 // Columns holds all SQL columns for backtestresult fields.
 var Columns = []string{
 	FieldID,
+	FieldTaskID,
 	FieldStrategyName,
 	FieldPair,
 	FieldTimeframe,
@@ -81,21 +84,10 @@ var Columns = []string{
 	FieldCreatedAt,
 }
 
-// ForeignKeys holds the SQL foreign-keys that are owned by the "backtest_results"
-// table and are not defined as standalone fields in the schema.
-var ForeignKeys = []string{
-	"result_id",
-}
-
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
 	for i := range Columns {
 		if column == Columns[i] {
-			return true
-		}
-	}
-	for i := range ForeignKeys {
-		if column == ForeignKeys[i] {
 			return true
 		}
 	}
@@ -121,6 +113,11 @@ type OrderOption func(*sql.Selector)
 // ByID orders the results by the id field.
 func ByID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldID, opts...).ToFunc()
+}
+
+// ByTaskID orders the results by the task_id field.
+func ByTaskID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTaskID, opts...).ToFunc()
 }
 
 // ByStrategyName orders the results by the strategy_name field.

@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"os"
 	"os/signal"
+	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -36,6 +38,8 @@ func NewWorkerCmd() *cobra.Command {
 			otlpEndpoint := viper.GetString("otlp_endpoint")
 			redisAddr := viper.GetString("redis_addr")
 
+			log.Info().Str("dsn", maskDSN(dsn)).Bool("redis", redisAddr != "").Msg("Worker 启动")
+
 			shutdown, err := telemetry.InitOTel(context.Background(), telemetry.Config{
 				ServiceName:    "tradex-worker",
 				ServiceVersion: "0.1.0",
@@ -43,24 +47,25 @@ func NewWorkerCmd() *cobra.Command {
 				Environment:    viper.GetString("environment"),
 			})
 			if err != nil {
-				log.Warn().Err(err).Msg("otel init failed, continuing without tracing")
+				log.Warn().Err(err).Msg("遥测初始化失败，无追踪继续运行")
 			} else {
 				defer shutdown(context.Background())
 			}
 
 			client, err := persistence.OpenDB(dsn)
 			if err != nil {
-				log.Fatal().Err(err).Msg("failed to open database")
+				log.Fatal().Err(err).Msg("打开数据库失败")
 			}
 			defer client.Close()
 
 			if err := persistence.AutoMigrate(context.Background(), client); err != nil {
-				log.Fatal().Err(err).Msg("failed to run migrations")
+				log.Fatal().Err(err).Msg("运行数据库迁移失败")
 			}
-			log.Info().Msg("database migrations applied")
+			log.Info().Msg("数据库迁移已应用")
 
 			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 			defer cancel()
+			var wg sync.WaitGroup
 
 			// PG advisory lock for single-instance guard
 			var guard *worker.BacktestWorkerGuard
@@ -120,31 +125,45 @@ func NewWorkerCmd() *cobra.Command {
 				redisBus = eventbus.NewRedisEventBus(rdb)
 
 				listener := worker.NewTaskListener(btRepo, taskQueue, redisBus, log)
-				listener.Start(ctx)
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					listener.Start(ctx)
+				}()
 
 				cancelConsumer := worker.NewCancellationConsumer(tracker, redisBus, log)
-				cancelConsumer.Start(ctx)
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					cancelConsumer.Start(ctx)
+				}()
 
-				log.Info().Str("redis_addr", redisAddr).Msg("redis stream listeners started")
+				log.Info().Str("redis_addr", redisAddr).Msg("Redis 流监听器已启动")
 			} else {
-				log.Warn().Msg("redis not configured, tasks must be polled from db")
+				log.Warn().Msg("Redis 未配置，任务将通过 DB 轮询")
 			}
 
 			feeRate := viper.GetFloat64("fee_rate")
 
-			go sch.Run(ctx, worker.SchedulerConfig{
-				MaxConcurrency:     maxConcurrency,
-				TaskTimeoutMinutes: taskTimeout,
-				FeeRate:            feeRate,
-			}, guard)
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				sch.Run(ctx, worker.SchedulerConfig{
+					MaxConcurrency:     maxConcurrency,
+					TaskTimeoutMinutes: taskTimeout,
+					FeeRate:            feeRate,
+				}, guard)
+			}()
 
 			log.Info().
 				Int("max_concurrency", maxConcurrency).
 				Int("task_timeout_minutes", taskTimeout).
-				Msg("worker started")
+				Msg("Worker 已启动")
 
 			<-ctx.Done()
-			log.Info().Msg("worker shutting down")
+			log.Info().Msg("Worker 关闭，等待 goroutine 结束...")
+			wg.Wait()
+			log.Info().Msg("Worker 已停止")
 		},
 	}
 
@@ -173,4 +192,22 @@ func NewWorkerCmd() *cobra.Command {
 	viper.AutomaticEnv()
 
 	return cmd
+}
+
+func maskDSN(dsn string) string {
+	if dsn == "" {
+		return ""
+	}
+	// postgres://user:pass@host:port/db → postgres://user:***@host:port/db
+	afterScheme := strings.SplitN(dsn, "://", 2)
+	if len(afterScheme) < 2 {
+		return dsn
+	}
+	rest := afterScheme[1]
+	atIdx := strings.LastIndex(rest, "@")
+	colonIdx := strings.Index(rest, ":")
+	if colonIdx > 0 && atIdx > colonIdx {
+		rest = rest[:colonIdx+1] + "***" + rest[atIdx:]
+	}
+	return afterScheme[0] + "://" + rest
 }

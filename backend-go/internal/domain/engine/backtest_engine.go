@@ -48,21 +48,32 @@ func NewBacktestEngine(registry *indicator.Registry) *BacktestEngine {
 }
 
 func (e *BacktestEngine) Run(ctx context.Context, input EngineInput) (EngineOutput, error) {
+	if len(input.Klines) < FirstValidIndex+1 {
+		return EngineOutput{
+			Result: domain.BacktestResult{
+				InitialCapital: input.InitialCapital,
+				FinalValue:     input.InitialCapital,
+				TotalTrades:    0,
+			},
+			Trades:   []domain.BacktestTrade{},
+			Analysis: []domain.BacktestKlineAnalysis{},
+		}, nil
+	}
 	if err := e.validate(input); err != nil {
 		return EngineOutput{}, err
 	}
 
 	trades := make([]domain.BacktestTrade, 0, 100)
 	analysis := make([]domain.BacktestKlineAnalysis, 0, len(input.Klines))
-	equityCurve := make([]decimal.Decimal, len(input.Klines))
+	equityCurve := make([]decimal.Decimal, 0, len(input.Klines))
 
-	capital := input.InitialCapital
-	equity := input.InitialCapital
+	cash := input.InitialCapital
 	var inPosition bool
 	var positionSize decimal.Decimal
 	var avgEntryPrice decimal.Decimal
 	var positionCount int
 	var entryTimestamp time.Time
+	var entryFee decimal.Decimal
 
 	e.registry.ComputeAll(input.Klines)
 
@@ -76,46 +87,50 @@ func (e *BacktestEngine) Run(ctx context.Context, input EngineInput) (EngineOutp
 		candle := input.Klines[i]
 		closePrice := candle.Close
 
+		currentEquity := cash
+		if inPosition {
+			currentEquity = currentEquity.Add(positionSize.Mul(closePrice))
+		}
+
 		decision := e.decision.Decide(DecisionInput{
 			Strategy:      input.Strategy,
 			Klines:        input.Klines,
 			Index:         i,
 			Registry:      e.registry,
 			InPosition:    inPosition,
-			CurrentEquity: equity,
+			CurrentEquity: currentEquity,
 			CurrentPrice:  closePrice,
 			PositionCount: positionCount,
 			AvgEntryPrice: avgEntryPriceOrNil(inPosition, avgEntryPrice),
 		})
 
-		switch decision.Type {
-		case DecisionEnter:
-			posSize := input.PositionSize
+		action := string(decision.Type)
+
+		if !inPosition && decision.Type == DecisionEnter {
+			// 入场
+			var capitalToUse decimal.Decimal
 			if decision.PositionSize != nil {
-				posSize = decision.PositionSize
+				capitalToUse = minDecimal(*decision.PositionSize, cash)
+			} else if input.PositionSize != nil {
+				capitalToUse = minDecimal(*input.PositionSize, cash)
+			} else {
+				capitalToUse = cash
 			}
 
-			amount := posSize
-			if amount == nil {
-				amount = new(equity)
-			}
-
-			if amount.GreaterThan(equity) {
-				amount = new(equity)
-			}
-
-			qty := amount.Div(closePrice)
-			fee := amount.Mul(input.FeeRate)
-			capital = capital.Sub(*amount).Sub(fee)
+			entryQuantity := capitalToUse.Div(closePrice.Mul(decimal.NewFromFloat(1).Add(input.FeeRate)))
+			calculatedEntryFee := entryQuantity.Mul(closePrice).Mul(input.FeeRate)
+			cash = cash.Sub(entryQuantity.Mul(closePrice)).Sub(calculatedEntryFee)
 
 			if !inPosition {
-				positionSize = qty
+				positionSize = entryQuantity
 				avgEntryPrice = closePrice
 				positionCount = 1
+				entryFee = calculatedEntryFee
 			} else {
-				totalQty := positionSize.Add(qty)
+				totalQty := positionSize.Add(entryQuantity)
 				if totalQty.IsPositive() {
-					avgEntryPrice = positionSize.Mul(avgEntryPrice).Add(qty.Mul(closePrice)).Div(totalQty)
+					avgEntryPrice = positionSize.Mul(avgEntryPrice).Add(entryQuantity.Mul(closePrice)).Div(totalQty)
+					entryFee = entryFee.Add(calculatedEntryFee)
 				}
 				positionSize = totalQty
 				positionCount++
@@ -123,65 +138,83 @@ func (e *BacktestEngine) Run(ctx context.Context, input EngineInput) (EngineOutp
 
 			entryTimestamp = candle.Timestamp
 			inPosition = true
+		} else if inPosition && (decision.Type == DecisionExit || i == len(input.Klines)-1) {
+			// 出场（含最后 K 线强制平仓）
+			exitFee := positionSize.Mul(closePrice).Mul(input.FeeRate)
+			pnl := positionSize.Mul(closePrice.Sub(avgEntryPrice)).Sub(entryFee).Sub(exitFee)
+			costBasis := avgEntryPrice.Mul(positionSize).Add(entryFee)
 
-		case DecisionExit:
-			if inPosition {
-				sellValue := positionSize.Mul(closePrice)
-				fee := sellValue.Mul(input.FeeRate)
-				pnl := positionSize.Mul(closePrice.Sub(avgEntryPrice))
-
-				totalFee := fee
-				capital = capital.Add(positionSize.Mul(closePrice)).Sub(totalFee)
-
-				trade := domain.BacktestTrade{
-					EntryIndex: 0,
-					ExitIndex:  i,
-					EnteredAt:  entryTimestamp,
-					ExitedAt:   candle.Timestamp,
-					EntryPrice: avgEntryPrice,
-					ExitPrice:  closePrice,
-					Quantity:   positionSize,
-					PnL:        pnl,
-					PnLPercent: pnl.Div(avgEntryPrice.Mul(positionSize)).Mul(decimal.NewFromInt(100)),
-				}
-				if len(trades) > 0 {
-					prev := trades[len(trades)-1]
-					trade.EntryIndex = prev.ExitIndex + 1
-				}
-				trades = append(trades, trade)
-
-				equity = capital
-				inPosition = false
-				positionSize = decimal.Zero
-				positionCount = 0
+			var pnlPercent decimal.Decimal
+			if costBasis.IsPositive() {
+				pnlPercent = pnl.Div(costBasis).Mul(decimal.NewFromInt(100))
 			}
 
-		case DecisionHold:
-			if inPosition {
-				equity = capital.Add(positionSize.Mul(closePrice))
-			} else {
-				equity = capital
+			cash = cash.Add(positionSize.Mul(closePrice)).Sub(exitFee)
+
+			trade := domain.BacktestTrade{
+				EntryIndex: 0,
+				ExitIndex:  i,
+				EnteredAt:  entryTimestamp,
+				ExitedAt:   candle.Timestamp,
+				EntryPrice: avgEntryPrice,
+				ExitPrice:  closePrice,
+				Quantity:   positionSize,
+				PnL:        pnl,
+				PnLPercent: pnlPercent,
 			}
+			if len(trades) > 0 {
+				prev := trades[len(trades)-1]
+				trade.EntryIndex = prev.ExitIndex + 1
+			}
+			trades = append(trades, trade)
+
+			inPosition = false
+			positionSize = decimal.Zero
+			positionCount = 0
+			entryFee = decimal.Zero
 		}
 
-		equityCurve[i] = equity
+		// 账户权益 = 现金 + 持仓市值
+		equity := cash
+		if inPosition {
+			equity = equity.Add(positionSize.Mul(closePrice))
+		}
+		equityCurve = append(equityCurve, equity)
+
+		// 构建分析记录
+		var entryCondResult, exitCondResult *bool
+		if !inPosition && decision.Type == DecisionEnter {
+			entryCondResult = decision.ConditionResult
+		} else if inPosition {
+			exitCondResult = decision.ConditionResult
+		} else {
+			entryCondResult = decision.ConditionResult
+		}
 
 		analysisEntry := domain.BacktestKlineAnalysis{
-			KlineIndex: i,
-			Timestamp:  candle.Timestamp,
-			Open:       candle.Open,
-			High:       candle.High,
-			Low:        candle.Low,
-			Close:      candle.Close,
-			Volume:     candle.Volume,
-			InPosition: inPosition,
-			Action:     string(decision.Type),
+			KlineIndex:           i,
+			Timestamp:            candle.Timestamp,
+			Open:                 candle.Open,
+			High:                 candle.High,
+			Low:                  candle.Low,
+			Close:                candle.Close,
+			Volume:               candle.Volume,
+			EntryConditionResult: entryCondResult,
+			ExitConditionResult:  exitCondResult,
+			InPosition:           inPosition,
+			Action:               action,
 		}
+
 		if inPosition {
 			analysisEntry.AvgEntryPrice = new(avgEntryPrice)
 			analysisEntry.PositionQuantity = &positionSize
-			analysisEntry.PositionValue = new(positionSize.Mul(closePrice))
+			cost := avgEntryPrice.Mul(positionSize)
+			analysisEntry.PositionCost = &cost
+			value := positionSize.Mul(closePrice)
+			analysisEntry.PositionValue = &value
 			analysisEntry.PositionPnl = new(positionSize.Mul(closePrice.Sub(avgEntryPrice)))
+			pnlPct := closePrice.Sub(avgEntryPrice).Div(avgEntryPrice).Mul(decimal.NewFromInt(100))
+			analysisEntry.PositionPnlPercent = &pnlPct
 		}
 
 		indicatorValues := make(map[string]float64)
@@ -206,6 +239,13 @@ func (e *BacktestEngine) Run(ctx context.Context, input EngineInput) (EngineOutp
 		Analysis:    analysis,
 		EquityCurve: equityCurve,
 	}, nil
+}
+
+func minDecimal(a, b decimal.Decimal) decimal.Decimal {
+	if a.LessThan(b) {
+		return a
+	}
+	return b
 }
 
 func (e *BacktestEngine) validate(input EngineInput) error {
@@ -256,7 +296,7 @@ func (e *BacktestEngine) computeResult(input EngineInput, trades []domain.Backte
 
 	maxDrawdown := e.computeMaxDrawdown(equityCurve)
 	winRate := e.computeWinRate(trades)
-	sharpe := e.computeSharpeRatio(equityCurve, days)
+	sharpe := e.computeSharpeRatio(equityCurve, input.Timeframe)
 	profitLossRatio := e.computeProfitLossRatio(trades)
 
 	return domain.BacktestResult{
@@ -306,42 +346,66 @@ func (e *BacktestEngine) computeWinRate(trades []domain.BacktestTrade) decimal.D
 	return decimal.NewFromInt(int64(wins)).Div(decimal.NewFromInt(int64(len(trades)))).Mul(decimal.NewFromInt(100))
 }
 
-func (e *BacktestEngine) computeSharpeRatio(equityCurve []decimal.Decimal, days float64) decimal.Decimal {
-	returns := make([]float64, 0, len(equityCurve))
-	prev := equityCurve[FirstValidIndex]
-	for i := FirstValidIndex + 1; i < len(equityCurve); i++ {
-		if prev.IsPositive() {
-			ret, _ := equityCurve[i].Sub(prev).Div(prev).Float64()
-			returns = append(returns, ret)
-		}
-		prev = equityCurve[i]
+func (e *BacktestEngine) computeSharpeRatio(equityCurve []decimal.Decimal, timeframe string) decimal.Decimal {
+	if len(equityCurve) < 3 {
+		return decimal.Zero
 	}
 
+	returns := make([]float64, 0, len(equityCurve)-1)
+	for i := 1; i < len(equityCurve); i++ {
+		prev, _ := equityCurve[i-1].Float64()
+		if prev <= 0 {
+			continue
+		}
+		cur, _ := equityCurve[i].Float64()
+		returns = append(returns, cur/prev-1)
+	}
 	if len(returns) < 2 {
 		return decimal.Zero
 	}
 
-	var sum, sumSq float64
+	var sum float64
 	for _, r := range returns {
 		sum += r
 	}
 	mean := sum / float64(len(returns))
 
+	var sumSq float64
 	for _, r := range returns {
 		d := r - mean
 		sumSq += d * d
 	}
 	variance := sumSq / float64(len(returns)-1)
-	std := math.Sqrt(variance)
-
-	if std < 1e-15 {
+	std := math.Sqrt(math.Max(0, variance))
+	if std <= 0 {
 		return decimal.Zero
 	}
 
-	periodsPerYear := 365.0 / days * float64(len(returns))
-	sharpe := (mean / std) * math.Sqrt(periodsPerYear)
-
+	periods := periodsPerYear(timeframe)
+	sharpe := mean / std * math.Sqrt(periods)
+	sharpe = math.Max(-9999, math.Min(9999, sharpe))
 	return decimal.NewFromFloat(sharpe)
+}
+
+func periodsPerYear(timeframe string) float64 {
+	switch timeframe {
+	case "1m":
+		return 525_600
+	case "5m":
+		return 105_120
+	case "15m":
+		return 35_040
+	case "30m":
+		return 17_520
+	case "1h":
+		return 8_760
+	case "4h":
+		return 2_190
+	case "1d":
+		return 365
+	default:
+		return 365
+	}
 }
 
 func (e *BacktestEngine) computeProfitLossRatio(trades []domain.BacktestTrade) decimal.Decimal {

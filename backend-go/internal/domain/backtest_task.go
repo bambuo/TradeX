@@ -24,19 +24,3 @@ type BacktestTask struct {
 	Phase          *BacktestPhase
 	CreatedAt      time.Time
 }
-
-func (t *BacktestTask) SetStatus(s BacktestTaskStatus) {
-	t.Status = s
-}
-
-func (t *BacktestTask) SetPhase(p BacktestPhase) {
-	t.Phase = &p
-}
-
-func (t *BacktestTask) Fail() {
-	t.Status = TaskStatusFailed
-}
-
-func (t *BacktestTask) Cancel() {
-	t.Status = TaskStatusCancelled
-}

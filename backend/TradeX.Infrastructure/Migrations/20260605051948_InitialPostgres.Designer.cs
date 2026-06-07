@@ -1196,7 +1196,7 @@ namespace TradeX.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("index");
 
-                    b.Property<string>("IndicatorsJson")
+                    b.Property<string>("IndicatorValues")
                         .IsRequired()
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)")

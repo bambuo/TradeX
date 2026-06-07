@@ -20,6 +20,8 @@ type BacktestResult struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID uuid.UUID `json:"id,omitempty"`
+	// TaskID holds the value of the "task_id" field.
+	TaskID uuid.UUID `json:"task_id,omitempty"`
 	// StrategyName holds the value of the "strategy_name" field.
 	StrategyName string `json:"strategy_name,omitempty"`
 	// Pair holds the value of the "pair" field.
@@ -55,7 +57,6 @@ type BacktestResult struct {
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the BacktestResultQuery when eager-loading is set.
 	Edges        BacktestResultEdges `json:"edges"`
-	result_id    *uuid.UUID
 	selectValues sql.SelectValues
 }
 
@@ -94,10 +95,8 @@ func (*BacktestResult) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullString)
 		case backtestresult.FieldStartAt, backtestresult.FieldEndAt, backtestresult.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
-		case backtestresult.FieldID:
+		case backtestresult.FieldID, backtestresult.FieldTaskID:
 			values[i] = new(uuid.UUID)
-		case backtestresult.ForeignKeys[0]: // result_id
-			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -118,6 +117,12 @@ func (_m *BacktestResult) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field id", values[i])
 			} else if value != nil {
 				_m.ID = *value
+			}
+		case backtestresult.FieldTaskID:
+			if value, ok := values[i].(*uuid.UUID); !ok {
+				return fmt.Errorf("unexpected type %T for field task_id", values[i])
+			} else if value != nil {
+				_m.TaskID = *value
 			}
 		case backtestresult.FieldStrategyName:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -217,13 +222,6 @@ func (_m *BacktestResult) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.CreatedAt = value.Time
 			}
-		case backtestresult.ForeignKeys[0]:
-			if value, ok := values[i].(*sql.NullScanner); !ok {
-				return fmt.Errorf("unexpected type %T for field result_id", values[i])
-			} else if value.Valid {
-				_m.result_id = new(uuid.UUID)
-				*_m.result_id = *value.S.(*uuid.UUID)
-			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -265,6 +263,9 @@ func (_m *BacktestResult) String() string {
 	var builder strings.Builder
 	builder.WriteString("BacktestResult(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
+	builder.WriteString("task_id=")
+	builder.WriteString(fmt.Sprintf("%v", _m.TaskID))
+	builder.WriteString(", ")
 	builder.WriteString("strategy_name=")
 	builder.WriteString(_m.StrategyName)
 	builder.WriteString(", ")

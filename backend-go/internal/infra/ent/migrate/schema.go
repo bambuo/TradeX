@@ -12,7 +12,7 @@ var (
 	BacktestKlineAnalysesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "task_id", Type: field.TypeUUID},
-		{Name: "kline_index", Type: field.TypeInt},
+		{Name: "index", Type: field.TypeInt},
 		{Name: "timestamp", Type: field.TypeTime},
 		{Name: "open", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "numeric(20,8)"}},
 		{Name: "high", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "numeric(20,8)"}},
@@ -38,7 +38,7 @@ var (
 		PrimaryKey: []*schema.Column{BacktestKlineAnalysesColumns[0]},
 		Indexes: []*schema.Index{
 			{
-				Name:    "backtestklineanalysis_task_id_kline_index",
+				Name:    "backtestklineanalysis_task_id_index",
 				Unique:  true,
 				Columns: []*schema.Column{BacktestKlineAnalysesColumns[1], BacktestKlineAnalysesColumns[2]},
 			},
@@ -68,7 +68,7 @@ var (
 		{Name: "total_trades", Type: field.TypeInt},
 		{Name: "details", Type: field.TypeJSON, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
-		{Name: "result_id", Type: field.TypeUUID, Unique: true},
+		{Name: "task_id", Type: field.TypeUUID, Unique: true},
 	}
 	// BacktestResultsTable holds the schema information for the "backtest_results" table.
 	BacktestResultsTable = &schema.Table{
@@ -81,6 +81,13 @@ var (
 				Columns:    []*schema.Column{BacktestResultsColumns[17]},
 				RefColumns: []*schema.Column{BacktestTasksColumns[0]},
 				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "backtestresult_task_id",
+				Unique:  false,
+				Columns: []*schema.Column{BacktestResultsColumns[17]},
 			},
 		},
 	}

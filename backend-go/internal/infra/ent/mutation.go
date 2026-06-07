@@ -41,8 +41,8 @@ type BacktestKlineAnalysisMutation struct {
 	typ                     string
 	id                      *uuid.UUID
 	task_id                 *uuid.UUID
-	kline_index             *int
-	addkline_index          *int
+	index                   *int
+	addindex                *int
 	timestamp               *time.Time
 	open                    *float64
 	addopen                 *float64
@@ -217,60 +217,60 @@ func (m *BacktestKlineAnalysisMutation) ResetTaskID() {
 	m.task_id = nil
 }
 
-// SetKlineIndex sets the "kline_index" field.
-func (m *BacktestKlineAnalysisMutation) SetKlineIndex(i int) {
-	m.kline_index = &i
-	m.addkline_index = nil
+// SetIndex sets the "index" field.
+func (m *BacktestKlineAnalysisMutation) SetIndex(i int) {
+	m.index = &i
+	m.addindex = nil
 }
 
-// KlineIndex returns the value of the "kline_index" field in the mutation.
-func (m *BacktestKlineAnalysisMutation) KlineIndex() (r int, exists bool) {
-	v := m.kline_index
+// Index returns the value of the "index" field in the mutation.
+func (m *BacktestKlineAnalysisMutation) Index() (r int, exists bool) {
+	v := m.index
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldKlineIndex returns the old "kline_index" field's value of the BacktestKlineAnalysis entity.
+// OldIndex returns the old "index" field's value of the BacktestKlineAnalysis entity.
 // If the BacktestKlineAnalysis object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *BacktestKlineAnalysisMutation) OldKlineIndex(ctx context.Context) (v int, err error) {
+func (m *BacktestKlineAnalysisMutation) OldIndex(ctx context.Context) (v int, err error) {
 	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldKlineIndex is only allowed on UpdateOne operations")
+		return v, errors.New("OldIndex is only allowed on UpdateOne operations")
 	}
 	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldKlineIndex requires an ID field in the mutation")
+		return v, errors.New("OldIndex requires an ID field in the mutation")
 	}
 	oldValue, err := m.oldValue(ctx)
 	if err != nil {
-		return v, fmt.Errorf("querying old value for OldKlineIndex: %w", err)
+		return v, fmt.Errorf("querying old value for OldIndex: %w", err)
 	}
-	return oldValue.KlineIndex, nil
+	return oldValue.Index, nil
 }
 
-// AddKlineIndex adds i to the "kline_index" field.
-func (m *BacktestKlineAnalysisMutation) AddKlineIndex(i int) {
-	if m.addkline_index != nil {
-		*m.addkline_index += i
+// AddIndex adds i to the "index" field.
+func (m *BacktestKlineAnalysisMutation) AddIndex(i int) {
+	if m.addindex != nil {
+		*m.addindex += i
 	} else {
-		m.addkline_index = &i
+		m.addindex = &i
 	}
 }
 
-// AddedKlineIndex returns the value that was added to the "kline_index" field in this mutation.
-func (m *BacktestKlineAnalysisMutation) AddedKlineIndex() (r int, exists bool) {
-	v := m.addkline_index
+// AddedIndex returns the value that was added to the "index" field in this mutation.
+func (m *BacktestKlineAnalysisMutation) AddedIndex() (r int, exists bool) {
+	v := m.addindex
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// ResetKlineIndex resets all changes to the "kline_index" field.
-func (m *BacktestKlineAnalysisMutation) ResetKlineIndex() {
-	m.kline_index = nil
-	m.addkline_index = nil
+// ResetIndex resets all changes to the "index" field.
+func (m *BacktestKlineAnalysisMutation) ResetIndex() {
+	m.index = nil
+	m.addindex = nil
 }
 
 // SetTimestamp sets the "timestamp" field.
@@ -1266,8 +1266,8 @@ func (m *BacktestKlineAnalysisMutation) Fields() []string {
 	if m.task_id != nil {
 		fields = append(fields, backtestklineanalysis.FieldTaskID)
 	}
-	if m.kline_index != nil {
-		fields = append(fields, backtestklineanalysis.FieldKlineIndex)
+	if m.index != nil {
+		fields = append(fields, backtestklineanalysis.FieldIndex)
 	}
 	if m.timestamp != nil {
 		fields = append(fields, backtestklineanalysis.FieldTimestamp)
@@ -1330,8 +1330,8 @@ func (m *BacktestKlineAnalysisMutation) Field(name string) (ent.Value, bool) {
 	switch name {
 	case backtestklineanalysis.FieldTaskID:
 		return m.TaskID()
-	case backtestklineanalysis.FieldKlineIndex:
-		return m.KlineIndex()
+	case backtestklineanalysis.FieldIndex:
+		return m.Index()
 	case backtestklineanalysis.FieldTimestamp:
 		return m.Timestamp()
 	case backtestklineanalysis.FieldOpen:
@@ -1377,8 +1377,8 @@ func (m *BacktestKlineAnalysisMutation) OldField(ctx context.Context, name strin
 	switch name {
 	case backtestklineanalysis.FieldTaskID:
 		return m.OldTaskID(ctx)
-	case backtestklineanalysis.FieldKlineIndex:
-		return m.OldKlineIndex(ctx)
+	case backtestklineanalysis.FieldIndex:
+		return m.OldIndex(ctx)
 	case backtestklineanalysis.FieldTimestamp:
 		return m.OldTimestamp(ctx)
 	case backtestklineanalysis.FieldOpen:
@@ -1429,12 +1429,12 @@ func (m *BacktestKlineAnalysisMutation) SetField(name string, value ent.Value) e
 		}
 		m.SetTaskID(v)
 		return nil
-	case backtestklineanalysis.FieldKlineIndex:
+	case backtestklineanalysis.FieldIndex:
 		v, ok := value.(int)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetKlineIndex(v)
+		m.SetIndex(v)
 		return nil
 	case backtestklineanalysis.FieldTimestamp:
 		v, ok := value.(time.Time)
@@ -1563,8 +1563,8 @@ func (m *BacktestKlineAnalysisMutation) SetField(name string, value ent.Value) e
 // this mutation.
 func (m *BacktestKlineAnalysisMutation) AddedFields() []string {
 	var fields []string
-	if m.addkline_index != nil {
-		fields = append(fields, backtestklineanalysis.FieldKlineIndex)
+	if m.addindex != nil {
+		fields = append(fields, backtestklineanalysis.FieldIndex)
 	}
 	if m.addopen != nil {
 		fields = append(fields, backtestklineanalysis.FieldOpen)
@@ -1607,8 +1607,8 @@ func (m *BacktestKlineAnalysisMutation) AddedFields() []string {
 // was not set, or was not defined in the schema.
 func (m *BacktestKlineAnalysisMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
-	case backtestklineanalysis.FieldKlineIndex:
-		return m.AddedKlineIndex()
+	case backtestklineanalysis.FieldIndex:
+		return m.AddedIndex()
 	case backtestklineanalysis.FieldOpen:
 		return m.AddedOpen()
 	case backtestklineanalysis.FieldHigh:
@@ -1640,12 +1640,12 @@ func (m *BacktestKlineAnalysisMutation) AddedField(name string) (ent.Value, bool
 // type.
 func (m *BacktestKlineAnalysisMutation) AddField(name string, value ent.Value) error {
 	switch name {
-	case backtestklineanalysis.FieldKlineIndex:
+	case backtestklineanalysis.FieldIndex:
 		v, ok := value.(int)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.AddKlineIndex(v)
+		m.AddIndex(v)
 		return nil
 	case backtestklineanalysis.FieldOpen:
 		v, ok := value.(float64)
@@ -1811,8 +1811,8 @@ func (m *BacktestKlineAnalysisMutation) ResetField(name string) error {
 	case backtestklineanalysis.FieldTaskID:
 		m.ResetTaskID()
 		return nil
-	case backtestklineanalysis.FieldKlineIndex:
-		m.ResetKlineIndex()
+	case backtestklineanalysis.FieldIndex:
+		m.ResetIndex()
 		return nil
 	case backtestklineanalysis.FieldTimestamp:
 		m.ResetTimestamp()
@@ -2059,6 +2059,42 @@ func (m *BacktestResultMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
 	default:
 		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
 	}
+}
+
+// SetTaskID sets the "task_id" field.
+func (m *BacktestResultMutation) SetTaskID(u uuid.UUID) {
+	m.task = &u
+}
+
+// TaskID returns the value of the "task_id" field in the mutation.
+func (m *BacktestResultMutation) TaskID() (r uuid.UUID, exists bool) {
+	v := m.task
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTaskID returns the old "task_id" field's value of the BacktestResult entity.
+// If the BacktestResult object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BacktestResultMutation) OldTaskID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTaskID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTaskID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTaskID: %w", err)
+	}
+	return oldValue.TaskID, nil
+}
+
+// ResetTaskID resets all changes to the "task_id" field.
+func (m *BacktestResultMutation) ResetTaskID() {
+	m.task = nil
 }
 
 // SetStrategyName sets the "strategy_name" field.
@@ -2846,27 +2882,15 @@ func (m *BacktestResultMutation) ResetCreatedAt() {
 	m.created_at = nil
 }
 
-// SetTaskID sets the "task" edge to the BacktestTask entity by id.
-func (m *BacktestResultMutation) SetTaskID(id uuid.UUID) {
-	m.task = &id
-}
-
 // ClearTask clears the "task" edge to the BacktestTask entity.
 func (m *BacktestResultMutation) ClearTask() {
 	m.clearedtask = true
+	m.clearedFields[backtestresult.FieldTaskID] = struct{}{}
 }
 
 // TaskCleared reports if the "task" edge to the BacktestTask entity was cleared.
 func (m *BacktestResultMutation) TaskCleared() bool {
 	return m.clearedtask
-}
-
-// TaskID returns the "task" edge ID in the mutation.
-func (m *BacktestResultMutation) TaskID() (id uuid.UUID, exists bool) {
-	if m.task != nil {
-		return *m.task, true
-	}
-	return
 }
 
 // TaskIDs returns the "task" edge IDs in the mutation.
@@ -2919,7 +2943,10 @@ func (m *BacktestResultMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *BacktestResultMutation) Fields() []string {
-	fields := make([]string, 0, 16)
+	fields := make([]string, 0, 17)
+	if m.task != nil {
+		fields = append(fields, backtestresult.FieldTaskID)
+	}
 	if m.strategy_name != nil {
 		fields = append(fields, backtestresult.FieldStrategyName)
 	}
@@ -2976,6 +3003,8 @@ func (m *BacktestResultMutation) Fields() []string {
 // schema.
 func (m *BacktestResultMutation) Field(name string) (ent.Value, bool) {
 	switch name {
+	case backtestresult.FieldTaskID:
+		return m.TaskID()
 	case backtestresult.FieldStrategyName:
 		return m.StrategyName()
 	case backtestresult.FieldPair:
@@ -3017,6 +3046,8 @@ func (m *BacktestResultMutation) Field(name string) (ent.Value, bool) {
 // database failed.
 func (m *BacktestResultMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
 	switch name {
+	case backtestresult.FieldTaskID:
+		return m.OldTaskID(ctx)
 	case backtestresult.FieldStrategyName:
 		return m.OldStrategyName(ctx)
 	case backtestresult.FieldPair:
@@ -3058,6 +3089,13 @@ func (m *BacktestResultMutation) OldField(ctx context.Context, name string) (ent
 // type.
 func (m *BacktestResultMutation) SetField(name string, value ent.Value) error {
 	switch name {
+	case backtestresult.FieldTaskID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTaskID(v)
+		return nil
 	case backtestresult.FieldStrategyName:
 		v, ok := value.(string)
 		if !ok {
@@ -3339,6 +3377,9 @@ func (m *BacktestResultMutation) ClearField(name string) error {
 // It returns an error if the field is not defined in the schema.
 func (m *BacktestResultMutation) ResetField(name string) error {
 	switch name {
+	case backtestresult.FieldTaskID:
+		m.ResetTaskID()
+		return nil
 	case backtestresult.FieldStrategyName:
 		m.ResetStrategyName()
 		return nil

@@ -20,6 +20,7 @@ const CancelStreamKey = "tradex:backtest:cancel"
 type BacktestHandler struct {
 	svc           *app.BacktestService
 	cancelPub     domain.CancelNotifier
+	taskNotif     domain.TaskNotifier
 	analysisStore domain.AnalysisStore
 	log           zerolog.Logger
 }
@@ -30,6 +31,11 @@ func NewBacktestHandler(svc *app.BacktestService, log zerolog.Logger) *BacktestH
 
 func (h *BacktestHandler) WithCancelPublisher(pub domain.CancelNotifier) *BacktestHandler {
 	h.cancelPub = pub
+	return h
+}
+
+func (h *BacktestHandler) WithTaskNotifier(notif domain.TaskNotifier) *BacktestHandler {
+	h.taskNotif = notif
 	return h
 }
 
@@ -118,6 +124,13 @@ func (h *BacktestHandler) CreateTask(c *gin.Context) {
 		"id":     task.ID,
 		"status": task.Status,
 	})
+
+	// 通知 Worker 有新任务待处理
+	if h.taskNotif != nil {
+		if err := h.taskNotif.NotifyCreate(c.Request.Context(), task.ID.String()); err != nil {
+			h.log.Warn().Err(err).Str("task_id", task.ID.String()).Msg("发布任务创建事件失败")
+		}
+	}
 }
 
 func (h *BacktestHandler) ListTasks(c *gin.Context) {
@@ -148,7 +161,7 @@ func (h *BacktestHandler) ListTasks(c *gin.Context) {
 func (h *BacktestHandler) GetTask(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		BadRequest(c, "无效的ID")
+		BadRequest(c, "无效的 ID")
 		return
 	}
 
@@ -164,7 +177,7 @@ func (h *BacktestHandler) GetTask(c *gin.Context) {
 func (h *BacktestHandler) CancelTask(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		BadRequest(c, "无效的ID")
+		BadRequest(c, "无效的 ID")
 		return
 	}
 
@@ -185,9 +198,9 @@ func (h *BacktestHandler) CancelTask(c *gin.Context) {
 	// publish cancel event to Redis Stream for cross-process notification
 	if h.cancelPub != nil {
 		if err := h.cancelPub.NotifyCancel(c.Request.Context(), id.String()); err != nil {
-			h.log.Warn().Err(err).Str("task_id", id.String()).Msg("failed to publish cancel event")
+			h.log.Warn().Err(err).Str("task_id", id.String()).Msg("发布取消事件失败")
 		} else {
-			h.log.Info().Str("task_id", id.String()).Msg("cancel event published to stream")
+			h.log.Info().Str("task_id", id.String()).Msg("取消事件已发布到流")
 		}
 	}
 
@@ -197,7 +210,7 @@ func (h *BacktestHandler) CancelTask(c *gin.Context) {
 func (h *BacktestHandler) GetResult(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		BadRequest(c, "无效的ID")
+		BadRequest(c, "无效的 ID")
 		return
 	}
 
@@ -224,7 +237,7 @@ func (h *BacktestHandler) GetResult(c *gin.Context) {
 func (h *BacktestHandler) StreamAnalysis(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		BadRequest(c, "无效的ID")
+		BadRequest(c, "无效的 ID")
 		return
 	}
 
@@ -261,21 +274,50 @@ func (h *BacktestHandler) StreamAnalysis(c *gin.Context) {
 		if flusher != nil {
 			flusher.Flush()
 		}
-		storeCount := h.analysisStore.Count(taskIDStr)
-		c.Writer.WriteString(fmt.Sprintf("data: {\"type\":\"meta\",\"total\":%d,\"incremental\":true}\n\n", storeCount))
+
+		// 先发送所有已存在的分析数据
+		existing := h.analysisStore.Get(taskIDStr)
+		for _, item := range existing {
+			select {
+			case <-c.Request.Context().Done():
+				return
+			default:
+			}
+			writeAnalysisSSE(c, item, flusher)
+			if flusher != nil {
+				flusher.Flush()
+			}
+		}
+
+		// 再订阅增量推送
+		total := len(existing)
+		c.Writer.WriteString(fmt.Sprintf("data: {\"type\":\"meta\",\"total\":%d,\"incremental\":true}\n\n", total))
 		if flusher != nil {
 			flusher.Flush()
 		}
 
 		ch, ok := h.analysisStore.Subscribe(taskIDStr)
 		if ok {
-			for item := range ch {
-				if delayMs > 0 {
-					time.Sleep(time.Duration(delayMs) * time.Millisecond)
-				}
-				writeAnalysisSSE(c, item, flusher)
-				if flusher != nil {
-					flusher.Flush()
+		loop:
+			for {
+				select {
+				case <-c.Request.Context().Done():
+					break loop
+				case item, ok := <-ch:
+					if !ok {
+						break loop
+					}
+					if delayMs > 0 {
+						select {
+						case <-c.Request.Context().Done():
+							break loop
+						case <-time.After(time.Duration(delayMs) * time.Millisecond):
+						}
+					}
+					writeAnalysisSSE(c, item, flusher)
+					if flusher != nil {
+						flusher.Flush()
+					}
 				}
 			}
 		}
@@ -301,8 +343,17 @@ func (h *BacktestHandler) StreamAnalysis(c *gin.Context) {
 			flusher.Flush()
 		}
 		for _, item := range analysis {
+			select {
+			case <-c.Request.Context().Done():
+				return
+			default:
+			}
 			if delayMs > 0 {
-				time.Sleep(time.Duration(delayMs) * time.Millisecond)
+				select {
+				case <-c.Request.Context().Done():
+					return
+				case <-time.After(time.Duration(delayMs) * time.Millisecond):
+				}
 			}
 			writeAnalysisSSE(c, item, flusher)
 			if flusher != nil {
@@ -360,13 +411,14 @@ func writeAnalysisSSE(c *gin.Context, a domain.BacktestKlineAnalysis, flusher in
 func (h *BacktestHandler) GetAnalysisCount(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		BadRequest(c, "无效的ID")
+		BadRequest(c, "无效的 ID")
 		return
 	}
 
 	count, err := h.svc.GetAnalysisCount(c.Request.Context(), id)
 	if err != nil {
-		Success(c, gin.H{"count": 0})
+		h.log.Error().Err(err).Str("task_id", id.String()).Msg("查询分析数量失败")
+		InternalError(c, "查询分析数量失败")
 		return
 	}
 
@@ -376,7 +428,7 @@ func (h *BacktestHandler) GetAnalysisCount(c *gin.Context) {
 func (h *BacktestHandler) GetAnalysis(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		BadRequest(c, "无效的ID")
+		BadRequest(c, "无效的 ID")
 		return
 	}
 
@@ -388,7 +440,8 @@ func (h *BacktestHandler) GetAnalysis(c *gin.Context) {
 
 	analysis, err := h.svc.GetAnalysis(c.Request.Context(), id, cursor, limit)
 	if err != nil {
-		Success(c, []any{})
+		h.log.Error().Err(err).Str("task_id", id.String()).Msg("查询分析数据失败")
+		InternalError(c, "查询分析数据失败")
 		return
 	}
 

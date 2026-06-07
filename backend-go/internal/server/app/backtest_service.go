@@ -102,7 +102,7 @@ func (s *BacktestService) CancelTask(ctx context.Context, id uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-	if task.Status == domain.TaskStatusCompleted || task.Status == domain.TaskStatusFailed {
+	if task.Status == domain.TaskStatusCompleted || task.Status == domain.TaskStatusFailed || task.Status == domain.TaskStatusCancelled {
 		return fmt.Errorf("%w: 任务已结束，无法取消", domain.ErrConflict)
 	}
 	return s.repo.UpdateTaskStatus(ctx, id, domain.TaskStatusCancelled, nil)

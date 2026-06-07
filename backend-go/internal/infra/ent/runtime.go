@@ -36,19 +36,19 @@ func init() {
 	backtestresultFields := schema.BacktestResult{}.Fields()
 	_ = backtestresultFields
 	// backtestresultDescStrategyName is the schema descriptor for strategy_name field.
-	backtestresultDescStrategyName := backtestresultFields[1].Descriptor()
+	backtestresultDescStrategyName := backtestresultFields[2].Descriptor()
 	// backtestresult.DefaultStrategyName holds the default value on creation for the strategy_name field.
 	backtestresult.DefaultStrategyName = backtestresultDescStrategyName.Default.(string)
 	// backtestresultDescPair is the schema descriptor for pair field.
-	backtestresultDescPair := backtestresultFields[2].Descriptor()
+	backtestresultDescPair := backtestresultFields[3].Descriptor()
 	// backtestresult.DefaultPair holds the default value on creation for the pair field.
 	backtestresult.DefaultPair = backtestresultDescPair.Default.(string)
 	// backtestresultDescTimeframe is the schema descriptor for timeframe field.
-	backtestresultDescTimeframe := backtestresultFields[3].Descriptor()
+	backtestresultDescTimeframe := backtestresultFields[4].Descriptor()
 	// backtestresult.DefaultTimeframe holds the default value on creation for the timeframe field.
 	backtestresult.DefaultTimeframe = backtestresultDescTimeframe.Default.(string)
 	// backtestresultDescCreatedAt is the schema descriptor for created_at field.
-	backtestresultDescCreatedAt := backtestresultFields[16].Descriptor()
+	backtestresultDescCreatedAt := backtestresultFields[17].Descriptor()
 	// backtestresult.DefaultCreatedAt holds the default value on creation for the created_at field.
 	backtestresult.DefaultCreatedAt = backtestresultDescCreatedAt.Default.(func() time.Time)
 	// backtestresultDescID is the schema descriptor for id field.

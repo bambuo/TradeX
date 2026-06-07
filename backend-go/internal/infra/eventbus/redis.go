@@ -173,6 +173,19 @@ func (n *RedisCancelNotifier) NotifyCancel(ctx context.Context, taskID string) e
 	return n.bus.StreamAdd(ctx, "tradex:backtest:cancel", map[string]any{"task_id": taskID})
 }
 
+// RedisTaskNotifier implements domain.TaskNotifier via Redis Stream.
+type RedisTaskNotifier struct {
+	bus *RedisEventBus
+}
+
+func NewRedisTaskNotifier(bus *RedisEventBus) *RedisTaskNotifier {
+	return &RedisTaskNotifier{bus: bus}
+}
+
+func (n *RedisTaskNotifier) NotifyCreate(ctx context.Context, taskID string) error {
+	return n.bus.StreamAdd(ctx, "tradex:backtest", map[string]any{"task_id": taskID})
+}
+
 func dedupKey(group, entryID string) string {
 	return fmt.Sprintf("tradex:dedup:%s:%s", group, entryID)
 }

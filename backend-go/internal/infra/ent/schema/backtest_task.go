@@ -46,8 +46,7 @@ func (BacktestTask) Fields() []ent.Field {
 func (BacktestTask) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("result", BacktestResult.Type).
-			Unique().
-			StorageKey(edge.Column("result_id")),
+			Unique(),
 	}
 }
 

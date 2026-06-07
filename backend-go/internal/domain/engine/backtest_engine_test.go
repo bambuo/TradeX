@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"testing"
 
 	"github.com/shopspring/decimal"
@@ -70,7 +71,7 @@ func TestRun_EntryAlwaysTrue_ExitAlwaysTrue_ProducesTrades(t *testing.T) {
 	assert.NotEqual(t, decimal.Zero, out.Result.TotalReturnPercent)
 }
 
-func TestRun_InsufficientData_ReturnsError(t *testing.T) {
+func TestRun_InsufficientData_ReturnsEmptyResult(t *testing.T) {
 	engine := newTestEngine()
 
 	strategy := domain.Strategy{
@@ -79,14 +80,16 @@ func TestRun_InsufficientData_ReturnsError(t *testing.T) {
 	}
 
 	candles := sineCandles(10)
-	_, err := engine.Run(context.Background(), EngineInput{
+	out, err := engine.Run(context.Background(), EngineInput{
 		Strategy:       strategy,
 		Pair:           "BTCUSDT",
 		Klines:         candles,
 		InitialCapital: decimal.NewFromInt(1000),
 	})
 
-	require.Error(t, err)
+	require.NoError(t, err)
+	assert.Equal(t, 0, out.Result.TotalTrades, "insufficient data should produce 0 trades")
+	assert.Equal(t, 0, len(out.Trades))
 }
 
 func TestRun_EmptyEntryCondition_ProducesZeroTrades(t *testing.T) {
@@ -149,15 +152,19 @@ func TestRun_CalculatesMetrics_Correctly(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, len(out.Trades), out.Result.TotalTrades)
 
-	totalRet, _ := out.Result.TotalReturnPercent.Float64()
-	assert.InDelta(t, totalRet, totalRet, 1000)
-
 	dd, _ := out.Result.MaxDrawdownPercent.Float64()
 	assert.GreaterOrEqual(t, dd, -100.0)
+	assert.True(t, dd <= 0.0, "max drawdown should be <= 0, got %f", dd)
 
 	wr, _ := out.Result.WinRate.Float64()
 	assert.GreaterOrEqual(t, wr, 0.0)
 	assert.LessOrEqual(t, wr, 100.0)
+
+	sr, _ := out.Result.SharpeRatio.Float64()
+	assert.False(t, math.IsNaN(sr), "SharpeRatio should not be NaN")
+
+	plr, _ := out.Result.ProfitLossRatio.Float64()
+	assert.GreaterOrEqual(t, plr, 0.0)
 }
 
 func TestRun_WithFee_ProducesLowerFinalValue(t *testing.T) {
@@ -265,6 +272,112 @@ func TestRun_CancellationMidRun_StopsQuickly(t *testing.T) {
 	})
 
 	require.ErrorIs(t, err, context.Canceled)
+}
+
+func TestRun_Analysis_HasPositionCostAndConditionResult(t *testing.T) {
+	engine := newTestEngine()
+
+	strategy := domain.Strategy{
+		EntryCondition: json.RawMessage(`{"operator":"","indicator":"RSI","comparison":">","value":0}`),
+		ExitCondition:  json.RawMessage(`{"operator":"","indicator":"RSI","comparison":"<","value":100}`),
+	}
+
+	candles := sineCandles(300)
+	out, err := engine.Run(context.Background(), EngineInput{
+		Strategy:       strategy,
+		Pair:           "BTCUSDT",
+		Klines:         candles,
+		InitialCapital: decimal.NewFromInt(1000),
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, out.Analysis)
+
+	// 找一条入场后的 K 线验证 PositionCost
+	for _, a := range out.Analysis {
+		if a.InPosition {
+			t.Logf("PositionCost set at index %d: %v", a.KlineIndex, a.PositionCost)
+			assert.NotNil(t, a.PositionCost, "PositionCost should be set when in position")
+			assert.NotNil(t, a.AvgEntryPrice)
+			assert.NotNil(t, a.PositionQuantity)
+			assert.NotNil(t, a.PositionValue)
+			assert.NotNil(t, a.PositionPnl)
+			assert.NotNil(t, a.PositionPnlPercent)
+			break
+		}
+	}
+
+	// 找一条有 EntryConditionResult 的 K 线
+	for _, a := range out.Analysis {
+		if a.EntryConditionResult != nil {
+			t.Logf("EntryConditionResult set at index %d: %v", a.KlineIndex, *a.EntryConditionResult)
+			assert.True(t, *a.EntryConditionResult)
+			break
+		}
+	}
+}
+
+func TestRun_ForcedExitOnLastKline(t *testing.T) {
+	engine := newTestEngine()
+
+	// 创建一条入场 always true 但出场永远不触发的策略
+	exitNeverTrueStrategy := domain.Strategy{
+		EntryCondition: json.RawMessage(`{"operator":"","indicator":"RSI","comparison":">","value":0}`),
+		ExitCondition:  json.RawMessage(`{"operator":"","indicator":"RSI","comparison":">","value":200}`),
+	}
+
+	candles := sineCandles(200)
+	out, err := engine.Run(context.Background(), EngineInput{
+		Strategy:       exitNeverTrueStrategy,
+		Pair:           "BTCUSDT",
+		Klines:         candles,
+		InitialCapital: decimal.NewFromInt(1000),
+	})
+	require.NoError(t, err)
+
+	// 必须有至少一笔交易（最后 K 线强制平仓）
+	assert.GreaterOrEqual(t, out.Result.TotalTrades, 1,
+		"should have at least one trade from forced exit on last bar")
+}
+
+func TestRun_TwoLegFee_ReducesPnL(t *testing.T) {
+	engine := newTestEngine()
+
+	strategy := domain.Strategy{
+		EntryCondition: json.RawMessage(`{"operator":"","indicator":"RSI","comparison":">","value":0}`),
+		ExitCondition:  json.RawMessage(`{"operator":"","indicator":"RSI","comparison":"<","value":100}`),
+	}
+
+	candles := sineCandles(200)
+
+	zeroFee, err := engine.Run(context.Background(), EngineInput{
+		Strategy:       strategy,
+		Pair:           "BTCUSDT",
+		Klines:         candles,
+		InitialCapital: decimal.NewFromInt(1000),
+		FeeRate:        decimal.Zero,
+	})
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(zeroFee.Trades), 1)
+
+	withFee, err := engine.Run(context.Background(), EngineInput{
+		Strategy:       strategy,
+		Pair:           "BTCUSDT",
+		Klines:         candles,
+		InitialCapital: decimal.NewFromInt(1000),
+		FeeRate:        decimal.NewFromFloat(0.001),
+	})
+	require.NoError(t, err)
+
+	if len(zeroFee.Trades) > 0 && len(withFee.Trades) > 0 {
+		// 有手续费时的单笔 PnL 应低于无手续费
+		for i := range zeroFee.Trades {
+			if i < len(withFee.Trades) {
+				assert.True(t, withFee.Trades[i].PnL.LessThan(zeroFee.Trades[i].PnL) || withFee.Trades[i].PnL.Equal(zeroFee.Trades[i].PnL),
+					"trade %d: with-fee PnL (%s) should be <= zero-fee PnL (%s)",
+					i, withFee.Trades[i].PnL.String(), zeroFee.Trades[i].PnL.String())
+			}
+		}
+	}
 }
 
 func TestRun_WithFeeRate_PercentageCorrect(t *testing.T) {

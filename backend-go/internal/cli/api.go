@@ -37,21 +37,21 @@ func NewAPICmd() *cobra.Command {
 				Environment:    viper.GetString("environment"),
 			})
 			if err != nil {
-				log.Warn().Err(err).Msg("otel init failed, continuing without tracing")
+				log.Warn().Err(err).Msg("遥测初始化失败，无追踪继续运行")
 			} else {
 				defer shutdown(context.Background())
 			}
 
 			client, err := persistence.OpenDB(dsn)
 			if err != nil {
-				log.Fatal().Err(err).Msg("failed to open database")
+				log.Fatal().Err(err).Msg("打开数据库失败")
 			}
 			defer client.Close()
 
 			if err := persistence.AutoMigrate(context.Background(), client); err != nil {
-				log.Fatal().Err(err).Msg("failed to run migrations")
+				log.Fatal().Err(err).Msg("运行数据库迁移失败")
 			}
-			log.Info().Msg("database migrations applied")
+			log.Info().Msg("数据库迁移已应用")
 
 			btRepo := persistence.NewBacktestRepo(client)
 			svc := app.NewBacktestService(btRepo)
@@ -67,6 +67,7 @@ func NewAPICmd() *cobra.Command {
 			h := handler.NewBacktestHandler(svc, log)
 			if redisBus != nil {
 				h.WithCancelPublisher(eventbus.NewRedisCancelNotifier(redisBus))
+				h.WithTaskNotifier(eventbus.NewRedisTaskNotifier(redisBus))
 			}
 
 			r := gin.New()
@@ -80,9 +81,9 @@ func NewAPICmd() *cobra.Command {
 			h.RegisterRoutes(r)
 
 			addr := viper.GetString("listen")
-			log.Info().Str("addr", addr).Msg("API server starting")
+			log.Info().Str("addr", addr).Msg("API 服务启动")
 			if err := r.Run(addr); err != nil {
-				log.Fatal().Err(err).Msg("server failed")
+				log.Fatal().Err(err).Msg("服务启动失败")
 			}
 		},
 	}

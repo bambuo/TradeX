@@ -62,6 +62,12 @@ func (m *mockRepo) GetAnalysisCount(_ context.Context, _ uuid.UUID) (int, error)
 func (m *mockRepo) GetStrategy(_ context.Context, _ uuid.UUID) (*domain.Strategy, error) {
 	return nil, errMock
 }
+func (m *mockRepo) ExecuteInTransaction(_ context.Context, fn func(domain.BacktestRepository) error) error {
+	return fn(m)
+}
+func (m *mockRepo) TryAcquireTask(_ context.Context, _ uuid.UUID, _ domain.BacktestTaskStatus, _ domain.BacktestPhase) (bool, error) {
+	return true, nil
+}
 
 func newTestHandler() *BacktestHandler {
 	return NewBacktestHandler(app.NewBacktestService(&mockRepo{}), zerolog.Nop())
@@ -124,4 +130,84 @@ func TestHandler_CancelTask_InvalidID(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, 400, w.Code)
+}
+
+func TestHandler_GetAnalysis_InvalidID(t *testing.T) {
+	h := newTestHandler()
+	r := gin.New()
+	h.RegisterRoutes(r)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/api/v1/backtest/invalid/analysis", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, 400, w.Code)
+}
+
+func TestHandler_GetResult_TaskNotFound(t *testing.T) {
+	h := newTestHandler()
+	r := gin.New()
+	h.RegisterRoutes(r)
+
+	taskID := uuid.New()
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/api/v1/backtest/"+taskID.String()+"/result", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, 404, w.Code)
+}
+
+func TestHandler_ListTasks_ReturnsJSON(t *testing.T) {
+	h := newTestHandler()
+	r := gin.New()
+	h.RegisterRoutes(r)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/api/v1/backtest?page=1&page_size=10", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, 200, w.Code)
+
+	var resp Response
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	require.NoError(t, err)
+	assert.Equal(t, 0, resp.Code)
+}
+
+func TestHandler_GetAnalysisCount_InvalidID(t *testing.T) {
+	h := newTestHandler()
+	r := gin.New()
+	h.RegisterRoutes(r)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/api/v1/backtest/invalid/analysis/count", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, 400, w.Code)
+}
+
+func TestHandler_Livez_Healthy(t *testing.T) {
+	h := newTestHandler()
+	r := gin.New()
+	h.RegisterRoutes(r)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/livez", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, 200, w.Code)
+	assert.Contains(t, w.Body.String(), `"alive"`)
+}
+
+func TestHandler_Readyz_Ready(t *testing.T) {
+	h := newTestHandler()
+	r := gin.New()
+	h.RegisterRoutes(r)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/readyz", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, 200, w.Code)
+	assert.Contains(t, w.Body.String(), `"ready"`)
 }

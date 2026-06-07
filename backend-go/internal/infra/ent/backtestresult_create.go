@@ -22,6 +22,12 @@ type BacktestResultCreate struct {
 	hooks    []Hook
 }
 
+// SetTaskID sets the "task_id" field.
+func (_c *BacktestResultCreate) SetTaskID(v uuid.UUID) *BacktestResultCreate {
+	_c.mutation.SetTaskID(v)
+	return _c
+}
+
 // SetStrategyName sets the "strategy_name" field.
 func (_c *BacktestResultCreate) SetStrategyName(v string) *BacktestResultCreate {
 	_c.mutation.SetStrategyName(v)
@@ -164,12 +170,6 @@ func (_c *BacktestResultCreate) SetNillableID(v *uuid.UUID) *BacktestResultCreat
 	return _c
 }
 
-// SetTaskID sets the "task" edge to the BacktestTask entity by ID.
-func (_c *BacktestResultCreate) SetTaskID(id uuid.UUID) *BacktestResultCreate {
-	_c.mutation.SetTaskID(id)
-	return _c
-}
-
 // SetTask sets the "task" edge to the BacktestTask entity.
 func (_c *BacktestResultCreate) SetTask(v *BacktestTask) *BacktestResultCreate {
 	return _c.SetTaskID(v.ID)
@@ -234,6 +234,9 @@ func (_c *BacktestResultCreate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (_c *BacktestResultCreate) check() error {
+	if _, ok := _c.mutation.TaskID(); !ok {
+		return &ValidationError{Name: "task_id", err: errors.New(`ent: missing required field "BacktestResult.task_id"`)}
+	}
 	if _, ok := _c.mutation.StrategyName(); !ok {
 		return &ValidationError{Name: "strategy_name", err: errors.New(`ent: missing required field "BacktestResult.strategy_name"`)}
 	}
@@ -395,7 +398,7 @@ func (_c *BacktestResultCreate) createSpec() (*BacktestResult, *sqlgraph.CreateS
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.result_id = &nodes[0]
+		_node.TaskID = nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

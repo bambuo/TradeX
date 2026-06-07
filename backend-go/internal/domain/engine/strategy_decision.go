@@ -18,9 +18,10 @@ const (
 )
 
 type StrategyDecision struct {
-	Type         DecisionType
-	PositionSize *decimal.Decimal
-	Reason       string
+	Type            DecisionType
+	PositionSize    *decimal.Decimal
+	Reason          string
+	ConditionResult *bool
 }
 
 type DecisionInput struct {
@@ -63,14 +64,19 @@ func (sde *StrategyDecisionEngine) evaluateEntry(input DecisionInput) StrategyDe
 		Registry: input.Registry,
 	}
 	entry, err := EvaluateCondition(input.Strategy.EntryCondition, ctx)
-	if err != nil || !entry {
-		return StrategyDecision{Type: DecisionHold}
+	condResult := entry && err == nil
+	if !condResult {
+		return StrategyDecision{
+			Type:            DecisionHold,
+			ConditionResult: &condResult,
+		}
 	}
 
 	return StrategyDecision{
-		Type:         DecisionEnter,
-		PositionSize: nil,
-		Reason:       "entry_condition_met",
+		Type:            DecisionEnter,
+		PositionSize:    nil,
+		Reason:          "entry_condition_met",
+		ConditionResult: &condResult,
 	}
 }
 
@@ -89,13 +95,18 @@ func (sde *StrategyDecisionEngine) evaluateExit(input DecisionInput) StrategyDec
 		Registry: input.Registry,
 	}
 	exit, err := EvaluateCondition(input.Strategy.ExitCondition, ctx)
-	if err != nil || !exit {
-		return StrategyDecision{Type: DecisionHold}
+	condResult := exit && err == nil
+	if !condResult {
+		return StrategyDecision{
+			Type:            DecisionHold,
+			ConditionResult: &condResult,
+		}
 	}
 
 	return StrategyDecision{
-		Type:   DecisionExit,
-		Reason: "exit_condition_met",
+		Type:            DecisionExit,
+		Reason:          "exit_condition_met",
+		ConditionResult: &condResult,
 	}
 }
 

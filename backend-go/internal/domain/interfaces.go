@@ -7,6 +7,11 @@ type CancelNotifier interface {
 	NotifyCancel(ctx context.Context, taskID string) error
 }
 
+// TaskNotifier publishes cross-process task creation events for worker pickup.
+type TaskNotifier interface {
+	NotifyCreate(ctx context.Context, taskID string) error
+}
+
 // AnalysisStore provides live streaming of backtest K-line analysis data.
 type AnalysisStore interface {
 	Init(taskID string)

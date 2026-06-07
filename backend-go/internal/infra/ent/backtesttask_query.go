@@ -410,7 +410,9 @@ func (_q *BacktestTaskQuery) loadResult(ctx context.Context, query *BacktestResu
 		fks = append(fks, nodes[i].ID)
 		nodeids[nodes[i].ID] = nodes[i]
 	}
-	query.withFKs = true
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(backtestresult.FieldTaskID)
+	}
 	query.Where(predicate.BacktestResult(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(backtesttask.ResultColumn), fks...))
 	}))
@@ -419,13 +421,10 @@ func (_q *BacktestTaskQuery) loadResult(ctx context.Context, query *BacktestResu
 		return err
 	}
 	for _, n := range neighbors {
-		fk := n.result_id
-		if fk == nil {
-			return fmt.Errorf(`foreign-key "result_id" is nil for node %v`, n.ID)
-		}
-		node, ok := nodeids[*fk]
+		fk := n.TaskID
+		node, ok := nodeids[fk]
 		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "result_id" returned %v for node %v`, *fk, n.ID)
+			return fmt.Errorf(`unexpected referenced foreign-key "task_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}

@@ -13,7 +13,7 @@ public class BacktestKlineAnalysisEntity
     public decimal Low { get; set; }
     public decimal Close { get; set; }
     public decimal Volume { get; set; }
-    public string IndicatorsJson { get; set; } = "{}";
+    public string IndicatorValues { get; set; } = "{}";
     public bool? EntryConditionResult { get; set; }
     public bool? ExitConditionResult { get; set; }
     public bool InPosition { get; set; }
@@ -27,7 +27,7 @@ public class BacktestKlineAnalysisEntity
 
     public BacktestKlineAnalysis ToDomain() => new(
         Index, Timestamp, Open, High, Low, Close, Volume,
-        System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, decimal>>(IndicatorsJson,
+        System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, decimal>>(IndicatorValues,
             new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }) ?? [],
         EntryConditionResult, ExitConditionResult, InPosition, Action,
         AvgEntryPrice, PositionQuantity, PositionCost, PositionValue, PositionPnl, PositionPnlPercent);
@@ -43,7 +43,7 @@ public class BacktestKlineAnalysisEntity
         Low = a.Low,
         Close = a.Close,
         Volume = a.Volume,
-        IndicatorsJson = System.Text.Json.JsonSerializer.Serialize(a.IndicatorValues,
+        IndicatorValues = System.Text.Json.JsonSerializer.Serialize(a.IndicatorValues,
             new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }),
         EntryConditionResult = a.EntryConditionResult,
         ExitConditionResult = a.ExitConditionResult,

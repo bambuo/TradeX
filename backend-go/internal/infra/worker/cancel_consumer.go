@@ -21,7 +21,6 @@ const (
 type BacktestCancellationConsumer struct {
 	tracker *RunningBacktestTracker
 	bus     *eventbus.RedisEventBus
-	rdb     *redis.Client
 	log     zerolog.Logger
 }
 
@@ -29,19 +28,18 @@ func NewCancellationConsumer(tracker *RunningBacktestTracker, bus *eventbus.Redi
 	return &BacktestCancellationConsumer{
 		tracker: tracker,
 		bus:     bus,
-		rdb:     bus.Client(),
 		log:     log,
 	}
 }
 
 func (c *BacktestCancellationConsumer) Start(ctx context.Context) {
 	if c.bus == nil {
-		c.log.Warn().Msg("redis bus not available, skipping cancel consumer")
+		c.log.Warn().Msg("Redis 不可用，跳过取消消费者")
 		return
 	}
 
 	if err := c.bus.EnsureConsumerGroup(ctx, CancelStreamKey, CancelConsumerGroup); err != nil {
-		c.log.Error().Err(err).Msg("failed to ensure cancel consumer group")
+		c.log.Error().Err(err).Msg("确保取消消费者组失败")
 	}
 
 	consumer := eventbus.ConsumerName()
@@ -63,7 +61,7 @@ func (c *BacktestCancellationConsumer) readLoop(ctx context.Context, consumer st
 			if ctx.Err() != nil {
 				return
 			}
-			c.log.Warn().Err(err).Msg("cancel stream read failed, retrying")
+			c.log.Warn().Err(err).Msg("取消流读取失败，重试中")
 			time.Sleep(CancelPollDelay)
 			continue
 		}
@@ -89,7 +87,7 @@ func (c *BacktestCancellationConsumer) reclaimLoop(ctx context.Context, consumer
 		case <-ticker.C:
 			reclaimed, err := c.bus.ClaimStale(ctx, CancelStreamKey, CancelConsumerGroup, consumer, StaleIdleMs)
 			if err != nil {
-				c.log.Warn().Err(err).Msg("cancel PEL reclaim failed")
+				c.log.Warn().Err(err).Msg("取消 PEL 回收失败")
 				continue
 			}
 			for _, msg := range reclaimed {
@@ -110,25 +108,25 @@ func (c *BacktestCancellationConsumer) processCancel(ctx context.Context, msg re
 
 	raw, ok := eventbus.ParseTaskID(msg)
 	if !ok {
-		c.log.Warn().Str("entry_id", msg.ID).Msg("cancel msg missing task_id, acking")
+		c.log.Warn().Str("entry_id", msg.ID).Msg("取消消息缺少 task_id，已确认")
 		c.bus.Ack(ctx, CancelStreamKey, group, msg.ID)
 		return
 	}
 
 	taskID, err := uuid.Parse(raw)
 	if err != nil {
-		c.log.Warn().Err(err).Str("raw", raw).Msg("invalid cancel task_id, acking")
+		c.log.Warn().Err(err).Str("raw", raw).Msg("无效的取消 task_id，已确认")
 		c.bus.Ack(ctx, CancelStreamKey, group, msg.ID)
 		return
 	}
 
-	c.log.Info().Str("task_id", taskID.String()).Msg("received cancel from stream")
+	c.log.Info().Str("task_id", taskID.String()).Msg("从流收到取消事件")
 
 	if c.tracker.Cancel(taskID) {
 		c.log.Info().Str("task_id", taskID.String()).Interface("event",
-			domain.BacktestCancelledEvent{TaskID: taskID, Timestamp: time.Now()}).Msg("backtest_cancelled")
+			domain.BacktestCancelledEvent{TaskID: taskID, Timestamp: time.Now()}).Msg("回测已取消")
 	} else {
-		c.log.Warn().Str("task_id", taskID.String()).Msg("task not found in tracker, may already be done")
+		c.log.Warn().Str("task_id", taskID.String()).Msg("任务不在跟踪器中，可能已完成")
 	}
 
 	c.bus.MarkProcessed(ctx, group, msg.ID)

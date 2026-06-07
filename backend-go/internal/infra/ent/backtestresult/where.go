@@ -56,6 +56,11 @@ func IDLTE(id uuid.UUID) predicate.BacktestResult {
 	return predicate.BacktestResult(sql.FieldLTE(FieldID, id))
 }
 
+// TaskID applies equality check predicate on the "task_id" field. It's identical to TaskIDEQ.
+func TaskID(v uuid.UUID) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldEQ(FieldTaskID, v))
+}
+
 // StrategyName applies equality check predicate on the "strategy_name" field. It's identical to StrategyNameEQ.
 func StrategyName(v string) predicate.BacktestResult {
 	return predicate.BacktestResult(sql.FieldEQ(FieldStrategyName, v))
@@ -129,6 +134,26 @@ func TotalTrades(v int) predicate.BacktestResult {
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.BacktestResult {
 	return predicate.BacktestResult(sql.FieldEQ(FieldCreatedAt, v))
+}
+
+// TaskIDEQ applies the EQ predicate on the "task_id" field.
+func TaskIDEQ(v uuid.UUID) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldEQ(FieldTaskID, v))
+}
+
+// TaskIDNEQ applies the NEQ predicate on the "task_id" field.
+func TaskIDNEQ(v uuid.UUID) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldNEQ(FieldTaskID, v))
+}
+
+// TaskIDIn applies the In predicate on the "task_id" field.
+func TaskIDIn(vs ...uuid.UUID) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldIn(FieldTaskID, vs...))
+}
+
+// TaskIDNotIn applies the NotIn predicate on the "task_id" field.
+func TaskIDNotIn(vs ...uuid.UUID) predicate.BacktestResult {
+	return predicate.BacktestResult(sql.FieldNotIn(FieldTaskID, vs...))
 }
 
 // StrategyNameEQ applies the EQ predicate on the "strategy_name" field.

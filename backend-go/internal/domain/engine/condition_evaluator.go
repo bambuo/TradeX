@@ -98,15 +98,28 @@ func evalLegacyComparison(node *ConditionNode, ctx EvaluationContext) (bool, err
 		return false, err
 	}
 
-	var rightVal float64
+	var rightVal, prevRightVal float64
 	if node.Ref != nil && node.Ref.Name != "" {
 		rightVal, err = resolveIndicator(node.Ref.Name, ctx)
 		if err != nil {
 			return false, err
 		}
 		rightVal *= *node.Value
+		// crossover 需要上一根的 ref 值
+		if ctx.Index > 0 {
+			prevCtx := ctx
+			prevCtx.Index = ctx.Index - 1
+			prevRightVal, err = resolveIndicator(node.Ref.Name, prevCtx)
+			if err != nil {
+				return false, err
+			}
+			prevRightVal *= *node.Value
+		} else {
+			prevRightVal = rightVal
+		}
 	} else if node.Value != nil {
 		rightVal = *node.Value
+		prevRightVal = rightVal
 	} else {
 		return false, fmt.Errorf("legacy condition missing value or ref")
 	}
@@ -125,9 +138,9 @@ func evalLegacyComparison(node *ConditionNode, ctx EvaluationContext) (bool, err
 	case "!=":
 		return leftVal != rightVal, nil
 	case "CA":
-		return evalCrossOverLegacy(node.Indicator, nil, rightVal, ctx)
+		return evalCrossOverLegacy(node.Indicator, rightVal, prevRightVal, ctx)
 	case "CB":
-		return evalCrossUnderLegacy(node.Indicator, nil, rightVal, ctx)
+		return evalCrossUnderLegacy(node.Indicator, rightVal, prevRightVal, ctx)
 	default:
 		return false, fmt.Errorf("unknown legacy comparison: %s", node.Comparison)
 	}
@@ -142,22 +155,22 @@ func resolveIndicator(name string, ctx EvaluationContext) (float64, error) {
 	return closeVal, nil
 }
 
-func evalCrossOverLegacy(indicator string, _ *RefNode, value float64, ctx EvaluationContext) (bool, error) {
+func evalCrossOverLegacy(indicator string, currCompare, prevCompare float64, ctx EvaluationContext) (bool, error) {
 	if ctx.Index < 1 {
 		return false, nil
 	}
 	curr, _ := resolveIndicator(indicator, ctx)
 	prev, _ := resolveIndicator(indicator, EvaluationContext{Index: ctx.Index - 1, Klines: ctx.Klines, Registry: ctx.Registry})
-	return prev <= value && curr > value, nil
+	return prev <= prevCompare && curr > currCompare, nil
 }
 
-func evalCrossUnderLegacy(indicator string, _ *RefNode, value float64, ctx EvaluationContext) (bool, error) {
+func evalCrossUnderLegacy(indicator string, currCompare, prevCompare float64, ctx EvaluationContext) (bool, error) {
 	if ctx.Index < 1 {
 		return false, nil
 	}
 	curr, _ := resolveIndicator(indicator, ctx)
 	prev, _ := resolveIndicator(indicator, EvaluationContext{Index: ctx.Index - 1, Klines: ctx.Klines, Registry: ctx.Registry})
-	return prev >= value && curr < value, nil
+	return prev >= prevCompare && curr < currCompare, nil
 }
 
 func evalComparison(node *ConditionNode, ctx EvaluationContext) (bool, error) {

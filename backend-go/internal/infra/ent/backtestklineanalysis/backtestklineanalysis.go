@@ -14,8 +14,8 @@ const (
 	FieldID = "id"
 	// FieldTaskID holds the string denoting the task_id field in the database.
 	FieldTaskID = "task_id"
-	// FieldKlineIndex holds the string denoting the kline_index field in the database.
-	FieldKlineIndex = "kline_index"
+	// FieldIndex holds the string denoting the index field in the database.
+	FieldIndex = "index"
 	// FieldTimestamp holds the string denoting the timestamp field in the database.
 	FieldTimestamp = "timestamp"
 	// FieldOpen holds the string denoting the open field in the database.
@@ -58,7 +58,7 @@ const (
 var Columns = []string{
 	FieldID,
 	FieldTaskID,
-	FieldKlineIndex,
+	FieldIndex,
 	FieldTimestamp,
 	FieldOpen,
 	FieldHigh,
@@ -112,9 +112,9 @@ func ByTaskID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldTaskID, opts...).ToFunc()
 }
 
-// ByKlineIndex orders the results by the kline_index field.
-func ByKlineIndex(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldKlineIndex, opts...).ToFunc()
+// ByIndex orders the results by the index field.
+func ByIndex(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldIndex, opts...).ToFunc()
 }
 
 // ByTimestamp orders the results by the timestamp field.

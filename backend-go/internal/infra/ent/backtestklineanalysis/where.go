@@ -60,9 +60,9 @@ func TaskID(v uuid.UUID) predicate.BacktestKlineAnalysis {
 	return predicate.BacktestKlineAnalysis(sql.FieldEQ(FieldTaskID, v))
 }
 
-// KlineIndex applies equality check predicate on the "kline_index" field. It's identical to KlineIndexEQ.
-func KlineIndex(v int) predicate.BacktestKlineAnalysis {
-	return predicate.BacktestKlineAnalysis(sql.FieldEQ(FieldKlineIndex, v))
+// Index applies equality check predicate on the "index" field. It's identical to IndexEQ.
+func Index(v int) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldEQ(FieldIndex, v))
 }
 
 // Timestamp applies equality check predicate on the "timestamp" field. It's identical to TimestampEQ.
@@ -185,44 +185,44 @@ func TaskIDLTE(v uuid.UUID) predicate.BacktestKlineAnalysis {
 	return predicate.BacktestKlineAnalysis(sql.FieldLTE(FieldTaskID, v))
 }
 
-// KlineIndexEQ applies the EQ predicate on the "kline_index" field.
-func KlineIndexEQ(v int) predicate.BacktestKlineAnalysis {
-	return predicate.BacktestKlineAnalysis(sql.FieldEQ(FieldKlineIndex, v))
+// IndexEQ applies the EQ predicate on the "index" field.
+func IndexEQ(v int) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldEQ(FieldIndex, v))
 }
 
-// KlineIndexNEQ applies the NEQ predicate on the "kline_index" field.
-func KlineIndexNEQ(v int) predicate.BacktestKlineAnalysis {
-	return predicate.BacktestKlineAnalysis(sql.FieldNEQ(FieldKlineIndex, v))
+// IndexNEQ applies the NEQ predicate on the "index" field.
+func IndexNEQ(v int) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldNEQ(FieldIndex, v))
 }
 
-// KlineIndexIn applies the In predicate on the "kline_index" field.
-func KlineIndexIn(vs ...int) predicate.BacktestKlineAnalysis {
-	return predicate.BacktestKlineAnalysis(sql.FieldIn(FieldKlineIndex, vs...))
+// IndexIn applies the In predicate on the "index" field.
+func IndexIn(vs ...int) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldIn(FieldIndex, vs...))
 }
 
-// KlineIndexNotIn applies the NotIn predicate on the "kline_index" field.
-func KlineIndexNotIn(vs ...int) predicate.BacktestKlineAnalysis {
-	return predicate.BacktestKlineAnalysis(sql.FieldNotIn(FieldKlineIndex, vs...))
+// IndexNotIn applies the NotIn predicate on the "index" field.
+func IndexNotIn(vs ...int) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldNotIn(FieldIndex, vs...))
 }
 
-// KlineIndexGT applies the GT predicate on the "kline_index" field.
-func KlineIndexGT(v int) predicate.BacktestKlineAnalysis {
-	return predicate.BacktestKlineAnalysis(sql.FieldGT(FieldKlineIndex, v))
+// IndexGT applies the GT predicate on the "index" field.
+func IndexGT(v int) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldGT(FieldIndex, v))
 }
 
-// KlineIndexGTE applies the GTE predicate on the "kline_index" field.
-func KlineIndexGTE(v int) predicate.BacktestKlineAnalysis {
-	return predicate.BacktestKlineAnalysis(sql.FieldGTE(FieldKlineIndex, v))
+// IndexGTE applies the GTE predicate on the "index" field.
+func IndexGTE(v int) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldGTE(FieldIndex, v))
 }
 
-// KlineIndexLT applies the LT predicate on the "kline_index" field.
-func KlineIndexLT(v int) predicate.BacktestKlineAnalysis {
-	return predicate.BacktestKlineAnalysis(sql.FieldLT(FieldKlineIndex, v))
+// IndexLT applies the LT predicate on the "index" field.
+func IndexLT(v int) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldLT(FieldIndex, v))
 }
 
-// KlineIndexLTE applies the LTE predicate on the "kline_index" field.
-func KlineIndexLTE(v int) predicate.BacktestKlineAnalysis {
-	return predicate.BacktestKlineAnalysis(sql.FieldLTE(FieldKlineIndex, v))
+// IndexLTE applies the LTE predicate on the "index" field.
+func IndexLTE(v int) predicate.BacktestKlineAnalysis {
+	return predicate.BacktestKlineAnalysis(sql.FieldLTE(FieldIndex, v))
 }
 
 // TimestampEQ applies the EQ predicate on the "timestamp" field.

@@ -12,6 +12,7 @@ public sealed class BacktestKlineAnalysisConfiguration : IEntityTypeConfiguratio
         builder.HasIndex(x => x.TaskId);
         builder.HasIndex(x => new { x.TaskId, x.Index }).IsUnique();
         builder.Property(x => x.Action).HasMaxLength(20);
-        builder.Property(x => x.IndicatorsJson).HasMaxLength(4000);
+        builder.Property(x => x.IndicatorValues)
+            .HasMaxLength(4000);
     }
 }

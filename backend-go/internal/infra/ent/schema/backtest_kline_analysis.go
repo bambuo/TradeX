@@ -16,7 +16,7 @@ func (BacktestKlineAnalysis) Fields() []ent.Field {
 	return []ent.Field{
 		field.UUID("id", uuid.UUID{}).Default(uuid.New),
 		field.UUID("task_id", uuid.UUID{}),
-		field.Int("kline_index"),
+		field.Int("index"),
 		field.Time("timestamp"),
 		field.Float("open").
 			SchemaType(map[string]string{dialect.Postgres: "numeric(20,8)"}),
@@ -56,7 +56,7 @@ func (BacktestKlineAnalysis) Fields() []ent.Field {
 
 func (BacktestKlineAnalysis) Indexes() []ent.Index {
 	return []ent.Index{
-		index.Fields("task_id", "kline_index").Unique(),
+		index.Fields("task_id", "index").Unique(),
 		index.Fields("task_id"),
 	}
 }

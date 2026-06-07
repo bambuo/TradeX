@@ -27,9 +27,9 @@ func (_c *BacktestKlineAnalysisCreate) SetTaskID(v uuid.UUID) *BacktestKlineAnal
 	return _c
 }
 
-// SetKlineIndex sets the "kline_index" field.
-func (_c *BacktestKlineAnalysisCreate) SetKlineIndex(v int) *BacktestKlineAnalysisCreate {
-	_c.mutation.SetKlineIndex(v)
+// SetIndex sets the "index" field.
+func (_c *BacktestKlineAnalysisCreate) SetIndex(v int) *BacktestKlineAnalysisCreate {
+	_c.mutation.SetIndex(v)
 	return _c
 }
 
@@ -283,8 +283,8 @@ func (_c *BacktestKlineAnalysisCreate) check() error {
 	if _, ok := _c.mutation.TaskID(); !ok {
 		return &ValidationError{Name: "task_id", err: errors.New(`ent: missing required field "BacktestKlineAnalysis.task_id"`)}
 	}
-	if _, ok := _c.mutation.KlineIndex(); !ok {
-		return &ValidationError{Name: "kline_index", err: errors.New(`ent: missing required field "BacktestKlineAnalysis.kline_index"`)}
+	if _, ok := _c.mutation.Index(); !ok {
+		return &ValidationError{Name: "index", err: errors.New(`ent: missing required field "BacktestKlineAnalysis.index"`)}
 	}
 	if _, ok := _c.mutation.Timestamp(); !ok {
 		return &ValidationError{Name: "timestamp", err: errors.New(`ent: missing required field "BacktestKlineAnalysis.timestamp"`)}
@@ -354,9 +354,9 @@ func (_c *BacktestKlineAnalysisCreate) createSpec() (*BacktestKlineAnalysis, *sq
 		_spec.SetField(backtestklineanalysis.FieldTaskID, field.TypeUUID, value)
 		_node.TaskID = value
 	}
-	if value, ok := _c.mutation.KlineIndex(); ok {
-		_spec.SetField(backtestklineanalysis.FieldKlineIndex, field.TypeInt, value)
-		_node.KlineIndex = value
+	if value, ok := _c.mutation.Index(); ok {
+		_spec.SetField(backtestklineanalysis.FieldIndex, field.TypeInt, value)
+		_node.Index = value
 	}
 	if value, ok := _c.mutation.Timestamp(); ok {
 		_spec.SetField(backtestklineanalysis.FieldTimestamp, field.TypeTime, value)

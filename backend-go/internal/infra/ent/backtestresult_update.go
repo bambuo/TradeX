@@ -31,6 +31,20 @@ func (_u *BacktestResultUpdate) Where(ps ...predicate.BacktestResult) *BacktestR
 	return _u
 }
 
+// SetTaskID sets the "task_id" field.
+func (_u *BacktestResultUpdate) SetTaskID(v uuid.UUID) *BacktestResultUpdate {
+	_u.mutation.SetTaskID(v)
+	return _u
+}
+
+// SetNillableTaskID sets the "task_id" field if the given value is not nil.
+func (_u *BacktestResultUpdate) SetNillableTaskID(v *uuid.UUID) *BacktestResultUpdate {
+	if v != nil {
+		_u.SetTaskID(*v)
+	}
+	return _u
+}
+
 // SetStrategyName sets the "strategy_name" field.
 func (_u *BacktestResultUpdate) SetStrategyName(v string) *BacktestResultUpdate {
 	_u.mutation.SetStrategyName(v)
@@ -308,12 +322,6 @@ func (_u *BacktestResultUpdate) ClearDetails() *BacktestResultUpdate {
 	return _u
 }
 
-// SetTaskID sets the "task" edge to the BacktestTask entity by ID.
-func (_u *BacktestResultUpdate) SetTaskID(id uuid.UUID) *BacktestResultUpdate {
-	_u.mutation.SetTaskID(id)
-	return _u
-}
-
 // SetTask sets the "task" edge to the BacktestTask entity.
 func (_u *BacktestResultUpdate) SetTask(v *BacktestTask) *BacktestResultUpdate {
 	return _u.SetTaskID(v.ID)
@@ -504,6 +512,20 @@ type BacktestResultUpdateOne struct {
 	fields   []string
 	hooks    []Hook
 	mutation *BacktestResultMutation
+}
+
+// SetTaskID sets the "task_id" field.
+func (_u *BacktestResultUpdateOne) SetTaskID(v uuid.UUID) *BacktestResultUpdateOne {
+	_u.mutation.SetTaskID(v)
+	return _u
+}
+
+// SetNillableTaskID sets the "task_id" field if the given value is not nil.
+func (_u *BacktestResultUpdateOne) SetNillableTaskID(v *uuid.UUID) *BacktestResultUpdateOne {
+	if v != nil {
+		_u.SetTaskID(*v)
+	}
+	return _u
 }
 
 // SetStrategyName sets the "strategy_name" field.
@@ -780,12 +802,6 @@ func (_u *BacktestResultUpdateOne) AppendDetails(v []uint8) *BacktestResultUpdat
 // ClearDetails clears the value of the "details" field.
 func (_u *BacktestResultUpdateOne) ClearDetails() *BacktestResultUpdateOne {
 	_u.mutation.ClearDetails()
-	return _u
-}
-
-// SetTaskID sets the "task" edge to the BacktestTask entity by ID.
-func (_u *BacktestResultUpdateOne) SetTaskID(id uuid.UUID) *BacktestResultUpdateOne {
-	_u.mutation.SetTaskID(id)
 	return _u
 }
 

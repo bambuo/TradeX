@@ -54,7 +54,7 @@ const (
 	// It exists in this package in order to avoid circular dependency with the "backtestresult" package.
 	ResultInverseTable = "backtest_results"
 	// ResultColumn is the table column denoting the result relation/edge.
-	ResultColumn = "result_id"
+	ResultColumn = "task_id"
 )
 
 // Columns holds all SQL columns for backtesttask fields.

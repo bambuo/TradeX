@@ -25,7 +25,6 @@ type BacktestResultQuery struct {
 	inters     []Interceptor
 	predicates []predicate.BacktestResult
 	withTask   *BacktestTaskQuery
-	withFKs    bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -300,12 +299,12 @@ func (_q *BacktestResultQuery) WithTask(opts ...func(*BacktestTaskQuery)) *Backt
 // Example:
 //
 //	var v []struct {
-//		StrategyName string `json:"strategy_name,omitempty"`
+//		TaskID uuid.UUID `json:"task_id,omitempty"`
 //		Count int `json:"count,omitempty"`
 //	}
 //
 //	client.BacktestResult.Query().
-//		GroupBy(backtestresult.FieldStrategyName).
+//		GroupBy(backtestresult.FieldTaskID).
 //		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
 func (_q *BacktestResultQuery) GroupBy(field string, fields ...string) *BacktestResultGroupBy {
@@ -323,11 +322,11 @@ func (_q *BacktestResultQuery) GroupBy(field string, fields ...string) *Backtest
 // Example:
 //
 //	var v []struct {
-//		StrategyName string `json:"strategy_name,omitempty"`
+//		TaskID uuid.UUID `json:"task_id,omitempty"`
 //	}
 //
 //	client.BacktestResult.Query().
-//		Select(backtestresult.FieldStrategyName).
+//		Select(backtestresult.FieldTaskID).
 //		Scan(ctx, &v)
 func (_q *BacktestResultQuery) Select(fields ...string) *BacktestResultSelect {
 	_q.ctx.Fields = append(_q.ctx.Fields, fields...)
@@ -371,18 +370,11 @@ func (_q *BacktestResultQuery) prepareQuery(ctx context.Context) error {
 func (_q *BacktestResultQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*BacktestResult, error) {
 	var (
 		nodes       = []*BacktestResult{}
-		withFKs     = _q.withFKs
 		_spec       = _q.querySpec()
 		loadedTypes = [1]bool{
 			_q.withTask != nil,
 		}
 	)
-	if _q.withTask != nil {
-		withFKs = true
-	}
-	if withFKs {
-		_spec.Node.Columns = append(_spec.Node.Columns, backtestresult.ForeignKeys...)
-	}
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*BacktestResult).scanValues(nil, columns)
 	}
@@ -414,10 +406,7 @@ func (_q *BacktestResultQuery) loadTask(ctx context.Context, query *BacktestTask
 	ids := make([]uuid.UUID, 0, len(nodes))
 	nodeids := make(map[uuid.UUID][]*BacktestResult)
 	for i := range nodes {
-		if nodes[i].result_id == nil {
-			continue
-		}
-		fk := *nodes[i].result_id
+		fk := nodes[i].TaskID
 		if _, ok := nodeids[fk]; !ok {
 			ids = append(ids, fk)
 		}
@@ -434,7 +423,7 @@ func (_q *BacktestResultQuery) loadTask(ctx context.Context, query *BacktestTask
 	for _, n := range neighbors {
 		nodes, ok := nodeids[n.ID]
 		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "result_id" returned %v`, n.ID)
+			return fmt.Errorf(`unexpected foreign-key "task_id" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)
@@ -467,6 +456,9 @@ func (_q *BacktestResultQuery) querySpec() *sqlgraph.QuerySpec {
 			if fields[i] != backtestresult.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 			}
+		}
+		if _q.withTask != nil {
+			_spec.Node.AddColumnOnce(backtestresult.FieldTaskID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

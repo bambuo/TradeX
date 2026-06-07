@@ -21,8 +21,8 @@ type BacktestKlineAnalysis struct {
 	ID uuid.UUID `json:"id,omitempty"`
 	// TaskID holds the value of the "task_id" field.
 	TaskID uuid.UUID `json:"task_id,omitempty"`
-	// KlineIndex holds the value of the "kline_index" field.
-	KlineIndex int `json:"kline_index,omitempty"`
+	// Index holds the value of the "index" field.
+	Index int `json:"index,omitempty"`
 	// Timestamp holds the value of the "timestamp" field.
 	Timestamp time.Time `json:"timestamp,omitempty"`
 	// Open holds the value of the "open" field.
@@ -71,7 +71,7 @@ func (*BacktestKlineAnalysis) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullBool)
 		case backtestklineanalysis.FieldOpen, backtestklineanalysis.FieldHigh, backtestklineanalysis.FieldLow, backtestklineanalysis.FieldClose, backtestklineanalysis.FieldVolume, backtestklineanalysis.FieldAvgEntryPrice, backtestklineanalysis.FieldPositionQuantity, backtestklineanalysis.FieldPositionCost, backtestklineanalysis.FieldPositionValue, backtestklineanalysis.FieldPositionPnl, backtestklineanalysis.FieldPositionPnlPercent:
 			values[i] = new(sql.NullFloat64)
-		case backtestklineanalysis.FieldKlineIndex:
+		case backtestklineanalysis.FieldIndex:
 			values[i] = new(sql.NullInt64)
 		case backtestklineanalysis.FieldAction:
 			values[i] = new(sql.NullString)
@@ -106,11 +106,11 @@ func (_m *BacktestKlineAnalysis) assignValues(columns []string, values []any) er
 			} else if value != nil {
 				_m.TaskID = *value
 			}
-		case backtestklineanalysis.FieldKlineIndex:
+		case backtestklineanalysis.FieldIndex:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
-				return fmt.Errorf("unexpected type %T for field kline_index", values[i])
+				return fmt.Errorf("unexpected type %T for field index", values[i])
 			} else if value.Valid {
-				_m.KlineIndex = int(value.Int64)
+				_m.Index = int(value.Int64)
 			}
 		case backtestklineanalysis.FieldTimestamp:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -263,8 +263,8 @@ func (_m *BacktestKlineAnalysis) String() string {
 	builder.WriteString("task_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.TaskID))
 	builder.WriteString(", ")
-	builder.WriteString("kline_index=")
-	builder.WriteString(fmt.Sprintf("%v", _m.KlineIndex))
+	builder.WriteString("index=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Index))
 	builder.WriteString(", ")
 	builder.WriteString("timestamp=")
 	builder.WriteString(_m.Timestamp.Format(time.ANSIC))

@@ -46,6 +46,18 @@ func (s *Store) Get(taskID string) []domain.BacktestKlineAnalysis {
 	return s.store[taskID]
 }
 
+func (s *Store) ConsumeFrom(taskID string, fromIndex int) (batch []domain.BacktestKlineAnalysis, total int) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	items := s.store[taskID]
+	total = len(items)
+	if total > fromIndex {
+		batch = make([]domain.BacktestKlineAnalysis, total-fromIndex)
+		copy(batch, items[fromIndex:])
+	}
+	return
+}
+
 func (s *Store) Count(taskID string) int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

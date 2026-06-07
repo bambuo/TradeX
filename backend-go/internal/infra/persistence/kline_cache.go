@@ -5,12 +5,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+
 	"tradex/internal/domain"
 )
 
 type KlineCache interface {
-	Get(ctx context.Context, pair, timeframe string, start, end time.Time) ([]domain.Candle, bool)
-	Set(ctx context.Context, pair, timeframe string, candles []domain.Candle)
+	Get(ctx context.Context, exchangeID uuid.UUID, pair, timeframe string, start, end time.Time) ([]domain.Candle, bool)
+	Set(ctx context.Context, exchangeID uuid.UUID, pair, timeframe string, candles []domain.Candle)
 }
 
 type memoryKlineCache struct {
@@ -31,16 +33,21 @@ func NewKlineCache(ttl time.Duration) KlineCache {
 	}
 }
 
-func (c *memoryKlineCache) cacheKey(pair, timeframe string) string {
-	return pair + ":" + timeframe
+func (c *memoryKlineCache) cacheKey(exchangeID uuid.UUID, pair, timeframe string) string {
+	return exchangeID.String() + ":" + pair + ":" + timeframe
 }
 
-func (c *memoryKlineCache) Get(_ context.Context, pair, timeframe string, start, end time.Time) ([]domain.Candle, bool) {
+func (c *memoryKlineCache) Get(_ context.Context, exchangeID uuid.UUID, pair, timeframe string, start, end time.Time) ([]domain.Candle, bool) {
 	c.mu.RLock()
-	entry, ok := c.entries[c.cacheKey(pair, timeframe)]
+	entry, ok := c.entries[c.cacheKey(exchangeID, pair, timeframe)]
 	c.mu.RUnlock()
 
 	if !ok || time.Now().After(entry.expiresAt) {
+		return nil, false
+	}
+
+	// 缓存数据必须完整覆盖到 endAt 才算命中
+	if len(entry.candles) == 0 || entry.candles[len(entry.candles)-1].Timestamp.Before(end) {
 		return nil, false
 	}
 
@@ -58,7 +65,7 @@ func (c *memoryKlineCache) Get(_ context.Context, pair, timeframe string, start,
 	return filtered, true
 }
 
-func (c *memoryKlineCache) Set(_ context.Context, pair, timeframe string, candles []domain.Candle) {
+func (c *memoryKlineCache) Set(_ context.Context, exchangeID uuid.UUID, pair, timeframe string, candles []domain.Candle) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -73,7 +80,7 @@ func (c *memoryKlineCache) Set(_ context.Context, pair, timeframe string, candle
 		deduped = append(deduped, candle)
 	}
 
-	c.entries[c.cacheKey(pair, timeframe)] = cacheEntry{
+	c.entries[c.cacheKey(exchangeID, pair, timeframe)] = cacheEntry{
 		candles:   deduped,
 		expiresAt: time.Now().Add(c.ttl),
 	}

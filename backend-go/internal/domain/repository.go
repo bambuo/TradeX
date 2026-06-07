@@ -18,6 +18,8 @@ type BacktestRepository interface {
 	GetAnalysisCount(ctx context.Context, taskID uuid.UUID) (int, error)
 	GetPendingTasks(ctx context.Context) ([]*BacktestTask, error)
 	GetRunningTasks(ctx context.Context) ([]*BacktestTask, error)
+	ExecuteInTransaction(ctx context.Context, fn func(BacktestRepository) error) error
+	TryAcquireTask(ctx context.Context, id uuid.UUID, fromStatus BacktestTaskStatus, phase BacktestPhase) (bool, error)
 	StrategyRepository
 }
 

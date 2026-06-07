@@ -15,7 +15,7 @@ namespace TradeX.Trading.Streams;
 public static class RedisStreamHelpers
 {
     /// <summary>所有 stream 共用的载荷字段名。</summary>
-    public const string PayloadField = "data";
+    public const string PayloadField = "task_id";
 
     /// <summary>Stream 最大条目数（近似裁剪），约保留最近 ~7 天事件。</summary>
     public const int DefaultMaxLength = 10_000;
