@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"tradex/internal/backtest"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
@@ -17,7 +19,6 @@ import (
 
 	"tradex/internal/domain"
 	bt "tradex/internal/domain/backtest"
-	"tradex/internal/server/app/backtest"
 )
 
 var errMock = errors.New("mock error")

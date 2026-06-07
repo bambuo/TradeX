@@ -5,13 +5,14 @@ import (
 	"runtime"
 	"strconv"
 
+	"tradex/internal/backtest"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
 	"tradex/internal/domain"
 	bt "tradex/internal/domain/backtest"
-	"tradex/internal/server/app/backtest"
 )
 
 const CancelStreamKey = "tradex:backtest:cancel"

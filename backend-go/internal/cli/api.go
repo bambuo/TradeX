@@ -6,6 +6,9 @@ import (
 	_ "net/http/pprof"
 	"os"
 
+	"tradex/internal/backtest"
+	"tradex/internal/handler"
+
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
@@ -16,8 +19,6 @@ import (
 	"tradex/internal/infra/eventbus"
 	"tradex/internal/infra/persistence"
 	"tradex/internal/infra/telemetry"
-	"tradex/internal/server/api/handler"
-	"tradex/internal/server/app/backtest"
 )
 
 func NewAPICmd() *cobra.Command {

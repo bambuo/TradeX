@@ -1,9 +1,9 @@
 package router
 
 import (
-	"github.com/gin-gonic/gin"
+	"tradex/internal/handler"
 
-	"tradex/internal/server/api/handler"
+	"github.com/gin-gonic/gin"
 )
 
 func RegisterRoutes(r *gin.Engine, h *handler.BacktestHandler, middlewares ...gin.HandlerFunc) {
