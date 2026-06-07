@@ -42,7 +42,7 @@ func newLegacySMA(name string, period int) *legacySMA {
 	return &legacySMA{name: name, period: period}
 }
 
-func (l *legacySMA) Name() string           { return l.name }
+func (l *legacySMA) Name() string { return l.name }
 func (l *legacySMA) Compute(v []float64) []float64 {
 	sma := indicator.NewSMA(l.period)
 	return sma.Compute(v)

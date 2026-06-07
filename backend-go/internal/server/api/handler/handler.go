@@ -12,6 +12,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"tradex/internal/domain"
+	bt "tradex/internal/domain/backtest"
 	"tradex/internal/server/app/backtest"
 )
 
@@ -19,9 +20,9 @@ const CancelStreamKey = "tradex:backtest:cancel"
 
 type BacktestHandler struct {
 	svc           *backtest.Service
-	cancelPub     domain.CancelNotifier
-	taskNotif     domain.TaskNotifier
-	analysisStore domain.AnalysisStore
+	cancelPub     bt.CancelNotifier
+	taskNotif     bt.TaskNotifier
+	analysisStore bt.AnalysisStore
 	log           zerolog.Logger
 }
 
@@ -29,17 +30,17 @@ func NewBacktestHandler(svc *backtest.Service, log zerolog.Logger) *BacktestHand
 	return &BacktestHandler{svc: svc, log: log}
 }
 
-func (h *BacktestHandler) WithCancelPublisher(pub domain.CancelNotifier) *BacktestHandler {
+func (h *BacktestHandler) WithCancelPublisher(pub bt.CancelNotifier) *BacktestHandler {
 	h.cancelPub = pub
 	return h
 }
 
-func (h *BacktestHandler) WithTaskNotifier(notif domain.TaskNotifier) *BacktestHandler {
+func (h *BacktestHandler) WithTaskNotifier(notif bt.TaskNotifier) *BacktestHandler {
 	h.taskNotif = notif
 	return h
 }
 
-func (h *BacktestHandler) WithAnalysisStore(store domain.AnalysisStore) *BacktestHandler {
+func (h *BacktestHandler) WithAnalysisStore(store bt.AnalysisStore) *BacktestHandler {
 	h.analysisStore = store
 	return h
 }
@@ -137,9 +138,9 @@ func (h *BacktestHandler) ListTasks(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 
-	var filter domain.TaskFilter
+	var filter bt.TaskFilter
 	if s := c.Query("status"); s != "" {
-		status := domain.BacktestTaskStatus(s)
+		status := bt.BacktestTaskStatus(s)
 		filter.Status = &status
 	}
 	if p := c.Query("pair"); p != "" {
@@ -204,7 +205,7 @@ func (h *BacktestHandler) CancelTask(c *gin.Context) {
 		}
 	}
 
-	Success(c, gin.H{"id": id, "status": domain.TaskStatusCancelled})
+	Success(c, gin.H{"id": id, "status": bt.TaskStatusCancelled})
 }
 
 func (h *BacktestHandler) GetResult(c *gin.Context) {
@@ -220,7 +221,7 @@ func (h *BacktestHandler) GetResult(c *gin.Context) {
 		return
 	}
 
-	if task.Status != domain.TaskStatusCompleted {
+	if task.Status != bt.TaskStatusCompleted {
 		Conflict(c, "任务尚未完成")
 		return
 	}
@@ -269,7 +270,7 @@ func (h *BacktestHandler) StreamAnalysis(c *gin.Context) {
 	}
 
 	// 进行中的任务：从 analysisStore 实时流式推送
-	if task.Status != domain.TaskStatusCompleted && h.analysisStore.Exists(taskIDStr) {
+	if task.Status != bt.TaskStatusCompleted && h.analysisStore.Exists(taskIDStr) {
 		c.Writer.WriteString(fmt.Sprintf("data: {\"type\":\"status\",\"status\":%q,\"incremental\":true}\n\n", task.Status))
 		if flusher != nil {
 			flusher.Flush()
@@ -329,7 +330,7 @@ func (h *BacktestHandler) StreamAnalysis(c *gin.Context) {
 	}
 
 	// 已完成的任务：从 DB 读取后流式推送
-	if task.Status == domain.TaskStatusCompleted {
+	if task.Status == bt.TaskStatusCompleted {
 		analysis, err := h.svc.GetAnalysis(c.Request.Context(), id, 0, 100000)
 		if err != nil || len(analysis) == 0 {
 			c.Writer.WriteString("data: {\"type\":\"complete\"}\n\n")
@@ -378,7 +379,7 @@ func (h *BacktestHandler) StreamAnalysis(c *gin.Context) {
 	}
 }
 
-func writeAnalysisSSE(c *gin.Context, a domain.BacktestKlineAnalysis, flusher interface{ Flush() }) {
+func writeAnalysisSSE(c *gin.Context, a bt.BacktestKlineAnalysis, flusher interface{ Flush() }) {
 	entry := ""
 	entry += fmt.Sprintf(`"index":%d,`, a.KlineIndex)
 	entry += fmt.Sprintf(`"timestamp":%q,`, a.Timestamp.Format(time.RFC3339))

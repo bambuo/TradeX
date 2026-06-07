@@ -8,7 +8,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 
-	"tradex/internal/domain"
+	bt "tradex/internal/domain/backtest"
 	"tradex/internal/infra/eventbus"
 )
 
@@ -124,7 +124,7 @@ func (c *BacktestCancellationConsumer) processCancel(ctx context.Context, msg re
 
 	if c.tracker.Cancel(taskID) {
 		c.log.Info().Str("task_id", taskID.String()).Interface("event",
-			domain.BacktestCancelledEvent{TaskID: taskID, Timestamp: time.Now()}).Msg("回测已取消")
+			bt.BacktestCancelledEvent{TaskID: taskID, Timestamp: time.Now()}).Msg("回测已取消")
 	} else {
 		c.log.Warn().Str("task_id", taskID.String()).Msg("任务不在跟踪器中，可能已完成")
 	}

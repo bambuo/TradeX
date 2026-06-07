@@ -160,7 +160,7 @@ func ParseTaskID(msg redis.XMessage) (string, bool) {
 	return "", false
 }
 
-// RedisCancelNotifier implements domain.CancelNotifier via Redis Stream.
+// RedisCancelNotifier implements bt.CancelNotifier via Redis Stream.
 type RedisCancelNotifier struct {
 	bus *RedisEventBus
 }
@@ -173,7 +173,7 @@ func (n *RedisCancelNotifier) NotifyCancel(ctx context.Context, taskID string) e
 	return n.bus.StreamAdd(ctx, "tradex:backtest:cancel", map[string]any{"task_id": taskID})
 }
 
-// RedisTaskNotifier implements domain.TaskNotifier via Redis Stream.
+// RedisTaskNotifier implements bt.TaskNotifier via Redis Stream.
 type RedisTaskNotifier struct {
 	bus *RedisEventBus
 }

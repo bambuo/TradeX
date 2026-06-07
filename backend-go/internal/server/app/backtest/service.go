@@ -9,6 +9,8 @@ import (
 	"github.com/shopspring/decimal"
 
 	"tradex/internal/domain"
+
+	bt "tradex/internal/domain/backtest"
 )
 
 type CreateBacktestRequest struct {
@@ -24,14 +26,14 @@ type CreateBacktestRequest struct {
 }
 
 type Service struct {
-	repo domain.BacktestRepository
+	repo bt.BacktestRepository
 }
 
-func NewService(repo domain.BacktestRepository) *Service {
+func NewService(repo bt.BacktestRepository) *Service {
 	return &Service{repo: repo}
 }
 
-func (s *Service) CreateTask(ctx context.Context, req CreateBacktestRequest) (*domain.BacktestTask, error) {
+func (s *Service) CreateTask(ctx context.Context, req CreateBacktestRequest) (*bt.BacktestTask, error) {
 	strategyID, err := uuid.Parse(req.StrategyID)
 	if err != nil {
 		return nil, fmt.Errorf("%w: 无效的策略ID: %s", domain.ErrInvalidInput, req.StrategyID)
@@ -61,7 +63,7 @@ func (s *Service) CreateTask(ctx context.Context, req CreateBacktestRequest) (*d
 		return nil, fmt.Errorf("%w: 结束时间必须晚于开始时间", domain.ErrInvalidInput)
 	}
 
-	task := &domain.BacktestTask{
+	task := &bt.BacktestTask{
 		ID:             uuid.New(),
 		StrategyID:     strategyID,
 		StrategyName:   strategy.Name,
@@ -72,7 +74,7 @@ func (s *Service) CreateTask(ctx context.Context, req CreateBacktestRequest) (*d
 		InitialCapital: decimal.NewFromFloat(req.InitialCapital),
 		StartAt:        startAt,
 		EndAt:          endAt,
-		Status:         domain.TaskStatusPending,
+		Status:         bt.TaskStatusPending,
 		CreatedAt:      time.Now(),
 	}
 	if req.PositionSize != nil {
@@ -87,11 +89,11 @@ func (s *Service) CreateTask(ctx context.Context, req CreateBacktestRequest) (*d
 	return task, nil
 }
 
-func (s *Service) GetTask(ctx context.Context, id uuid.UUID) (*domain.BacktestTask, error) {
+func (s *Service) GetTask(ctx context.Context, id uuid.UUID) (*bt.BacktestTask, error) {
 	return s.repo.GetTask(ctx, id)
 }
 
-func (s *Service) ListTasks(ctx context.Context, filter domain.TaskFilter) ([]*domain.BacktestTask, int, error) {
+func (s *Service) ListTasks(ctx context.Context, filter bt.TaskFilter) ([]*bt.BacktestTask, int, error) {
 	return s.repo.ListTasks(ctx, filter)
 }
 
@@ -100,17 +102,17 @@ func (s *Service) CancelTask(ctx context.Context, id uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-	if task.Status == domain.TaskStatusCompleted || task.Status == domain.TaskStatusFailed || task.Status == domain.TaskStatusCancelled {
+	if task.Status == bt.TaskStatusCompleted || task.Status == bt.TaskStatusFailed || task.Status == bt.TaskStatusCancelled {
 		return fmt.Errorf("%w: 任务已结束，无法取消", domain.ErrConflict)
 	}
-	return s.repo.UpdateTaskStatus(ctx, id, domain.TaskStatusCancelled, nil)
+	return s.repo.UpdateTaskStatus(ctx, id, bt.TaskStatusCancelled, nil)
 }
 
-func (s *Service) GetResult(ctx context.Context, id uuid.UUID) (*domain.BacktestResult, []domain.BacktestTrade, error) {
+func (s *Service) GetResult(ctx context.Context, id uuid.UUID) (*bt.BacktestResult, []bt.BacktestTrade, error) {
 	return s.repo.GetResult(ctx, id)
 }
 
-func (s *Service) GetAnalysis(ctx context.Context, id uuid.UUID, cursor, limit int) ([]domain.BacktestKlineAnalysis, error) {
+func (s *Service) GetAnalysis(ctx context.Context, id uuid.UUID, cursor, limit int) ([]bt.BacktestKlineAnalysis, error) {
 	return s.repo.GetAnalysis(ctx, id, cursor, limit)
 }
 

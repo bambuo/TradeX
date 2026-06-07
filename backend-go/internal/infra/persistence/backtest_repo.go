@@ -9,6 +9,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"tradex/internal/domain"
+	bt "tradex/internal/domain/backtest"
 	"tradex/internal/infra/ent"
 	"tradex/internal/infra/ent/backtestklineanalysis"
 	"tradex/internal/infra/ent/backtestresult"
@@ -19,11 +20,11 @@ type backtestRepo struct {
 	client *ent.Client
 }
 
-func NewBacktestRepo(client *ent.Client) domain.BacktestRepository {
+func NewBacktestRepo(client *ent.Client) bt.BacktestRepository {
 	return &backtestRepo{client: client}
 }
 
-func (r *backtestRepo) CreateTask(ctx context.Context, task *domain.BacktestTask) error {
+func (r *backtestRepo) CreateTask(ctx context.Context, task *bt.BacktestTask) error {
 	_, err := r.client.BacktestTask.Create().
 		SetID(task.ID).
 		SetStrategyID(task.StrategyID).
@@ -41,7 +42,7 @@ func (r *backtestRepo) CreateTask(ctx context.Context, task *domain.BacktestTask
 	return err
 }
 
-func (r *backtestRepo) GetTask(ctx context.Context, id uuid.UUID) (*domain.BacktestTask, error) {
+func (r *backtestRepo) GetTask(ctx context.Context, id uuid.UUID) (*bt.BacktestTask, error) {
 	row, err := r.client.BacktestTask.Query().
 		Where(backtesttask.ID(id)).
 		Only(ctx)
@@ -51,7 +52,7 @@ func (r *backtestRepo) GetTask(ctx context.Context, id uuid.UUID) (*domain.Backt
 	return rowToTask(row), nil
 }
 
-func (r *backtestRepo) UpdateTaskStatus(ctx context.Context, id uuid.UUID, status domain.BacktestTaskStatus, phase *domain.BacktestPhase) error {
+func (r *backtestRepo) UpdateTaskStatus(ctx context.Context, id uuid.UUID, status bt.BacktestTaskStatus, phase *bt.BacktestPhase) error {
 	upd := r.client.BacktestTask.Update().Where(backtesttask.ID(id)).
 		SetStatus(backtesttask.Status(status))
 	if phase != nil {
@@ -61,14 +62,14 @@ func (r *backtestRepo) UpdateTaskStatus(ctx context.Context, id uuid.UUID, statu
 	}
 	now := time.Now()
 	switch status {
-	case domain.TaskStatusCompleted, domain.TaskStatusFailed, domain.TaskStatusCancelled:
+	case bt.TaskStatusCompleted, bt.TaskStatusFailed, bt.TaskStatusCancelled:
 		upd.SetCompletedAt(now)
 	}
 	_, err := upd.Save(ctx)
 	return err
 }
 
-func (r *backtestRepo) ListTasks(ctx context.Context, filter domain.TaskFilter) ([]*domain.BacktestTask, int, error) {
+func (r *backtestRepo) ListTasks(ctx context.Context, filter bt.TaskFilter) ([]*bt.BacktestTask, int, error) {
 	query := r.client.BacktestTask.Query()
 	if filter.Status != nil {
 		query = query.Where(backtesttask.StatusEQ(backtesttask.Status(*filter.Status)))
@@ -96,14 +97,14 @@ func (r *backtestRepo) ListTasks(ctx context.Context, filter domain.TaskFilter) 
 	if err != nil {
 		return nil, 0, err
 	}
-	tasks := make([]*domain.BacktestTask, len(rows))
+	tasks := make([]*bt.BacktestTask, len(rows))
 	for i, row := range rows {
 		tasks[i] = rowToTask(row)
 	}
 	return tasks, total, nil
 }
 
-func (r *backtestRepo) SaveResult(ctx context.Context, taskID uuid.UUID, result *domain.BacktestResult, trades []domain.BacktestTrade) error {
+func (r *backtestRepo) SaveResult(ctx context.Context, taskID uuid.UUID, result *bt.BacktestResult, trades []bt.BacktestTrade) error {
 	details, err := json.Marshal(trades)
 	if err != nil {
 		return err
@@ -129,7 +130,7 @@ func (r *backtestRepo) SaveResult(ctx context.Context, taskID uuid.UUID, result 
 	return err
 }
 
-func (r *backtestRepo) SaveAnalysisBatch(ctx context.Context, taskID uuid.UUID, analysis []domain.BacktestKlineAnalysis) error {
+func (r *backtestRepo) SaveAnalysisBatch(ctx context.Context, taskID uuid.UUID, analysis []bt.BacktestKlineAnalysis) error {
 	builders := make([]*ent.BacktestKlineAnalysisCreate, len(analysis))
 	for i, a := range analysis {
 		builders[i] = r.client.BacktestKlineAnalysis.Create().
@@ -157,7 +158,7 @@ func (r *backtestRepo) SaveAnalysisBatch(ctx context.Context, taskID uuid.UUID, 
 	return err
 }
 
-func (r *backtestRepo) ExecuteInTransaction(ctx context.Context, fn func(domain.BacktestRepository) error) error {
+func (r *backtestRepo) ExecuteInTransaction(ctx context.Context, fn func(bt.BacktestRepository) error) error {
 	tx, err := r.client.Tx(ctx)
 	if err != nil {
 		return err
@@ -171,7 +172,7 @@ func (r *backtestRepo) ExecuteInTransaction(ctx context.Context, fn func(domain.
 	return tx.Commit()
 }
 
-func (r *backtestRepo) GetResult(ctx context.Context, taskID uuid.UUID) (*domain.BacktestResult, []domain.BacktestTrade, error) {
+func (r *backtestRepo) GetResult(ctx context.Context, taskID uuid.UUID) (*bt.BacktestResult, []bt.BacktestTrade, error) {
 	row, err := r.client.BacktestResult.Query().
 		Where(backtestresult.TaskID(taskID)).
 		Only(ctx)
@@ -179,14 +180,14 @@ func (r *backtestRepo) GetResult(ctx context.Context, taskID uuid.UUID) (*domain
 		return nil, nil, err
 	}
 
-	var trades []domain.BacktestTrade
+	var trades []bt.BacktestTrade
 	if len(row.Details) > 0 {
 		if err := json.Unmarshal(row.Details, &trades); err != nil {
 			return nil, nil, err
 		}
 	}
 
-	result := &domain.BacktestResult{
+	result := &bt.BacktestResult{
 		StrategyName:            row.StrategyName,
 		Pair:                    row.Pair,
 		Timeframe:               row.Timeframe,
@@ -206,7 +207,7 @@ func (r *backtestRepo) GetResult(ctx context.Context, taskID uuid.UUID) (*domain
 	return result, trades, nil
 }
 
-func (r *backtestRepo) GetAnalysis(ctx context.Context, taskID uuid.UUID, cursor, limit int) ([]domain.BacktestKlineAnalysis, error) {
+func (r *backtestRepo) GetAnalysis(ctx context.Context, taskID uuid.UUID, cursor, limit int) ([]bt.BacktestKlineAnalysis, error) {
 	if limit < 1 {
 		limit = 100
 	}
@@ -219,7 +220,7 @@ func (r *backtestRepo) GetAnalysis(ctx context.Context, taskID uuid.UUID, cursor
 	if err != nil {
 		return nil, err
 	}
-	result := make([]domain.BacktestKlineAnalysis, len(rows))
+	result := make([]bt.BacktestKlineAnalysis, len(rows))
 	for i, row := range rows {
 		result[i] = *rowToAnalysis(row)
 	}
@@ -257,7 +258,7 @@ func (r *backtestRepo) GetAnalysisCount(ctx context.Context, taskID uuid.UUID) (
 		Count(ctx)
 }
 
-func (r *backtestRepo) GetPendingTasks(ctx context.Context) ([]*domain.BacktestTask, error) {
+func (r *backtestRepo) GetPendingTasks(ctx context.Context) ([]*bt.BacktestTask, error) {
 	rows, err := r.client.BacktestTask.Query().
 		Where(backtesttask.StatusEQ(backtesttask.StatusPending)).
 		All(ctx)
@@ -267,7 +268,7 @@ func (r *backtestRepo) GetPendingTasks(ctx context.Context) ([]*domain.BacktestT
 	return rowsToTasks(rows), nil
 }
 
-func (r *backtestRepo) GetRunningTasks(ctx context.Context) ([]*domain.BacktestTask, error) {
+func (r *backtestRepo) GetRunningTasks(ctx context.Context) ([]*bt.BacktestTask, error) {
 	rows, err := r.client.BacktestTask.Query().
 		Where(backtesttask.StatusEQ(backtesttask.StatusRunning)).
 		All(ctx)
@@ -277,7 +278,7 @@ func (r *backtestRepo) GetRunningTasks(ctx context.Context) ([]*domain.BacktestT
 	return rowsToTasks(rows), nil
 }
 
-func (r *backtestRepo) TryAcquireTask(ctx context.Context, id uuid.UUID, fromStatus domain.BacktestTaskStatus, phase domain.BacktestPhase) (bool, error) {
+func (r *backtestRepo) TryAcquireTask(ctx context.Context, id uuid.UUID, fromStatus bt.BacktestTaskStatus, phase bt.BacktestPhase) (bool, error) {
 	n, err := r.client.BacktestTask.Update().
 		Where(backtesttask.ID(id), backtesttask.StatusEQ(backtesttask.Status(fromStatus))).
 		SetStatus(backtesttask.StatusRunning).
@@ -289,16 +290,16 @@ func (r *backtestRepo) TryAcquireTask(ctx context.Context, id uuid.UUID, fromSta
 	return n == 1, nil
 }
 
-func rowsToTasks(rows []*ent.BacktestTask) []*domain.BacktestTask {
-	tasks := make([]*domain.BacktestTask, len(rows))
+func rowsToTasks(rows []*ent.BacktestTask) []*bt.BacktestTask {
+	tasks := make([]*bt.BacktestTask, len(rows))
 	for i, row := range rows {
 		tasks[i] = rowToTask(row)
 	}
 	return tasks
 }
 
-func rowToTask(row *ent.BacktestTask) *domain.BacktestTask {
-	task := &domain.BacktestTask{
+func rowToTask(row *ent.BacktestTask) *bt.BacktestTask {
+	task := &bt.BacktestTask{
 		ID:             row.ID,
 		StrategyID:     row.StrategyID,
 		StrategyName:   row.StrategyName,
@@ -309,7 +310,7 @@ func rowToTask(row *ent.BacktestTask) *domain.BacktestTask {
 		InitialCapital: dec(row.InitialCapital),
 		StartAt:        row.StartAt,
 		EndAt:          row.EndAt,
-		Status:         domain.BacktestTaskStatus(row.Status),
+		Status:         bt.BacktestTaskStatus(row.Status),
 		CreatedAt:      row.CreatedAt,
 	}
 	if row.PositionSize != nil {
@@ -320,14 +321,14 @@ func rowToTask(row *ent.BacktestTask) *domain.BacktestTask {
 		task.CompletedAt = row.CompletedAt
 	}
 	if row.Phase != "" {
-		p := domain.BacktestPhase(row.Phase)
+		p := bt.BacktestPhase(row.Phase)
 		task.Phase = &p
 	}
 	return task
 }
 
-func rowToAnalysis(row *ent.BacktestKlineAnalysis) *domain.BacktestKlineAnalysis {
-	a := &domain.BacktestKlineAnalysis{
+func rowToAnalysis(row *ent.BacktestKlineAnalysis) *bt.BacktestKlineAnalysis {
+	a := &bt.BacktestKlineAnalysis{
 		KlineIndex:      row.Index,
 		Timestamp:       row.Timestamp,
 		Open:            dec(row.Open),

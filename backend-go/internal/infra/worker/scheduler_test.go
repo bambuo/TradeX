@@ -12,76 +12,77 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"tradex/internal/domain"
+	bt "tradex/internal/domain/backtest"
 	"tradex/internal/domain/indicator"
 	"tradex/internal/infra/analysis"
 	"tradex/internal/infra/persistence"
 )
 
-// mockSchedulerRepo implements domain.BacktestRepository for testing
+// mockSchedulerRepo implements bt.BacktestRepository for testing
 type mockSchedulerRepo struct {
-	task              *domain.BacktestTask
-	strategy          *domain.Strategy
-	taskStatus        domain.BacktestTaskStatus
-	analysisCount     int
-	resultSaved       bool
-	analysisSaved     bool
-	statusUpdated     domain.BacktestTaskStatus
-	updatePhase       *domain.BacktestPhase
-	transactionErr    error
-	pendingTasks      []*domain.BacktestTask
-	runningTasks      []*domain.BacktestTask
-	acquireResult     bool
-	acquireError      error
+	task           *bt.BacktestTask
+	strategy       *domain.Strategy
+	taskStatus     bt.BacktestTaskStatus
+	analysisCount  int
+	resultSaved    bool
+	analysisSaved  bool
+	statusUpdated  bt.BacktestTaskStatus
+	updatePhase    *bt.BacktestPhase
+	transactionErr error
+	pendingTasks   []*bt.BacktestTask
+	runningTasks   []*bt.BacktestTask
+	acquireResult  bool
+	acquireError   error
 }
 
-func (m *mockSchedulerRepo) CreateTask(_ context.Context, _ *domain.BacktestTask) error { return nil }
-func (m *mockSchedulerRepo) GetTask(_ context.Context, id uuid.UUID) (*domain.BacktestTask, error) {
+func (m *mockSchedulerRepo) CreateTask(_ context.Context, _ *bt.BacktestTask) error { return nil }
+func (m *mockSchedulerRepo) GetTask(_ context.Context, id uuid.UUID) (*bt.BacktestTask, error) {
 	if m.task == nil {
-		return &domain.BacktestTask{ID: id, Status: m.taskStatus}, nil
+		return &bt.BacktestTask{ID: id, Status: m.taskStatus}, nil
 	}
 	return m.task, nil
 }
-func (m *mockSchedulerRepo) UpdateTaskStatus(_ context.Context, id uuid.UUID, status domain.BacktestTaskStatus, phase *domain.BacktestPhase) error {
+func (m *mockSchedulerRepo) UpdateTaskStatus(_ context.Context, id uuid.UUID, status bt.BacktestTaskStatus, phase *bt.BacktestPhase) error {
 	m.statusUpdated = status
 	m.updatePhase = phase
 	return nil
 }
-func (m *mockSchedulerRepo) ListTasks(_ context.Context, _ domain.TaskFilter) ([]*domain.BacktestTask, int, error) {
+func (m *mockSchedulerRepo) ListTasks(_ context.Context, _ bt.TaskFilter) ([]*bt.BacktestTask, int, error) {
 	return nil, 0, nil
 }
-func (m *mockSchedulerRepo) SaveResult(_ context.Context, _ uuid.UUID, _ *domain.BacktestResult, _ []domain.BacktestTrade) error {
+func (m *mockSchedulerRepo) SaveResult(_ context.Context, _ uuid.UUID, _ *bt.BacktestResult, _ []bt.BacktestTrade) error {
 	m.resultSaved = true
 	return nil
 }
-func (m *mockSchedulerRepo) GetResult(_ context.Context, _ uuid.UUID) (*domain.BacktestResult, []domain.BacktestTrade, error) {
+func (m *mockSchedulerRepo) GetResult(_ context.Context, _ uuid.UUID) (*bt.BacktestResult, []bt.BacktestTrade, error) {
 	return nil, nil, nil
 }
-func (m *mockSchedulerRepo) SaveAnalysisBatch(_ context.Context, _ uuid.UUID, _ []domain.BacktestKlineAnalysis) error {
+func (m *mockSchedulerRepo) SaveAnalysisBatch(_ context.Context, _ uuid.UUID, _ []bt.BacktestKlineAnalysis) error {
 	m.analysisSaved = true
 	return nil
 }
-func (m *mockSchedulerRepo) GetAnalysis(_ context.Context, _ uuid.UUID, _, _ int) ([]domain.BacktestKlineAnalysis, error) {
+func (m *mockSchedulerRepo) GetAnalysis(_ context.Context, _ uuid.UUID, _, _ int) ([]bt.BacktestKlineAnalysis, error) {
 	return nil, nil
 }
 func (m *mockSchedulerRepo) GetAnalysisCount(_ context.Context, _ uuid.UUID) (int, error) {
 	return m.analysisCount, nil
 }
-func (m *mockSchedulerRepo) GetPendingTasks(_ context.Context) ([]*domain.BacktestTask, error) {
+func (m *mockSchedulerRepo) GetPendingTasks(_ context.Context) ([]*bt.BacktestTask, error) {
 	return m.pendingTasks, nil
 }
-func (m *mockSchedulerRepo) GetRunningTasks(_ context.Context) ([]*domain.BacktestTask, error) {
+func (m *mockSchedulerRepo) GetRunningTasks(_ context.Context) ([]*bt.BacktestTask, error) {
 	return m.runningTasks, nil
 }
 func (m *mockSchedulerRepo) GetStrategy(_ context.Context, _ uuid.UUID) (*domain.Strategy, error) {
 	return m.strategy, nil
 }
-func (m *mockSchedulerRepo) ExecuteInTransaction(_ context.Context, fn func(domain.BacktestRepository) error) error {
+func (m *mockSchedulerRepo) ExecuteInTransaction(_ context.Context, fn func(bt.BacktestRepository) error) error {
 	if m.transactionErr != nil {
 		return m.transactionErr
 	}
 	return fn(m)
 }
-func (m *mockSchedulerRepo) TryAcquireTask(_ context.Context, id uuid.UUID, fromStatus domain.BacktestTaskStatus, phase domain.BacktestPhase) (bool, error) {
+func (m *mockSchedulerRepo) TryAcquireTask(_ context.Context, id uuid.UUID, fromStatus bt.BacktestTaskStatus, phase bt.BacktestPhase) (bool, error) {
 	if m.acquireError != nil {
 		return false, m.acquireError
 	}
@@ -138,7 +139,7 @@ func TestScheduler_ExecuteTask_UsesExchangeID(t *testing.T) {
 	exchangeID := uuid.New()
 
 	repo := &mockSchedulerRepo{
-		task: &domain.BacktestTask{
+		task: &bt.BacktestTask{
 			ID:             uuid.New(),
 			StrategyID:     uuid.New(),
 			ExchangeID:     exchangeID,
@@ -147,13 +148,13 @@ func TestScheduler_ExecuteTask_UsesExchangeID(t *testing.T) {
 			InitialCapital: decimal.NewFromInt(1000),
 			StartAt:        time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 			EndAt:          time.Date(2024, 1, 5, 0, 0, 0, 0, time.UTC),
-			Status:         domain.TaskStatusPending,
+			Status:         bt.TaskStatusPending,
 		},
 		strategy: &domain.Strategy{
-			ID:   uuid.New(),
-			Name: "test-strategy",
+			ID:             uuid.New(),
+			Name:           "test-strategy",
 			EntryCondition: json.RawMessage(`{"operator":"","indicator":"RSI","comparison":">","value":0}`),
-			ExitCondition: json.RawMessage(`{"operator":"","indicator":"RSI","comparison":">","value":100}`),
+			ExitCondition:  json.RawMessage(`{"operator":"","indicator":"RSI","comparison":">","value":100}`),
 		},
 		acquireResult: true,
 	}
@@ -169,16 +170,16 @@ func TestScheduler_ExecuteTask_UsesExchangeID(t *testing.T) {
 	ctx := context.Background()
 	s.executeTask(ctx, repo.task.ID, cfg)
 
-	assert.Equal(t, domain.TaskStatusCompleted, repo.statusUpdated,
+	assert.Equal(t, bt.TaskStatusCompleted, repo.statusUpdated,
 		"task should complete successfully")
 }
 
 func TestScheduler_ExecuteTask_TaskCancelledBeforeEngine_Aborts(t *testing.T) {
 	taskID := uuid.New()
 	repo := &mockSchedulerRepo{
-		task: &domain.BacktestTask{
+		task: &bt.BacktestTask{
 			ID:             taskID,
-			Status:         domain.TaskStatusCancelled,
+			Status:         bt.TaskStatusCancelled,
 			Pair:           "BTCUSDT",
 			Timeframe:      "1h",
 			InitialCapital: decimal.NewFromInt(1000),
@@ -198,7 +199,7 @@ func TestScheduler_ExecuteTask_TaskCancelledBeforeEngine_Aborts(t *testing.T) {
 
 func TestScheduler_ExecuteTask_SaveAnalysisBatch(t *testing.T) {
 	repo := &mockSchedulerRepo{
-		task: &domain.BacktestTask{
+		task: &bt.BacktestTask{
 			ID:             uuid.New(),
 			StrategyID:     uuid.New(),
 			ExchangeID:     uuid.New(),
@@ -207,13 +208,13 @@ func TestScheduler_ExecuteTask_SaveAnalysisBatch(t *testing.T) {
 			InitialCapital: decimal.NewFromInt(1000),
 			StartAt:        time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 			EndAt:          time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC),
-			Status:         domain.TaskStatusPending,
+			Status:         bt.TaskStatusPending,
 		},
 		strategy: &domain.Strategy{
-			ID:   uuid.New(),
-			Name: "test",
+			ID:             uuid.New(),
+			Name:           "test",
 			EntryCondition: json.RawMessage(`{"operator":"","indicator":"RSI","comparison":">","value":0}`),
-			ExitCondition: json.RawMessage(`{"operator":"","indicator":"RSI","comparison":">","value":100}`),
+			ExitCondition:  json.RawMessage(`{"operator":"","indicator":"RSI","comparison":">","value":100}`),
 		},
 		acquireResult: true,
 	}
@@ -226,16 +227,16 @@ func TestScheduler_ExecuteTask_SaveAnalysisBatch(t *testing.T) {
 
 	assert.True(t, repo.analysisSaved, "analysis batch should be saved")
 	assert.True(t, repo.resultSaved, "result should be saved")
-	assert.Equal(t, domain.TaskStatusCompleted, repo.statusUpdated, "status should be Completed")
+	assert.Equal(t, bt.TaskStatusCompleted, repo.statusUpdated, "status should be Completed")
 }
 
 func TestScheduler_RecoverStuckTasks_EnqueuesRunningAndPending(t *testing.T) {
 	repo := &mockSchedulerRepo{
-		runningTasks: []*domain.BacktestTask{
-			{ID: uuid.New(), Status: domain.TaskStatusRunning},
+		runningTasks: []*bt.BacktestTask{
+			{ID: uuid.New(), Status: bt.TaskStatusRunning},
 		},
-		pendingTasks: []*domain.BacktestTask{
-			{ID: uuid.New(), Status: domain.TaskStatusPending},
+		pendingTasks: []*bt.BacktestTask{
+			{ID: uuid.New(), Status: bt.TaskStatusPending},
 		},
 	}
 	queue := NewTaskQueue(10)
@@ -249,6 +250,6 @@ func TestScheduler_RecoverStuckTasks_EnqueuesRunningAndPending(t *testing.T) {
 	ctx := context.Background()
 	s.recoverStuckTasks(ctx)
 
-	assert.Equal(t, domain.TaskStatusPending, repo.statusUpdated,
+	assert.Equal(t, bt.TaskStatusPending, repo.statusUpdated,
 		"running tasks should be reset to pending")
 }

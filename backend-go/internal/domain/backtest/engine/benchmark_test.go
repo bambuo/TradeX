@@ -29,9 +29,9 @@ func benchmarkStrategy() domain.Strategy {
 	}
 }
 
-func BenchmarkBacktestEngine_1k(b *testing.B)     { benchmarkKlines(b, 1000) }
-func BenchmarkBacktestEngine_10k(b *testing.B)    { benchmarkKlines(b, 10000) }
-func BenchmarkBacktestEngine_100k(b *testing.B)   { benchmarkKlines(b, 100000) }
+func BenchmarkBacktestEngine_1k(b *testing.B)   { benchmarkKlines(b, 1000) }
+func BenchmarkBacktestEngine_10k(b *testing.B)  { benchmarkKlines(b, 10000) }
+func BenchmarkBacktestEngine_100k(b *testing.B) { benchmarkKlines(b, 100000) }
 
 func benchmarkKlines(b *testing.B, n int) {
 	engine := benchmarkEngine()

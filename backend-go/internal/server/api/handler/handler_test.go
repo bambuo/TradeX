@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"tradex/internal/domain"
+	bt "tradex/internal/domain/backtest"
 	"tradex/internal/server/app/backtest"
 )
 
@@ -23,37 +24,37 @@ var errMock = errors.New("mock error")
 
 type mockRepo struct{}
 
-func (m *mockRepo) CreateTask(_ context.Context, _ *domain.BacktestTask) error {
+func (m *mockRepo) CreateTask(_ context.Context, _ *bt.BacktestTask) error {
 	return nil
 }
-func (m *mockRepo) GetTask(_ context.Context, _ uuid.UUID) (*domain.BacktestTask, error) {
+func (m *mockRepo) GetTask(_ context.Context, _ uuid.UUID) (*bt.BacktestTask, error) {
 	return nil, errMock
 }
-func (m *mockRepo) UpdateTaskStatus(_ context.Context, _ uuid.UUID, _ domain.BacktestTaskStatus, _ *domain.BacktestPhase) error {
+func (m *mockRepo) UpdateTaskStatus(_ context.Context, _ uuid.UUID, _ bt.BacktestTaskStatus, _ *bt.BacktestPhase) error {
 	return nil
 }
 func (m *mockRepo) UpdateTaskProgress(_ context.Context, _ uuid.UUID, _ int) error {
 	return nil
 }
-func (m *mockRepo) ListTasks(_ context.Context, _ domain.TaskFilter) ([]*domain.BacktestTask, int, error) {
+func (m *mockRepo) ListTasks(_ context.Context, _ bt.TaskFilter) ([]*bt.BacktestTask, int, error) {
 	return nil, 0, nil
 }
-func (m *mockRepo) SaveResult(_ context.Context, _ uuid.UUID, _ *domain.BacktestResult, _ []domain.BacktestTrade) error {
+func (m *mockRepo) SaveResult(_ context.Context, _ uuid.UUID, _ *bt.BacktestResult, _ []bt.BacktestTrade) error {
 	return nil
 }
-func (m *mockRepo) GetResult(_ context.Context, _ uuid.UUID) (*domain.BacktestResult, []domain.BacktestTrade, error) {
+func (m *mockRepo) GetResult(_ context.Context, _ uuid.UUID) (*bt.BacktestResult, []bt.BacktestTrade, error) {
 	return nil, nil, errMock
 }
-func (m *mockRepo) SaveAnalysisBatch(_ context.Context, _ uuid.UUID, _ []domain.BacktestKlineAnalysis) error {
+func (m *mockRepo) SaveAnalysisBatch(_ context.Context, _ uuid.UUID, _ []bt.BacktestKlineAnalysis) error {
 	return nil
 }
-func (m *mockRepo) GetAnalysis(_ context.Context, _ uuid.UUID, _ int, _ int) ([]domain.BacktestKlineAnalysis, error) {
+func (m *mockRepo) GetAnalysis(_ context.Context, _ uuid.UUID, _ int, _ int) ([]bt.BacktestKlineAnalysis, error) {
 	return nil, nil
 }
-func (m *mockRepo) GetPendingTasks(_ context.Context) ([]*domain.BacktestTask, error) {
+func (m *mockRepo) GetPendingTasks(_ context.Context) ([]*bt.BacktestTask, error) {
 	return nil, nil
 }
-func (m *mockRepo) GetRunningTasks(_ context.Context) ([]*domain.BacktestTask, error) {
+func (m *mockRepo) GetRunningTasks(_ context.Context) ([]*bt.BacktestTask, error) {
 	return nil, nil
 }
 func (m *mockRepo) GetAnalysisCount(_ context.Context, _ uuid.UUID) (int, error) {
@@ -62,10 +63,10 @@ func (m *mockRepo) GetAnalysisCount(_ context.Context, _ uuid.UUID) (int, error)
 func (m *mockRepo) GetStrategy(_ context.Context, _ uuid.UUID) (*domain.Strategy, error) {
 	return nil, errMock
 }
-func (m *mockRepo) ExecuteInTransaction(_ context.Context, fn func(domain.BacktestRepository) error) error {
+func (m *mockRepo) ExecuteInTransaction(_ context.Context, fn func(bt.BacktestRepository) error) error {
 	return fn(m)
 }
-func (m *mockRepo) TryAcquireTask(_ context.Context, _ uuid.UUID, _ domain.BacktestTaskStatus, _ domain.BacktestPhase) (bool, error) {
+func (m *mockRepo) TryAcquireTask(_ context.Context, _ uuid.UUID, _ bt.BacktestTaskStatus, _ bt.BacktestPhase) (bool, error) {
 	return true, nil
 }
 

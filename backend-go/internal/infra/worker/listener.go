@@ -8,7 +8,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 
-	"tradex/internal/domain"
+	bt "tradex/internal/domain/backtest"
 	"tradex/internal/infra/eventbus"
 )
 
@@ -21,13 +21,13 @@ const (
 )
 
 type BacktestTaskListener struct {
-	repo  domain.BacktestRepository
+	repo  bt.BacktestRepository
 	queue TaskQueue
 	bus   *eventbus.RedisEventBus
 	log   zerolog.Logger
 }
 
-func NewTaskListener(repo domain.BacktestRepository, queue TaskQueue, bus *eventbus.RedisEventBus, log zerolog.Logger) *BacktestTaskListener {
+func NewTaskListener(repo bt.BacktestRepository, queue TaskQueue, bus *eventbus.RedisEventBus, log zerolog.Logger) *BacktestTaskListener {
 	return &BacktestTaskListener{
 		repo:  repo,
 		queue: queue,

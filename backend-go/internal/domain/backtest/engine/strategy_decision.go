@@ -174,9 +174,9 @@ func (sde *StrategyDecisionEngine) evaluateGridExit(input DecisionInput) Strateg
 }
 
 type GridRule struct {
-	RebalancePercent   float64
+	RebalancePercent    float64
 	MaxPyramidingLevels int
-	BasePositionSize   decimal.Decimal
+	BasePositionSize    decimal.Decimal
 }
 
 func parseGridRule(rule json.RawMessage) *GridRule {
@@ -199,9 +199,9 @@ func parseGridRule(rule json.RawMessage) *GridRule {
 	}
 
 	gr := &GridRule{
-		RebalancePercent:   1.0,
+		RebalancePercent:    1.0,
 		MaxPyramidingLevels: 3,
-		BasePositionSize:   decimal.NewFromInt(100),
+		BasePositionSize:    decimal.NewFromInt(100),
 	}
 
 	if raw.RebalancePercent != nil {

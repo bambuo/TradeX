@@ -1,12 +1,15 @@
-package domain
+package backtest
 
 import (
 	"context"
 
 	"github.com/google/uuid"
+
+	"tradex/internal/domain"
 )
 
 type BacktestRepository interface {
+	domain.StrategyRepository
 	CreateTask(ctx context.Context, task *BacktestTask) error
 	GetTask(ctx context.Context, id uuid.UUID) (*BacktestTask, error)
 	UpdateTaskStatus(ctx context.Context, id uuid.UUID, status BacktestTaskStatus, phase *BacktestPhase) error
@@ -20,11 +23,7 @@ type BacktestRepository interface {
 	GetRunningTasks(ctx context.Context) ([]*BacktestTask, error)
 	ExecuteInTransaction(ctx context.Context, fn func(BacktestRepository) error) error
 	TryAcquireTask(ctx context.Context, id uuid.UUID, fromStatus BacktestTaskStatus, phase BacktestPhase) (bool, error)
-	StrategyRepository
-}
-
-type StrategyRepository interface {
-	GetStrategy(ctx context.Context, id uuid.UUID) (*Strategy, error)
+	domain.StrategyRepository
 }
 
 type TaskFilter struct {

@@ -27,8 +27,8 @@ type ConditionNode struct {
 	Name       string           `json:"name,omitempty"`
 	Period     *int             `json:"period,omitempty"`
 
-	Indicator   string   `json:"indicator,omitempty"`
-	Comparison  string   `json:"comparison,omitempty"`
+	Indicator  string `json:"indicator,omitempty"`
+	Comparison string `json:"comparison,omitempty"`
 }
 
 type RefNode struct {
@@ -327,5 +327,3 @@ func resolveRef(ref *RefNode, ctx EvaluationContext) (float64, error) {
 		return 0, fmt.Errorf("unknown ref: %s", name)
 	}
 }
-
-

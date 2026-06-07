@@ -9,6 +9,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"tradex/internal/domain"
+	bt "tradex/internal/domain/backtest"
 	"tradex/internal/domain/indicator"
 )
 
@@ -25,13 +26,13 @@ type EngineInput struct {
 	PositionSize   *decimal.Decimal
 	FeeRate        decimal.Decimal
 	Timeframe      string
-	OnAnalysis     func(domain.BacktestKlineAnalysis)
+	OnAnalysis     func(bt.BacktestKlineAnalysis)
 }
 
 type EngineOutput struct {
-	Result      domain.BacktestResult
-	Trades      []domain.BacktestTrade
-	Analysis    []domain.BacktestKlineAnalysis
+	Result      bt.BacktestResult
+	Trades      []bt.BacktestTrade
+	Analysis    []bt.BacktestKlineAnalysis
 	EquityCurve []decimal.Decimal
 }
 
@@ -50,21 +51,21 @@ func NewBacktestEngine(registry *indicator.Registry) *BacktestEngine {
 func (e *BacktestEngine) Run(ctx context.Context, input EngineInput) (EngineOutput, error) {
 	if len(input.Klines) < FirstValidIndex+1 {
 		return EngineOutput{
-			Result: domain.BacktestResult{
+			Result: bt.BacktestResult{
 				InitialCapital: input.InitialCapital,
 				FinalValue:     input.InitialCapital,
 				TotalTrades:    0,
 			},
-			Trades:   []domain.BacktestTrade{},
-			Analysis: []domain.BacktestKlineAnalysis{},
+			Trades:   []bt.BacktestTrade{},
+			Analysis: []bt.BacktestKlineAnalysis{},
 		}, nil
 	}
 	if err := e.validate(input); err != nil {
 		return EngineOutput{}, err
 	}
 
-	trades := make([]domain.BacktestTrade, 0, 100)
-	analysis := make([]domain.BacktestKlineAnalysis, 0, len(input.Klines))
+	trades := make([]bt.BacktestTrade, 0, 100)
+	analysis := make([]bt.BacktestKlineAnalysis, 0, len(input.Klines))
 	equityCurve := make([]decimal.Decimal, 0, len(input.Klines))
 
 	cash := input.InitialCapital
@@ -151,7 +152,7 @@ func (e *BacktestEngine) Run(ctx context.Context, input EngineInput) (EngineOutp
 
 			cash = cash.Add(positionSize.Mul(closePrice)).Sub(exitFee)
 
-			trade := domain.BacktestTrade{
+			trade := bt.BacktestTrade{
 				EntryIndex: 0,
 				ExitIndex:  i,
 				EnteredAt:  entryTimestamp,
@@ -191,7 +192,7 @@ func (e *BacktestEngine) Run(ctx context.Context, input EngineInput) (EngineOutp
 			entryCondResult = decision.ConditionResult
 		}
 
-		analysisEntry := domain.BacktestKlineAnalysis{
+		analysisEntry := bt.BacktestKlineAnalysis{
 			KlineIndex:           i,
 			Timestamp:            candle.Timestamp,
 			Open:                 candle.Open,
@@ -261,7 +262,7 @@ func (e *BacktestEngine) validate(input EngineInput) error {
 	return nil
 }
 
-func (e *BacktestEngine) computeResult(input EngineInput, trades []domain.BacktestTrade, equityCurve []decimal.Decimal) domain.BacktestResult {
+func (e *BacktestEngine) computeResult(input EngineInput, trades []bt.BacktestTrade, equityCurve []decimal.Decimal) bt.BacktestResult {
 	initialCapital := input.InitialCapital
 	finalEquity := equityCurve[len(equityCurve)-1]
 
@@ -299,7 +300,7 @@ func (e *BacktestEngine) computeResult(input EngineInput, trades []domain.Backte
 	sharpe := e.computeSharpeRatio(equityCurve, input.Timeframe)
 	profitLossRatio := e.computeProfitLossRatio(trades)
 
-	return domain.BacktestResult{
+	return bt.BacktestResult{
 		FinalValue:              finalEquity,
 		TotalReturnPercent:      totalReturn,
 		AnnualizedReturnPercent: annualizedReturn,
@@ -333,7 +334,7 @@ func (e *BacktestEngine) computeMaxDrawdown(equityCurve []decimal.Decimal) decim
 	return maxDD
 }
 
-func (e *BacktestEngine) computeWinRate(trades []domain.BacktestTrade) decimal.Decimal {
+func (e *BacktestEngine) computeWinRate(trades []bt.BacktestTrade) decimal.Decimal {
 	if len(trades) == 0 {
 		return decimal.Zero
 	}
@@ -408,7 +409,7 @@ func periodsPerYear(timeframe string) float64 {
 	}
 }
 
-func (e *BacktestEngine) computeProfitLossRatio(trades []domain.BacktestTrade) decimal.Decimal {
+func (e *BacktestEngine) computeProfitLossRatio(trades []bt.BacktestTrade) decimal.Decimal {
 	totalProfit := decimal.Zero
 	totalLoss := decimal.Zero
 

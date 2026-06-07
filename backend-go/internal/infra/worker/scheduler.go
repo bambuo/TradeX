@@ -12,7 +12,8 @@ import (
 	"github.com/shopspring/decimal"
 
 	"tradex/internal/domain"
-	"tradex/internal/domain/engine"
+	bt "tradex/internal/domain/backtest"
+	"tradex/internal/domain/backtest/engine"
 	"tradex/internal/domain/indicator"
 	"tradex/internal/infra/analysis"
 	"tradex/internal/infra/exchange"
@@ -22,7 +23,7 @@ import (
 const SafetyNetInterval = 5 * time.Minute
 
 type BacktestScheduler struct {
-	repo          domain.BacktestRepository
+	repo          bt.BacktestRepository
 	queue         TaskQueue
 	monitor       *ResourceMonitor
 	registry      *indicator.Registry
@@ -40,7 +41,7 @@ type SchedulerConfig struct {
 }
 
 func NewBacktestScheduler(
-	repo domain.BacktestRepository,
+	repo bt.BacktestRepository,
 	queue TaskQueue,
 	monitor *ResourceMonitor,
 	registry *indicator.Registry,
@@ -121,7 +122,7 @@ func (s *BacktestScheduler) recoverStuckTasks(ctx context.Context) {
 	} else {
 		for _, task := range running {
 			runningCount++
-			if err := s.repo.UpdateTaskStatus(context.Background(), task.ID, domain.TaskStatusPending, nil); err != nil {
+			if err := s.repo.UpdateTaskStatus(context.Background(), task.ID, bt.TaskStatusPending, nil); err != nil {
 				s.log.Warn().Err(err).Str("task_id", task.ID.String()).Msg("重置卡死任务到 DB 失败")
 				continue
 			}
@@ -161,18 +162,18 @@ func (s *BacktestScheduler) executeTask(ctx context.Context, taskID uuid.UUID, c
 
 	log.Info().Msg("任务已出队，开始执行")
 
-	advance := func(from domain.BacktestTaskStatus, phase domain.BacktestPhase) bool {
+	advance := func(from bt.BacktestTaskStatus, phase bt.BacktestPhase) bool {
 		ok, _ := s.repo.TryAcquireTask(context.Background(), taskID, from, phase)
 		return ok
 	}
 
-	log.Info().Interface("event", domain.BacktestStartedEvent{TaskID: taskID, Timestamp: time.Now()}).Msg("回测已开始")
+	log.Info().Interface("event", bt.BacktestStartedEvent{TaskID: taskID, Timestamp: time.Now()}).Msg("回测已开始")
 
-	if !advance(domain.TaskStatusPending, domain.PhaseQueued) {
+	if !advance(bt.TaskStatusPending, bt.PhaseQueued) {
 		log.Warn().Msg("任务状态异常（Queued），已中止")
 		return
 	}
-	if !advance(domain.TaskStatusRunning, domain.PhaseFetchingData) {
+	if !advance(bt.TaskStatusRunning, bt.PhaseFetchingData) {
 		log.Warn().Msg("任务状态异常（FetchingData），已中止")
 		return
 	}
@@ -184,7 +185,7 @@ func (s *BacktestScheduler) executeTask(ctx context.Context, taskID uuid.UUID, c
 	}
 
 	log.Info().Int("klines", len(candles)).Msg("已获取 K 线")
-	if !advance(domain.TaskStatusRunning, domain.PhaseRunning) {
+	if !advance(bt.TaskStatusRunning, bt.PhaseRunning) {
 		log.Warn().Msg("任务状态异常（Running），已中止")
 		return
 	}
@@ -197,7 +198,7 @@ func (s *BacktestScheduler) executeTask(ctx context.Context, taskID uuid.UUID, c
 
 	// 引擎启动前最后检查取消状态
 	current, checkErr := s.repo.GetTask(context.Background(), taskID)
-	if checkErr == nil && current.Status == domain.TaskStatusCancelled {
+	if checkErr == nil && current.Status == bt.TaskStatusCancelled {
 		log.Warn().Msg("任务在引擎启动前被取消，已中止")
 		return
 	}
@@ -231,7 +232,7 @@ func (s *BacktestScheduler) executeTask(ctx context.Context, taskID uuid.UUID, c
 		PositionSize:   task.PositionSize,
 		FeeRate:        feeRate,
 		Timeframe:      task.Timeframe,
-		OnAnalysis: func(a domain.BacktestKlineAnalysis) {
+		OnAnalysis: func(a bt.BacktestKlineAnalysis) {
 			s.analysisStore.Push(taskIDStr, a)
 		},
 	})
@@ -242,7 +243,7 @@ func (s *BacktestScheduler) executeTask(ctx context.Context, taskID uuid.UUID, c
 
 	if err != nil {
 		current, checkErr := s.repo.GetTask(context.Background(), taskID)
-		if checkErr == nil && current.Status == domain.TaskStatusCancelled {
+		if checkErr == nil && current.Status == bt.TaskStatusCancelled {
 			log.Info().Msg("任务在引擎运行中被取消，丢弃结果")
 			return
 		}
@@ -276,18 +277,18 @@ func (s *BacktestScheduler) executeTask(ctx context.Context, taskID uuid.UUID, c
 
 	// 取消守卫：引擎跑完后重读 DB，确认没有被取消
 	latest, err := s.repo.GetTask(context.Background(), taskID)
-	if err == nil && latest.Status == domain.TaskStatusCancelled {
+	if err == nil && latest.Status == bt.TaskStatusCancelled {
 		log.Warn().Msg("任务在运行中被取消，丢弃结果")
 		return
 	}
 
 	// 事务：仅结果保存 + 完成状态（分析数据已在外层刷入）
-	err = s.repo.ExecuteInTransaction(taskCtx, func(txRepo domain.BacktestRepository) error {
+	err = s.repo.ExecuteInTransaction(taskCtx, func(txRepo bt.BacktestRepository) error {
 		current, err := txRepo.GetTask(taskCtx, taskID)
 		if err != nil {
 			return err
 		}
-		if current.Status == domain.TaskStatusCancelled {
+		if current.Status == bt.TaskStatusCancelled {
 			log.Warn().Msg("任务在事务中被取消，回滚")
 			return nil
 		}
@@ -301,12 +302,12 @@ func (s *BacktestScheduler) executeTask(ctx context.Context, taskID uuid.UUID, c
 		if err2 != nil {
 			return err2
 		}
-		if current2.Status == domain.TaskStatusCancelled {
+		if current2.Status == bt.TaskStatusCancelled {
 			log.Warn().Msg("任务在保存结果后被取消，回滚事务")
 			return nil
 		}
 
-		return txRepo.UpdateTaskStatus(taskCtx, taskID, domain.TaskStatusCompleted, nil)
+		return txRepo.UpdateTaskStatus(taskCtx, taskID, bt.TaskStatusCompleted, nil)
 	})
 	if err != nil {
 		log.Error().Err(err).Msg("提交结果和完成状态失败，任务可重试")
@@ -314,7 +315,7 @@ func (s *BacktestScheduler) executeTask(ctx context.Context, taskID uuid.UUID, c
 	}
 
 	log.Info().Interface("event",
-		domain.BacktestCompletedEvent{
+		bt.BacktestCompletedEvent{
 			TaskID:             taskID,
 			FinalValue:         out.Result.FinalValue,
 			TotalReturnPercent: out.Result.TotalReturnPercent,
@@ -330,10 +331,10 @@ func (s *BacktestScheduler) executeTask(ctx context.Context, taskID uuid.UUID, c
 
 func (s *BacktestScheduler) failTask(taskID uuid.UUID, reason string, log zerolog.Logger) {
 	log.Error().Str("reason", reason).Msg("回测失败")
-	log.Info().Interface("event", domain.BacktestFailedEvent{
+	log.Info().Interface("event", bt.BacktestFailedEvent{
 		TaskID: taskID, Reason: reason, Timestamp: time.Now(),
 	}).Msg("回测失败（事件）")
-	if err := s.repo.UpdateTaskStatus(context.Background(), taskID, domain.TaskStatusFailed, nil); err != nil {
+	if err := s.repo.UpdateTaskStatus(context.Background(), taskID, bt.TaskStatusFailed, nil); err != nil {
 		log.Warn().Err(err).Msg("标记任务失败时出错")
 	}
 }
@@ -389,7 +390,7 @@ func (s *BacktestScheduler) batchFlushLoop(ctx context.Context, taskID uuid.UUID
 	}
 }
 
-func (s *BacktestScheduler) fetchKlines(ctx context.Context, task *domain.BacktestTask) ([]domain.Candle, error) {
+func (s *BacktestScheduler) fetchKlines(ctx context.Context, task *bt.BacktestTask) ([]domain.Candle, error) {
 	if s.klineCache != nil {
 		cached, ok := s.klineCache.Get(ctx, task.ExchangeID, task.Pair, task.Timeframe, task.StartAt, task.EndAt)
 		if ok && len(cached) > 0 {

@@ -1,4 +1,4 @@
-package domain
+package backtest
 
 import (
 	"time"
@@ -13,10 +13,10 @@ type BacktestStartedEvent struct {
 }
 
 type BacktestCompletedEvent struct {
-	TaskID              uuid.UUID
-	FinalValue          decimal.Decimal
-	TotalReturnPercent  decimal.Decimal
-	Timestamp           time.Time
+	TaskID             uuid.UUID
+	FinalValue         decimal.Decimal
+	TotalReturnPercent decimal.Decimal
+	Timestamp          time.Time
 }
 
 type BacktestFailedEvent struct {
