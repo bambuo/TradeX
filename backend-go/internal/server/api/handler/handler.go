@@ -12,20 +12,20 @@ import (
 	"github.com/rs/zerolog"
 
 	"tradex/internal/domain"
-	"tradex/internal/server/app"
+	"tradex/internal/server/app/backtest"
 )
 
 const CancelStreamKey = "tradex:backtest:cancel"
 
 type BacktestHandler struct {
-	svc           *app.BacktestService
+	svc           *backtest.Service
 	cancelPub     domain.CancelNotifier
 	taskNotif     domain.TaskNotifier
 	analysisStore domain.AnalysisStore
 	log           zerolog.Logger
 }
 
-func NewBacktestHandler(svc *app.BacktestService, log zerolog.Logger) *BacktestHandler {
+func NewBacktestHandler(svc *backtest.Service, log zerolog.Logger) *BacktestHandler {
 	return &BacktestHandler{svc: svc, log: log}
 }
 
@@ -97,7 +97,7 @@ func (h *BacktestHandler) CreateTask(c *gin.Context) {
 		return
 	}
 
-	svcReq := app.CreateBacktestRequest{
+	svcReq := backtest.CreateBacktestRequest{
 		StrategyID:     req.StrategyID,
 		ExchangeID:     req.ExchangeID,
 		Pair:           req.Pair,

@@ -17,7 +17,7 @@ import (
 	"tradex/internal/infra/persistence"
 	"tradex/internal/infra/telemetry"
 	"tradex/internal/server/api/handler"
-	"tradex/internal/server/app"
+	"tradex/internal/server/app/backtest"
 )
 
 func NewAPICmd() *cobra.Command {
@@ -54,7 +54,7 @@ func NewAPICmd() *cobra.Command {
 			log.Info().Msg("数据库迁移已应用")
 
 			btRepo := persistence.NewBacktestRepo(client)
-			svc := app.NewBacktestService(btRepo)
+			svc := backtest.NewService(btRepo)
 
 			redisAddr := viper.GetString("redis_addr")
 			var redisBus *eventbus.RedisEventBus

@@ -13,7 +13,7 @@ func NewRootCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(NewAPICmd())
-	cmd.AddCommand(NewWorkerCmd())
+	cmd.AddCommand(NewBacktestCmd())
 
 	return cmd
 }

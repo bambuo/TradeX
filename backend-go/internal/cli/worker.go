@@ -25,9 +25,9 @@ import (
 	"tradex/internal/infra/worker"
 )
 
-func NewWorkerCmd() *cobra.Command {
+func NewBacktestCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "worker",
+		Use:   "backtest",
 		Short: "TradeX Backtest Worker",
 		Run: func(_ *cobra.Command, _ []string) {
 			log := zerolog.New(os.Stdout).With().Timestamp().Logger()
@@ -41,7 +41,7 @@ func NewWorkerCmd() *cobra.Command {
 			log.Info().Str("dsn", maskDSN(dsn)).Bool("redis", redisAddr != "").Msg("Worker 启动")
 
 			shutdown, err := telemetry.InitOTel(context.Background(), telemetry.Config{
-				ServiceName:    "tradex-worker",
+				ServiceName:    "tradex-backtest",
 				ServiceVersion: "0.1.0",
 				OTLPEndpoint:   otlpEndpoint,
 				Environment:    viper.GetString("environment"),

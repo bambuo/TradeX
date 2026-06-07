@@ -1,4 +1,4 @@
-package app
+package backtest
 
 import (
 	"context"
@@ -23,15 +23,15 @@ type CreateBacktestRequest struct {
 	FeeRate        float64
 }
 
-type BacktestService struct {
+type Service struct {
 	repo domain.BacktestRepository
 }
 
-func NewBacktestService(repo domain.BacktestRepository) *BacktestService {
-	return &BacktestService{repo: repo}
+func NewService(repo domain.BacktestRepository) *Service {
+	return &Service{repo: repo}
 }
 
-func (s *BacktestService) CreateTask(ctx context.Context, req CreateBacktestRequest) (*domain.BacktestTask, error) {
+func (s *Service) CreateTask(ctx context.Context, req CreateBacktestRequest) (*domain.BacktestTask, error) {
 	strategyID, err := uuid.Parse(req.StrategyID)
 	if err != nil {
 		return nil, fmt.Errorf("%w: 无效的策略ID: %s", domain.ErrInvalidInput, req.StrategyID)
@@ -42,7 +42,6 @@ func (s *BacktestService) CreateTask(ctx context.Context, req CreateBacktestRequ
 		return nil, fmt.Errorf("%w: 无效的交易所ID: %s", domain.ErrInvalidInput, req.ExchangeID)
 	}
 
-	// validate strategy exists
 	strategy, err := s.repo.GetStrategy(ctx, strategyID)
 	if err != nil {
 		return nil, fmt.Errorf("%w: 策略不存在: %s", domain.ErrInvalidInput, req.StrategyID)
@@ -85,19 +84,18 @@ func (s *BacktestService) CreateTask(ctx context.Context, req CreateBacktestRequ
 		return nil, fmt.Errorf("create task: %w", err)
 	}
 
-	_ = strategy // strategy loaded and validated
 	return task, nil
 }
 
-func (s *BacktestService) GetTask(ctx context.Context, id uuid.UUID) (*domain.BacktestTask, error) {
+func (s *Service) GetTask(ctx context.Context, id uuid.UUID) (*domain.BacktestTask, error) {
 	return s.repo.GetTask(ctx, id)
 }
 
-func (s *BacktestService) ListTasks(ctx context.Context, filter domain.TaskFilter) ([]*domain.BacktestTask, int, error) {
+func (s *Service) ListTasks(ctx context.Context, filter domain.TaskFilter) ([]*domain.BacktestTask, int, error) {
 	return s.repo.ListTasks(ctx, filter)
 }
 
-func (s *BacktestService) CancelTask(ctx context.Context, id uuid.UUID) error {
+func (s *Service) CancelTask(ctx context.Context, id uuid.UUID) error {
 	task, err := s.repo.GetTask(ctx, id)
 	if err != nil {
 		return err
@@ -108,14 +106,14 @@ func (s *BacktestService) CancelTask(ctx context.Context, id uuid.UUID) error {
 	return s.repo.UpdateTaskStatus(ctx, id, domain.TaskStatusCancelled, nil)
 }
 
-func (s *BacktestService) GetResult(ctx context.Context, id uuid.UUID) (*domain.BacktestResult, []domain.BacktestTrade, error) {
+func (s *Service) GetResult(ctx context.Context, id uuid.UUID) (*domain.BacktestResult, []domain.BacktestTrade, error) {
 	return s.repo.GetResult(ctx, id)
 }
 
-func (s *BacktestService) GetAnalysis(ctx context.Context, id uuid.UUID, cursor, limit int) ([]domain.BacktestKlineAnalysis, error) {
+func (s *Service) GetAnalysis(ctx context.Context, id uuid.UUID, cursor, limit int) ([]domain.BacktestKlineAnalysis, error) {
 	return s.repo.GetAnalysis(ctx, id, cursor, limit)
 }
 
-func (s *BacktestService) GetAnalysisCount(ctx context.Context, id uuid.UUID) (int, error) {
+func (s *Service) GetAnalysisCount(ctx context.Context, id uuid.UUID) (int, error) {
 	return s.repo.GetAnalysisCount(ctx, id)
 }

@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"tradex/internal/domain"
-	"tradex/internal/server/app"
+	"tradex/internal/server/app/backtest"
 )
 
 var errMock = errors.New("mock error")
@@ -70,7 +70,7 @@ func (m *mockRepo) TryAcquireTask(_ context.Context, _ uuid.UUID, _ domain.Backt
 }
 
 func newTestHandler() *BacktestHandler {
-	return NewBacktestHandler(app.NewBacktestService(&mockRepo{}), zerolog.Nop())
+	return NewBacktestHandler(backtest.NewService(&mockRepo{}), zerolog.Nop())
 }
 
 func TestHandler_Health(t *testing.T) {
