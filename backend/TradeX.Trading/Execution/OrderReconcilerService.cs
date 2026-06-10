@@ -38,7 +38,7 @@ public sealed class OrderReconcilerService(
 
         // 持仓级对账独立间隔（通常比订单对账更稀疏），首轮即触发一次。
         var positionInterval = TimeSpan.FromSeconds(Math.Max(30, riskSettings.Value.PositionReconcileIntervalSeconds));
-        var lastPositionRunUtc = DateTime.MinValue;
+        var lastPositionRunAt = DateTime.MinValue;
 
         // 启动后先等待一个周期，避免与首轮订单写入的竞争窗口
         try { await Task.Delay(interval, stoppingToken); }
@@ -53,11 +53,11 @@ public sealed class OrderReconcilerService(
                 await reconciler.ReconcileAsync(stoppingToken);
 
                 // 持仓级对账按自身间隔触发（复用同一 scope）
-                if (DateTime.UtcNow - lastPositionRunUtc >= positionInterval)
+                if (DateTime.UtcNow - lastPositionRunAt >= positionInterval)
                 {
                     var positionReconciler = scope.ServiceProvider.GetRequiredService<IPositionReconciler>();
                     await positionReconciler.ReconcilePositionsAsync(stoppingToken);
-                    lastPositionRunUtc = DateTime.UtcNow;
+                    lastPositionRunAt = DateTime.UtcNow;
                 }
             }
             catch (OperationCanceledException) { break; }

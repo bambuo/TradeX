@@ -130,9 +130,9 @@ public class CooldownCheck(ILogger<CooldownCheck> logger) : RiskCheckHandler
 {
     public override async Task<RiskContext> CheckAsync(RiskContext context, CancellationToken ct = default)
     {
-        if (context.LastTradeTimeUtc.HasValue && context.CooldownSeconds > 0)
+        if (context.LastTradeTime.HasValue && context.CooldownSeconds > 0)
         {
-            var elapsed = DateTime.UtcNow - context.LastTradeTimeUtc.Value;
+            var elapsed = DateTime.UtcNow - context.LastTradeTime.Value;
             if (elapsed.TotalSeconds < context.CooldownSeconds)
             {
                 context.Deny($"冷却期未结束: 距上次交易 {elapsed.TotalSeconds:F0}s, 需要 {context.CooldownSeconds}s");

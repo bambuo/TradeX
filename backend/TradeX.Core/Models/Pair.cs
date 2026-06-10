@@ -22,5 +22,5 @@ public class ExchangePairRuleSnapshot
     public decimal MinQuantity { get; set; }
     public decimal TickSize { get; set; }
     public decimal StepSize { get; set; }
-    public DateTime FetchedAtUtc { get; init; } = DateTime.UtcNow;
+    public DateTime FetchedAt { get; init; } = DateTime.UtcNow;
 }

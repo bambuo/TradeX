@@ -24,7 +24,7 @@ public sealed class AdminController(
     {
         active = killSwitch.IsActive,
         reason = killSwitch.LastReason,
-        activatedAtUtc = killSwitch.LastActivatedAtUtc
+        activatedAt = killSwitch.LastActivatedAt
     });
 
     /// <summary>立即激活 Kill Switch: 暂停所有 Active StrategyBinding.</summary>

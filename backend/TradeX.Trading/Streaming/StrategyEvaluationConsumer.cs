@@ -281,7 +281,7 @@ public sealed class StrategyEvaluationConsumer(
         var openPositions = await cycle.PositionRepo.GetByStrategyIdAsync(binding.Id, ct);
         var openPairPositions = openPositions
             .Where(p => p.Status == PositionStatus.Open && p.Pair.Equals(pair, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(p => p.OpenedAtUtc)
+            .OrderBy(p => p.OpenedAt)
             .ToList();
         var hasOpenPosition = openPairPositions.Count > 0;
 
@@ -452,7 +452,7 @@ public sealed class StrategyEvaluationConsumer(
             await eventBus.PublishAsync(new OrderPlacedPayload(
                 order.Id, binding.TraderId, order.ExchangeId, order.StrategyId,
                 order.Pair, order.Side.ToString(), order.Type.ToString(),
-                order.Status.ToString(), order.Quantity, order.PlacedAtUtc), ct);
+                order.Status.ToString(), order.Quantity, order.PlacedAt), ct);
         }
         else
         {
@@ -495,7 +495,7 @@ public sealed class StrategyEvaluationConsumer(
             await eventBus.PublishAsync(new OrderPlacedPayload(
                 sellOrder.Id, binding.TraderId, sellOrder.ExchangeId, sellOrder.StrategyId,
                 sellOrder.Pair, sellOrder.Side.ToString(), sellOrder.Type.ToString(),
-                sellOrder.Status.ToString(), sellOrder.Quantity, sellOrder.PlacedAtUtc), ct);
+                sellOrder.Status.ToString(), sellOrder.Quantity, sellOrder.PlacedAt), ct);
 
             metrics.OrdersPlaced.Add(1,
                 new KeyValuePair<string, object?>("side", "sell"),

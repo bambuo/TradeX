@@ -7,23 +7,23 @@ public sealed record PositionUpdatedPayload(
 public sealed record OrderPlacedPayload(
     Guid OrderId, Guid TraderId, Guid ExchangeId, Guid? StrategyId,
     string Pair, string Side, string Type, string Status,
-    decimal Quantity, DateTime PlacedAtUtc);
+    decimal Quantity, DateTime PlacedAt);
 
 public sealed record BindingStatusChangedPayload(
     Guid StrategyId, Guid TraderId, string OldStatus, string NewStatus,
-    string? Reason, DateTime ChangedAtUtc);
+    string? Reason, DateTime ChangedAt);
 
 public sealed record RiskAlertPayload(
     Guid AlertId, string Level, string Category, Guid TraderId,
-    Guid? StrategyId, string Message, DateTime TriggeredAtUtc);
+    Guid? StrategyId, string Message, DateTime TriggeredAt);
 
 public sealed record DashboardSummaryPayload(
     decimal TotalPnl, int TotalPositions, int ActiveStrategies,
-    decimal DailyPnl, decimal WinRate, DateTime LastUpdateAtUtc);
+    decimal DailyPnl, decimal WinRate, DateTime LastUpdatedAt);
 
 public sealed record ExchangeConnectionChangedPayload(
     Guid ExchangeId, Guid TraderId, string OldStatus,
-    string NewStatus, string? ErrorMessage, DateTime ChangedAtUtc);
+    string NewStatus, string? ErrorMessage, DateTime ChangedAt);
 
 public sealed record OrphanOrderDetectedPayload(
     Guid ExchangeId, string ExchangeType, string Pair, string ExchangeOrderId,
@@ -39,7 +39,7 @@ public sealed record PositionDriftDetectedPayload(
     string Severity, DateTime DetectedAt);
 
 public sealed record KillSwitchActivatedPayload(
-    string Reason, Guid? ActorUserId, DateTime ActivatedAtUtc, int DisabledBindingCount);
+    string Reason, Guid? ActorUserId, DateTime ActivatedAt, int DisabledBindingCount);
 
 public sealed record KillSwitchDeactivatedPayload(
-    string Reason, Guid? ActorUserId, DateTime DeactivatedAtUtc);
+    string Reason, Guid? ActorUserId, DateTime DeactivatedAt);

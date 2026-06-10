@@ -78,27 +78,27 @@ public record PositionUpdatedEvent(
 public record OrderPlacedEvent(
     Guid OrderId, Guid TraderId, Guid ExchangeId, Guid? StrategyId,
     string Pair, string Side, string Type, string Status,
-    decimal Quantity, DateTime PlacedAtUtc,
+    decimal Quantity, DateTime PlacedAt,
     Guid TraceId);
 
 public record BindingStatusChangedEvent(
     Guid StrategyId, Guid TraderId, string OldStatus, string NewStatus,
-    string? Reason, DateTime ChangedAtUtc,
+    string? Reason, DateTime ChangedAt,
     Guid TraceId);
 
 public record RiskAlertEvent(
     Guid AlertId, string Level, string Category, Guid TraderId,
-    Guid? StrategyId, string Message, DateTime TriggeredAtUtc,
+    Guid? StrategyId, string Message, DateTime TriggeredAt,
     Guid TraceId);
 
 public record DashboardSummaryEvent(
     decimal TotalPnl, int TotalPositions, int ActiveStrategies,
-    decimal DailyPnl, decimal WinRate, DateTime LastUpdateAtUtc,
+    decimal DailyPnl, decimal WinRate, DateTime LastUpdatedAt,
     Guid TraceId);
 
 public record ExchangeConnectionChangedEvent(
     Guid ExchangeId, Guid TraderId, string OldStatus,
-    string NewStatus, string? ErrorMessage, DateTime ChangedAtUtc,
+    string NewStatus, string? ErrorMessage, DateTime ChangedAt,
     Guid TraceId);
 
 public record OrphanOrderDetectedEvent(

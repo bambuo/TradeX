@@ -17,7 +17,7 @@ public class AuditLogRepository(TradeXDbContext context) : IAuditLogRepository
 
     public async Task<(List<AuditLogEntry> Items, int Total)> GetPagedAsync(int page = 1, int pageSize = 20,
         string? userId = null, string? action = null, string? resourceType = null,
-        DateTime? startUtc = null, DateTime? endUtc = null, CancellationToken ct = default)
+        DateTime? startAt = null, DateTime? endAt = null, CancellationToken ct = default)
     {
         var query = context.AuditLogs.AsQueryable();
 
@@ -27,10 +27,10 @@ public class AuditLogRepository(TradeXDbContext context) : IAuditLogRepository
             query = query.Where(x => x.Action == action);
         if (!string.IsNullOrWhiteSpace(resourceType))
             query = query.Where(x => x.Resource == resourceType);
-        if (startUtc.HasValue)
-            query = query.Where(x => x.Timestamp >= startUtc.Value);
-        if (endUtc.HasValue)
-            query = query.Where(x => x.Timestamp <= endUtc.Value);
+        if (startAt.HasValue)
+            query = query.Where(x => x.Timestamp >= startAt.Value);
+        if (endAt.HasValue)
+            query = query.Where(x => x.Timestamp <= endAt.Value);
 
         var total = await query.CountAsync(ct);
 

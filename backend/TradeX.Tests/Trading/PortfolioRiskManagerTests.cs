@@ -209,7 +209,7 @@ public class PortfolioRiskManagerTests
                 CurrentPrice = 1000,
                 Quantity = 1,
                 // 远早于冷却窗口，避免触发冷却检查（本用例只验证持仓数量临界）
-                OpenedAtUtc = DateTime.UtcNow.AddHours(-1)
+                OpenedAt = DateTime.UtcNow.AddHours(-1)
             }).ToList());
         _positionRepo.GetClosedByTraderIdSinceAsync(traderId, Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
             .Returns([
@@ -234,7 +234,7 @@ public class PortfolioRiskManagerTests
                     Status = PositionStatus.Open,
                     CurrentPrice = 1000,
                     Quantity = 1,
-                    OpenedAtUtc = DateTime.UtcNow.AddSeconds(-5)
+                    OpenedAt = DateTime.UtcNow.AddSeconds(-5)
                 }
             ]);
         _positionRepo.GetClosedByTraderIdSinceAsync(traderId, Arg.Any<DateTime>(), Arg.Any<CancellationToken>())

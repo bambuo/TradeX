@@ -17,5 +17,5 @@ public sealed record OrderDto(
     decimal Fee,
     string? FeeAsset,
     bool IsManual,
-    DateTime PlacedAtUtc,
+    DateTime PlacedAt,
     DateTime UpdatedAt);

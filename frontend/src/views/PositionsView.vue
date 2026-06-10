@@ -77,7 +77,7 @@ function formatPnl(pnl: number): string {
           <td>
             <a-tag :color="p.status === 'Open' ? 'blue' : ''">{{ p.status === 'Open' ? '持仓中' : '已平仓' }}</a-tag>
           </td>
-          <td>{{ new Date(p.openedAtUtc).toLocaleString() }}</td>
+          <td>{{ new Date(p.openedAt).toLocaleString() }}</td>
         </tr>
         <tr v-if="positions.length === 0">
           <td colspan="8" class="empty">暂无持仓记录</td>

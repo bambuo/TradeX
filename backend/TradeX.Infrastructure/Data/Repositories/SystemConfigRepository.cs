@@ -13,7 +13,7 @@ namespace TradeX.Infrastructure.Data.Repositories;
 public class SystemConfigRepository(TradeXDbContext context) : ISystemConfigRepository
 {
     // 简易进程内缓存。多实例下 invalidation 不传播，但 60s TTL 内变更可以接受短延迟生效。
-    private static readonly ConcurrentDictionary<string, (string? Value, DateTime ExpiresAtUtc)> Cache = new();
+    private static readonly ConcurrentDictionary<string, (string? Value, DateTime ExpiresAt)> Cache = new();
     private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(60);
 
     public async Task<List<SystemConfig>> GetAllAsync(CancellationToken ct = default)
@@ -22,7 +22,7 @@ public class SystemConfigRepository(TradeXDbContext context) : ISystemConfigRepo
     public async Task<SystemConfig?> GetByKeyAsync(string key, CancellationToken ct = default)
     {
         var now = DateTime.UtcNow;
-        if (Cache.TryGetValue(key, out var cached) && cached.ExpiresAtUtc > now)
+        if (Cache.TryGetValue(key, out var cached) && cached.ExpiresAt > now)
         {
             return cached.Value is null
                 ? null

@@ -93,7 +93,7 @@ public class Order : AggregateRoot, IVersioned
     public decimal Fee { get; set; }
     public string? FeeAsset { get; set; }
     public bool IsManual { get; set; }
-    public DateTime PlacedAtUtc { get; init; } = DateTime.UtcNow;
+    public DateTime PlacedAt { get; init; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     /// <summary>乐观并发控制版本号，由 VersionInterceptor 在保存前自动刷新。</summary>
     public Guid Version { get; set; } = Guid.NewGuid();

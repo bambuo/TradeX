@@ -19,7 +19,7 @@ interface SummaryPayload {
   winRate?: number
   totalPositions?: number
   activeStrategies?: number
-  lastUpdateAtUtc?: string
+  lastUpdatedAt?: string
 }
 
 interface RiskAlertPayload {
@@ -33,10 +33,10 @@ const realtimeStats = ref({
   winRate: 0,
   totalPositions: 0,
   activeStrategies: 0,
-  lastUpdateAtUtc: ''
+  lastUpdatedAt: ''
 })
 
-const hasRealtime = computed(() => Boolean(realtimeStats.value.lastUpdateAtUtc))
+const hasRealtime = computed(() => Boolean(realtimeStats.value.lastUpdatedAt))
 
 const riskMeta = computed(() => {
   const status = stats.value?.riskStatus ?? 'Normal'
@@ -143,7 +143,7 @@ function bindRealtime() {
       winRate: Number(data.winRate ?? 0),
       totalPositions: Number(data.totalPositions ?? 0),
       activeStrategies: Number(data.activeStrategies ?? 0),
-      lastUpdateAtUtc: data.lastUpdateAtUtc ?? new Date().toISOString()
+      lastUpdatedAt: data.lastUpdatedAt ?? new Date().toISOString()
     }
 
     if (stats.value) {
@@ -300,7 +300,7 @@ onUnmounted(() => {
           </a-col>
           <a-col :span="6" :style="{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end' }">
             <a-typography-text type="secondary" :style="{ fontSize: '12px' }">
-              更新于 {{ formatTime(realtimeStats.lastUpdateAtUtc) }}
+              更新于 {{ formatTime(realtimeStats.lastUpdatedAt) }}
             </a-typography-text>
           </a-col>
         </a-row>
@@ -450,10 +450,10 @@ onUnmounted(() => {
                     </a-typography-text>
                   </template>
                 </a-table-column>
-                <a-table-column title="时间" data-index="placedAtUtc" :width="160">
+                <a-table-column title="时间" data-index="placedAt" :width="160">
                   <template #cell="{ record }">
                     <a-typography-text type="secondary" :style="{ fontSize: '12px' }">
-                      {{ formatTime(record.placedAtUtc) }}
+                      {{ formatTime(record.placedAt) }}
                     </a-typography-text>
                   </template>
                 </a-table-column>

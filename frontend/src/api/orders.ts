@@ -18,7 +18,7 @@ export interface Order {
   fee: number
   feeAsset: string | null
   isManual: boolean
-  placedAtUtc: string
+  placedAt: string
   updatedAt: string
 }
 

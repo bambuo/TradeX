@@ -36,7 +36,7 @@ public sealed class CreateManualOrderUseCase(
             order.Id, order.TraderId, order.Pair,
             order.Side.ToString(), order.Type.ToString(), order.Status.ToString(),
             order.Quantity, order.FilledQuantity, order.Price, order.QuoteQuantity,
-            order.Fee, order.FeeAsset, order.IsManual, order.PlacedAtUtc, order.UpdatedAt));
+            order.Fee, order.FeeAsset, order.IsManual, order.PlacedAt, order.UpdatedAt));
     }
 }
 

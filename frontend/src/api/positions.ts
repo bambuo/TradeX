@@ -12,8 +12,8 @@ export interface Position {
   unrealizedPnl: number
   realizedPnl: number
   status: string
-  openedAtUtc: string
-  closedAtUtc: string | null
+  openedAt: string
+  closedAt: string | null
   updatedAt: string
 }
 

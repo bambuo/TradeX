@@ -52,7 +52,7 @@ public class OrderReconcilerTests
         {
             Id = Guid.NewGuid(), ExchangeId = exchangeId,
             Status = OrderStatus.Pending,
-            PlacedAtUtc = DateTime.UtcNow.AddMinutes(-10)
+            PlacedAt = DateTime.UtcNow.AddMinutes(-10)
         };
         orderRepo.GetPendingByExchangeAsync(exchangeId, Arg.Any<CancellationToken>())
             .Returns([stale]);
@@ -74,7 +74,7 @@ public class OrderReconcilerTests
         {
             Id = Guid.NewGuid(), ExchangeId = exchangeId,
             Status = OrderStatus.Pending,
-            PlacedAtUtc = DateTime.UtcNow.AddMinutes(-1)
+            PlacedAt = DateTime.UtcNow.AddMinutes(-1)
         };
         orderRepo.GetPendingByExchangeAsync(exchangeId, Arg.Any<CancellationToken>())
             .Returns([recent]);
@@ -125,7 +125,7 @@ public class OrderReconcilerTests
             ExchangeOrderId = "EX-42",
             Quantity = 1m,
             Status = OrderStatus.Pending,
-            PlacedAtUtc = DateTime.UtcNow.AddMinutes(-3)  // 不到陈旧阈值，但有 ExchangeOrderId 仍会查
+            PlacedAt = DateTime.UtcNow.AddMinutes(-3)  // 不到陈旧阈值，但有 ExchangeOrderId 仍会查
         };
         orderRepo.GetPendingByExchangeAsync(exchangeId, Arg.Any<CancellationToken>())
             .Returns([order]);
@@ -154,7 +154,7 @@ public class OrderReconcilerTests
             ExchangeOrderId = "EX-43",
             Quantity = 2m,
             Status = OrderStatus.Pending,
-            PlacedAtUtc = DateTime.UtcNow.AddMinutes(-3)
+            PlacedAt = DateTime.UtcNow.AddMinutes(-3)
         };
         orderRepo.GetPendingByExchangeAsync(exchangeId, Arg.Any<CancellationToken>())
             .Returns([order]);
@@ -182,7 +182,7 @@ public class OrderReconcilerTests
             ExchangeOrderId = "EX-orphan",
             Quantity = 1m,
             Status = OrderStatus.Pending,
-            PlacedAtUtc = DateTime.UtcNow.AddMinutes(-10)
+            PlacedAt = DateTime.UtcNow.AddMinutes(-10)
         };
         orderRepo.GetPendingByExchangeAsync(exchangeId, Arg.Any<CancellationToken>())
             .Returns([order]);
@@ -212,7 +212,7 @@ public class OrderReconcilerTests
             ExchangeOrderId = null,
             Quantity = 1m,
             Status = OrderStatus.Pending,
-            PlacedAtUtc = DateTime.UtcNow.AddMinutes(-1)  // 不到陈旧阈值，但 ClientOrderId 反查成功照样修复
+            PlacedAt = DateTime.UtcNow.AddMinutes(-1)  // 不到陈旧阈值，但 ClientOrderId 反查成功照样修复
         };
         orderRepo.GetPendingByExchangeAsync(exchangeId, Arg.Any<CancellationToken>())
             .Returns([order]);
@@ -240,7 +240,7 @@ public class OrderReconcilerTests
             Pair = "BTCUSDT",
             ExchangeOrderId = null,
             Status = OrderStatus.Pending,
-            PlacedAtUtc = DateTime.UtcNow.AddMinutes(-10)
+            PlacedAt = DateTime.UtcNow.AddMinutes(-10)
         };
         orderRepo.GetPendingByExchangeAsync(exchangeId, Arg.Any<CancellationToken>())
             .Returns([order]);
@@ -262,8 +262,8 @@ public class OrderReconcilerTests
         exchangeRepo.GetAllEnabledAsync(Arg.Any<CancellationToken>())
             .Returns([MakeExchange(e1), MakeExchange(e2)]);
 
-        var staleA = new Order { Id = Guid.NewGuid(), ExchangeId = e1, Status = OrderStatus.Pending, PlacedAtUtc = DateTime.UtcNow.AddMinutes(-10) };
-        var staleB = new Order { Id = Guid.NewGuid(), ExchangeId = e2, Status = OrderStatus.Pending, PlacedAtUtc = DateTime.UtcNow.AddMinutes(-6) };
+        var staleA = new Order { Id = Guid.NewGuid(), ExchangeId = e1, Status = OrderStatus.Pending, PlacedAt = DateTime.UtcNow.AddMinutes(-10) };
+        var staleB = new Order { Id = Guid.NewGuid(), ExchangeId = e2, Status = OrderStatus.Pending, PlacedAt = DateTime.UtcNow.AddMinutes(-6) };
         orderRepo.GetPendingByExchangeAsync(e1, Arg.Any<CancellationToken>()).Returns([staleA]);
         orderRepo.GetPendingByExchangeAsync(e2, Arg.Any<CancellationToken>()).Returns([staleB]);
 

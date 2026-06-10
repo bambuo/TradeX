@@ -65,7 +65,7 @@ public class OrderReconciler(
                 if (ct.IsCancellationRequested) break;
                 if (order.Status != OrderStatus.Pending) continue;
 
-                var age = DateTime.UtcNow - order.PlacedAtUtc;
+                var age = DateTime.UtcNow - order.PlacedAt;
 
                 if (string.IsNullOrEmpty(order.ExchangeOrderId))
                 {

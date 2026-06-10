@@ -12,7 +12,7 @@ public interface IKillSwitch
 {
     bool IsActive { get; }
     string? LastReason { get; }
-    DateTime? LastActivatedAtUtc { get; }
+    DateTime? LastActivatedAt { get; }
 
     Task ActivateAsync(string reason, Guid? actorUserId, CancellationToken ct = default);
     Task DeactivateAsync(string reason, Guid? actorUserId, CancellationToken ct = default);

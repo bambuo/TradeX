@@ -26,7 +26,7 @@ public sealed class GetTraderOrdersUseCase(
         o.Id, o.TraderId, o.Pair,
         o.Side.ToString(), o.Type.ToString(), o.Status.ToString(),
         o.Quantity, o.FilledQuantity, o.Price, o.QuoteQuantity,
-        o.Fee, o.FeeAsset, o.IsManual, o.PlacedAtUtc, o.UpdatedAt);
+        o.Fee, o.FeeAsset, o.IsManual, o.PlacedAt, o.UpdatedAt);
 }
 
 public sealed record GetTraderOrdersQuery(Guid TraderId, Guid CurrentUserId);

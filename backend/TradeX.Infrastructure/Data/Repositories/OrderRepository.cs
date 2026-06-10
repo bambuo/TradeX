@@ -16,7 +16,7 @@ public class OrderRepository(TradeXDbContext context) : IOrderRepository
         => await context.Orders.FirstOrDefaultAsync(o => o.ClientOrderId == clientOrderId, ct);
 
     public async Task<List<Order>> GetByTraderIdAsync(Guid traderId, CancellationToken ct = default)
-        => await context.Orders.Where(o => o.TraderId == traderId).OrderByDescending(o => o.PlacedAtUtc).ToListAsync(ct);
+        => await context.Orders.Where(o => o.TraderId == traderId).OrderByDescending(o => o.PlacedAt).ToListAsync(ct);
 
     public async Task<List<Order>> GetPendingByExchangeAsync(Guid exchangeId, CancellationToken ct = default)
         => await context.Orders
@@ -24,10 +24,10 @@ public class OrderRepository(TradeXDbContext context) : IOrderRepository
             .ToListAsync(ct);
 
     public async Task<List<Order>> GetByStrategyIdAsync(Guid strategyId, CancellationToken ct = default)
-        => await context.Orders.Where(o => o.StrategyId == strategyId).OrderByDescending(o => o.PlacedAtUtc).ToListAsync(ct);
+        => await context.Orders.Where(o => o.StrategyId == strategyId).OrderByDescending(o => o.PlacedAt).ToListAsync(ct);
 
     public async Task<List<Order>> GetByPositionIdAsync(Guid positionId, CancellationToken ct = default)
-        => await context.Orders.Where(o => o.PositionId == positionId).OrderByDescending(o => o.PlacedAtUtc).ToListAsync(ct);
+        => await context.Orders.Where(o => o.PositionId == positionId).OrderByDescending(o => o.PlacedAt).ToListAsync(ct);
 
     public async Task<bool> HasActiveBuyAsync(Guid strategyId, string pair, CancellationToken ct = default)
         => await context.Orders.AnyAsync(o =>

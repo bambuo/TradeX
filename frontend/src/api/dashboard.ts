@@ -22,7 +22,7 @@ export interface DashboardTrade {
   side: string
   quantity: number
   price: number
-  placedAtUtc: string
+  placedAt: string
 }
 
 export const dashboardApi = {

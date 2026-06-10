@@ -39,7 +39,7 @@ public sealed class KlineGapDetector
     };
 }
 
-public sealed record KlineGap(DateTime StartUtc, DateTime EndUtc)
+public sealed record KlineGap(DateTime StartAt, DateTime EndAt)
 {
-    public TimeSpan Duration => EndUtc - StartUtc;
+    public TimeSpan Duration => EndAt - StartAt;
 }

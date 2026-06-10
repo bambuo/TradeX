@@ -12,7 +12,7 @@ namespace TradeX.Infrastructure.Casbin;
 public class CasbinEnforcer
 {
     private readonly Enforcer _enforcer;
-    private readonly ConcurrentDictionary<string, (bool Decision, DateTime ExpiresAtUtc)> _cache = new();
+    private readonly ConcurrentDictionary<string, (bool Decision, DateTime ExpiresAt)> _cache = new();
     private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(30);
 
     public CasbinEnforcer()
@@ -32,7 +32,7 @@ public class CasbinEnforcer
     {
         var key = $"{role}|{method}|{path}";
         var now = DateTime.UtcNow;
-        if (_cache.TryGetValue(key, out var cached) && cached.ExpiresAtUtc > now)
+        if (_cache.TryGetValue(key, out var cached) && cached.ExpiresAt > now)
             return cached.Decision;
 
         var decision = _enforcer.Enforce(role, path, method);
@@ -41,7 +41,7 @@ public class CasbinEnforcer
         // 简易控制内存：超过 10k 条目时清一半（粗略 LRU）
         if (_cache.Count > 10_000)
         {
-            foreach (var kv in _cache.Where(kv => kv.Value.ExpiresAtUtc <= now).Take(5_000))
+            foreach (var kv in _cache.Where(kv => kv.Value.ExpiresAt <= now).Take(5_000))
                 _cache.TryRemove(kv.Key, out _);
         }
         return decision;

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TradeX.Infrastructure.Data;
@@ -11,9 +12,11 @@ using TradeX.Infrastructure.Data;
 namespace TradeX.Infrastructure.Migrations
 {
     [DbContext(typeof(TradeXDbContext))]
-    partial class TradeXDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260610101426_RenameTimeFieldsToAtConvention")]
+    partial class RenameTimeFieldsToAtConvention
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -92,7 +95,7 @@ namespace TradeX.Infrastructure.Migrations
 
                     b.Property<string>("Details")
                         .IsRequired()
-                        .HasColumnType("jsonb")
+                        .HasColumnType("text")
                         .HasColumnName("details");
 
                     b.Property<DateTime>("EndAt")
@@ -1195,7 +1198,8 @@ namespace TradeX.Infrastructure.Migrations
 
                     b.Property<string>("IndicatorValues")
                         .IsRequired()
-                        .HasColumnType("jsonb")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
                         .HasColumnName("indicator_values");
 
                     b.Property<decimal>("Low")

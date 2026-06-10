@@ -13,8 +13,8 @@ public sealed record PositionDto(
     decimal UnrealizedPnl,
     decimal RealizedPnl,
     string Status,
-    DateTime OpenedAtUtc,
-    DateTime? ClosedAtUtc);
+    DateTime OpenedAt,
+    DateTime? ClosedAt);
 
 public sealed record GetOpenPositionsQuery(Guid TraderId, Guid CurrentUserId);
 
@@ -38,7 +38,7 @@ public sealed class GetOpenPositionsUseCase(
         p.Id, p.TraderId, p.Pair,
         p.Quantity, p.EntryPrice, p.CurrentPrice,
         p.UnrealizedPnl, p.RealizedPnl,
-        p.Status.ToString(), p.OpenedAtUtc, p.ClosedAtUtc);
+        p.Status.ToString(), p.OpenedAt, p.ClosedAt);
 }
 
 public sealed record GetPositionByIdQuery(Guid TraderId, Guid PositionId, Guid CurrentUserId);
@@ -62,6 +62,6 @@ public sealed class GetPositionByIdUseCase(
             position.Id, position.TraderId, position.Pair,
             position.Quantity, position.EntryPrice, position.CurrentPrice,
             position.UnrealizedPnl, position.RealizedPnl,
-            position.Status.ToString(), position.OpenedAtUtc, position.ClosedAtUtc));
+            position.Status.ToString(), position.OpenedAt, position.ClosedAt));
     }
 }

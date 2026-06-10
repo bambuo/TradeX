@@ -19,7 +19,7 @@ public class RiskContext
     public decimal SlippageTolerance { get; set; } = 0.001m;
     public decimal MaxSlippageAmount { get; set; } = 10;
     public bool CircuitBreakerActive { get; set; }
-    public DateTime? LastTradeTimeUtc { get; set; }
+    public DateTime? LastTradeTime { get; set; }
     public int CooldownSeconds { get; set; } = 300;
     public decimal? OrderNotional { get; set; }
     public decimal MaxOrderNotional { get; set; } = 0;

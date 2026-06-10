@@ -10,5 +10,6 @@ public sealed class BacktestResultConfiguration : IEntityTypeConfiguration<Backt
     {
         builder.HasKey(x => x.Id);
         builder.HasIndex(x => x.TaskId).IsUnique();
+        builder.Property(x => x.Details).HasColumnType("jsonb");
     }
 }

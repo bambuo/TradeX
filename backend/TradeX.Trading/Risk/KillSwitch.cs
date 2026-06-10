@@ -19,11 +19,11 @@ public sealed class KillSwitch(IServiceScopeFactory scopeFactory, TradeXMetrics 
     private readonly object _lock = new();
     private volatile bool _active;
     private volatile string? _lastReason;
-    private DateTime? _lastActivatedAtUtc;
+    private DateTime? _lastActivatedAt;
 
     public bool IsActive => _active;
     public string? LastReason => _lastReason;
-    public DateTime? LastActivatedAtUtc => _lastActivatedAtUtc;
+    public DateTime? LastActivatedAt => _lastActivatedAt;
 
     public async Task ActivateAsync(string reason, Guid? actorUserId, CancellationToken ct = default)
     {
@@ -32,7 +32,7 @@ public sealed class KillSwitch(IServiceScopeFactory scopeFactory, TradeXMetrics 
             if (_active) { logger.LogInformation("Kill Switch 已激活, 跳过重复激活"); return; }
             _active = true;
             _lastReason = reason;
-            _lastActivatedAtUtc = DateTime.UtcNow;
+            _lastActivatedAt = DateTime.UtcNow;
         }
 
         using var scope = scopeFactory.CreateScope();
@@ -44,7 +44,7 @@ public sealed class KillSwitch(IServiceScopeFactory scopeFactory, TradeXMetrics 
             binding.Status = BindingStatus.Disabled;
         await bindingRepo.UpdateRangeAsync(actives, ct);
 
-        var payload = new KillSwitchActivatedPayload(reason, actorUserId, LastActivatedAtUtc!.Value, actives.Count);
+        var payload = new KillSwitchActivatedPayload(reason, actorUserId, LastActivatedAt!.Value, actives.Count);
         await eventBus.PublishAsync(payload, ct);
 
         metrics.SetKillSwitchActive(true);

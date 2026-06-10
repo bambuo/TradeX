@@ -60,6 +60,6 @@ public sealed class LegacyStrategyScanner(IStrategyRepository strategyRepo, ILog
     }
 }
 
-public sealed record LegacyScanReport(DateTime ScannedAtUtc, int TotalScanned, List<LegacyStrategyEntry> LegacyStrategies);
+public sealed record LegacyScanReport(DateTime ScannedAt, int TotalScanned, List<LegacyStrategyEntry> LegacyStrategies);
 
 public sealed record LegacyStrategyEntry(Guid StrategyId, string Name, List<string> Issues);

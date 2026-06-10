@@ -30,8 +30,8 @@ public class KlineGapDetectorTests
         var gaps = d.DetectGaps(T0, T0.AddMinutes(5), TimeSpan.FromMinutes(1));
 
         Assert.Single(gaps);
-        Assert.Equal(T0.AddMinutes(1), gaps[0].StartUtc);
-        Assert.Equal(T0.AddMinutes(5), gaps[0].EndUtc);
+        Assert.Equal(T0.AddMinutes(1), gaps[0].StartAt);
+        Assert.Equal(T0.AddMinutes(5), gaps[0].EndAt);
     }
 
     [Fact]

@@ -24,7 +24,7 @@ public sealed record RecentTradeDto(
     string Side,
     decimal Quantity,
     decimal Price,
-    DateTime PlacedAtUtc);
+    DateTime PlacedAt);
 
 /// <summary>系统初始化服务。</summary>
 public interface ISetupService

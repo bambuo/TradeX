@@ -55,8 +55,8 @@ public class Position : AggregateRoot, IVersioned
     public decimal UnrealizedPnl { get; set; }
     public decimal RealizedPnl { get; set; }
     public PositionStatus Status { get; set; } = PositionStatus.Open;
-    public DateTime OpenedAtUtc { get; init; } = DateTime.UtcNow;
-    public DateTime? ClosedAtUtc { get; set; }
+    public DateTime OpenedAt { get; init; } = DateTime.UtcNow;
+    public DateTime? ClosedAt { get; set; }
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     /// <summary>乐观并发控制版本号，由 VersionInterceptor 在保存前自动刷新。</summary>
     public Guid Version { get; set; } = Guid.NewGuid();
@@ -92,7 +92,7 @@ public class Position : AggregateRoot, IVersioned
         CurrentPrice = exitPrice;
         Status = PositionStatus.Closed;
         var now = DateTime.UtcNow;
-        ClosedAtUtc = now;
+        ClosedAt = now;
         UpdatedAt = now;
 
         AddDomainEvent(new PositionClosedDomainEvent(

@@ -24,8 +24,8 @@ export const auditLogApi = {
     userId?: string
     action?: string
     resourceType?: string
-    startUtc?: string
-    endUtc?: string
+    startAt?: string
+    endAt?: string
   } = {}) {
     return client.get<AuditLogResponse>('/audit-logs', { params })
   }

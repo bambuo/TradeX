@@ -12,13 +12,13 @@ public class PositionRepository(TradeXDbContext context) : IPositionRepository
     public async Task<List<Position>> GetOpenByTraderIdAsync(Guid traderId, CancellationToken ct = default)
         => await context.Positions
             .Where(p => p.TraderId == traderId && p.Status == Core.Enums.PositionStatus.Open)
-            .OrderByDescending(p => p.OpenedAtUtc)
+            .OrderByDescending(p => p.OpenedAt)
             .ToListAsync(ct);
 
     public async Task<List<Position>> GetAllOpenAsync(CancellationToken ct = default)
         => await context.Positions
             .Where(p => p.Status == Core.Enums.PositionStatus.Open)
-            .OrderByDescending(p => p.OpenedAtUtc)
+            .OrderByDescending(p => p.OpenedAt)
             .ToListAsync(ct);
 
     public async Task<List<Position>> GetOpenByPairAsync(Guid exchangeId, string pair, CancellationToken ct = default)
@@ -29,7 +29,7 @@ public class PositionRepository(TradeXDbContext context) : IPositionRepository
     public async Task<List<Position>> GetByStrategyIdAsync(Guid strategyId, CancellationToken ct = default)
         => await context.Positions
             .Where(p => p.StrategyId == strategyId)
-            .OrderByDescending(p => p.OpenedAtUtc)
+            .OrderByDescending(p => p.OpenedAt)
             .ToListAsync(ct);
 
     public async Task<Position?> GetByOpeningOrderIdAsync(Guid openingOrderId, CancellationToken ct = default)
@@ -38,13 +38,13 @@ public class PositionRepository(TradeXDbContext context) : IPositionRepository
     public async Task<List<Position>> GetOpenByStrategyAndPairAsync(Guid strategyId, string pair, CancellationToken ct = default)
         => await context.Positions
             .Where(p => p.StrategyId == strategyId && p.Pair == pair && p.Status == Core.Enums.PositionStatus.Open)
-            .OrderBy(p => p.OpenedAtUtc)
+            .OrderBy(p => p.OpenedAt)
             .ToListAsync(ct);
 
     public async Task<List<Position>> GetClosedByTraderIdSinceAsync(Guid traderId, DateTime since, CancellationToken ct = default)
         => await context.Positions
-            .Where(p => p.TraderId == traderId && p.Status == Core.Enums.PositionStatus.Closed && p.ClosedAtUtc >= since)
-            .OrderByDescending(p => p.ClosedAtUtc)
+            .Where(p => p.TraderId == traderId && p.Status == Core.Enums.PositionStatus.Closed && p.ClosedAt >= since)
+            .OrderByDescending(p => p.ClosedAt)
             .ToListAsync(ct);
 
     public async Task AddAsync(Position position, CancellationToken ct = default)
