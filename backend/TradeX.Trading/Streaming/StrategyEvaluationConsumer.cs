@@ -163,12 +163,12 @@ public sealed class StrategyEvaluationConsumer(
         var trade = evt.Trade;
 
         // 以 Trade 价格构建 KlineWindow（无 OHLC 结构，当前价同时作为 Open/High/Low/Close）
-        var currentWindow = new KlineWindow(prices, Array.Empty<long>(), trade.Price, trade.Price, trade.Price, trade.Price);
+        var currentWindow = new KlineWindow(prices, [], trade.Price, trade.Price, trade.Price, trade.Price);
 
         // 前一根 K 线窗口（用于穿越检测 CA/CB）
         List<decimal> prevPrices;
         lock (prices) { prevPrices = prices[..^1]; }
-        var prevWindow = new KlineWindow(prevPrices, Array.Empty<long>(), trade.Price, trade.Price, trade.Price, trade.Price);
+        var prevWindow = new KlineWindow(prevPrices, [], trade.Price, trade.Price, trade.Price, trade.Price);
 
         await EvaluateBindingCoreAsync(binding, pair, currentPrice, currentWindow, prevWindow, cycle, ct);
     }
@@ -217,13 +217,13 @@ public sealed class StrategyEvaluationConsumer(
         lock (prices) { prevPrices = prices.Count > 1 ? prices[..^1] : []; }
 
         // 使用 Candle 的完整 OHLC
-        var currentWindow = new KlineWindow(prices, Array.Empty<long>(),
+        var currentWindow = new KlineWindow(prices, [],
             candle.Open, candle.High, candle.Low, candle.Close);
 
         // prevWindow 须用“上一根”的 OHLC，否则 OHLC 类指标（如 RANGE_PCT）prev==cur，穿越永不触发
         var candleKey = $"{pair}|{evt.ExchangeId}|{evt.Interval}";
         var prevWindow = prevPrices.Count > 0 && _lastClosedCandle.TryGetValue(candleKey, out var prevCandle)
-            ? new KlineWindow(prevPrices, Array.Empty<long>(), prevCandle.Open, prevCandle.High, prevCandle.Low, prevCandle.Close)
+            ? new KlineWindow(prevPrices, [], prevCandle.Open, prevCandle.High, prevCandle.Low, prevCandle.Close)
             : currentWindow;
         _lastClosedCandle[candleKey] = candle;
 

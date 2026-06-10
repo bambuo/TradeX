@@ -120,7 +120,7 @@ internal sealed class EventConsumerService
                 if (payload is null)
                     return;
 
-                var args = new List<object?> { payload };
+                List<object?> args = [payload];
                 if (parameters.Length >= 2)
                     args.Add(traceId);
                 if (parameters.Length >= 3)
