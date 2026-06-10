@@ -80,12 +80,21 @@ curl -fs $API/health || { echo "✗ /health 失败"; exit 1; }
 curl -fs $API/metrics | grep -c "tradex_" # 期望 ≥4 个自定义指标
 
 # === Worker 心跳 ===
-docker compose logs --tail 50 worker | grep -E "TradingEngine|BacktestScheduler|OrderReconcilerService" \
+docker compose logs --tail 50 worker | grep -E "StrategyEvaluationConsumer|BacktestScheduler|OrderReconcilerService" \
   && echo "✓ Worker 服务已装载"
+
+docker compose logs --tail 50 backtest-worker | grep -E "BacktestScheduler" \
+  && echo "✓ BacktestWorker 服务已装载"
 
 # === Redis 三通道订阅 ===
 docker compose exec redis redis-cli PUBSUB CHANNELS 'tradex:*'
 # 期望看到: tradex:events, tradex:cmd, tradex:backtest, tradex.signalr.*
+
+# === Redis Stream 消费组 ===
+docker compose exec redis redis-cli XINFO GROUPS tradex:events
+# 期望看到: RedisToSignalRBridge 消费组
+docker compose exec redis redis-cli XINFO GROUPS tradex:cmd
+# 期望看到: WorkerCommandSubscriber 消费组
 
 # === DB 连通 ===
 docker compose exec postgres psql -U tradex -d tradex -c "\dt"
@@ -163,7 +172,7 @@ docker compose stop postgres
 # 观察 30s：API/Worker 应该
 # - Polly EnableRetryOnFailure 应该疯狂重试
 # - 风控 ExchangeHealthHandler 应该开始 deny
-# - TradingEngine 应该跳过当前 cycle 而不崩溃
+# - StrategyEvaluationConsumer 应该跳过当前 trade 而不崩溃
 docker compose logs --tail 100 backend worker | grep -iE "error|exception|retry" | head -30
 
 # 恢复
@@ -225,6 +234,11 @@ docker compose logs --tail 100 worker | grep -E "RecoverStuckTasks|启动恢复�
 # 60s 后验证 OrderReconciler 跑了一轮
 sleep 65
 docker compose logs --since 2m worker | grep -E "Reconciliation 完成"
+
+# 如果有独立 BacktestWorker，也重启验证
+docker compose stop backtest-worker
+docker compose start backtest-worker
+docker compose logs --tail 50 backtest-worker | grep -E "BacktestScheduler 启动"
 ```
 
 **期望**：Worker 重启后自动捡起所有 Pending 任务；OrderReconciler 凭 ClientOrderId 反查恢复无 ExchangeOrderId 的订单。
