@@ -1,44 +1,53 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { Message } from '@arco-design/web-vue'
-import { strategiesApi, type Strategy } from '../api/strategies'
+import { strategiesApi, type Strategy, type StrategySchema } from '../api/strategies'
 import { strategyPresets } from '../api/strategyPresets'
-import ConditionTreeEditor, { type ConditionNode } from '../components/ConditionTreeEditor.vue'
-import ExecutionRuleEditor from '../components/ExecutionRuleEditor.vue'
+import RuleSetEditor from '../components/RuleSetEditor.vue'
 
 const cmpLabels: Record<string, string> = {
   '>': '>', '<': '<', '>=': '≥', '<=': '≤', '==': '＝', CA: '↗', CB: '↘'
 }
 
-function humanizeCondition(json: string): string {
+/** 从 RuleSet JSON 中提取可读的描述 */
+function humanizeRuleSet(json: string): string {
   try {
-    const node: ConditionNode = JSON.parse(json)
-    return renderNode(node)
+    const parsed = JSON.parse(json)
+    if (!parsed.rules || !Array.isArray(parsed.rules)) return '未配置'
+    const parts = parsed.rules.map((r: any) => {
+      const name = r.name || r.code || '规则'
+      const action = r.then?.action || 'hold'
+      const actionLabel = action === 'buy' ? '→ 买入' : action === 'sell' ? '→ 减仓' : action === 'sellAll' ? '→ 全平' : ''
+      if (r.when && r.when.indicator) {
+        const cmp = cmpLabels[r.when.comparison ?? ''] || r.when.comparison || '?'
+        return `${name}: ${r.when.indicator} ${cmp} ${r.when.value} ${actionLabel}`
+      }
+      if (r.when && r.when.conditions && r.when.conditions.length > 0) {
+        const condText = r.when.conditions.map((c: any) => {
+          if (c.indicator) return `${c.indicator} ${cmpLabels[c.comparison ?? ''] || c.comparison || '?'} ${c.value}`
+          return '多条件'
+        }).join(r.when.operator === 'OR' ? ' 或 ' : ' 且 ')
+        return `${name}: ${condText} ${actionLabel}`
+      }
+      return `${name} ${actionLabel}`
+    })
+    return parts.join('；')
   } catch { return json }
-}
-
-function renderNode(node: ConditionNode): string {
-  if (!node.operator && node.indicator) {
-    const cmp = cmpLabels[node.comparison ?? ''] || node.comparison || '?'
-    return `${node.indicator} ${cmp} ${node.value}`
-  }
-  if (node.conditions && node.conditions.length > 0) {
-    const opLabel = node.operator === 'AND' ? '且' : node.operator === 'OR' ? '或' : node.operator ?? ''
-    const parts = node.conditions.map(renderNode)
-    if (parts.length === 1) return `${opLabel}( ${parts[0]} )`
-    return `( ${parts.join(` ${opLabel} `)} )`
-  }
-  return '无条件'
 }
 
 function humanizeExecutionRule(json: string): string {
   try {
     const obj = JSON.parse(json)
-    const typeLabels: Record<string, string> = { grid: '网格', trend_following: '趋势追踪', infinity_grid: '无限网格', volatility_grid: '波幅均价再平衡', custom: '自定义' }
-    return typeLabels[obj.type] || '自定义'
+    const ruleCount = obj.rules?.length ?? 0
+    const actions = new Set((obj.rules ?? []).map((r: any) => r.then?.action))
+    const labels: string[] = []
+    if (actions.has('buy')) labels.push('入场')
+    if (actions.has('sell') || actions.has('sellAll')) labels.push('出场')
+    return `${ruleCount} 条规则${labels.length ? ` (${labels.join('/')})` : ''}`
   } catch { return '自定义' }
 }
 
+const schema = ref<StrategySchema | null>(null)
 const strategies = ref<Strategy[]>([])
 const loading = ref(true)
 const showForm = ref(false)
@@ -47,66 +56,12 @@ const showPresets = ref(false)
 
 const activePreset = ref<typeof strategyPresets[0] | null>(null)
 const formName = ref('')
-const entryNode = ref<ConditionNode>({ operator: 'AND', conditions: [] })
-const exitNode = ref<ConditionNode>({ operator: 'AND', conditions: [] })
-const formExecutionRule = ref('{"type":"custom"}')
-
-function conditionToNode(json: string): ConditionNode {
-  try {
-    const parsed = JSON.parse(json)
-    if (parsed.Indicator || parsed.Operator) {
-      const node: ConditionNode = {}
-      if (parsed['Operator'] !== undefined) node.operator = parsed['Operator'] as string
-      if (parsed['Conditions'] !== undefined) {
-        node.conditions = (parsed['Conditions'] as Record<string, unknown>[]).map(conditionToNode)
-      }
-      if (parsed['Indicator'] !== undefined) node.indicator = parsed['Indicator'] as string
-      if (parsed['Parameters'] !== undefined) node.parameters = parsed['Parameters'] as Record<string, number>
-      if (parsed['Comparison'] !== undefined) node.comparison = parsed['Comparison'] as string
-      if (parsed['Value'] !== undefined) node.value = parsed['Value'] as number
-      return node
-    }
-    if (!parsed.operator && !parsed.conditions && !parsed.indicator) {
-      return { operator: 'AND', conditions: [] }
-    }
-    if (!parsed.conditions) {
-      return parsed
-    }
-    return parsed
-  } catch {
-    return { operator: 'AND', conditions: [] }
-  }
-}
-
-function nodeToCondition(node: ConditionNode): string {
-  if (!node.conditions || node.conditions.length === 0) {
-    if (node.indicator) {
-      return JSON.stringify(node)
-    }
-    return '{}'
-  }
-  if (node.conditions.length === 1 && !node.conditions[0].indicator && !node.conditions[0].conditions) {
-    return JSON.stringify(node.conditions[0])
-  }
-  return JSON.stringify(node)
-}
-
-async function load() {
-  loading.value = true
-  try {
-    const { data } = await strategiesApi.getAllPure()
-    strategies.value = data.data ?? []
-  } finally {
-    loading.value = false
-  }
-}
+const formExecutionRule = ref('{}')
 
 function resetForm() {
   activePreset.value = null
   formName.value = ''
-  entryNode.value = { operator: 'AND', conditions: [] }
-  exitNode.value = { operator: 'AND', conditions: [] }
-  formExecutionRule.value = '{"type":"custom"}'
+  formExecutionRule.value = '{}'
 }
 
 function openCreate() {
@@ -119,8 +74,6 @@ function openCreate() {
 function openEdit(s: Strategy) {
   editId.value = s.id
   formName.value = s.name
-  entryNode.value = conditionToNode(s.entryCondition)
-  exitNode.value = conditionToNode(s.exitCondition)
   formExecutionRule.value = s.executionRule
   showPresets.value = false
   showForm.value = true
@@ -128,8 +81,6 @@ function openEdit(s: Strategy) {
 
 function applyPreset(preset: typeof strategyPresets[0]) {
   formName.value = preset.name
-  entryNode.value = conditionToNode(preset.entryCondition)
-  exitNode.value = conditionToNode(preset.exitCondition)
   formExecutionRule.value = preset.executionRule
   activePreset.value = preset
   showPresets.value = false
@@ -141,22 +92,15 @@ async function save() {
     return
   }
 
-  const entryJson = nodeToCondition(entryNode.value)
-  const exitJson = nodeToCondition(exitNode.value)
-
   try {
     if (editId.value) {
       await strategiesApi.updatePure(editId.value, {
         name: formName.value,
-        entryCondition: entryJson,
-        exitCondition: exitJson,
         executionRule: formExecutionRule.value
       })
     } else {
       await strategiesApi.createPure({
         name: formName.value,
-        entryCondition: entryJson,
-        exitCondition: exitJson,
         executionRule: formExecutionRule.value
       })
     }
@@ -178,6 +122,19 @@ async function remove(id: string) {
   }
 }
 
+async function load() {
+  loading.value = true
+  try {
+    const { data: sch } = await strategiesApi.getSchema()
+    schema.value = sch
+
+    const { data } = await strategiesApi.getAllPure()
+    strategies.value = data.data ?? []
+  } finally {
+    loading.value = false
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -193,7 +150,7 @@ onMounted(load)
 
     <a-modal v-model:visible="showForm" :title="editId ? '编辑策略模板' : '新建策略模板'" width="1100px" :mask-closable="false">
       <div v-if="showPresets && !editId" class="presets-section">
-        <p class="presets-hint">选择一个预设模板快速创建，或直接编辑下方条件</p>
+        <p class="presets-hint">选择一个预设模板快速创建，或直接编辑下方规则集</p>
         <div class="preset-cards">
           <div
             v-for="preset in strategyPresets"
@@ -218,24 +175,8 @@ onMounted(load)
         <a-input v-model="formName" placeholder="策略名称" />
 
         <div class="section">
-          <span class="section-label">入场条件</span>
-          <ConditionTreeEditor
-            :node="entryNode"
-            @update="(n: ConditionNode | null) => { if (n) entryNode = n }"
-          />
-        </div>
-
-        <div class="section">
-          <span class="section-label">出场条件</span>
-          <ConditionTreeEditor
-            :node="exitNode"
-            @update="(n: ConditionNode | null) => { if (n) exitNode = n }"
-          />
-        </div>
-
-        <div class="section">
-          <span class="section-label">执行规则</span>
-          <ExecutionRuleEditor v-model="formExecutionRule" />
+          <span class="section-label">规则集 (RuleSet)</span>
+          <RuleSetEditor v-model="formExecutionRule" :schema="schema || undefined" />
         </div>
       </div>
 
@@ -268,12 +209,8 @@ onMounted(load)
 
         <div class="card-body">
           <div class="info-row">
-            <span class="info-label">入场</span>
-            <span class="info-value cond-text">{{ humanizeCondition(s.entryCondition) }}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">出场</span>
-            <span class="info-value cond-text">{{ humanizeCondition(s.exitCondition) }}</span>
+            <span class="info-label">规则</span>
+            <span class="info-value cond-text">{{ humanizeRuleSet(s.executionRule) }}</span>
           </div>
           <div class="info-row">
             <span class="info-label">更新</span>

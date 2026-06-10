@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import type { StrategySchema } from '../api/strategies'
 
 export interface ConditionNode {
   operator?: string
@@ -8,11 +9,13 @@ export interface ConditionNode {
   parameters?: Record<string, number>
   comparison?: string
   value?: number
+  ref?: string
 }
 
 const props = defineProps<{
   node: ConditionNode
   depth?: number
+  schema?: StrategySchema
 }>()
 
 const emit = defineEmits<{
@@ -20,9 +23,14 @@ const emit = defineEmits<{
 }>()
 
 const isLeaf = computed(() => !props.node.conditions || props.node.conditions.length === 0)
-const operators = ['AND', 'OR', 'NOT']
-const indicators = ['RSI', 'SMA_20', 'SMA_50', 'EMA_20', 'MACD_LINE', 'MACD_SIGNAL', 'BB_UPPER', 'BB_LOWER', 'OBV', 'VOLUME_SMA', 'RANGE_PCT']
+const operators = ['AND', 'OR', 'NOT', 'TRUE']
+const defaultIndicators = ['RSI', 'SMA_20', 'SMA_50', 'EMA_20', 'MACD_LINE', 'MACD_SIGNAL', 'BB_UPPER', 'BB_LOWER', 'OBV', 'VOLUME_SMA', 'RANGE_PCT']
 const comparisons = ['>', '<', '>=', '<=', '==', 'CA', 'CB']
+
+const indicators = computed(() => {
+  if (props.schema?.indicators?.length) return props.schema.indicators
+  return defaultIndicators
+})
 
 function removeFromParent() {
   emit('update', null)
@@ -70,6 +78,7 @@ function updateField(field: string, value: unknown) {
           :key="i"
           :node="child"
           :depth="(depth || 0) + 1"
+          :schema="schema"
           @update="(c: ConditionNode | null) => updateChild(i, c)"
         />
       </div>
@@ -105,6 +114,14 @@ function updateField(field: string, value: unknown) {
           <a-option v-for="cmp in comparisons" :key="cmp" :value="cmp" :label="cmp === 'CA' ? '↗' : cmp === 'CB' ? '↘' : cmp" />
         </a-select>
         <a-input-number :model-value="node.value" class="field-input" placeholder="值" @change="(v) => updateField('value', Number(v) || 0)" />
+        <a-input
+          v-if="node.ref !== undefined"
+          :model-value="node.ref"
+          size="small"
+          placeholder="参考指标"
+          style="width: 110px"
+          @change="(v) => updateField('ref', v)"
+        />
         <a-button size="mini" type="text" @click="removeFromParent">
           <template #icon><icon-close /></template>
         </a-button>

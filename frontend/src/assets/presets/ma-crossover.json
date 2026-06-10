@@ -1,0 +1,41 @@
+{
+  "name": "双均线金叉死叉",
+  "description": "最经典的均线趋势系统。SMA_20 上穿 SMA_50 金叉入场做多，下穿死叉离场，无其他过滤器，纯粹跟随趋势",
+  "notes": [
+    "金叉/死叉使用 CA/CB 穿越运算符，系统会在每根 K 线收盘时检测均线上下穿越关系",
+    "纯趋势跟随策略不设置止盈，让利润奔跑，直到死叉信号出现才离场",
+    "建议用于 1h~4h 级别，周期太短（5m/15m）金叉死叉信号过多，容易反复磨损",
+    "趋势行情中表现优异，但震荡市中金叉死叉频繁出现会导致连续亏损，可搭配 VOLUME_SMA 过滤假突破",
+    "单笔风险 ≤ 总资金 2%，连续亏损 3 次暂停策略，等待明确趋势出现"
+  ],
+  "executionRule": {
+    "code": "ma_crossover",
+    "name": "双均线金叉死叉",
+    "rules": [
+      {
+        "code": "entry_golden_cross",
+        "name": "金叉入场",
+        "when": { "operator": "", "indicator": "SMA_20", "comparison": "CA", "value": 1, "ref": "SMA_50" },
+        "then": { "action": "buy", "size": 100, "sizeType": "fixed", "reason": "SMA_20 上穿 SMA_50 金叉，入场做多" },
+        "context": "noPosition",
+        "priority": 0,
+        "constraints": { "minInterval": 300 }
+      },
+      {
+        "code": "exit_death_cross",
+        "name": "死叉出场",
+        "when": { "operator": "", "indicator": "SMA_20", "comparison": "CB", "value": 1, "ref": "SMA_50" },
+        "then": { "action": "sellAll", "reason": "SMA_20 下穿 SMA_50 死叉，全部平仓" },
+        "context": "hasPosition",
+        "priority": 0,
+        "constraints": { "minInterval": 300 }
+      }
+    ],
+    "params": {
+      "basePositionSize": 100,
+      "maxPositionSize": 100,
+      "maxDailyLoss": 200,
+      "slippageTolerance": 0.0005
+    }
+  }
+}

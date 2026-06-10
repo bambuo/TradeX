@@ -1,0 +1,97 @@
+{
+  "name": "波动率突破策略",
+  "description": "市场波动放大时顺势而为。RANGE_PCT >= 1.5 确认波动放大且均线多头排列时入场，跌破前期低点或亏损达限离场",
+  "notes": [
+    "波动放大信号 RANGE_PCT >= 1.5 对应 BTC 15m 级别单根 K 线振幅约 0.3%~0.5%，有效过滤窄幅震荡",
+    "均线多头排列过滤：SMA_20 > SMA_50 确保只在上升趋势中做多，不做左侧逆势交易",
+    "硬止损 2.5% 防止突破失败后的剧烈回调，也可在 UI 编辑器中自行追加 POSITION_PNL_PCT 回撤止损规则",
+    "该策略适合趋势明显的行情，单边上涨中效果极佳；横盘震荡时突破信号多为假突破，建议暂停",
+    "RANGE_PCT 参数可调整：BTC/SOL 设为 2.0（波动更大才会触发），ETH 设为 1.5"
+  ],
+  "executionRule": {
+    "code": "breakout_strategy",
+    "name": "波动率突破策略",
+    "rules": [
+      {
+        "code": "entry_volatility_breakout",
+        "name": "波动突破入场",
+        "when": {
+          "operator": "AND",
+          "conditions": [
+            {
+              "operator": "",
+              "indicator": "RANGE_PCT",
+              "comparison": ">=",
+              "value": 1.5
+            },
+            {
+              "operator": "",
+              "indicator": "SMA_20",
+              "comparison": ">",
+              "ref": "SMA_50",
+              "value": 1
+            }
+          ]
+        },
+        "then": {
+          "action": "buy",
+          "size": 100,
+          "sizeType": "fixed",
+          "reason": "RANGE_PCT {RANGE_PCT} >= 1.5 且 SMA_20 > SMA_50，突破入场"
+        },
+        "context": "noPosition",
+        "priority": 0,
+        "constraints": {
+          "minInterval": 600
+        }
+      },
+      {
+        "code": "exit_stop_loss",
+        "name": "止损离场",
+        "when": {
+          "operator": "",
+          "indicator": "POSITION_PNL_PCT",
+          "comparison": "<=",
+          "value": -2.5
+        },
+        "then": {
+          "action": "sellAll",
+          "reason": "亏损 {POSITION_PNL_PCT}% <= -2.5%，止损离场"
+        },
+        "context": "hasPosition",
+        "priority": 0,
+        "constraints": {
+          "minInterval": 60
+        }
+      },
+      {
+        "code": "exit_trend_reversal",
+        "name": "趋势反转离场",
+        "when": {
+          "operator": "",
+          "indicator": "SMA_20",
+          "comparison": "<",
+          "ref": "SMA_50",
+          "value": 1
+        },
+        "then": {
+          "action": "sellAll",
+          "reason": "SMA_20 回落 SMA_50 下方，趋势反转离场"
+        },
+        "context": "hasPosition",
+        "priority": 1,
+        "constraints": {
+          "minInterval": 300
+        }
+      }
+    ],
+    "params": {
+      "basePositionSize": 100,
+      "maxPositionSize": 300,
+      "entryVolatilityThreshold": 1.5,
+      "stopLossPct": 2.5,
+      "maxDailyLoss": 200,
+      "slippageTolerance": 0.0005
+    }
+  }
+}

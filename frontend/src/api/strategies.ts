@@ -3,8 +3,6 @@ import client from './client'
 export interface Strategy {
   id: string
   name: string
-  entryCondition: string
-  exitCondition: string
   executionRule: string
   version: number
   createdAt: string
@@ -43,19 +41,40 @@ export interface UpdateBindingRequest {
 
 export interface CreateStrategyRequest {
   name: string
-  entryCondition?: string
-  exitCondition?: string
   executionRule?: string
 }
 
 export interface UpdateStrategyRequest {
   name?: string
-  entryCondition?: string
-  exitCondition?: string
   executionRule?: string
 }
 
+export interface StrategySchema {
+  indicators: string[]
+  contextIndicators: string[]
+  comparisons: string[]
+  groupOperators: string[]
+  actions: string[]
+  contexts: string[]
+  sizeTypes: string[]
+}
+
+export interface ValidationResult {
+  valid: boolean
+  issues: { path: string; message: string }[]
+}
+
 export const strategiesApi = {
+  /** 获取可用指标/比较符/操作符 schema */
+  getSchema() {
+    return client.get<StrategySchema>('/strategies/schema')
+  },
+
+  /** 校验执行规则集 */
+  validateRuleSet(executionRule: string) {
+    return client.post<ValidationResult>('/strategies/validate', { executionRule })
+  },
+
   getAllPure() {
     return client.get<{ data: Strategy[] }>('/strategies')
   },
