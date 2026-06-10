@@ -74,28 +74,28 @@ public class BacktestCancellationE2ETests
     }
 
     [Fact]
-    public async Task TryAdvancePhaseAsync_TaskCancelled_DoesNotOverwrite()
+    public async Task AdvancePhaseAsync_TaskCancelled_DoesNotOverwrite()
     {
         var taskId = Guid.NewGuid();
         var stored = new BacktestTask { Id = taskId, Status = BacktestTaskStatus.Cancelled };
         var repo = Substitute.For<IBacktestTaskRepository>();
         repo.GetByIdAsync(taskId, Arg.Any<CancellationToken>()).Returns(stored);
 
-        var advanced = await InvokeTryAdvancePhaseAsync(repo, taskId, BacktestTaskStatus.Running, BacktestPhase.FetchingData);
+        var advanced = await InvokeAdvancePhaseAsync(repo, taskId, BacktestPhase.FetchingData);
 
         Assert.False(advanced);
         await repo.DidNotReceive().UpdateAsync(Arg.Any<BacktestTask>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task TryAdvancePhaseAsync_TaskRunning_WritesNewPhase()
+    public async Task AdvancePhaseAsync_TaskRunning_WritesNewPhase()
     {
         var taskId = Guid.NewGuid();
         var stored = new BacktestTask { Id = taskId, Status = BacktestTaskStatus.Running };
         var repo = Substitute.For<IBacktestTaskRepository>();
         repo.GetByIdAsync(taskId, Arg.Any<CancellationToken>()).Returns(stored);
 
-        var advanced = await InvokeTryAdvancePhaseAsync(repo, taskId, BacktestTaskStatus.Running, BacktestPhase.Running);
+        var advanced = await InvokeAdvancePhaseAsync(repo, taskId, BacktestPhase.Running);
 
         Assert.True(advanced);
         await repo.Received(1).UpdateAsync(Arg.Is<BacktestTask>(t => t.Phase == BacktestPhase.Running), Arg.Any<CancellationToken>());
@@ -188,8 +188,8 @@ public class BacktestCancellationE2ETests
     }
 
     // ──── reflection helpers ────
-    private static async Task<bool> InvokeTryAdvancePhaseAsync(
-        IBacktestTaskRepository taskRepo, Guid taskId, BacktestTaskStatus status, BacktestPhase phase)
+    private static async Task<bool> InvokeAdvancePhaseAsync(
+        IBacktestTaskRepository taskRepo, Guid taskId, BacktestPhase phase)
     {
         var settings = Microsoft.Extensions.Options.Options.Create(new BacktestSchedulerSettings { MaxConcurrency = 1 });
         var scheduler = (BacktestScheduler)Activator.CreateInstance(
@@ -202,9 +202,9 @@ public class BacktestCancellationE2ETests
             new TaskAnalysisStore(),
             new RunningBacktestTracker())!;
 
-        var method = typeof(BacktestScheduler).GetMethod("TryAdvancePhaseAsync", BindingFlags.NonPublic | BindingFlags.Instance)
-            ?? throw new MissingMethodException(nameof(BacktestScheduler), "TryAdvancePhaseAsync");
-        var task = method.Invoke(scheduler, [taskRepo, taskId, status, phase, CancellationToken.None]) as Task<bool>
+        var method = typeof(BacktestScheduler).GetMethod("AdvancePhaseAsync", BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new MissingMethodException(nameof(BacktestScheduler), "AdvancePhaseAsync");
+        var task = method.Invoke(scheduler, [taskRepo, taskId, phase, CancellationToken.None]) as Task<bool>
             ?? throw new InvalidOperationException("返回类型不匹配");
         return await task;
     }

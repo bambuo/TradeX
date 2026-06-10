@@ -7,6 +7,18 @@ namespace TradeX.Infrastructure.Data.Repositories;
 
 public class BacktestTaskRepository(TradeXDbContext context) : IBacktestTaskRepository
 {
+    public async Task<bool> ClaimTaskAsync(Guid id, BacktestTaskStatus fromStatus, BacktestPhase phase, CancellationToken ct = default)
+    {
+        var rows = await context.BacktestTasks
+            .Where(t => t.Id == id && t.Status == fromStatus)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(t => t.Status, BacktestTaskStatus.Running)
+                    .SetProperty(t => t.Phase, phase),
+                ct);
+        return rows > 0;
+    }
+
     public async Task<bool> ExecuteInTransactionAsync(Func<IBacktestTaskRepository, CancellationToken, Task<bool>> action, CancellationToken ct = default)
     {
         var strategy = context.Database.CreateExecutionStrategy();

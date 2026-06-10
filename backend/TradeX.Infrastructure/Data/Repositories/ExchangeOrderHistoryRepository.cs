@@ -1,3 +1,4 @@
+using FlexLabs.EntityFrameworkCore.Upsert;
 using Microsoft.EntityFrameworkCore;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
@@ -40,25 +41,17 @@ public class ExchangeOrderHistoryRepository(TradeXDbContext db)
         var list = orders.ToList();
         if (list.Count == 0) return;
 
-        foreach (var order in list)
-        {
-            await db.Database.ExecuteSqlRawAsync("""
-                INSERT INTO "exchange_order_histories" (
-                    "id", "exchange_id", "pair", "side", "type", "status",
-                    "price", "quantity", "filled_quantity", "exchange_order_id",
-                    "placed_at", "synced_at")
-                VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}, {11})
-                ON CONFLICT ("exchange_id", "exchange_order_id")
-                DO UPDATE SET
-                    "status" = EXCLUDED."status",
-                    "filled_quantity" = EXCLUDED."filled_quantity",
-                    "price" = EXCLUDED."price",
-                    "quantity" = EXCLUDED."quantity",
-                    "synced_at" = EXCLUDED."synced_at";
-                """,
-                order.Id, order.ExchangeId, order.Pair, order.Side, order.Type,
-                order.Status, order.Price, order.Quantity, order.FilledQuantity,
-                order.ExchangeOrderId, order.PlacedAt, order.SyncedAt);
-        }
+        await db.ExchangeOrderHistories
+            .UpsertRange(list)
+            .On(v => new { v.ExchangeId, v.ExchangeOrderId })
+            .WhenMatched(v => new ExchangeOrderHistory
+            {
+                Status = v.Status,
+                FilledQuantity = v.FilledQuantity,
+                Price = v.Price,
+                Quantity = v.Quantity,
+                SyncedAt = v.SyncedAt
+            })
+            .RunAsync(ct);
     }
 }

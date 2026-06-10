@@ -100,15 +100,22 @@ public class BacktestScheduler(
         var engine = scope.ServiceProvider.GetRequiredService<BacktestEngine>();
         var klineCache = scope.ServiceProvider.GetRequiredService<IKlineCacheRepository>();
 
-        var task = await taskRepo.GetByIdAsync(taskId, ct);
-        if (task is null)
+        // 乐观锁：原子性 Claim，只在上游将任务标为 Pending 时才能成功
+        if (!await taskRepo.ClaimTaskAsync(taskId, BacktestTaskStatus.Pending, BacktestPhase.Queued, ct))
         {
-            logger.LogWarning("回测任务不存在: TaskId={TaskId}", taskId);
+            var stale = await taskRepo.GetByIdAsync(taskId, ct);
+            if (stale is null)
+                logger.LogWarning("回测任务不存在: TaskId={TaskId}", taskId);
+            else if (stale.Status == BacktestTaskStatus.Cancelled)
+                logger.LogInformation("回测任务已被取消，跳过: TaskId={TaskId}", taskId);
+            else
+                logger.LogWarning("回测任务状态为 {Status}，无法 Claim: TaskId={TaskId}", stale.Status, taskId);
             return;
         }
 
-        if (!await TryAdvancePhaseAsync(taskRepo, task.Id, BacktestTaskStatus.Running, BacktestPhase.Queued, ct))
-            return;
+        // Claim 成功后重新加载完整任务
+        var task = await taskRepo.GetByIdAsync(taskId, ct);
+        if (task is null) return;
 
         var strategy = await strategyRepo.GetByIdAsync(task.StrategyId, ct);
         if (strategy is null)
@@ -118,12 +125,12 @@ public class BacktestScheduler(
         if (exchange is null)
             throw new InvalidOperationException($"交易所不存在: {task.ExchangeId}");
 
-        if (!await TryAdvancePhaseAsync(taskRepo, task.Id, BacktestTaskStatus.Running, BacktestPhase.FetchingData, ct))
+        if (!await AdvancePhaseAsync(taskRepo, task.Id, BacktestPhase.FetchingData, ct))
             return;
 
         var candles = await FetchKlinesWithCacheAsync(klineCache, clientFactory, exchange, task.Pair, task.Timeframe, task.StartAt, task.EndAt, ct);
 
-        if (!await TryAdvancePhaseAsync(taskRepo, task.Id, BacktestTaskStatus.Running, BacktestPhase.Running, ct))
+        if (!await AdvancePhaseAsync(taskRepo, task.Id, BacktestPhase.Running, ct))
             return;
 
         analysisStore.Init(task.Id);
@@ -272,16 +279,14 @@ public class BacktestScheduler(
 
     // 写入前重读, 若任务已被取消则放弃此次写入, 防止脏写覆盖 CancelBacktestAsync 写入的 Cancelled 状态.
     // 返回 true 表示已成功推进; false 表示任务被取消或不存在, 调用方应直接 return.
-    private async Task<bool> TryAdvancePhaseAsync(IBacktestTaskRepository taskRepo, Guid taskId, BacktestTaskStatus status, BacktestPhase phase, CancellationToken ct)
+    private async Task<bool> AdvancePhaseAsync(IBacktestTaskRepository taskRepo, Guid taskId, BacktestPhase phase, CancellationToken ct)
     {
         var current = await taskRepo.GetByIdAsync(taskId, ct);
-        if (current is null) return false;
-        if (current.Status == BacktestTaskStatus.Cancelled)
+        if (current is null || current.Status == BacktestTaskStatus.Cancelled)
         {
-            logger.LogInformation("回测任务已被取消, 跳过阶段推进: TaskId={TaskId}, TargetPhase={Phase}", taskId, phase);
+            logger.LogInformation("回测任务已被取消，跳过阶段推进: TaskId={TaskId}, Phase={Phase}", taskId, phase);
             return false;
         }
-        current.Status = status;
         current.Phase = phase;
         await taskRepo.UpdateAsync(current, ct);
         return true;
