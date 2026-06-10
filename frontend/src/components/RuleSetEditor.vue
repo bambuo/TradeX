@@ -2,6 +2,11 @@
 import { computed } from 'vue'
 import type { StrategySchema } from '../api/strategies'
 import ConditionTreeEditor, { type ConditionNode } from './ConditionTreeEditor.vue'
+import {
+  actionLabels,
+  contextLabels,
+  sizeTypeLabels,
+} from '../utils/ruleLabels'
 
 export interface RuleAction {
   action: 'buy' | 'sell' | 'sellAll' | 'hold'
@@ -55,14 +60,6 @@ const ruleSet = computed({
   },
   set: (val: RuleSet) => emit('update:modelValue', JSON.stringify(val, null, 2))
 })
-
-const actionLabels: Record<string, string> = {
-  buy: '买入', sell: '减仓', sellAll: '全平', hold: '保持'
-}
-
-const contextLabels: Record<string, string> = {
-  any: '不限', noPosition: '无持仓', hasPosition: '有持仓'
-}
 
 function addRule() {
   const idx = ruleSet.value.rules.length + 1
@@ -137,19 +134,11 @@ function setTopField(field: string, value: unknown) {
     <!-- 策略元信息 -->
     <div class="meta-grid">
       <div class="meta-item">
-        <label class="field-label">策略代码</label>
-        <a-input
-          :model-value="ruleSet.code"
-          placeholder="如: my_strategy"
-          @change="(v: unknown) => setTopField('code', String(v))"
-        />
-      </div>
-      <div class="meta-item">
         <label class="field-label">策略名称</label>
         <a-input
           :model-value="ruleSet.name"
           placeholder="策略名称"
-          @change="(v: unknown) => setTopField('name', String(v))"
+          @input="(v: unknown) => setTopField('name', String(v))"
         />
       </div>
     </div>
@@ -175,15 +164,8 @@ function setTopField(field: string, value: unknown) {
             :model-value="rule.name"
             size="small"
             placeholder="规则名称"
-            style="width: 160px"
-            @change="(v: unknown) => updateRule(i, 'name', String(v))"
-          />
-          <a-input
-            :model-value="rule.code"
-            size="small"
-            placeholder="规则代码"
-            style="width: 140px"
-            @change="(v: unknown) => updateRule(i, 'code', String(v))"
+            style="width: 200px"
+            @input="(v: unknown) => updateRule(i, 'name', String(v))"
           />
           <a-button size="mini" type="text" status="danger" @click="removeRule(i)">
             <template #icon><icon-delete /></template>
@@ -208,20 +190,36 @@ function setTopField(field: string, value: unknown) {
             <label class="field-label">优先级</label>
             <a-input-number
               :model-value="rule.priority ?? 0"
-              size="small"
               :min="0"
+              size="small"
+              mode="button"
               style="width: 100%"
               @change="(v: unknown) => updateRule(i, 'priority', Number(v) || 0)"
             />
           </div>
 
-          <!-- 约束 -->
+          <!-- 最小间隔 -->
+          <div class="config-item">
+            <label class="field-label">最小间隔 (秒)</label>
+            <a-input-number
+              :model-value="rule.constraints?.minInterval"
+              :min="0"
+              size="small"
+              mode="button"
+              placeholder="不限"
+              style="width: 100%"
+              @change="(v: unknown) => updateConstraints(i, 'minInterval', v !== undefined && v !== null && Number(v) > 0 ? Number(v) : undefined)"
+            />
+          </div>
+
+          <!-- 最大持仓数 -->
           <div class="config-item">
             <label class="field-label">最大持仓数</label>
             <a-input-number
               :model-value="rule.constraints?.maxPositions"
-              size="small"
               :min="0"
+              size="small"
+              mode="button"
               placeholder="不限"
               style="width: 100%"
               @change="(v: unknown) => updateConstraints(i, 'maxPositions', v !== undefined && v !== null ? Number(v) : undefined)"
@@ -231,22 +229,12 @@ function setTopField(field: string, value: unknown) {
             <label class="field-label">最大持仓价值 ($)</label>
             <a-input-number
               :model-value="rule.constraints?.maxPositionValue"
-              size="small"
               :min="0"
+              size="small"
+              mode="button"
               placeholder="不限"
               style="width: 100%"
               @change="(v: unknown) => updateConstraints(i, 'maxPositionValue', v !== undefined && v !== null ? Number(v) : undefined)"
-            />
-          </div>
-          <div class="config-item">
-            <label class="field-label">最小间隔 (秒)</label>
-            <a-input-number
-              :model-value="rule.constraints?.minInterval"
-              size="small"
-              :min="0"
-              placeholder="不限"
-              style="width: 100%"
-              @change="(v: unknown) => updateConstraints(i, 'minInterval', v !== undefined && v !== null && Number(v) > 0 ? Number(v) : undefined)"
             />
           </div>
         </div>
@@ -278,9 +266,10 @@ function setTopField(field: string, value: unknown) {
               <template v-if="rule.then.action === 'buy' || rule.then.action === 'sell'">
                 <a-input-number
                   :model-value="rule.then.size"
-                  size="small"
                   :min="0"
-                  placeholder="数量 ($)"
+                  size="small"
+                  mode="button"
+                  placeholder="金额"
                   style="width: 120px"
                   @change="(v: unknown) => updateAction(i, 'size', Number(v) || 0)"
                 />
@@ -290,8 +279,7 @@ function setTopField(field: string, value: unknown) {
                   style="width: 130px"
                   @change="(v: unknown) => updateAction(i, 'sizeType', String(v))"
                 >
-                  <a-option value="fixed" label="固定金额 ($)" />
-                  <a-option value="multiplier" label="倍率引用" />
+                  <a-option v-for="(label, key) in sizeTypeLabels" :key="key" :value="key" :label="label" />
                 </a-select>
                 <a-input
                   v-if="rule.then.sizeType === 'multiplier'"
@@ -299,7 +287,7 @@ function setTopField(field: string, value: unknown) {
                   size="small"
                   placeholder="引用指标名"
                   style="width: 150px"
-                  @change="(v: unknown) => updateAction(i, 'sizeMultiplierRef', String(v))"
+                  @input="(v: unknown) => updateAction(i, 'sizeMultiplierRef', String(v))"
                 />
               </template>
             </div>
@@ -310,7 +298,7 @@ function setTopField(field: string, value: unknown) {
                 size="small"
                 placeholder="执行原因（支持 {INDICATOR} 模板变量）"
                 style="width: 100%"
-                @change="(v: unknown) => updateAction(i, 'reason', String(v))"
+                @input="(v: unknown) => updateAction(i, 'reason', String(v))"
               />
             </div>
           </div>
@@ -409,7 +397,7 @@ function setTopField(field: string, value: unknown) {
 
 .rule-config-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 0.5rem;
   margin-bottom: 0.75rem;
 }

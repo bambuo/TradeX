@@ -11,6 +11,7 @@ using TradeX.Trading.Engine;
 using TradeX.Trading.Execution;
 using TradeX.Trading.Events;
 using TradeX.Trading.EventBus;
+using TradeX.Trading.Indicators;
 using TradeX.Trading.Observability;
 using TradeX.Trading.Risk;
 
@@ -41,6 +42,7 @@ public sealed class StrategyEvaluationConsumer(
     TradeStreamManager streamManager,
     KlineStreamManager klineStreamManager,
     IClock clock,
+    IHistoricalIndicatorStore historicalIndicatorStore,
     ILogger<StrategyEvaluationConsumer> logger) : BackgroundService
 {
     private const int PriceHistoryMaxLength = 2000;
@@ -307,8 +309,13 @@ public sealed class StrategyEvaluationConsumer(
             ? openPairPositions.Sum(p => p.EntryPrice * p.Quantity) / quantityHeld
             : 0m;
 
+        // 记录当前指标快照（供 lookback 规则使用）
+        var scopeKey = $"{binding.Id}:{pair}";
+        historicalIndicatorStore.RecordSnapshot(scopeKey, indicatorValues);
+
         // 构建统一决策输入。ScopeKey 按 (binding, pair) 隔离 MinInterval 冷却，
         // 避免不同策略绑定/交易对的同名规则互相串扰；评估时间用 IClock（实盘=墙钟）。
+        var historicalSnapshots = historicalIndicatorStore.GetSnapshots(scopeKey, maxCount: 100);
         var input = new StrategyDecisionInput(
             ExecutionRule: executionRuleJson,
             IndicatorValues: indicatorValues,
@@ -317,8 +324,9 @@ public sealed class StrategyEvaluationConsumer(
             AverageEntryPrice: avgEntry,
             QuantityHeld: quantityHeld,
             LotCount: openPairPositions.Count,
-            ScopeKey: $"{binding.Id}:{pair}",
-            EvaluationTime: clock.UtcNow);
+            ScopeKey: scopeKey,
+            EvaluationTime: clock.UtcNow,
+            HistoricalSnapshots: historicalSnapshots);
 
         // 通过 StrategyDecisionEngine（内部用 RuleEvaluator）评估
         var decision = cycle.DecisionEngine.Decide(input);
@@ -330,7 +338,7 @@ public sealed class StrategyEvaluationConsumer(
                 var orderSize = decision.QuoteSize > 0 ? decision.QuoteSize : FallbackEntryQuoteSize;
                 if (decision.QuoteSize <= 0)
                     logger.LogWarning("策略 {BindingId}: 入场规则未指定下单金额，回退默认 {Size}", binding.Id, FallbackEntryQuoteSize);
-                if (await PassesRiskAsync(binding, pair, orderSize, cycle, ct))
+                if (await PassesRiskAsync(binding, pair, orderSize, decision.RuleSlippageTolerance, cycle, ct))
                     await PlaceMarketBuyAsync(binding, pair, orderSize, cycle, ct);
                 break;
 
@@ -385,6 +393,7 @@ public sealed class StrategyEvaluationConsumer(
     /// <summary>组合级 + 币种级风控检查，任一不通过即拒绝并发告警/指标。</summary>
     private async Task<bool> PassesRiskAsync(
         StrategyBinding binding, string pair, decimal plannedNotional,
+        decimal? ruleSlippageTolerance,
         TradingCycleScope cycle, CancellationToken ct)
     {
         var riskCheck = await cycle.RiskManager.CheckAsync(binding.TraderId, binding.ExchangeId, ct);
@@ -399,7 +408,7 @@ public sealed class StrategyEvaluationConsumer(
             return false;
         }
 
-        var pairRisk = await cycle.RiskManager.CheckPairRiskAsync(binding.TraderId, binding.ExchangeId, pair, plannedNotional, ct);
+        var pairRisk = await cycle.RiskManager.CheckPairRiskAsync(binding.TraderId, binding.ExchangeId, pair, plannedNotional, ruleSlippageTolerance, ct);
         if (!pairRisk.IsAllowed)
         {
             var msg = string.Join("; ", pairRisk.DeniedReasons);

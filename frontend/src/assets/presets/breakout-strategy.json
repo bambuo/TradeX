@@ -4,6 +4,7 @@
   "notes": [
     "波动放大信号 RANGE_PCT >= 1.5 对应 BTC 15m 级别单根 K 线振幅约 0.3%~0.5%，有效过滤窄幅震荡",
     "均线多头排列过滤：SMA_20 > SMA_50 确保只在上升趋势中做多，不做左侧逆势交易",
+    "入场附加趋势确认：RSI 在 3 根前已大于 40（lookback: 3），避免突破瞬间的假信号入场",
     "硬止损 2.5% 防止突破失败后的剧烈回调，也可在 UI 编辑器中自行追加 POSITION_PNL_PCT 回撤止损规则",
     "该策略适合趋势明显的行情，单边上涨中效果极佳；横盘震荡时突破信号多为假突破，建议暂停",
     "RANGE_PCT 参数可调整：BTC/SOL 设为 2.0（波动更大才会触发），ETH 设为 1.5"
@@ -30,6 +31,13 @@
               "comparison": ">",
               "ref": "SMA_50",
               "value": 1
+            },
+            {
+              "operator": "",
+              "indicator": "RSI",
+              "comparison": ">",
+              "value": 40,
+              "lookback": 3
             }
           ]
         },
@@ -37,7 +45,7 @@
           "action": "buy",
           "size": 100,
           "sizeType": "fixed",
-          "reason": "RANGE_PCT {RANGE_PCT} >= 1.5 且 SMA_20 > SMA_50，突破入场"
+          "reason": "RANGE_PCT {RANGE_PCT} >= 1.5 且 SMA_20 > SMA_50，3 根前 RSI 已 > 40，突破入场"
         },
         "context": "noPosition",
         "priority": 0,

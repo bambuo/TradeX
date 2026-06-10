@@ -24,10 +24,12 @@ public class PortfolioRiskManager(
         return BuildResult(result);
     }
 
-    public async Task<RiskResult> CheckPairRiskAsync(Guid traderId, Guid exchangeId, string pair, decimal? orderNotional = null, CancellationToken ct = default)
+    public async Task<RiskResult> CheckPairRiskAsync(Guid traderId, Guid exchangeId, string pair, decimal? orderNotional = null, decimal? slippageToleranceOverride = null, CancellationToken ct = default)
     {
         var chain = BuildChain();
         var context = await BuildContextAsync(traderId, exchangeId, pair, orderNotional, ct);
+        if (slippageToleranceOverride.HasValue)
+            context.SlippageTolerance = slippageToleranceOverride.Value;
         var result = await chain.CheckAsync(context, ct);
         return BuildResult(result);
     }
@@ -103,7 +105,7 @@ public class PortfolioRiskManager(
 public interface IPortfolioRiskManager
 {
     Task<RiskResult> CheckAsync(Guid traderId, Guid exchangeId, CancellationToken ct = default);
-    Task<RiskResult> CheckPairRiskAsync(Guid traderId, Guid exchangeId, string pair, decimal? orderNotional = null, CancellationToken ct = default);
+    Task<RiskResult> CheckPairRiskAsync(Guid traderId, Guid exchangeId, string pair, decimal? orderNotional = null, decimal? slippageToleranceOverride = null, CancellationToken ct = default);
 }
 
 public record RiskResult(bool IsAllowed, IReadOnlyList<string> DeniedReasons);

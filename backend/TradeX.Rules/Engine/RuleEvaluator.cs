@@ -37,8 +37,8 @@ public sealed class RuleEvaluator(
                 continue;
             }
 
-            // 条件评估
-            if (!EvaluateCondition(rule.When, mergedIndicators, ctx.PreviousIndicatorValues))
+            // 条件评估（传入历史快照以支持 lookback）
+            if (!EvaluateCondition(rule.When, mergedIndicators, ctx.PreviousIndicatorValues, ctx.HistoricalSnapshots))
                 continue;
 
             // 条件满足，执行动作
@@ -109,19 +109,21 @@ public sealed class RuleEvaluator(
     private static bool EvaluateCondition(
         ConditionNode? condition,
         Dictionary<string, decimal> indicatorValues,
-        Dictionary<string, decimal>? previousValues)
+        Dictionary<string, decimal>? previousValues,
+        IReadOnlyList<Dictionary<string, decimal>>? historicalSnapshots = null)
     {
         // null 条件视为恒真（如首次入场规则）
         if (condition is null)
             return true;
 
-        return EvaluateNode(condition, indicatorValues, previousValues ?? []);
+        return EvaluateNode(condition, indicatorValues, previousValues ?? [], historicalSnapshots);
     }
 
     private static bool EvaluateNode(
         ConditionNode node,
         Dictionary<string, decimal> indicatorValues,
-        Dictionary<string, decimal> previousValues)
+        Dictionary<string, decimal> previousValues,
+        IReadOnlyList<Dictionary<string, decimal>>? historicalSnapshots = null)
     {
         // TRUE 恒真运算符——无论嵌套在条件树何处都返回 true
         if (node.Operator == "TRUE")
@@ -129,27 +131,39 @@ public sealed class RuleEvaluator(
 
         // 无子条件视为叶子节点（兼容 JSON 解析默认 Operator="AND" 但无 conditions 的场景）
         if (node.Conditions.Count == 0)
-            return EvaluateLeaf(node, indicatorValues, previousValues);
+            return EvaluateLeaf(node, indicatorValues, previousValues, historicalSnapshots);
 
         return node.Operator switch
         {
-            "AND" => node.Conditions.All(c => EvaluateNode(c, indicatorValues, previousValues)),
-            "OR" => node.Conditions.Any(c => EvaluateNode(c, indicatorValues, previousValues)),
-            "NOT" => node.Conditions.Count == 1 && !EvaluateNode(node.Conditions[0], indicatorValues, previousValues),
-            _ => EvaluateLeaf(node, indicatorValues, previousValues)
+            "AND" => node.Conditions.All(c => EvaluateNode(c, indicatorValues, previousValues, historicalSnapshots)),
+            "OR" => node.Conditions.Any(c => EvaluateNode(c, indicatorValues, previousValues, historicalSnapshots)),
+            "NOT" => node.Conditions.Count == 1 && !EvaluateNode(node.Conditions[0], indicatorValues, previousValues, historicalSnapshots),
+            _ => EvaluateLeaf(node, indicatorValues, previousValues, historicalSnapshots)
         };
     }
 
     private static bool EvaluateLeaf(
         ConditionNode leaf,
         Dictionary<string, decimal> indicatorValues,
-        Dictionary<string, decimal> previousValues)
+        Dictionary<string, decimal> previousValues,
+        IReadOnlyList<Dictionary<string, decimal>>? historicalSnapshots = null)
     {
         if (leaf.Indicator is null || leaf.Comparison is null)
             return false;
 
-        if (!indicatorValues.TryGetValue(leaf.Indicator, out var actual))
-            return false;
+        // lookback 支持：从历史快照中取值，而非当前指标值
+        // 仅对简单比较生效，穿越（CA/CB）忽略 lookback。
+        decimal actual;
+        if (leaf.Lookback.HasValue && leaf.Lookback.Value > 0)
+        {
+            if (!TryResolveLookback(leaf, indicatorValues, historicalSnapshots, out actual))
+                return false;
+        }
+        else
+        {
+            if (!indicatorValues.TryGetValue(leaf.Indicator, out actual))
+                return false;
+        }
 
         // 比较基准：
         //   * 带 ref（相对比较）→ compared = indicators[ref] * (value ?? 1)，缺失 ref 值则无法比较 → false。
@@ -158,6 +172,7 @@ public sealed class RuleEvaluator(
             return false;
 
         // 穿越判定的 prev 端基准须用"上一根"的参照值，否则金叉/死叉会在错误时机触发或漏触发。
+        // lookback 模式下 CA/CB 直接用当前（含 lookback 已计算）与上一次评估对比。
         var prevHasValue = previousValues.TryGetValue(leaf.Indicator, out var prev);
         var prevHasCompare = TryResolveCompareValue(leaf, previousValues, out var prevCompared);
 
@@ -172,6 +187,29 @@ public sealed class RuleEvaluator(
             "CB" => prevHasValue && prevHasCompare && prev >= prevCompared && actual < compared,
             _ => false
         };
+    }
+
+    /// <summary>按 lookback 从历史快照中解析指标值。索引不足时返回 false。</summary>
+    private static bool TryResolveLookback(
+        ConditionNode leaf,
+        Dictionary<string, decimal> indicatorValues,
+        IReadOnlyList<Dictionary<string, decimal>>? historicalSnapshots,
+        out decimal actual)
+    {
+        // lookback=1 取上一根快照（最近一次评估），lookback=N 取 N 次前。
+        if (historicalSnapshots is not null && leaf.Lookback.HasValue)
+        {
+            var idx = historicalSnapshots.Count - leaf.Lookback.Value;
+            if (idx >= 0 && idx < historicalSnapshots.Count
+                && historicalSnapshots[idx].TryGetValue(leaf.Indicator, out var snapValue))
+            {
+                actual = snapValue;
+                return true;
+            }
+        }
+
+        // 历史不足时退化为当前值（保证规则在启动初期也能稳定评估，而非恒 false）
+        return indicatorValues.TryGetValue(leaf.Indicator, out actual);
     }
 
     /// <summary>解析叶节点比较基准。带 ref 时乘数默认为 1；无 ref 时 value 必填。无法解析返回 false。</summary>

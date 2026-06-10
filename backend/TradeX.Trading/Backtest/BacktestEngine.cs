@@ -36,6 +36,9 @@ public class BacktestEngine(IIndicatorRegistry indicators, IStrategyDecisionEngi
         // 为进程级单例，固定键会让不同回测任务（甚至同名规则）的冷却互相串扰。
         var scopeKey = $"backtest:{Guid.NewGuid():N}";
 
+        // 历史指标快照列表：每根 K 线评估后记录指标值，供 lookback 规则使用
+        List<Dictionary<string, decimal>> historicalSnapshots = [];
+
         // FIFO 持仓队列：每次加仓（buy）追加一笔 lot，减仓（reduceOneLot）平掉最早一笔，
         // 全平（sellAll）逐笔平掉，与实盘"按持仓逐笔下单/平仓"行为对齐，支持网格/金字塔加仓。
         var lots = new List<Lot>();
@@ -71,6 +74,9 @@ public class BacktestEngine(IIndicatorRegistry indicators, IStrategyDecisionEngi
             var quantityHeld = lots.Sum(l => l.Quantity);
             var avgEntry = quantityHeld > 0 ? lots.Sum(l => l.EntryPrice * l.Quantity) / quantityHeld : 0m;
 
+            // 记录当前指标快照（供后续 lookback 规则使用）
+            historicalSnapshots.Add(new Dictionary<string, decimal>(currentValues));
+
             // 统一决策：通过 IStrategyDecisionEngine 评估。回测作用域键固定 "backtest"，
             // 评估时间用当前 K 线时间，使 MinInterval 约束按模拟时间生效。
             var decision = decisionEngine.Decide(new StrategyDecisionInput(
@@ -82,7 +88,8 @@ public class BacktestEngine(IIndicatorRegistry indicators, IStrategyDecisionEngi
                 QuantityHeld: quantityHeld,
                 LotCount: lots.Count,
                 ScopeKey: scopeKey,
-                EvaluationTime: ohlc.Timestamp));
+                EvaluationTime: ohlc.Timestamp,
+                HistoricalSnapshots: historicalSnapshots));
 
             var didBuy = false;
             var didSell = false;

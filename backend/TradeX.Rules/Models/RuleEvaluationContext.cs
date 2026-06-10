@@ -17,4 +17,5 @@ public sealed record RuleEvaluationContext(
     Dictionary<string, decimal> IndicatorValues,
     Dictionary<string, decimal>? PreviousIndicatorValues = null,
     string ScopeKey = "",
-    DateTime EvaluationTime = default);
+    DateTime EvaluationTime = default,
+    IReadOnlyList<Dictionary<string, decimal>>? HistoricalSnapshots = null);

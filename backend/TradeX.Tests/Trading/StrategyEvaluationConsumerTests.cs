@@ -11,6 +11,7 @@ using TradeX.Trading.Engine;
 using TradeX.Trading.Execution;
 using TradeX.Trading.EventBus;
 using TradeX.Trading.Observability;
+using TradeX.Trading.Indicators;
 using TradeX.Trading.Risk;
 using TradeX.Trading.Streaming;
 
@@ -244,7 +245,7 @@ public class StrategyEvaluationConsumerTests
         // Default: risk allows, trade succeeds
         riskManager.CheckAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(new RiskResult(true, []));
-        riskManager.CheckPairRiskAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<decimal?>(), Arg.Any<CancellationToken>())
+        riskManager.CheckPairRiskAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<decimal?>(), Arg.Any<decimal?>(), Arg.Any<CancellationToken>())
             .Returns(new RiskResult(true, []));
         tradeExecutor.ExecuteMarketOrderAsync(Arg.Any<Order>(), Arg.Any<CancellationToken>())
             .Returns(new OrderResult(true, "exch-123", 0.001m, 50000m, 0m, null));
@@ -328,9 +329,12 @@ public class StrategyEvaluationConsumerTests
         var klineManager = new KlineStreamManager(scopeFactory, klineChannel, klineLogger);
         var metrics = new TradeXMetrics();
 
+        var histStore = Substitute.For<IHistoricalIndicatorStore>();
+        histStore.GetSnapshots(Arg.Any<string>(), Arg.Any<int>()).Returns((IReadOnlyList<Dictionary<string, decimal>>?)null);
+
         var consumer = new StrategyEvaluationConsumer(
             scopeFactory, tradeChannel, klineChannel, indRegistry, eventBus,
-            metrics, tradeManager, klineManager, new SystemClock(), logger);
+            metrics, tradeManager, klineManager, new SystemClock(), histStore, logger);
 
         return (consumer, sp, tradeChannel, klineChannel, eventBus, tradeExecutor, riskManager);
     }

@@ -23,10 +23,13 @@ public enum StrategyAction
 
 /// <summary>
 /// 决策结果。<see cref="QuoteSize"/> 对买入类动作表示下单金额；对 <see cref="StrategyAction.Reduce"/>
-/// 表示目标减仓金额（0 表示减一笔）。
+/// 表示目标减仓金额（0 表示减一笔）。<see cref="RuleSlippageTolerance"/> 为规则级滑点容忍度覆盖值。
 /// </summary>
 public sealed record StrategyDecision(StrategyAction Action, decimal QuoteSize, string Reason)
 {
+    /// <summary>规则 params 中指定的滑点容忍度，覆盖风控全局配置。</summary>
+    public decimal? RuleSlippageTolerance { get; init; }
+
     public static StrategyDecision Hold(string reason) => new(StrategyAction.Hold, 0m, reason);
     public static StrategyDecision Enter(string reason) => new(StrategyAction.EnterMarket, 0m, reason);
     public static StrategyDecision Reduce(decimal quoteSize, string reason) => new(StrategyAction.Reduce, quoteSize, reason);
@@ -46,7 +49,8 @@ public sealed record StrategyDecisionInput(
     decimal QuantityHeld,
     int LotCount,
     string ScopeKey,
-    DateTime EvaluationTime);
+    DateTime EvaluationTime,
+    IReadOnlyList<Dictionary<string, decimal>>? HistoricalSnapshots = null);
 
 /// <summary>
 /// 策略决策内核：将规则集 JSON → RuleEvaluator，把"行情 + 持仓状态 → 决策"的纯逻辑
@@ -78,21 +82,29 @@ public sealed class StrategyDecisionEngine(
             input.IndicatorValues,
             input.PreviousIndicatorValues,
             input.ScopeKey,
-            input.EvaluationTime);
+            input.EvaluationTime,
+            input.HistoricalSnapshots);
 
         // 3. 评估
         var decision = ruleEvaluator.Evaluate(ruleSet, ctx);
 
-        // 4. 将 RuleDecision 映射为 StrategyDecision
+        // 4. 提取规则级 params 中的滑点容忍度（将透传给风控链）
+        decimal? ruleSlippage = null;
+        if (ruleSet.Params is not null && ruleSet.Params.TryGetValue("slippageTolerance", out var parsedSlippage))
+            ruleSlippage = parsedSlippage;
+
+        // 5. 将 RuleDecision 映射为 StrategyDecision
         logger?.LogInformation("规则集 {Code}({Name}) → {Action}, Size={Size}, Reason={Reason}",
             ruleSet.Code, ruleSet.Name, decision.Action, decision.Size, decision.Reason);
 
-        return decision.Action switch
+        var strategyDecision = decision.Action switch
         {
             RuleDecisionAction.Buy => new StrategyDecision(StrategyAction.EnterMarket, decision.Size, decision.Reason ?? "规则触发买入"),
             RuleDecisionAction.Sell => new StrategyDecision(StrategyAction.Reduce, decision.Size, decision.Reason ?? "规则触发减仓"),
             RuleDecisionAction.SellAll => StrategyDecision.Exit(decision.Reason ?? "规则触发全部平仓"),
             _ => StrategyDecision.Hold(decision.Reason ?? "无规则触发")
         };
+
+        return strategyDecision with { RuleSlippageTolerance = ruleSlippage };
     }
 }

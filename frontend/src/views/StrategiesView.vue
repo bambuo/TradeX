@@ -1,12 +1,16 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import { strategiesApi, type Strategy, type StrategySchema } from '../api/strategies'
 import { strategyPresets } from '../api/strategyPresets'
 import RuleSetEditor from '../components/RuleSetEditor.vue'
+import {
+  labelForIndicator,
+  actionLabels,
+} from '../utils/ruleLabels'
 
 const cmpLabels: Record<string, string> = {
-  '>': '>', '<': '<', '>=': '≥', '<=': '≤', '==': '＝', CA: '↗', CB: '↘'
+  '>': '>', '<': '<', '>=': '≥', '<=': '≤', '==': '＝', CA: '↗ 上穿', CB: '↘ 下穿'
 }
 
 /** 从 RuleSet JSON 中提取可读的描述 */
@@ -17,14 +21,19 @@ function humanizeRuleSet(json: string): string {
     const parts = parsed.rules.map((r: any) => {
       const name = r.name || r.code || '规则'
       const action = r.then?.action || 'hold'
-      const actionLabel = action === 'buy' ? '→ 买入' : action === 'sell' ? '→ 减仓' : action === 'sellAll' ? '→ 全平' : ''
+      const actionLabel = actionLabels[action] ? `→ ${actionLabels[action]}` : ''
+      const displayIndicator = (ind: string) => labelForIndicator(ind)
       if (r.when && r.when.indicator) {
         const cmp = cmpLabels[r.when.comparison ?? ''] || r.when.comparison || '?'
-        return `${name}: ${r.when.indicator} ${cmp} ${r.when.value} ${actionLabel}`
+        const lb = r.when.lookback ? `(回看${r.when.lookback}根)` : ''
+        return `${name}: ${displayIndicator(r.when.indicator)} ${cmp} ${r.when.value ?? ''} ${lb} ${actionLabel}`
       }
       if (r.when && r.when.conditions && r.when.conditions.length > 0) {
         const condText = r.when.conditions.map((c: any) => {
-          if (c.indicator) return `${c.indicator} ${cmpLabels[c.comparison ?? ''] || c.comparison || '?'} ${c.value}`
+          if (c.indicator) {
+            const lb = c.lookback ? `(回看${c.lookback}根)` : ''
+            return `${displayIndicator(c.indicator)} ${cmpLabels[c.comparison ?? ''] || c.comparison || '?'} ${c.value ?? ''} ${lb}`
+          }
           return '多条件'
         }).join(r.when.operator === 'OR' ? ' 或 ' : ' 且 ')
         return `${name}: ${condText} ${actionLabel}`

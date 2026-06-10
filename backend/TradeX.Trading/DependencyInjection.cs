@@ -8,6 +8,7 @@ using TradeX.Trading.Backtest;
 using TradeX.Trading.Commands;
 using TradeX.Trading.Engine;
 using TradeX.Trading.Execution;
+using TradeX.Trading.Indicators;
 using TradeX.Trading.Risk;
 using TradeX.Trading.Streaming;
 
@@ -42,6 +43,7 @@ public static class DependencyInjection
         services.AddSingleton<IKillSwitch, KillSwitch>();
         services.AddSingleton<TaskAnalysisStore>();
         services.AddSingleton<OrderBookSlippageGuard>();
+        services.AddSingleton<IHistoricalIndicatorStore, HistoricalIndicatorStore>();
         services.AddSingleton<Execution.PairRuleCache>();
         services.AddSingleton<Execution.KlineGapDetector>();
         services.AddScoped<DailyLossHandler>();

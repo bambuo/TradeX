@@ -124,6 +124,12 @@ public static class RuleSetParser
                 node.Value = valElem.GetDecimal();
         }
 
+        if (element.TryGetProperty("lookback", out var lbElem) && lbElem.ValueKind == JsonValueKind.Number)
+        {
+            if (lbElem.TryGetInt32(out var lb) && lb > 0)
+                node.Lookback = lb;
+        }
+
         // 解析子条件
         if (element.TryGetProperty("conditions", out var condsElem) && condsElem.ValueKind == JsonValueKind.Array)
         {

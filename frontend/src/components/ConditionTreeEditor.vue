@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { StrategySchema } from '../api/strategies'
+import {
+  operatorKeys,
+  defaultIndicatorKeys,
+  comparisonKeys,
+  labelForOperator,
+  labelForIndicator,
+  labelForComparison,
+} from '../utils/ruleLabels'
 
 export interface ConditionNode {
   operator?: string
@@ -10,6 +18,7 @@ export interface ConditionNode {
   comparison?: string
   value?: number
   ref?: string
+  lookback?: number
 }
 
 const props = defineProps<{
@@ -23,14 +32,14 @@ const emit = defineEmits<{
 }>()
 
 const isLeaf = computed(() => !props.node.conditions || props.node.conditions.length === 0)
-const operators = ['AND', 'OR', 'NOT', 'TRUE']
-const defaultIndicators = ['RSI', 'SMA_20', 'SMA_50', 'EMA_20', 'MACD_LINE', 'MACD_SIGNAL', 'BB_UPPER', 'BB_LOWER', 'OBV', 'VOLUME_SMA', 'RANGE_PCT']
-const comparisons = ['>', '<', '>=', '<=', '==', 'CA', 'CB']
 
 const indicators = computed(() => {
   if (props.schema?.indicators?.length) return props.schema.indicators
-  return defaultIndicators
+  return defaultIndicatorKeys
 })
+
+const operators = operatorKeys
+const comparisons = comparisonKeys
 
 function removeFromParent() {
   emit('update', null)
@@ -66,7 +75,7 @@ function updateField(field: string, value: unknown) {
           size="small"
           @change="(v) => updateField('operator', v)"
         >
-          <a-option v-for="op in operators" :key="op" :value="op" :label="op" />
+          <a-option v-for="op in operators" :key="op" :value="op" :label="labelForOperator(op)" />
         </a-select>
         <a-button size="mini" type="text" @click="removeFromParent">
           <template #icon><icon-close /></template>
@@ -100,26 +109,43 @@ function updateField(field: string, value: unknown) {
         <a-select
           :model-value="node.indicator ?? indicators[0]"
           size="small"
-          style="width: 130px"
+          style="width: 180px"
           @change="(v) => updateField('indicator', v)"
         >
-          <a-option v-for="ind in indicators" :key="ind" :value="ind" :label="ind" />
+          <a-option v-for="ind in indicators" :key="ind" :value="ind" :label="labelForIndicator(ind)" />
         </a-select>
         <a-select
           :model-value="node.comparison ?? comparisons[0]"
           size="small"
-          style="width: 110px"
+          style="width: 150px"
           @change="(v) => updateField('comparison', v)"
         >
-          <a-option v-for="cmp in comparisons" :key="cmp" :value="cmp" :label="cmp === 'CA' ? '↗' : cmp === 'CB' ? '↘' : cmp" />
+          <a-option v-for="cmp in comparisons" :key="cmp" :value="cmp" :label="labelForComparison(cmp)" />
         </a-select>
-        <a-input-number :model-value="node.value" class="field-input" placeholder="值" @change="(v) => updateField('value', Number(v) || 0)" />
+        <a-input-number
+          :model-value="node.value"
+          class="field-input"
+          placeholder="值"
+          :min="0"
+          size="small"
+          mode="button"
+          @change="(v) => updateField('value', Number(v) || 0)"
+        />
+        <a-input-number
+          :model-value="node.lookback"
+          class="field-input lookback-input"
+          placeholder="回看K线"
+          :min="0"
+          size="small"
+          mode="button"
+          @change="(v) => updateField('lookback', v !== undefined && v !== null && Number(v) > 0 ? Number(v) : undefined)"
+        />
         <a-input
           v-if="node.ref !== undefined"
           :model-value="node.ref"
           size="small"
           placeholder="参考指标"
-          style="width: 110px"
+          style="width: 130px"
           @change="(v) => updateField('ref', v)"
         />
         <a-button size="mini" type="text" @click="removeFromParent">
@@ -166,10 +192,16 @@ function updateField(field: string, value: unknown) {
   display: flex;
   gap: 6px;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .field-input {
-  width: 80px;
+  width: 120px;
+  flex-shrink: 0;
+}
+
+.lookback-input {
+  width: 130px;
+  flex-shrink: 0;
 }
 </style>

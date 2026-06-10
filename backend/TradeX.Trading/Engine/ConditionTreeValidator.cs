@@ -112,6 +112,18 @@ public sealed class ConditionTreeValidator(IIndicatorRegistry registry)
                 issues.Add(new($"{path}.comparison", $"不支持的比较运算符 '{cmp}', 允许: {string.Join("/", ValidComparisons)}"));
         }
 
+        // lookback（可选）必须为正整数
+        var hasLookback = node.TryGetProperty("lookback", out var lbEl);
+        if (hasLookback && lbEl.ValueKind == JsonValueKind.Number)
+        {
+            if (!lbEl.TryGetInt32(out var lb) || lb <= 0)
+                issues.Add(new($"{path}.lookback", "lookback 必须为正整数"));
+        }
+        else if (hasLookback)
+        {
+            issues.Add(new($"{path}.lookback", "lookback 必须为数字"));
+        }
+
         // ref（相对比较）存在时引用的指标必须已知；此时 value 作为乘数可省略（默认 1）。
         var hasRef = node.TryGetProperty("ref", out var refEl)
             && refEl.ValueKind == JsonValueKind.String
