@@ -40,15 +40,20 @@ public sealed class StrategyEvaluationConsumer(
     TradeXMetrics metrics,
     TradeStreamManager streamManager,
     KlineStreamManager klineStreamManager,
+    IClock clock,
     ILogger<StrategyEvaluationConsumer> logger) : BackgroundService
 {
     private const int PriceHistoryMaxLength = 2000;
+
+    // 入场规则未指定下单金额（size）且未配置 positionSize 时的兜底下单金额（quote）。
+    // 命中即记 Warning——通常意味着规则配置缺失，应在规则集中显式指定 size。
+    private const decimal FallbackEntryQuoteSize = 100m;
 
     // pair → 价格序列（Trade 价格逐步填充）
     private readonly ConcurrentDictionary<string, List<decimal>> _priceHistory = new(StringComparer.OrdinalIgnoreCase);
 
     // (pair|exchange|interval) → 上一根已收盘 K 线，用于给 prevWindow 提供正确的“上一根”OHLC（穿越检测）
-    private readonly ConcurrentDictionary<string, Candle> _lastClosedCandle = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, Kline> _lastClosedKline = new(StringComparer.OrdinalIgnoreCase);
 
     // 活跃策略缓存
     private volatile IReadOnlyList<StrategyBinding> _activeStrategies = [];
@@ -57,6 +62,10 @@ public sealed class StrategyEvaluationConsumer(
     // 入场幂等闸：进程内"在途买单"锁，键 "{bindingId}|{pair}"。
     // 挡住持仓落库前同一 (binding,pair) 被 Trade/Kline 多路并发或连续 tick 重复下单。
     private readonly ConcurrentDictionary<string, byte> _inFlightEntry = new();
+
+    // 平仓幂等闸：进程内"在途卖单"锁，键为持仓 Id。
+    // 挡住卖单成交、持仓状态翻转前同一持仓被高频 tick 重复选中下卖单（双重平仓）。
+    private readonly ConcurrentDictionary<Guid, byte> _inFlightExit = new();
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -186,14 +195,14 @@ public sealed class StrategyEvaluationConsumer(
     private async Task ProcessKlineAsync(KlineEvent evt, CancellationToken ct)
     {
         var pair = evt.Pair;
-        var candle = evt.Candle;
+        var kline = evt.Kline;
 
         // 以实际 OHLC 数据构建 KlineWindow
-        var currentPrice = candle.Close;
+        var currentPrice = kline.Close;
         var prices = _priceHistory.GetOrAdd(pair, _ => []);
         lock (prices)
         {
-            prices.Add(candle.Close);
+            prices.Add(kline.Close);
             if (prices.Count > PriceHistoryMaxLength)
                 prices.RemoveRange(0, prices.Count - PriceHistoryMaxLength);
         }
@@ -218,14 +227,14 @@ public sealed class StrategyEvaluationConsumer(
 
         // 使用 Candle 的完整 OHLC
         var currentWindow = new KlineWindow(prices, [],
-            candle.Open, candle.High, candle.Low, candle.Close);
+            kline.Open, kline.High, kline.Low, kline.Close);
 
-        // prevWindow 须用“上一根”的 OHLC，否则 OHLC 类指标（如 RANGE_PCT）prev==cur，穿越永不触发
-        var candleKey = $"{pair}|{evt.ExchangeId}|{evt.Interval}";
-        var prevWindow = prevPrices.Count > 0 && _lastClosedCandle.TryGetValue(candleKey, out var prevCandle)
-            ? new KlineWindow(prevPrices, [], prevCandle.Open, prevCandle.High, prevCandle.Low, prevCandle.Close)
+        // prevWindow 须用"上一根"的 OHLC，否则 OHLC 类指标（如 RANGE_PCT）prev==cur，穿越永不触发
+        var klineKey = $"{pair}|{evt.ExchangeId}|{evt.Interval}";
+        var prevWindow = prevPrices.Count > 0 && _lastClosedKline.TryGetValue(klineKey, out var prevKline)
+            ? new KlineWindow(prevPrices, [], prevKline.Open, prevKline.High, prevKline.Low, prevKline.Close)
             : currentWindow;
-        _lastClosedCandle[candleKey] = candle;
+        _lastClosedKline[klineKey] = kline;
 
         // 按 trader 分组
         var traderGroups = matchingBindings.GroupBy(s => s.TraderId).ToList();
@@ -267,15 +276,11 @@ public sealed class StrategyEvaluationConsumer(
         var indicatorValues = indicatorRegistry.ComputeAll(currentWindow);
         var previousValues = indicatorRegistry.ComputeAll(prevWindow);
 
-        // 获取策略模板
+        // 获取规则集 JSON
         var strategyTemplate = binding.StrategyId != Guid.Empty
             ? await cycle.StrategyRepo.GetByIdAsync(binding.StrategyId, ct)
             : null;
-        var entryConditionJson = strategyTemplate?.EntryCondition ?? "{}";
-        var exitConditionJson = strategyTemplate?.ExitCondition ?? "{}";
         var executionRuleJson = strategyTemplate?.ExecutionRule ?? "{}";
-        var hasEntryCondition = !string.IsNullOrWhiteSpace(entryConditionJson) && entryConditionJson != "{}";
-        var hasExitCondition = !string.IsNullOrWhiteSpace(exitConditionJson) && exitConditionJson != "{}";
 
         // 检查持仓
         var openPositions = await cycle.PositionRepo.GetByStrategyIdAsync(binding.Id, ct);
@@ -296,70 +301,86 @@ public sealed class StrategyEvaluationConsumer(
             }
         }
 
-        var volatilityRule = VolatilityGridExecutionRuleParser.TryParse(executionRuleJson, logger);
-
-        // ═══ 波动率网格：复用已测算法 VolatilityGridExecutor（围绕持仓均价按 RebalancePercent 加/减仓）═══
-        if (volatilityRule is not null)
-        {
-            await HandleVolatilityGridAsync(binding, pair, currentPrice, openPairPositions, volatilityRule, cycle, ct);
-            return;
-        }
-
-        // ═══ 条件入场评估 ═══
-        if (!hasOpenPosition && hasEntryCondition)
-        {
-            var shouldEnter = cycle.ConditionEvaluator.Evaluate(entryConditionJson, indicatorValues, previousValues);
-            if (shouldEnter && await PassesRiskAsync(binding, pair, 100m, cycle, ct))
-                await PlaceMarketBuyAsync(binding, pair, 100m, cycle, ct);
-        }
-
-        // ═══ 条件出场评估 ═══
-        if (hasOpenPosition && hasExitCondition)
-        {
-            var shouldExit = cycle.ConditionEvaluator.Evaluate(exitConditionJson, indicatorValues, previousValues);
-            if (shouldExit)
-                foreach (var position in openPairPositions)
-                    await CloseGridPositionAsync(binding, pair, position, currentPrice, cycle, ct);
-        }
-    }
-
-    /// <summary>
-    /// 波动率网格决策与执行。
-    /// 由持仓聚合出 (均价, 总量, 加仓档位) → <see cref="VolatilityGridExecutor.Decide"/>：
-    /// 价格相对均价跌幅 ≥ RebalancePercent 加仓、涨幅 ≥ RebalancePercent 减仓，
-    /// 加仓档位与名义价值上限由 Decide 内部强制。
-    /// </summary>
-    private async Task HandleVolatilityGridAsync(
-        StrategyBinding binding, string pair, decimal currentPrice,
-        IReadOnlyList<Position> openPairPositions, VolatilityGridExecutionRule rule,
-        TradingCycleScope cycle, CancellationToken ct)
-    {
+        // 聚合持仓状态
         var quantityHeld = openPairPositions.Sum(p => p.Quantity);
         var avgEntry = quantityHeld > 0
             ? openPairPositions.Sum(p => p.EntryPrice * p.Quantity) / quantityHeld
             : 0m;
-        var state = new VolatilityGridState(avgEntry, quantityHeld, openPairPositions.Count);
 
-        var decision = new VolatilityGridExecutor(rule).Decide(state, currentPrice);
+        // 构建统一决策输入。ScopeKey 按 (binding, pair) 隔离 MinInterval 冷却，
+        // 避免不同策略绑定/交易对的同名规则互相串扰；评估时间用 IClock（实盘=墙钟）。
+        var input = new StrategyDecisionInput(
+            ExecutionRule: executionRuleJson,
+            IndicatorValues: indicatorValues,
+            PreviousIndicatorValues: previousValues,
+            CurrentPrice: currentPrice,
+            AverageEntryPrice: avgEntry,
+            QuantityHeld: quantityHeld,
+            LotCount: openPairPositions.Count,
+            ScopeKey: $"{binding.Id}:{pair}",
+            EvaluationTime: clock.UtcNow);
+
+        // 通过 StrategyDecisionEngine（内部用 RuleEvaluator）评估
+        var decision = cycle.DecisionEngine.Decide(input);
+
+        // 执行决策结果
         switch (decision.Action)
         {
-            case VolatilityGridAction.Buy:
-                if (await PassesRiskAsync(binding, pair, rule.BasePositionSize, cycle, ct))
-                    await PlaceMarketBuyAsync(binding, pair, rule.BasePositionSize, cycle, ct);
+            case StrategyAction.EnterMarket:
+                var orderSize = decision.QuoteSize > 0 ? decision.QuoteSize : FallbackEntryQuoteSize;
+                if (decision.QuoteSize <= 0)
+                    logger.LogWarning("策略 {BindingId}: 入场规则未指定下单金额，回退默认 {Size}", binding.Id, FallbackEntryQuoteSize);
+                if (await PassesRiskAsync(binding, pair, orderSize, cycle, ct))
+                    await PlaceMarketBuyAsync(binding, pair, orderSize, cycle, ct);
                 break;
 
-            case VolatilityGridAction.Sell:
-                // 每次减仓平掉最早的一笔持仓（每档加仓对应一条持仓记录 ≈ BasePositionSize）
-                var oldest = openPairPositions.FirstOrDefault();
-                if (oldest is not null)
-                    await CloseGridPositionAsync(binding, pair, oldest, currentPrice, cycle, ct);
+            case StrategyAction.Reduce:
+                // QuoteSize>0：自最早持仓起逐笔平仓，累计名义价值达到目标即止（整笔 lot 粒度）；
+                // QuoteSize<=0：平掉最早一笔。
+                foreach (var position in SelectPositionsToReduce(openPairPositions, decision.QuoteSize, currentPrice))
+                    await CloseGridPositionAsync(binding, pair, position, currentPrice, cycle, ct);
+                break;
+
+            case StrategyAction.ExitAll:
+                foreach (var position in openPairPositions)
+                    await CloseGridPositionAsync(binding, pair, position, currentPrice, cycle, ct);
                 break;
 
             default:
-                logger.LogDebug("策略 {BindingId}: 网格 Hold, {Reason}", binding.Id, decision.Reason);
+                logger.LogDebug("策略 {BindingId}: Hold, {Reason}", binding.Id, decision.Reason);
                 break;
         }
     }
+
+    /// <summary>
+    /// 选择本次减仓要平掉的持仓（FIFO）。<paramref name="targetQuote"/> &gt; 0 时自最早持仓累计名义价值
+    /// 直到达到目标金额（含跨过阈值的那一笔）；否则只平最早一笔。<paramref name="openPairPositions"/> 须按开仓时间升序。
+    /// </summary>
+    private static IEnumerable<Position> SelectPositionsToReduce(
+        IReadOnlyList<Position> openPairPositions, decimal targetQuote, decimal currentPrice)
+    {
+        if (openPairPositions.Count == 0)
+            yield break;
+
+        // 目标金额无效或价格不可用（无法估算名义价值）时，保守地只平最早一笔，
+        // 避免累计名义价值恒为 0 导致误平全部持仓。
+        if (targetQuote <= 0m || currentPrice <= 0m)
+        {
+            yield return openPairPositions[0];
+            yield break;
+        }
+
+        var accumulated = 0m;
+        foreach (var position in openPairPositions)
+        {
+            yield return position;
+            accumulated += position.Quantity * currentPrice;
+            if (accumulated >= targetQuote)
+                yield break;
+        }
+    }
+
+
 
     /// <summary>组合级 + 币种级风控检查，任一不通过即拒绝并发告警/指标。</summary>
     private async Task<bool> PassesRiskAsync(
@@ -468,9 +489,40 @@ public sealed class StrategyEvaluationConsumer(
     /// 对单笔持仓下市价卖单平仓。卖单携带 PositionId，持仓的关闭与持仓事件由
     /// <see cref="FillProjector"/> 在成交时统一负责（覆盖实盘与对账恢复两条路径），
     /// 此处只负责下单与订单级事件/指标。
+    /// <para>
+    /// 平仓幂等闸：进程内在途卖单锁（按持仓 Id）+ DB 在途卖单检查，
+    /// 避免卖单成交、持仓状态翻转前同一持仓被高频 tick 重复下卖单（双重平仓）。
+    /// </para>
     /// </summary>
     private async Task CloseGridPositionAsync(
         StrategyBinding binding, string pair, Position position, decimal currentPrice,
+        TradingCycleScope cycle, CancellationToken ct)
+    {
+        if (!_inFlightExit.TryAdd(position.Id, 0))
+        {
+            logger.LogDebug("策略 {BindingId}: 持仓 {PositionId} 已有在途卖单，跳过本次平仓", binding.Id, position.Id);
+            return;
+        }
+
+        try
+        {
+            // 跨重启兜底：DB 中该持仓已有 Pending/PartiallyFilled 卖单则跳过
+            if (await cycle.OrderRepo.HasActiveSellAsync(position.Id, ct))
+            {
+                logger.LogDebug("策略 {BindingId}: 持仓 {PositionId} DB 存在在途卖单，跳过本次平仓", binding.Id, position.Id);
+                return;
+            }
+
+            await CloseGridPositionCoreAsync(binding, pair, position, cycle, ct);
+        }
+        finally
+        {
+            _inFlightExit.TryRemove(position.Id, out _);
+        }
+    }
+
+    private async Task CloseGridPositionCoreAsync(
+        StrategyBinding binding, string pair, Position position,
         TradingCycleScope cycle, CancellationToken ct)
     {
         var sellOrder = new Order

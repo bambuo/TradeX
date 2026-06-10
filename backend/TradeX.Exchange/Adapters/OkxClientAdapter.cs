@@ -28,7 +28,7 @@ public class OkxClientAdapter : IExchangeClient
         _client = new OKXRestClient(o => { if (_hasCredentials) o.ApiCredentials = new OKXCredentials(apiKey, secretKey, passphrase ?? ""); });
     }
 
-    public async IAsyncEnumerable<Candle> SubscribeKlinesAsync(string pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<Kline> SubscribeKlinesAsync(string pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
     {
         while (!ct.IsCancellationRequested)
         {
@@ -38,11 +38,11 @@ public class OkxClientAdapter : IExchangeClient
         }
     }
 
-    public async IAsyncEnumerable<Candle> SubscribeKlinesStreamAsync(string pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<Kline> SubscribeKlinesStreamAsync(string pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
     {
         var op = ToOkxSymbol(pair);
         var socketClient = new OKXSocketClient();
-        var channel = Channel.CreateBounded<Candle>(new BoundedChannelOptions(100)
+        var channel = Channel.CreateBounded<Kline>(new BoundedChannelOptions(100)
         {
             FullMode = BoundedChannelFullMode.DropOldest
         });
@@ -50,7 +50,7 @@ public class OkxClientAdapter : IExchangeClient
         var subResult = await socketClient.UnifiedApi.ExchangeData.SubscribeToKlineUpdatesAsync(op, MapInterval(interval), data =>
         {
             var k = data.Data;
-            channel.Writer.TryWrite(new Candle(k.Time, k.OpenPrice, k.HighPrice, k.LowPrice, k.ClosePrice, k.Volume));
+            channel.Writer.TryWrite(new Kline(k.Time, k.OpenPrice, k.HighPrice, k.LowPrice, k.ClosePrice, k.Volume));
         }, ct);
 
         try
@@ -95,14 +95,14 @@ public class OkxClientAdapter : IExchangeClient
         }
     }
 
-    public async Task<Candle[]> GetKlinesAsync(string pair, string interval, DateTime start, DateTime end, CancellationToken ct = default)
+    public async Task<Kline[]> GetKlinesAsync(string pair, string interval, DateTime start, DateTime end, CancellationToken ct = default)
     {
         // OKX /market/candles 仅含最近 1440 根, 历史回测必须走 /market/history-candles;
         // 单次最多 100 条, 按 after(endTime) 降序返回, 翻页通过回退 endTime
         var op = ToOkxSymbol(pair);
         var ki = MapInterval(interval);
         var stepMs = IntervalMs(interval);
-        var all = new List<Candle>();
+        var all = new List<Kline>();
         var seen = new HashSet<DateTime>();
         var cursor = end;
         while (cursor > start && !ct.IsCancellationRequested)
@@ -116,7 +116,7 @@ public class OkxClientAdapter : IExchangeClient
             {
                 if (k.Time < start || k.Time > end) continue;
                 if (seen.Add(k.Time))
-                    all.Add(new Candle(k.Time, k.OpenPrice, k.HighPrice, k.LowPrice, k.ClosePrice, k.Volume));
+                    all.Add(new Kline(k.Time, k.OpenPrice, k.HighPrice, k.LowPrice, k.ClosePrice, k.Volume));
                 if (k.Time < earliest) earliest = k.Time;
             }
             if (earliest >= cursor) break;

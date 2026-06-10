@@ -16,8 +16,6 @@ public class Strategy : AggregateRoot
 
     public Guid Id { get; init; } = Guid.NewGuid();
     public string Name { get; set; } = string.Empty;
-    public string EntryCondition { get; set; } = "{}";
-    public string ExitCondition { get; set; } = "{}";
     public string ExecutionRule { get; set; } = "{}";
     public int Version { get; set; } = 1;
     public Guid CreatedBy { get; init; }
@@ -31,25 +29,15 @@ public class Strategy : AggregateRoot
         return new Strategy(name, createdBy);
     }
 
-    public static Strategy CreateWithConditions(string name, string entryCondition, string exitCondition, Guid createdBy)
+    public static Strategy CreateWithRule(string name, string executionRule, Guid createdBy)
     {
         return new Strategy(name, createdBy)
         {
-            EntryCondition = entryCondition,
-            ExitCondition = exitCondition,
+            ExecutionRule = executionRule,
         };
     }
 
     // ─────────────── 领域方法 ───────────────
-
-    public void UpdateConditions(string entry, string exit)
-    {
-        EntryCondition = entry;
-        ExitCondition = exit;
-        UpdatedAt = DateTime.UtcNow;
-
-        AddDomainEvent(new StrategyConditionsUpdatedDomainEvent(Id, entry, exit));
-    }
 
     public void UpdateExecutionRule(string rule)
     {

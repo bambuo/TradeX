@@ -30,8 +30,6 @@ public class BacktestServiceTests
         services.AddSingleton(encryption);
         services.AddSingleton(notifier);
         services.AddSingleton<IIndicatorService>(_ => new IndicatorService());
-        services.AddSingleton<IConditionTreeEvaluator, ConditionTreeEvaluator>();
-        services.AddScoped<IConditionEvaluator, ConditionEvaluator>();
         services.AddScoped<IBacktestService, BacktestService>();
         return services.BuildServiceProvider();
     }
@@ -51,12 +49,12 @@ public class BacktestServiceTests
     }
 
     [Fact]
-    public async Task StartBacktestAsync_NoEntryCondition_Throws()
+    public async Task StartBacktestAsync_NoExecutionRule_Throws()
     {
         using var sp = BuildProvider();
         var strategyRepo = sp.GetRequiredService<IStrategyRepository>();
         strategyRepo.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns(new Strategy { EntryCondition = "{}" });
+            .Returns(new Strategy { ExecutionRule = "{}" });
 
         var service = sp.GetRequiredService<IBacktestService>();
 
@@ -75,7 +73,7 @@ public class BacktestServiceTests
             {
                 Id = strategyId,
                 Name = "测试策略",
-                EntryCondition = """{"operator":"","indicator":"RSI","comparison":">","value":30}""",
+                ExecutionRule = RuleSetJson.EntryOnly(RuleSetJson.Leaf("RSI", ">", 30), """{"action":"buy"}"""),
                 CreatedBy = Guid.NewGuid()
             });
 

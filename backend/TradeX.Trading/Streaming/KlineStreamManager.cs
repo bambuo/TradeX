@@ -144,32 +144,32 @@ public sealed class KlineStreamManager(
 
                 // 追踪上一根 K 线用于收盘检测
                 DateTime? lastOpenTime = null;
-                Candle? lastCandle = null;
+                Kline? lastKline = null;
 
-                await foreach (var candle in client.SubscribeKlinesStreamAsync(state.Pair, state.Interval, ct))
+                await foreach (var kline in client.SubscribeKlinesStreamAsync(state.Pair, state.Interval, ct))
                 {
                     retryDelay = TimeSpan.FromSeconds(1);
                     state.MarkConnected();
 
                     // 相同 OpenTime → 同一根 K 线正在更新，跳过
-                    if (lastOpenTime.HasValue && candle.Timestamp == lastOpenTime.Value)
+                    if (lastOpenTime.HasValue && kline.Timestamp == lastOpenTime.Value)
                         continue;
 
                     // 首根 K 线：存入等待下一根到来后再判断闭合
                     if (lastOpenTime is null)
                     {
-                        lastOpenTime = candle.Timestamp;
-                        lastCandle = candle;
+                        lastOpenTime = kline.Timestamp;
+                        lastKline = kline;
                         continue;
                     }
 
                     // OpenTime 变化 → 前一根已闭合 → 推送 KlineEvent
-                    var evt = new KlineEvent(state.Pair, state.ExchangeType, state.ExchangeId, state.Interval, lastCandle!);
+                    var evt = new KlineEvent(state.Pair, state.ExchangeType, state.ExchangeId, state.Interval, lastKline!);
                     await klineChannel.Writer.WriteAsync(evt, ct);
 
                     // 更新为当前 K 线
-                    lastOpenTime = candle.Timestamp;
-                    lastCandle = candle;
+                    lastOpenTime = kline.Timestamp;
+                    lastKline = kline;
                 }
 
                 state.MarkDisconnected();

@@ -6,8 +6,7 @@ namespace TradeX.Application.Strategies;
 public sealed record StrategyDto(
     Guid Id,
     string Name,
-    string EntryCondition,
-    string ExitCondition,
+    string ExecutionRule,
     int Version,
     DateTime CreatedAt,
     DateTime UpdatedAt);
@@ -26,7 +25,7 @@ public sealed class GetStrategiesUseCase(
     }
 
     private static StrategyDto MapToDto(Core.Models.Strategy s) => new(
-        s.Id, s.Name, s.EntryCondition, s.ExitCondition,
+        s.Id, s.Name, s.ExecutionRule,
         s.Version, s.CreatedAt, s.UpdatedAt);
 }
 
@@ -43,13 +42,13 @@ public sealed class GetStrategyByIdUseCase(
             return Result<StrategyDto>.NotFound("策略不存在");
 
         return Result<StrategyDto>.Ok(new StrategyDto(
-            strategy.Id, strategy.Name, strategy.EntryCondition, strategy.ExitCondition,
+            strategy.Id, strategy.Name, strategy.ExecutionRule,
             strategy.Version, strategy.CreatedAt, strategy.UpdatedAt));
     }
 }
 
 public sealed record CreateStrategyCommand(
-    string Name, string? EntryCondition, string? ExitCondition, string? ExecutionRule);
+    string Name, string? ExecutionRule);
 
 /// <summary>创建策略用例。</summary>
 public sealed class CreateStrategyUseCase(
@@ -60,24 +59,21 @@ public sealed class CreateStrategyUseCase(
         if (string.IsNullOrWhiteSpace(cmd.Name))
             return Result<StrategyDto>.BadRequest("策略名称不能为空");
 
-        var strategy = Core.Models.Strategy.CreateWithConditions(
+        var strategy = Core.Models.Strategy.CreateWithRule(
             cmd.Name,
-            cmd.EntryCondition ?? "{}",
-            cmd.ExitCondition ?? "{}",
+            cmd.ExecutionRule ?? "{}",
             Guid.Empty);
-        strategy.ExecutionRule = cmd.ExecutionRule ?? "{}";
 
         await strategyRepo.AddAsync(strategy, ct);
 
         return Result<StrategyDto>.Ok(new StrategyDto(
-            strategy.Id, strategy.Name, strategy.EntryCondition, strategy.ExitCondition,
+            strategy.Id, strategy.Name, strategy.ExecutionRule,
             strategy.Version, strategy.CreatedAt, strategy.UpdatedAt));
     }
 }
 
 public sealed record UpdateStrategyCommand(
-    Guid Id, string? Name = null, string? EntryCondition = null,
-    string? ExitCondition = null, string? ExecutionRule = null);
+    Guid Id, string? Name = null, string? ExecutionRule = null);
 
 /// <summary>更新策略用例。</summary>
 public sealed class UpdateStrategyUseCase(
@@ -91,10 +87,6 @@ public sealed class UpdateStrategyUseCase(
 
         if (cmd.Name is not null)
             strategy.Name = cmd.Name;
-        if (cmd.EntryCondition is not null)
-            strategy.EntryCondition = cmd.EntryCondition;
-        if (cmd.ExitCondition is not null)
-            strategy.ExitCondition = cmd.ExitCondition;
         if (cmd.ExecutionRule is not null)
             strategy.ExecutionRule = cmd.ExecutionRule;
 
@@ -102,7 +94,7 @@ public sealed class UpdateStrategyUseCase(
         await strategyRepo.UpdateAsync(strategy, ct);
 
         return Result<StrategyDto>.Ok(new StrategyDto(
-            strategy.Id, strategy.Name, strategy.EntryCondition, strategy.ExitCondition,
+            strategy.Id, strategy.Name, strategy.ExecutionRule,
             strategy.Version, strategy.CreatedAt, strategy.UpdatedAt));
     }
 }

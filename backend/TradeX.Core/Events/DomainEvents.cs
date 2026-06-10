@@ -116,13 +116,6 @@ public sealed record BindingStatusChangedDomainEvent(
 
 // ─────────────── Strategy 领域事件 ───────────────
 
-public sealed record StrategyConditionsUpdatedDomainEvent(
-    Guid StrategyId, string EntryCondition, string ExitCondition) : IDomainEvent
-{
-    public Guid EventId { get; } = Guid.NewGuid();
-    public DateTime OccurredAt { get; } = DateTime.UtcNow;
-}
-
 public sealed record StrategyVersionCreatedDomainEvent(
     Guid StrategyId, int NewVersion) : IDomainEvent
 {

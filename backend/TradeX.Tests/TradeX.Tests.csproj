@@ -12,6 +12,7 @@
     <ProjectReference Include="..\TradeX.Api\TradeX.Api.csproj" />
     <ProjectReference Include="..\TradeX.Core\TradeX.Core.csproj" />
     <ProjectReference Include="..\TradeX.Trading\TradeX.Trading.csproj" />
+    <ProjectReference Include="..\TradeX.Rules\TradeX.Rules.csproj" />
     <ProjectReference Include="..\TradeX.Exchange\TradeX.Exchange.csproj" />
     <ProjectReference Include="..\TradeX.Indicators\TradeX.Indicators.csproj" />
     <ProjectReference Include="..\TradeX.Infrastructure\TradeX.Infrastructure.csproj" />

@@ -15,7 +15,6 @@ internal sealed class TradingCycleScope(IServiceScopeFactory scopeFactory) : IDi
     public IPositionRepository PositionRepo => _scope.ServiceProvider.GetRequiredService<IPositionRepository>();
     public ISystemConfigRepository SystemConfigRepo => _scope.ServiceProvider.GetRequiredService<ISystemConfigRepository>();
     public IIndicatorService IndicatorService => _scope.ServiceProvider.GetRequiredService<IIndicatorService>();
-    public IConditionEvaluator ConditionEvaluator => _scope.ServiceProvider.GetRequiredService<IConditionEvaluator>();
     public IPortfolioRiskManager RiskManager => _scope.ServiceProvider.GetRequiredService<IPortfolioRiskManager>();
     public ITradeExecutor TradeExecutor => _scope.ServiceProvider.GetRequiredService<ITradeExecutor>();
     public IOrderRepository OrderRepo => _scope.ServiceProvider.GetRequiredService<IOrderRepository>();

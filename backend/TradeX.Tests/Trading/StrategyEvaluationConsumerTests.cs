@@ -6,6 +6,7 @@ using TradeX.Core.Enums;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 using TradeX.Indicators;
+using TradeX.Rules.Engine;
 using TradeX.Trading.Engine;
 using TradeX.Trading.Execution;
 using TradeX.Trading.EventBus;
@@ -133,7 +134,7 @@ public class StrategyEvaluationConsumerTests
         await consumer.StartAsync(cts.Token);
         await Task.Delay(500);
 
-        var candle = new Candle(DateTime.UtcNow, 49500m, 50200m, 49400m, 50000m, 1000);
+        var candle = new Kline(DateTime.UtcNow, 49500m, 50200m, 49400m, 50000m, 1000);
         var klineEvent = new KlineEvent(
             "BTCUSDT", ExchangeType.Binance, ExchangeId, "15m", candle);
         await klineChannel.Writer.WriteAsync(klineEvent, cts.Token);
@@ -211,9 +212,7 @@ public class StrategyEvaluationConsumerTests
     {
         Id = StrategyId,
         Name = "Test Strategy",
-        EntryCondition = """{"operator":"","indicator":"RSI","comparison":">","value":30}""",
-        ExitCondition = """{"operator":"","indicator":"RSI","comparison":"<","value":70}""",
-        ExecutionRule = "{}"
+        ExecutionRule = """{"code":"test","name":"测试策略","rules":[{"code":"entry","name":"恒真入场","when":{"operator":"TRUE"},"then":{"action":"buy","size":100,"sizeType":"fixed"}}]}"""
     };
 
     private static readonly StrategyBinding DefaultBinding = new()
@@ -284,15 +283,9 @@ public class StrategyEvaluationConsumerTests
         exchangeClient.SubscribeTradesAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(AsyncEnumerable.Empty<Trade>());
         exchangeClient.SubscribeKlinesStreamAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(AsyncEnumerable.Empty<Candle>());
+            .Returns(AsyncEnumerable.Empty<Kline>());
         clientFactory.CreateClient(Arg.Any<ExchangeType>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>())
             .Returns(exchangeClient);
-
-        var conditionEvaluator = Substitute.For<IConditionEvaluator>();
-        conditionEvaluator.Evaluate(Arg.Any<string>(), Arg.Any<Dictionary<string, decimal>>(), Arg.Any<Dictionary<string, decimal>>())
-            .Returns(true); // Default: entry condition met
-
-        var conditionTreeEvaluator = Substitute.For<IConditionTreeEvaluator>();
 
         // 入场幂等闸依赖 OrderRepo.HasActiveBuyAsync —— 默认无在途买单，不阻断下单。
         var orderRepo = Substitute.For<IOrderRepository>();
@@ -313,14 +306,17 @@ public class StrategyEvaluationConsumerTests
         services.AddSingleton(strategyRepo);
         services.AddSingleton(exchangeRepo);
         services.AddSingleton(clientFactory);
-        services.AddSingleton(conditionEvaluator);
-        services.AddSingleton(conditionTreeEvaluator);
         services.AddSingleton(orderRepo);
         services.AddSingleton(positionRepo);
         services.AddSingleton(eventBus);
         services.AddSingleton(tradeExecutor);
         services.AddSingleton(riskManager);
         services.AddSingleton(indRegistry);
+
+        // 注册规则引擎服务
+        services.AddSingleton<ITriggerTracker, TriggerTracker>();
+        services.AddSingleton<IRuleEvaluator, RuleEvaluator>();
+        services.AddSingleton<IStrategyDecisionEngine, StrategyDecisionEngine>();
 
         var sp = services.BuildServiceProvider();
         var scopeFactory = sp.GetRequiredService<IServiceScopeFactory>();
@@ -334,7 +330,7 @@ public class StrategyEvaluationConsumerTests
 
         var consumer = new StrategyEvaluationConsumer(
             scopeFactory, tradeChannel, klineChannel, indRegistry, eventBus,
-            metrics, tradeManager, klineManager, logger);
+            metrics, tradeManager, klineManager, new SystemClock(), logger);
 
         return (consumer, sp, tradeChannel, klineChannel, eventBus, tradeExecutor, riskManager);
     }

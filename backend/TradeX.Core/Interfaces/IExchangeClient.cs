@@ -10,12 +10,12 @@ namespace TradeX.Core.Interfaces;
 /// <summary>行情数据：K 线、Trade、深度、ticker。无认证读端点。</summary>
 public interface IMarketDataClient
 {
-    IAsyncEnumerable<Candle> SubscribeKlinesAsync(string Pair, string interval, CancellationToken ct = default);
-    /// <summary>通过 WebSocket 订阅实时 K 线更新，推送即时的最新 K 线（含未闭合 candle）。</summary>
-    IAsyncEnumerable<Candle> SubscribeKlinesStreamAsync(string Pair, string interval, CancellationToken ct = default);
+    IAsyncEnumerable<Kline> SubscribeKlinesAsync(string Pair, string interval, CancellationToken ct = default);
+    /// <summary>通过 WebSocket 订阅实时 K 线更新，推送即时的最新 K 线（含未闭合 K 线）。</summary>
+    IAsyncEnumerable<Kline> SubscribeKlinesStreamAsync(string Pair, string interval, CancellationToken ct = default);
     /// <summary>订阅逐笔成交流。各交易所实现：Binance (Trade Stream), HTX (trade.detail), OKX (trades), Bybit (publicTrade), Gate (trades)。</summary>
     IAsyncEnumerable<Trade> SubscribeTradesAsync(string Pair, CancellationToken ct = default);
-    Task<Candle[]> GetKlinesAsync(string Pair, string interval, DateTime start, DateTime end, CancellationToken ct = default);
+    Task<Kline[]> GetKlinesAsync(string Pair, string interval, DateTime start, DateTime end, CancellationToken ct = default);
     Task<OrderBook> GetOrderBookAsync(string Pair, int limit, CancellationToken ct = default);
     Task<TickerPrice[]> GetTickerPricesAsync(CancellationToken ct = default);
 }
@@ -71,7 +71,7 @@ public interface IExchangeClient : IMarketDataClient, IAccountClient, ITradingCl
 // 共享 DTO（保留原命名空间位置以避免下游引用变更）
 // ─────────────────────────────────────────────────────────────────────────────
 
-public record Candle(DateTime Timestamp, decimal Open, decimal High, decimal Low, decimal Close, decimal Volume);
+public record Kline(DateTime Timestamp, decimal Open, decimal High, decimal Low, decimal Close, decimal Volume);
 
 /// <summary>逐笔成交数据。由 <see cref="IMarketDataClient.SubscribeTradesAsync"/> 推送。</summary>
 public readonly record struct Trade(DateTime Timestamp, decimal Price, decimal Quantity, bool IsBuyerMaker);

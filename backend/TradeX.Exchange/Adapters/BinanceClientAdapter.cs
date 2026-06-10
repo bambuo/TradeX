@@ -30,7 +30,7 @@ public class BinanceClientAdapter : IExchangeClient
         });
     }
 
-    public async IAsyncEnumerable<Candle> SubscribeKlinesAsync(string pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<Kline> SubscribeKlinesAsync(string pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
     {
         var lastTime = 0L;
         while (!ct.IsCancellationRequested)
@@ -41,10 +41,10 @@ public class BinanceClientAdapter : IExchangeClient
         }
     }
 
-    public async IAsyncEnumerable<Candle> SubscribeKlinesStreamAsync(string pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<Kline> SubscribeKlinesStreamAsync(string pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
     {
         var socketClient = new BinanceSocketClient();
-        var channel = System.Threading.Channels.Channel.CreateBounded<Candle>(new System.Threading.Channels.BoundedChannelOptions(100)
+        var channel = System.Threading.Channels.Channel.CreateBounded<Kline>(new System.Threading.Channels.BoundedChannelOptions(100)
         {
             FullMode = System.Threading.Channels.BoundedChannelFullMode.DropOldest
         });
@@ -52,7 +52,7 @@ public class BinanceClientAdapter : IExchangeClient
         var subResult = await socketClient.SpotApi.ExchangeData.SubscribeToKlineUpdatesAsync(pair, MapInterval(interval), data =>
         {
             var k = data.Data.Data;
-            channel.Writer.TryWrite(new Candle(k.OpenTime, k.OpenPrice, k.HighPrice, k.LowPrice, k.ClosePrice, k.Volume));
+            channel.Writer.TryWrite(new Kline(k.OpenTime, k.OpenPrice, k.HighPrice, k.LowPrice, k.ClosePrice, k.Volume));
         }, ct);
 
         try
@@ -97,12 +97,12 @@ public class BinanceClientAdapter : IExchangeClient
         }
     }
 
-    public async Task<Candle[]> GetKlinesAsync(string pair, string interval, DateTime start, DateTime end, CancellationToken ct = default)
+    public async Task<Kline[]> GetKlinesAsync(string pair, string interval, DateTime start, DateTime end, CancellationToken ct = default)
     {
         // Binance /api/v3/klines 按 startTime 升序返回, 单次最多 1000 条; 翻页通过推进 startTime
         var ki = MapInterval(interval);
         var stepMs = IntervalMs(interval);
-        var all = new List<Candle>();
+        var all = new List<Kline>();
         var seen = new HashSet<DateTime>();
         var cursor = start;
         while (cursor < end && !ct.IsCancellationRequested)
@@ -116,7 +116,7 @@ public class BinanceClientAdapter : IExchangeClient
             {
                 if (k.OpenTime < start || k.OpenTime > end) continue;
                 if (seen.Add(k.OpenTime))
-                    all.Add(new Candle(k.OpenTime, k.OpenPrice, k.HighPrice, k.LowPrice, k.ClosePrice, k.Volume));
+                    all.Add(new Kline(k.OpenTime, k.OpenPrice, k.HighPrice, k.LowPrice, k.ClosePrice, k.Volume));
                 if (k.OpenTime > lastTime) lastTime = k.OpenTime;
             }
             if (lastTime <= cursor) break;

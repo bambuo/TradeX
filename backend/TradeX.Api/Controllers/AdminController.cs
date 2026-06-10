@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using TradeX.Trading.Commands;
-using TradeX.Trading.Migration;
 using TradeX.Trading.Risk;
 
 namespace TradeX.Api.Controllers;
@@ -15,7 +14,6 @@ namespace TradeX.Api.Controllers;
 [Authorize]
 public sealed class AdminController(
     IWorkerCommandPublisher commandPublisher,
-    LegacyStrategyScanner legacyScanner,
     IKillSwitch killSwitch) : ControllerBase
 {
     /// <summary>Kill Switch 当前状态.</summary>
@@ -64,13 +62,5 @@ public sealed class AdminController(
             command = WorkerCommandTypes.ReconcileNow,
             message = "已派发到 Worker；执行结果请查看 Worker 日志或 Prometheus 指标"
         });
-    }
-
-    /// <summary>扫描所有策略, 列出仍使用旧 CA/CB 或 Ref 字段的条目, 引导运营人员清理.</summary>
-    [HttpGet("legacy-strategies/scan")]
-    public async Task<IActionResult> ScanLegacyStrategies(CancellationToken ct)
-    {
-        var report = await legacyScanner.ScanAsync(ct);
-        return Ok(report);
     }
 }

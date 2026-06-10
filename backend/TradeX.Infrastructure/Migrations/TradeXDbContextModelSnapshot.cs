@@ -888,20 +888,10 @@ namespace TradeX.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("created_by");
 
-                    b.Property<string>("EntryCondition")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("entry_condition");
-
                     b.Property<string>("ExecutionRule")
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("execution_rule");
-
-                    b.Property<string>("ExitCondition")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("exit_condition");
 
                     b.Property<string>("Name")
                         .IsRequired()
