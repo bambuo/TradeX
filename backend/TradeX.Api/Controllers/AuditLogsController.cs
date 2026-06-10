@@ -6,7 +6,7 @@ using TradeX.Application.Common;
 namespace TradeX.Api.Controllers;
 
 [ApiController]
-[Route("api/audit-logs")]
+[Route("api/v1/audit-logs")]
 [Authorize]
 public class AuditLogsController(
     IUseCase<GetAuditLogsQuery, Result<List<AuditLogDto>>> getLogsUseCase,

@@ -13,7 +13,7 @@ using TradeX.Core.Models;
 namespace TradeX.Api.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v1/[controller]")]
 public class AuthController(
     IRefreshTokenRepository refreshTokenRepo,
     IEncryptionService encryption,

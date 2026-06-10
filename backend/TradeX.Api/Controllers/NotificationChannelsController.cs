@@ -7,7 +7,7 @@ namespace TradeX.Api.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("api/notifications/channels")]
+[Route("api/v1/notifications/channels")]
 public class NotificationChannelsController(
     IUseCase<GetNotificationChannelsQuery, Result<List<NotificationChannelDto>>> getChannelsUseCase,
     IUseCase<CreateNotificationChannelCommand, Result<NotificationChannelDto>> createChannelUseCase,

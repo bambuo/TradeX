@@ -9,7 +9,7 @@ using TradeX.Trading.Engine;
 namespace TradeX.Api.Controllers;
 
 [ApiController]
-[Route("api/strategies")]
+[Route("api/v1/strategies")]
 [Authorize]
 public class StrategiesController(
     ConditionTreeValidator validator,

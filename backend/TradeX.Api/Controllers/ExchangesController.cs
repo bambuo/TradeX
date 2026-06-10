@@ -8,7 +8,7 @@ using TradeX.Core.Interfaces;
 namespace TradeX.Api.Controllers;
 
 [ApiController]
-[Route("api/exchanges")]
+[Route("api/v1/exchanges")]
 [Authorize]
 public class ExchangesController(
     IUseCase<GetExchangesQuery, Result<List<ExchangeDto>>> getExchanges,

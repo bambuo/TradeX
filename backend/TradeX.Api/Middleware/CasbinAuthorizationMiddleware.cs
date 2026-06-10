@@ -9,15 +9,15 @@ public class CasbinAuthorizationMiddleware(RequestDelegate next)
     private static readonly string[] PublicPaths =
     [
         "/health",
-        "/api/setup/status",
-        "/api/setup/initialize",
-        "/api/auth/login",
-        "/api/auth/verify-mfa",
-        "/api/auth/refresh",
-        "/api/strategies/schema",
-        "/api/auth/mfa/setup",
-        "/api/auth/mfa/verify",
-        "/api/auth/send-recovery-codes"
+        "/api/v1/setup/status",
+        "/api/v1/setup/initialize",
+        "/api/v1/auth/login",
+        "/api/v1/auth/verify-mfa",
+        "/api/v1/auth/refresh",
+        "/api/v1/strategies/schema",
+        "/api/v1/auth/mfa/setup",
+        "/api/v1/auth/mfa/verify",
+        "/api/v1/auth/send-recovery-codes"
     ];
 
     public async Task InvokeAsync(HttpContext context, CasbinEnforcer enforcer)

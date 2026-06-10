@@ -9,36 +9,42 @@ export const useAuthStore = defineStore('auth', () => {
   const needsMfa = computed(() => !!mfaToken.value)
 
   async function login(username: string, password: string) {
-    const { data } = await authApi.login({ username, password })
-    if (data.mfaRequired) {
-      mfaToken.value = data.mfaToken ?? null
+    const { data: resp } = await authApi.login({ username, password })
+    const body = resp.data
+    if (body.mfaRequired) {
+      mfaToken.value = body.mfaToken ?? null
       return { mfaRequired: true }
     }
-    if (data.mfaSetupRequired) {
-      mfaToken.value = data.mfaToken ?? null
-      return { mfaSetupRequired: true, mfaToken: data.mfaToken, expiresIn: data.expiresIn }
+    if (body.mfaSetupRequired) {
+      mfaToken.value = body.mfaToken ?? null
+      return { mfaSetupRequired: true, mfaToken: body.mfaToken, expiresIn: body.expiresIn }
     }
+    localStorage.setItem('accessToken', body.accessToken)
+    localStorage.setItem('refreshToken', body.refreshToken)
+    loadFromStorage()
     return { mfaRequired: false }
   }
 
   async function verifyMfa(totpCode: string) {
     if (!mfaToken.value) throw new Error('No MFA token')
-    const { data } = await authApi.verifyMfa({ mfaToken: mfaToken.value, totpCode })
-    localStorage.setItem('accessToken', data.accessToken)
-    localStorage.setItem('refreshToken', data.refreshToken)
+    const { data: resp } = await authApi.verifyMfa({ mfaToken: mfaToken.value, totpCode })
+    const body = resp.data
+    localStorage.setItem('accessToken', body.accessToken)
+    localStorage.setItem('refreshToken', body.refreshToken)
     mfaToken.value = null
     loadFromStorage()
-    return data
+    return body
   }
 
   async function verifyMfaWithRecoveryCode(recoveryCode: string) {
     if (!mfaToken.value) throw new Error('No MFA token')
-    const { data } = await authApi.verifyMfa({ mfaToken: mfaToken.value, recoveryCode })
-    localStorage.setItem('accessToken', data.accessToken)
-    localStorage.setItem('refreshToken', data.refreshToken)
+    const { data: resp } = await authApi.verifyMfa({ mfaToken: mfaToken.value, recoveryCode })
+    const body = resp.data
+    localStorage.setItem('accessToken', body.accessToken)
+    localStorage.setItem('refreshToken', body.refreshToken)
     mfaToken.value = null
     loadFromStorage()
-    return data
+    return body
   }
 
   async function register(username: string, email: string, password: string) {
@@ -65,7 +71,7 @@ export const useAuthStore = defineStore('auth', () => {
           username: payload.name || payload.unique_name,
           role: payload.role || 'Viewer',
           email: '',
-          isMfaEnabled: payload.mfa === 'true'
+          isMfaEnabled: payload.mfa === true || payload.mfa === 'true'
         }
       } catch {
         localStorage.clear()

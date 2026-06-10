@@ -1,6 +1,0 @@
-.env
-bin/
-coverage.out
-coverage.html
-*.log
-.idea/

@@ -8,7 +8,7 @@ using TradeX.Application.Orders.DTOs;
 namespace TradeX.Api.Controllers;
 
 [ApiController]
-[Route("api/traders/{traderId:guid}/orders")]
+[Route("api/v1/traders/{traderId:guid}/orders")]
 [Authorize]
 public class OrdersController(
     IUseCase<GetTraderOrdersQuery, Result<List<OrderDto>>> getOrders,

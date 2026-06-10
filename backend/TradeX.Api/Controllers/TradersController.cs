@@ -9,7 +9,7 @@ using TradeX.Application.Traders.DTOs;
 namespace TradeX.Api.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v1/[controller]")]
 [Authorize]
 public class TradersController(
     IUseCase<GetTradersQuery, Result<List<TraderDto>>> getTraders,

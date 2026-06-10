@@ -7,7 +7,7 @@ using TradeX.Application.Users.DTOs;
 namespace TradeX.Api.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v1/[controller]")]
 [Authorize]
 public class UsersController(
     IUseCase<GetUsersQuery, Result<List<UserDto>>> getUsersUseCase,

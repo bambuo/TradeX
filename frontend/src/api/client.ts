@@ -31,7 +31,7 @@ export interface ApiError {
 }
 
 const client = axios.create({
-  baseURL: '/api',
+  baseURL: '/api/v1',
   headers: { 'Content-Type': 'application/json' }
 })
 
@@ -89,7 +89,7 @@ client.interceptors.response.use(
       const refreshToken = localStorage.getItem('refreshToken')
       if (refreshToken) {
         try {
-          const { data } = await axios.post('/api/auth/refresh', { refreshToken })
+          const { data } = await axios.post('/api/v1/auth/refresh', { refreshToken })
           localStorage.setItem('accessToken', data.accessToken)
           localStorage.setItem('refreshToken', data.refreshToken)
           if (!originalRequest.headers) originalRequest.headers = {}

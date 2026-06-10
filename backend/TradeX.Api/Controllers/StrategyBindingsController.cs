@@ -9,7 +9,7 @@ using TradeX.Trading.Commands;
 namespace TradeX.Api.Controllers;
 
 [ApiController]
-[Route("api/traders/{traderId:guid}/strategies")]
+[Route("api/v1/traders/{traderId:guid}/strategies")]
 [Authorize]
 public class StrategyBindingsController(
     IUseCase<GetBindingsQuery, Result<List<BindingDto>>> getBindings,

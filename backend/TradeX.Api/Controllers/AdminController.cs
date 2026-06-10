@@ -11,7 +11,7 @@ namespace TradeX.Api.Controllers;
 /// 管理员运维端点。所有写动作都标 <see cref="RequireMfaAttribute"/>，且通过命令总线异步派发给 Worker。
 /// </summary>
 [ApiController]
-[Route("api/admin")]
+[Route("api/v1/admin")]
 [Authorize]
 public sealed class AdminController(
     IWorkerCommandPublisher commandPublisher,

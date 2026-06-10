@@ -6,7 +6,7 @@ using TradeX.Application.Settings;
 namespace TradeX.Api.Controllers;
 
 [ApiController]
-[Route("api/settings")]
+[Route("api/v1/settings")]
 [Authorize]
 public class SettingsController(
     IUseCase<GetSettingsQuery, Result<Dictionary<string, string>>> getSettingsUseCase,

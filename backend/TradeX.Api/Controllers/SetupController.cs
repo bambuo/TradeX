@@ -4,7 +4,7 @@ using TradeX.Application.Common;
 namespace TradeX.Api.Controllers;
 
 [ApiController]
-[Route("api/setup")]
+[Route("api/v1/setup")]
 public class SetupController(ISetupService setup) : ControllerBase
 {
     [HttpGet("status")]

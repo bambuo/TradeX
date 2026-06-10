@@ -11,7 +11,7 @@ namespace TradeX.Api.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("api/backtests")]
+[Route("api/v1/backtests")]
 public class BacktestingController(
     IBacktestService backtestService,
     IUseCase<GetBacktestTasksQuery, Result<List<BacktestTaskDto>>> getBacktestTasks,

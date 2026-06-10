@@ -12,7 +12,7 @@ public class SetupGuardMiddleware(RequestDelegate next)
         var path = context.Request.Path.Value?.TrimEnd('/') ?? "";
 
         var isSetupOrHealthPath = path == "/health"
-            || path.StartsWith("/api/setup/", StringComparison.OrdinalIgnoreCase);
+            || path.StartsWith("/api/v1/setup/", StringComparison.OrdinalIgnoreCase);
 
         var isApiPath = path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase);
         var isHubPath = path.StartsWith("/hubs/", StringComparison.OrdinalIgnoreCase);

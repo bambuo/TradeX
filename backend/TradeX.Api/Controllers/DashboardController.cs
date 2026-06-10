@@ -6,7 +6,7 @@ namespace TradeX.Api.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("api/dashboard")]
+[Route("api/v1/dashboard")]
 public class DashboardController(IDashboardService dashboard) : ControllerBase
 {
     [HttpGet("summary")]

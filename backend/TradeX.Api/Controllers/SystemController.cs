@@ -7,7 +7,7 @@ namespace TradeX.Api.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("api/system")]
+[Route("api/v1/system")]
 public class SystemController(
     IUseCase<GetExchangeStatusQuery, Result<List<ExchangeStatusDto>>> getExchangeStatus,
     IUseCase<EmergencyStopCommand, Result<EmergencyStopResultDto>> emergencyStop,

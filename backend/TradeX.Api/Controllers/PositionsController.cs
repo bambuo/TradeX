@@ -7,7 +7,7 @@ using TradeX.Application.Positions;
 namespace TradeX.Api.Controllers;
 
 [ApiController]
-[Route("api/traders/{traderId:guid}/positions")]
+[Route("api/v1/traders/{traderId:guid}/positions")]
 [Authorize]
 public class PositionsController(
     IUseCase<GetOpenPositionsQuery, Result<List<PositionDto>>> getOpenPositions,
