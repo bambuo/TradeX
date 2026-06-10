@@ -36,6 +36,12 @@ public class OrderRepository(TradeXDbContext context) : IOrderRepository
             && o.Side == Core.Enums.OrderSide.Buy
             && (o.Status == Core.Enums.OrderStatus.Pending || o.Status == Core.Enums.OrderStatus.PartiallyFilled), ct);
 
+    public async Task<bool> HasActiveSellAsync(Guid positionId, CancellationToken ct = default)
+        => await context.Orders.AnyAsync(o =>
+            o.PositionId == positionId
+            && o.Side == Core.Enums.OrderSide.Sell
+            && (o.Status == Core.Enums.OrderStatus.Pending || o.Status == Core.Enums.OrderStatus.PartiallyFilled), ct);
+
     public async Task AddAsync(Order order, CancellationToken ct = default)
     {
         await context.Orders.AddAsync(order, ct);

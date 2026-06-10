@@ -25,7 +25,7 @@ public class GateIoClientAdapter : IExchangeClient
         _client = new GateIoRestClient(o => { if (_hasCredentials) o.ApiCredentials = new GateIoCredentials(apiKey, secretKey); });
     }
 
-    public async IAsyncEnumerable<Candle> SubscribeKlinesAsync(string pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<Kline> SubscribeKlinesAsync(string pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
     {
         while (!ct.IsCancellationRequested)
         {
@@ -35,11 +35,11 @@ public class GateIoClientAdapter : IExchangeClient
         }
     }
 
-    public async IAsyncEnumerable<Candle> SubscribeKlinesStreamAsync(string pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<Kline> SubscribeKlinesStreamAsync(string pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
     {
         var gatePair = ToGateSymbol(pair);
         var socketClient = new GateIoSocketClient();
-        var channel = Channel.CreateBounded<Candle>(new BoundedChannelOptions(100)
+        var channel = Channel.CreateBounded<Kline>(new BoundedChannelOptions(100)
         {
             FullMode = BoundedChannelFullMode.DropOldest
         });
@@ -47,7 +47,7 @@ public class GateIoClientAdapter : IExchangeClient
         var subResult = await socketClient.SpotApi.SubscribeToKlineUpdatesAsync(gatePair, MapInterval(interval), data =>
         {
             var k = data.Data;
-            channel.Writer.TryWrite(new Candle(k.OpenTime, k.OpenPrice, k.HighPrice, k.LowPrice, k.ClosePrice, k.BaseVolume));
+            channel.Writer.TryWrite(new Kline(k.OpenTime, k.OpenPrice, k.HighPrice, k.LowPrice, k.ClosePrice, k.BaseVolume));
         }, ct);
 
         try
@@ -93,13 +93,13 @@ public class GateIoClientAdapter : IExchangeClient
         }
     }
 
-    public async Task<Candle[]> GetKlinesAsync(string pair, string interval, DateTime start, DateTime end, CancellationToken ct = default)
+    public async Task<Kline[]> GetKlinesAsync(string pair, string interval, DateTime start, DateTime end, CancellationToken ct = default)
     {
         // Gate /api/v4/spot/candlesticks 按 from 升序返回, 单次最多 1000 条; 翻页通过推进 from
         var gp = ToGateSymbol(pair);
         var ki = MapInterval(interval);
         var stepMs = IntervalMs(interval);
-        var all = new List<Candle>();
+        var all = new List<Kline>();
         var seen = new HashSet<DateTime>();
         var cursor = start;
         while (cursor < end && !ct.IsCancellationRequested)
@@ -113,7 +113,7 @@ public class GateIoClientAdapter : IExchangeClient
             {
                 if (k.OpenTime < start || k.OpenTime > end) continue;
                 if (seen.Add(k.OpenTime))
-                    all.Add(new Candle(k.OpenTime, k.OpenPrice, k.HighPrice, k.LowPrice, k.ClosePrice, k.BaseVolume));
+                    all.Add(new Kline(k.OpenTime, k.OpenPrice, k.HighPrice, k.LowPrice, k.ClosePrice, k.BaseVolume));
                 if (k.OpenTime > lastTime) lastTime = k.OpenTime;
             }
             if (lastTime <= cursor) break;

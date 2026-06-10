@@ -15,4 +15,4 @@ public readonly record struct KlineEvent(
     ExchangeType ExchangeType,
     Guid ExchangeId,
     string Interval,
-    Candle Candle);
+    Kline Kline);

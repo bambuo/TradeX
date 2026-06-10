@@ -25,7 +25,7 @@ public class HtxClientAdapter : IExchangeClient
         _client = new HTXRestClient(o => { if (_hasCredentials) o.ApiCredentials = new HTXCredentials(apiKey, secretKey); });
     }
 
-    public async IAsyncEnumerable<Candle> SubscribeKlinesAsync(string pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<Kline> SubscribeKlinesAsync(string pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
     {
         while (!ct.IsCancellationRequested)
         {
@@ -35,10 +35,10 @@ public class HtxClientAdapter : IExchangeClient
         }
     }
 
-    public async IAsyncEnumerable<Candle> SubscribeKlinesStreamAsync(string pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<Kline> SubscribeKlinesStreamAsync(string pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
     {
         var socketClient = new HTXSocketClient();
-        var channel = Channel.CreateBounded<Candle>(new BoundedChannelOptions(100)
+        var channel = Channel.CreateBounded<Kline>(new BoundedChannelOptions(100)
         {
             FullMode = BoundedChannelFullMode.DropOldest
         });
@@ -46,7 +46,7 @@ public class HtxClientAdapter : IExchangeClient
         var subResult = await socketClient.SpotApi.SubscribeToKlineUpdatesAsync(pair, MapInterval(interval), data =>
         {
             var k = data.Data;
-            channel.Writer.TryWrite(new Candle(k.OpenTime, k.OpenPrice.GetValueOrDefault(), k.HighPrice.GetValueOrDefault(), k.LowPrice.GetValueOrDefault(), k.ClosePrice.GetValueOrDefault(), k.Volume.GetValueOrDefault()));
+            channel.Writer.TryWrite(new Kline(k.OpenTime, k.OpenPrice.GetValueOrDefault(), k.HighPrice.GetValueOrDefault(), k.LowPrice.GetValueOrDefault(), k.ClosePrice.GetValueOrDefault(), k.Volume.GetValueOrDefault()));
         }, ct);
 
         try
@@ -94,7 +94,7 @@ public class HtxClientAdapter : IExchangeClient
         }
     }
 
-    public async Task<Candle[]> GetKlinesAsync(string pair, string interval, DateTime start, DateTime end, CancellationToken ct = default)
+    public async Task<Kline[]> GetKlinesAsync(string pair, string interval, DateTime start, DateTime end, CancellationToken ct = default)
     {
         // HTX /market/history/kline 不支持 from/to, 只接受 size(最大 2000), 返回最近 N 根降序.
         // 若窗口需要的条数超过 2000, 直接拒绝, 否则会静默回退到"最近 2000 根"产生错误窗口数据.
@@ -110,7 +110,7 @@ public class HtxClientAdapter : IExchangeClient
         if (!r.Success) throw new InvalidOperationException($"HTX K 线获取失败: {r.Error}");
 
         var candles = r.Data.Where(k => k.OpenTime >= start && k.OpenTime <= end)
-            .Select(k => new Candle(k.OpenTime, k.OpenPrice.GetValueOrDefault(), k.HighPrice.GetValueOrDefault(), k.LowPrice.GetValueOrDefault(), k.ClosePrice.GetValueOrDefault(), k.Volume.GetValueOrDefault()))
+            .Select(k => new Kline(k.OpenTime, k.OpenPrice.GetValueOrDefault(), k.HighPrice.GetValueOrDefault(), k.LowPrice.GetValueOrDefault(), k.ClosePrice.GetValueOrDefault(), k.Volume.GetValueOrDefault()))
             .OrderBy(c => c.Timestamp).ToArray();
 
         // HTX 返回最近 N 根, 若请求起点早于最早返回点, 实际窗口被截断, 显式抛错而非交给上层"零条"判定

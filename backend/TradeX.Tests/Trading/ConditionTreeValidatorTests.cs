@@ -99,4 +99,11 @@ public class ConditionTreeValidatorTests
         Assert.False(r.IsValid);
         Assert.Contains(r.Issues, i => i.Path.Contains("operator"));
     }
+
+    [Fact]
+    public void Validate_TrueOperator_ReturnsOk()
+    {
+        var r = Build("RSI").Validate("""{"operator":"TRUE"}""");
+        Assert.True(r.IsValid);
+    }
 }

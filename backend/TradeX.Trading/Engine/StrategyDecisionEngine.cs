@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging;
-using TradeX.Core.Interfaces;
+using TradeX.Rules.Engine;
+using TradeX.Rules.Models;
+using TradeX.Rules.Parsers;
 
 namespace TradeX.Trading.Engine;
 
@@ -8,46 +10,47 @@ public enum StrategyAction
 {
     /// <summary>无动作。</summary>
     Hold,
-    /// <summary>条件策略入场（市价买入），由调用方决定下单金额。</summary>
+    /// <summary>策略买入（市价），下单金额见 <see cref="StrategyDecision.QuoteSize"/>；持仓中买入即加仓。</summary>
     EnterMarket,
-    /// <summary>网格加仓一档（市价买入 <see cref="StrategyDecision.QuoteSize"/>）。</summary>
-    AddGridLot,
-    /// <summary>网格减仓一档（平掉最早一笔持仓）。</summary>
-    ReduceOneLot,
-    /// <summary>条件策略出场（平掉该交易对全部持仓）。</summary>
+    /// <summary>
+    /// 减仓。<see cref="StrategyDecision.QuoteSize"/> &gt; 0 时按该 quote 金额自最早持仓起逐笔平仓
+    /// （整笔 lot 粒度，累计名义价值达到金额即止）；为 0 时平掉最早一笔持仓。
+    /// </summary>
+    Reduce,
+    /// <summary>策略出场（平掉该交易对全部持仓）。</summary>
     ExitAll
 }
 
 /// <summary>
-/// 决策结果。<see cref="QuoteSize"/> 仅对买入类动作有意义：
-/// 网格加仓为 BasePositionSize；条件入场为 0，表示由调用方按各自策略定额（实盘固定额 / 回测可用资金）。
+/// 决策结果。<see cref="QuoteSize"/> 对买入类动作表示下单金额；对 <see cref="StrategyAction.Reduce"/>
+/// 表示目标减仓金额（0 表示减一笔）。
 /// </summary>
 public sealed record StrategyDecision(StrategyAction Action, decimal QuoteSize, string Reason)
 {
     public static StrategyDecision Hold(string reason) => new(StrategyAction.Hold, 0m, reason);
     public static StrategyDecision Enter(string reason) => new(StrategyAction.EnterMarket, 0m, reason);
-    public static StrategyDecision AddGrid(decimal quoteSize, string reason) => new(StrategyAction.AddGridLot, quoteSize, reason);
-    public static StrategyDecision ReduceOne(string reason) => new(StrategyAction.ReduceOneLot, 0m, reason);
+    public static StrategyDecision Reduce(decimal quoteSize, string reason) => new(StrategyAction.Reduce, quoteSize, reason);
     public static StrategyDecision Exit(string reason) => new(StrategyAction.ExitAll, 0m, reason);
 }
 
 /// <summary>
-/// 决策输入：策略定义（入场/出场/执行规则 JSON）、当前与上一根指标值、当前价、以及聚合后的持仓状态。
+/// 决策输入：执行规则 JSON、当前与上一根指标值、当前价、聚合后的持仓状态，
+/// 以及触发追踪所需的作用域键与评估时间基准。
 /// </summary>
 public sealed record StrategyDecisionInput(
-    string EntryConditionJson,
-    string ExitConditionJson,
-    string ExecutionRuleJson,
+    string ExecutionRule,
     Dictionary<string, decimal> IndicatorValues,
     Dictionary<string, decimal> PreviousIndicatorValues,
     decimal CurrentPrice,
     decimal AverageEntryPrice,
     decimal QuantityHeld,
-    int LotCount);
+    int LotCount,
+    string ScopeKey,
+    DateTime EvaluationTime);
 
 /// <summary>
-/// 策略决策内核：把"行情 + 持仓状态 → 决策"的纯逻辑从执行细节中剥离，供实盘评估器与回测引擎共用，
-/// 保证两路在相同输入下产生相同决策（含波动率网格）。无任何 IO。
+/// 策略决策内核：将规则集 JSON → RuleEvaluator，把"行情 + 持仓状态 → 决策"的纯逻辑
+/// 从执行细节中剥离，供实盘评估器与回测引擎共用。无任何 IO。
 /// </summary>
 public interface IStrategyDecisionEngine
 {
@@ -55,38 +58,41 @@ public interface IStrategyDecisionEngine
 }
 
 public sealed class StrategyDecisionEngine(
-    IConditionEvaluator conditionEvaluator,
+    IRuleEvaluator ruleEvaluator,
     ILogger<StrategyDecisionEngine>? logger = null) : IStrategyDecisionEngine
 {
     public StrategyDecision Decide(StrategyDecisionInput input)
     {
-        // ═══ 波动率网格：复用纯算法 VolatilityGridExecutor.Decide ═══
-        var gridRule = VolatilityGridExecutionRuleParser.TryParse(input.ExecutionRuleJson, logger);
-        if (gridRule is not null)
+        // 1. 解析 ExecutionRule 为统一规则集（fail-closed：解析失败 → 无决策）
+        var ruleSet = RuleSetParser.TryParse(input.ExecutionRule, logger);
+
+        if (ruleSet is null || ruleSet.Rules.Count == 0)
+            return StrategyDecision.Hold("无规则集或解析失败");
+
+        // 2. 构建评估上下文
+        var ctx = new RuleEvaluationContext(
+            input.CurrentPrice,
+            input.AverageEntryPrice,
+            input.QuantityHeld,
+            input.LotCount,
+            input.IndicatorValues,
+            input.PreviousIndicatorValues,
+            input.ScopeKey,
+            input.EvaluationTime);
+
+        // 3. 评估
+        var decision = ruleEvaluator.Evaluate(ruleSet, ctx);
+
+        // 4. 将 RuleDecision 映射为 StrategyDecision
+        logger?.LogInformation("规则集 {Code}({Name}) → {Action}, Size={Size}, Reason={Reason}",
+            ruleSet.Code, ruleSet.Name, decision.Action, decision.Size, decision.Reason);
+
+        return decision.Action switch
         {
-            var state = new VolatilityGridState(input.AverageEntryPrice, input.QuantityHeld, input.LotCount);
-            var decision = new VolatilityGridExecutor(gridRule).Decide(state, input.CurrentPrice);
-            return decision.Action switch
-            {
-                VolatilityGridAction.Buy => StrategyDecision.AddGrid(gridRule.BasePositionSize, decision.Reason),
-                VolatilityGridAction.Sell => StrategyDecision.ReduceOne(decision.Reason),
-                _ => StrategyDecision.Hold(decision.Reason)
-            };
-        }
-
-        // ═══ 条件策略：入场（无仓）/ 出场（有仓）═══
-        var hasPosition = input.QuantityHeld > 0;
-
-        if (!hasPosition && HasCondition(input.EntryConditionJson)
-            && conditionEvaluator.Evaluate(input.EntryConditionJson, input.IndicatorValues, input.PreviousIndicatorValues))
-            return StrategyDecision.Enter("条件入场");
-
-        if (hasPosition && HasCondition(input.ExitConditionJson)
-            && conditionEvaluator.Evaluate(input.ExitConditionJson, input.IndicatorValues, input.PreviousIndicatorValues))
-            return StrategyDecision.Exit("条件出场");
-
-        return StrategyDecision.Hold("无信号");
+            RuleDecisionAction.Buy => new StrategyDecision(StrategyAction.EnterMarket, decision.Size, decision.Reason ?? "规则触发买入"),
+            RuleDecisionAction.Sell => new StrategyDecision(StrategyAction.Reduce, decision.Size, decision.Reason ?? "规则触发减仓"),
+            RuleDecisionAction.SellAll => StrategyDecision.Exit(decision.Reason ?? "规则触发全部平仓"),
+            _ => StrategyDecision.Hold(decision.Reason ?? "无规则触发")
+        };
     }
-
-    private static bool HasCondition(string json) => !string.IsNullOrWhiteSpace(json) && json != "{}";
 }

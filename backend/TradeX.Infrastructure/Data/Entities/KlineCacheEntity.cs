@@ -15,7 +15,7 @@ public class KlineCacheEntity
     public decimal Close { get; init; }
     public decimal Volume { get; init; }
 
-    public static KlineCacheEntity FromCandle(Guid exchangeId, string pair, string timeframe, Candle c) => new()
+    public static KlineCacheEntity FromKline(Guid exchangeId, string pair, string timeframe, Kline c) => new()
     {
         ExchangeId = exchangeId,
         Pair = pair,

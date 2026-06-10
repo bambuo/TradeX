@@ -1,5 +1,6 @@
 using System.Text.Json;
 using TradeX.Indicators;
+using TradeX.Rules.Indicators;
 
 namespace TradeX.Trading.Engine;
 
@@ -25,7 +26,7 @@ public sealed class ConditionTreeValidator(IIndicatorRegistry registry)
         new(StringComparer.Ordinal) { ">", "<", ">=", "<=", "==", "CA", "CB" };
 
     private static readonly HashSet<string> ValidGroupOperators =
-        new(StringComparer.Ordinal) { "AND", "OR", "NOT" };
+        new(StringComparer.Ordinal) { "AND", "OR", "NOT", "TRUE" };
 
     public ConditionTreeValidationResult Validate(string conditionJson)
     {
@@ -52,6 +53,10 @@ public sealed class ConditionTreeValidator(IIndicatorRegistry registry)
 
         var op = node.TryGetProperty("operator", out var opEl) && opEl.ValueKind == JsonValueKind.String
             ? opEl.GetString() ?? string.Empty : string.Empty;
+
+        // TRUE 恒真运算符：无需进一步校验
+        if (op == "TRUE")
+            return;
 
         if (ValidGroupOperators.Contains(op))
         {
@@ -94,7 +99,7 @@ public sealed class ConditionTreeValidator(IIndicatorRegistry registry)
         else
         {
             var indName = indEl.GetString()!;
-            if (!registry.RegisteredNames.Contains(indName))
+            if (!IsKnownIndicator(indName))
                 issues.Add(new($"{path}.indicator", $"指标 '{indName}' 未注册"));
         }
 
@@ -107,16 +112,23 @@ public sealed class ConditionTreeValidator(IIndicatorRegistry registry)
                 issues.Add(new($"{path}.comparison", $"不支持的比较运算符 '{cmp}', 允许: {string.Join("/", ValidComparisons)}"));
         }
 
-        if (!node.TryGetProperty("value", out var valEl) || (valEl.ValueKind != JsonValueKind.Number && valEl.ValueKind != JsonValueKind.Null))
-            issues.Add(new($"{path}.value", "叶节点必须指定 value (数字)"));
-        else if (valEl.ValueKind == JsonValueKind.Null)
-            issues.Add(new($"{path}.value", "value 不能为 null"));
+        // ref（相对比较）存在时引用的指标必须已知；此时 value 作为乘数可省略（默认 1）。
+        var hasRef = node.TryGetProperty("ref", out var refEl)
+            && refEl.ValueKind == JsonValueKind.String
+            && !string.IsNullOrEmpty(refEl.GetString());
+        if (hasRef && !IsKnownIndicator(refEl.GetString()!))
+            issues.Add(new($"{path}.ref", $"相对比较引用的指标 '{refEl.GetString()}' 未注册"));
 
-        if (node.TryGetProperty("ref", out var refEl) && refEl.ValueKind == JsonValueKind.String)
-        {
-            var refName = refEl.GetString();
-            if (!string.IsNullOrEmpty(refName) && !registry.RegisteredNames.Contains(refName))
-                issues.Add(new($"{path}.ref", $"相对比较引用的指标 '{refName}' 未注册"));
-        }
+        var hasValue = node.TryGetProperty("value", out var valEl);
+        if (hasValue && valEl.ValueKind == JsonValueKind.Null)
+            issues.Add(new($"{path}.value", "value 不能为 null"));
+        else if (hasValue && valEl.ValueKind != JsonValueKind.Number)
+            issues.Add(new($"{path}.value", "value 必须为数字"));
+        else if (!hasValue && !hasRef)
+            issues.Add(new($"{path}.value", "叶节点必须指定 value (数字)，或通过 ref 做相对比较"));
     }
+
+    /// <summary>技术指标（注册表）或上下文指标（由持仓状态派生）均视为合法引用。</summary>
+    public bool IsKnownIndicator(string name)
+        => registry.RegisteredNames.Contains(name) || ContextIndicators.All.Contains(name);
 }

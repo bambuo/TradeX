@@ -3,11 +3,11 @@ using System.Threading.Channels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using TradeX.Core.Interfaces;
+using TradeX.Rules;
 using TradeX.Trading.Backtest;
 using TradeX.Trading.Commands;
 using TradeX.Trading.Engine;
 using TradeX.Trading.Execution;
-using TradeX.Trading.Migration;
 using TradeX.Trading.Risk;
 using TradeX.Trading.Streaming;
 
@@ -27,10 +27,10 @@ public static class DependencyInjection
         services.RegisterDomainEventHandlers(tradingAssembly);
 
         services.TryAddSingleton<IClock, SystemClock>();
-        services.AddScoped<IConditionEvaluator, ConditionEvaluator>();
-        services.AddScoped<IConditionTreeEvaluator, ConditionTreeEvaluator>();
         services.AddScoped<IStrategyDecisionEngine, StrategyDecisionEngine>();
         services.AddScoped<ConditionTreeValidator>();
+        services.AddScoped<RuleSetValidator>();
+        services.AddRulesEngine();
         services.AddScoped<IPortfolioRiskManager, PortfolioRiskManager>();
         services.AddScoped<IFillProjector, FillProjector>();
         services.AddScoped<ITradeExecutor, TradeExecutor>();
@@ -38,7 +38,6 @@ public static class DependencyInjection
         services.AddScoped<IPositionReconciler, PositionReconciler>();
         services.AddScoped<IBacktestService, BacktestService>();
         services.AddScoped<BacktestEngine>();
-        services.AddScoped<LegacyStrategyScanner>();
 
         services.AddSingleton<IKillSwitch, KillSwitch>();
         services.AddSingleton<TaskAnalysisStore>();

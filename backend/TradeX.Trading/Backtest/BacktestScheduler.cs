@@ -128,7 +128,7 @@ public class BacktestScheduler(
         if (!await AdvancePhaseAsync(taskRepo, task.Id, BacktestPhase.FetchingData, ct))
             return;
 
-        var candles = await FetchKlinesWithCacheAsync(klineCache, clientFactory, exchange, task.Pair, task.Timeframe, task.StartAt, task.EndAt, ct);
+        var klines = await FetchKlinesWithCacheAsync(klineCache, clientFactory, exchange, task.Pair, task.Timeframe, task.StartAt, task.EndAt, ct);
 
         if (!await AdvancePhaseAsync(taskRepo, task.Id, BacktestPhase.Running, ct))
             return;
@@ -176,7 +176,7 @@ public class BacktestScheduler(
         try
         {
             (result, trades, analysis) = await Task.Run(() => engine.Run(
-                strategy, task.Pair, candles, task.InitialCapital, task.PositionSize,
+                strategy, task.Pair, klines, task.InitialCapital, task.PositionSize,
                 a => analysisStore.Push(task.Id, a), task.Timeframe, engineCts.Token,
                 feeRate: settings.Value.FeeRate), engineCts.Token);
         }
@@ -346,7 +346,7 @@ public class BacktestScheduler(
         }
     }
 
-    private static async Task<List<Candle>> FetchAllKlinesAsync(IExchangeClient client, string pair, string timeframe, DateTime startAt, DateTime endAt, CancellationToken ct)
+    private static async Task<List<Kline>> FetchAllKlinesAsync(IExchangeClient client, string pair, string timeframe, DateTime startAt, DateTime endAt, CancellationToken ct)
     {
         var chunk = await client.GetKlinesAsync(pair, timeframe, startAt, endAt, ct);
 
@@ -363,7 +363,7 @@ public class BacktestScheduler(
         return result;
     }
 
-    private async Task<List<Candle>> FetchKlinesWithCacheAsync(
+    private async Task<List<Kline>> FetchKlinesWithCacheAsync(
         IKlineCacheRepository klineCache,
         IExchangeClientFactory clientFactory,
         TradeX.Core.Models.Exchange exchange,
@@ -384,10 +384,10 @@ public class BacktestScheduler(
 
         // Public kline API — no API key needed
         var klineReader = clientFactory.CreateClient(exchange.Type, "", "");
-        List<Candle> candles;
+        List<Kline> klines;
         try
         {
-            candles = await FetchAllKlinesAsync(klineReader, pair, timeframe, startAt, endAt, ct);
+            klines = await FetchAllKlinesAsync(klineReader, pair, timeframe, startAt, endAt, ct);
         }
         finally
         {
@@ -395,9 +395,9 @@ public class BacktestScheduler(
         }
 
         // 同步写入缓存（EF Core DbContext 非线程安全，不能 fire-and-forget）
-        await klineCache.SaveKlinesAsync(exchange.Id, pair, timeframe, candles.ToArray(), ct);
-        logger.LogDebug("K 线已写入缓存: Count={Count}", candles.Count);
+        await klineCache.SaveKlinesAsync(exchange.Id, pair, timeframe, klines.ToArray(), ct);
+        logger.LogDebug("K 线已写入缓存: Count={Count}", klines.Count);
 
-        return candles;
+        return klines;
     }
 }

@@ -2,17 +2,18 @@ using System.Text.Json;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 using TradeX.Indicators;
+using TradeX.Trading.Engine;
 
 namespace TradeX.Trading.Backtest;
 
-public class BacktestEngine(IIndicatorRegistry indicators, IConditionEvaluator conditionEvaluator)
+public class BacktestEngine(IIndicatorRegistry indicators, IStrategyDecisionEngine decisionEngine)
 {
     private const int MaxKlines = 100_000;
 
     public (BacktestResult Result, List<BacktestTrade> Trades, List<BacktestKlineAnalysis> Analysis) Run(
         Strategy strategy,
         string pair,
-        IReadOnlyList<Candle> klines,
+        IReadOnlyList<Kline> klines,
         decimal initialCapital = 1000m,
         decimal? positionSize = null,
         Action<BacktestKlineAnalysis>? onAnalysis = null,
@@ -30,103 +31,140 @@ public class BacktestEngine(IIndicatorRegistry indicators, IConditionEvaluator c
         List<BacktestKlineAnalysis> analysis = [];
         var prices = klines.Select(c => c.Close).ToArray();
         var volumes = klines.Select(c => (long)c.Volume).ToArray();
-        var entryPrice = 0m;
-        var entryIndex = 0;
-        var entryQuantity = 0m;
-        var entryFee = 0m;
+
+        // 每次 Run 用唯一作用域键，隔离 MinInterval 冷却状态——回测 Worker 中 ITriggerTracker
+        // 为进程级单例，固定键会让不同回测任务（甚至同名规则）的冷却互相串扰。
+        var scopeKey = $"backtest:{Guid.NewGuid():N}";
+
+        // FIFO 持仓队列：每次加仓（buy）追加一笔 lot，减仓（reduceOneLot）平掉最早一笔，
+        // 全平（sellAll）逐笔平掉，与实盘"按持仓逐笔下单/平仓"行为对齐，支持网格/金字塔加仓。
+        var lots = new List<Lot>();
         // 现金 + 持仓市值 = 账户权益。现金随平仓回笼，全仓模式下次入场即用最新现金 → 自然复利。
         var cash = initialCapital;
-        var inPosition = false;
         // 每根 K 线的账户权益序列，用于回撤 / Sharpe（基于策略资金曲线而非标的价格）。
         List<decimal> equityCurve = [];
+
+        // 平掉一笔 lot：记录 trade（含两腿手续费的已实现盈亏），返回回笼现金。
+        decimal CloseLot(Lot lot, int exitIndex, Kline exitOhlc)
+        {
+            var exitPrice = exitOhlc.Close;
+            var exitFee = lot.Quantity * exitPrice * feeRate;
+            var pnl = (exitPrice - lot.EntryPrice) * lot.Quantity - lot.EntryFee - exitFee;
+            var costBasis = lot.EntryPrice * lot.Quantity + lot.EntryFee;
+            var pnlPercent = costBasis > 0 ? pnl / costBasis * 100 : 0;
+            trades.Add(new BacktestTrade(
+                lot.EntryIndex, exitIndex,
+                lot.EntryTime, exitOhlc.Timestamp,
+                lot.EntryPrice, exitPrice, lot.Quantity, pnl, pnlPercent));
+            return lot.Quantity * exitPrice - exitFee;
+        }
 
         for (var i = 50; i < prices.Length; i++)
         {
             ct.ThrowIfCancellationRequested();
-            var window = prices[..(i + 1)];
-            var prevWindow = prices[..i];
-            var volWindow = volumes[..(i + 1)];
-
             var ohlc = klines[i];
             var prevOhlc = klines[i - 1];
-            var currentValues = indicators.ComputeAll(new KlineWindow(window, volWindow, ohlc.Open, ohlc.High, ohlc.Low, ohlc.Close));
-            var previousValues = indicators.ComputeAll(new KlineWindow(prevWindow, volumes[..i], prevOhlc.Open, prevOhlc.High, prevOhlc.Low, prevOhlc.Close));
+            var currentValues = indicators.ComputeAll(new KlineWindow(prices[..(i + 1)], volumes[..(i + 1)], ohlc.Open, ohlc.High, ohlc.Low, ohlc.Close));
+            var previousValues = indicators.ComputeAll(new KlineWindow(prices[..i], volumes[..i], prevOhlc.Open, prevOhlc.High, prevOhlc.Low, prevOhlc.Close));
 
-            var kline = ohlc;
-            var action = "none";
+            var price = ohlc.Close;
+            var quantityHeld = lots.Sum(l => l.Quantity);
+            var avgEntry = quantityHeld > 0 ? lots.Sum(l => l.EntryPrice * l.Quantity) / quantityHeld : 0m;
 
-            if (!inPosition)
+            // 统一决策：通过 IStrategyDecisionEngine 评估。回测作用域键固定 "backtest"，
+            // 评估时间用当前 K 线时间，使 MinInterval 约束按模拟时间生效。
+            var decision = decisionEngine.Decide(new StrategyDecisionInput(
+                ExecutionRule: strategy.ExecutionRule,
+                IndicatorValues: currentValues,
+                PreviousIndicatorValues: previousValues,
+                CurrentPrice: price,
+                AverageEntryPrice: avgEntry,
+                QuantityHeld: quantityHeld,
+                LotCount: lots.Count,
+                ScopeKey: scopeKey,
+                EvaluationTime: ohlc.Timestamp));
+
+            var didBuy = false;
+            var didSell = false;
+
+            switch (decision.Action)
             {
-                var shouldEnter = conditionEvaluator.Evaluate(strategy.EntryCondition, currentValues, previousValues);
-                if (shouldEnter && kline.Close > 0)
-                {
-                    inPosition = true;
-                    action = "enter";
-                    entryPrice = kline.Close;
-                    entryIndex = i;
-                    // positionSize 指定时按固定金额（不超过可用现金）入场，否则全仓投入当前现金（复利）
-                    var capitalToUse = positionSize.HasValue ? Math.Min(positionSize.Value, cash) : cash;
-                    // 含手续费入场：capitalToUse 同时覆盖 base 成本与买入手续费（feeRate=0 时与原逻辑等价）
-                    entryQuantity = capitalToUse / (entryPrice * (1 + feeRate));
-                    entryFee = entryQuantity * entryPrice * feeRate;
-                    cash -= entryQuantity * entryPrice + entryFee;
-                }
+                case StrategyAction.EnterMarket when price > 0:
+                    // 入场金额优先级：入参 positionSize > 规则定义的 Size > 全仓（复利）
+                    var capitalToUse = positionSize.HasValue
+                        ? Math.Min(positionSize.Value, cash)
+                        : decision.QuoteSize > 0
+                            ? Math.Min(decision.QuoteSize, cash)
+                            : cash;
+                    if (capitalToUse > 0)
+                    {
+                        // 含手续费入场：capitalToUse 同时覆盖 base 成本与买入手续费（feeRate=0 时与原逻辑等价）
+                        var qty = capitalToUse / (price * (1 + feeRate));
+                        if (qty > 0)
+                        {
+                            var fee = qty * price * feeRate;
+                            lots.Add(new Lot(price, qty, fee, i, ohlc.Timestamp));
+                            cash -= qty * price + fee;
+                            didBuy = true;
+                        }
+                    }
+                    break;
 
-                analysis.Add(new BacktestKlineAnalysis(
-                    i, kline.Timestamp, kline.Open, kline.High, kline.Low, kline.Close, kline.Volume,
-                    currentValues, shouldEnter, null, inPosition, action,
-                    entryPrice > 0 ? entryPrice : null,
-                    entryQuantity > 0 ? entryQuantity : null,
-                    entryQuantity > 0 ? entryPrice * entryQuantity : null,
-                    entryQuantity > 0 ? kline.Close * entryQuantity : null,
-                    entryQuantity > 0 ? (kline.Close - entryPrice) * entryQuantity : null,
-                    entryPrice > 0 ? (kline.Close - entryPrice) / entryPrice * 100m : null));
+                case StrategyAction.Reduce when lots.Count > 0:
+                    // QuoteSize>0 且价格可用：自最早 lot 累计名义价值平仓直到达到目标金额（含跨过阈值的那笔）；
+                    // 否则（金额无效或价格不可用）只平最早一笔，避免累计名义价值恒为 0 误平全部。
+                    if (decision.QuoteSize <= 0m || price <= 0m)
+                    {
+                        cash += CloseLot(lots[0], i, ohlc);
+                        lots.RemoveAt(0);
+                    }
+                    else
+                    {
+                        var reduced = 0m;
+                        while (lots.Count > 0 && reduced < decision.QuoteSize)
+                        {
+                            reduced += lots[0].Quantity * price;
+                            cash += CloseLot(lots[0], i, ohlc);
+                            lots.RemoveAt(0);
+                        }
+                    }
+                    didSell = true;
+                    break;
+
+                case StrategyAction.ExitAll when lots.Count > 0:
+                    foreach (var lot in lots)
+                        cash += CloseLot(lot, i, ohlc);
+                    lots.Clear();
+                    didSell = true;
+                    break;
             }
-            else
+
+            // 末根强制平掉全部剩余持仓，保证交易账目完整（与原引擎"末根收盘平仓"一致）
+            if (i == prices.Length - 1 && lots.Count > 0)
             {
-                var shouldExit = conditionEvaluator.Evaluate(strategy.ExitCondition, currentValues, previousValues);
-                var avgEntryForRow = entryPrice;
-                var quantityForRow = entryQuantity;
-                decimal? costForRow = quantityForRow > 0 ? avgEntryForRow * quantityForRow : null;
-                decimal? valueForRow = quantityForRow > 0 ? kline.Close * quantityForRow : null;
-                decimal? pnlForRow = quantityForRow > 0 ? (kline.Close - avgEntryForRow) * quantityForRow : null;
-                decimal? pnlPercentForRow = avgEntryForRow > 0 ? (kline.Close - avgEntryForRow) / avgEntryForRow * 100m : null;
-
-                if (shouldExit || i == prices.Length - 1)
-                {
-                    var exitPrice = kline.Close;
-                    var qty = entryQuantity;
-                    // 含手续费的已实现盈亏：扣减买入与卖出两腿手续费（feeRate=0 时与原逻辑等价）
-                    var exitFee = qty * exitPrice * feeRate;
-                    var pnl = (exitPrice - entryPrice) * qty - entryFee - exitFee;
-                    var costBasis = entryPrice * qty + entryFee;
-                    var pnlPercent = costBasis > 0 ? pnl / costBasis * 100 : 0;
-
-                    trades.Add(new BacktestTrade(
-                        entryIndex, i,
-                        klines[entryIndex].Timestamp, kline.Timestamp,
-                        entryPrice, exitPrice, qty, pnl, pnlPercent));
-
-                    cash += qty * exitPrice - exitFee; // 平仓资金回笼（扣卖出手续费），驱动复利
-                    inPosition = false;
-                    action = "exit";
-                    entryQuantity = 0m;
-                    entryFee = 0m;
-                }
-
-                analysis.Add(new BacktestKlineAnalysis(
-                    i, kline.Timestamp, kline.Open, kline.High, kline.Low, kline.Close, kline.Volume,
-                    currentValues, null, shouldExit, quantityForRow > 0, action,
-                    avgEntryForRow > 0 ? avgEntryForRow : null,
-                    quantityForRow > 0 ? quantityForRow : null,
-                    costForRow,
-                    valueForRow,
-                    pnlForRow,
-                    pnlPercentForRow));
+                foreach (var lot in lots)
+                    cash += CloseLot(lot, i, ohlc);
+                lots.Clear();
+                didSell = true;
             }
+
+            // 处理后聚合持仓，用于本根分析行与权益
+            var qtyAfter = lots.Sum(l => l.Quantity);
+            var avgAfter = qtyAfter > 0 ? lots.Sum(l => l.EntryPrice * l.Quantity) / qtyAfter : 0m;
+            var action = didBuy ? "enter" : didSell ? "exit" : "none";
+
+            analysis.Add(new BacktestKlineAnalysis(
+                i, ohlc.Timestamp, ohlc.Open, ohlc.High, ohlc.Low, ohlc.Close, ohlc.Volume,
+                currentValues, didBuy, didSell, qtyAfter > 0, action,
+                avgAfter > 0 ? avgAfter : null,
+                qtyAfter > 0 ? qtyAfter : null,
+                qtyAfter > 0 ? avgAfter * qtyAfter : null,
+                qtyAfter > 0 ? price * qtyAfter : null,
+                qtyAfter > 0 ? (price - avgAfter) * qtyAfter : null,
+                avgAfter > 0 ? (price - avgAfter) / avgAfter * 100m : null));
 
             // 账户权益 = 现金 + 当前持仓市值
-            equityCurve.Add(cash + (inPosition ? entryQuantity * kline.Close : 0m));
+            equityCurve.Add(cash + qtyAfter * price);
 
             onAnalysis?.Invoke(analysis[^1]);
         }
@@ -136,9 +174,12 @@ public class BacktestEngine(IIndicatorRegistry indicators, IConditionEvaluator c
         return (result, trades, analysis);
     }
 
+    /// <summary>回测持仓中的一笔（FIFO 队列元素）。</summary>
+    private sealed record Lot(decimal EntryPrice, decimal Quantity, decimal EntryFee, int EntryIndex, DateTime EntryTime);
+
     private static BacktestResult CalculateMetrics(
         IReadOnlyList<BacktestTrade> trades,
-        IReadOnlyList<Candle> klines,
+        IReadOnlyList<Kline> klines,
         IReadOnlyList<decimal> equityCurve,
         decimal initialCapital,
         decimal finalEquity,

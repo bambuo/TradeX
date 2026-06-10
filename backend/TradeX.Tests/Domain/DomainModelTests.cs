@@ -321,25 +321,19 @@ public sealed class DomainModelTests
         Assert.Equal("测试策略", strategy.Name);
         Assert.Equal(userId, strategy.CreatedBy);
         Assert.Equal(1, strategy.Version);
-        Assert.Equal("{}", strategy.EntryCondition);
-        Assert.Equal("{}", strategy.ExitCondition);
+        Assert.Equal("{}", strategy.ExecutionRule);
         Assert.Empty(strategy.DomainEvents);
     }
 
     [Fact]
-    public void Strategy_UpdateConditions_ShouldEmitEvent()
+    public void Strategy_UpdateExecutionRule_SetsRuleWithoutEvent()
     {
         var strategy = Strategy.Create("测试策略", Guid.NewGuid());
 
-        strategy.UpdateConditions("RSI > 70", "RSI < 30");
+        strategy.UpdateExecutionRule("""{"code":"s","name":"s","rules":[]}""");
 
-        Assert.Equal("RSI > 70", strategy.EntryCondition);
-        Assert.Equal("RSI < 30", strategy.ExitCondition);
-        Assert.Single(strategy.DomainEvents);
-        var evt = Assert.IsType<StrategyConditionsUpdatedDomainEvent>(strategy.DomainEvents[0]);
-        Assert.Equal(strategy.Id, evt.StrategyId);
-        Assert.Equal("RSI > 70", evt.EntryCondition);
-        Assert.Equal("RSI < 30", evt.ExitCondition);
+        Assert.Equal("""{"code":"s","name":"s","rules":[]}""", strategy.ExecutionRule);
+        Assert.Empty(strategy.DomainEvents);
     }
 
     [Fact]

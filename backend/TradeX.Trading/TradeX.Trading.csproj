@@ -22,6 +22,7 @@
     <ProjectReference Include="..\TradeX.Core\TradeX.Core.csproj" />
     <ProjectReference Include="..\TradeX.Exchange\TradeX.Exchange.csproj" />
     <ProjectReference Include="..\TradeX.Indicators\TradeX.Indicators.csproj" />
+    <ProjectReference Include="..\TradeX.Rules\TradeX.Rules.csproj" />
   </ItemGroup>
 
 </Project>

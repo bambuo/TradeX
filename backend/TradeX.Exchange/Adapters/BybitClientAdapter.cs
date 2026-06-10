@@ -29,7 +29,7 @@ public class BybitClientAdapter : IExchangeClient
         });
     }
 
-    public async IAsyncEnumerable<Candle> SubscribeKlinesAsync(string pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<Kline> SubscribeKlinesAsync(string pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
     {
         while (!ct.IsCancellationRequested)
         {
@@ -39,10 +39,10 @@ public class BybitClientAdapter : IExchangeClient
         }
     }
 
-    public async IAsyncEnumerable<Candle> SubscribeKlinesStreamAsync(string pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<Kline> SubscribeKlinesStreamAsync(string pair, string interval, [EnumeratorCancellation] CancellationToken ct = default)
     {
         var socketClient = new BybitSocketClient();
-        var channel = Channel.CreateBounded<Candle>(new BoundedChannelOptions(100)
+        var channel = Channel.CreateBounded<Kline>(new BoundedChannelOptions(100)
         {
             FullMode = BoundedChannelFullMode.DropOldest
         });
@@ -52,7 +52,7 @@ public class BybitClientAdapter : IExchangeClient
             if (data.Data is null) return;
             foreach (var k in data.Data)
             {
-                channel.Writer.TryWrite(new Candle(k.StartTime, k.OpenPrice, k.HighPrice, k.LowPrice, k.ClosePrice, k.Volume));
+                channel.Writer.TryWrite(new Kline(k.StartTime, k.OpenPrice, k.HighPrice, k.LowPrice, k.ClosePrice, k.Volume));
             }
         }, ct);
 
@@ -101,12 +101,12 @@ public class BybitClientAdapter : IExchangeClient
         }
     }
 
-    public async Task<Candle[]> GetKlinesAsync(string pair, string interval, DateTime start, DateTime end, CancellationToken ct = default)
+    public async Task<Kline[]> GetKlinesAsync(string pair, string interval, DateTime start, DateTime end, CancellationToken ct = default)
     {
         // Bybit V5 spot /v5/market/kline 按 endTime 降序返回, 单次最多 1000 条; 翻页通过回退 endTime
         var ki = MapInterval(interval);
         var stepMs = IntervalMs(interval);
-        var all = new List<Candle>();
+        var all = new List<Kline>();
         var seen = new HashSet<DateTime>();
         var cursor = end;
         while (cursor > start && !ct.IsCancellationRequested)
@@ -120,7 +120,7 @@ public class BybitClientAdapter : IExchangeClient
             {
                 if (k.StartTime < start || k.StartTime > end) continue;
                 if (seen.Add(k.StartTime))
-                    all.Add(new Candle(k.StartTime, k.OpenPrice, k.HighPrice, k.LowPrice, k.ClosePrice, k.Volume));
+                    all.Add(new Kline(k.StartTime, k.OpenPrice, k.HighPrice, k.LowPrice, k.ClosePrice, k.Volume));
                 if (k.StartTime < earliest) earliest = k.StartTime;
             }
             if (earliest >= cursor) break;

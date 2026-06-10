@@ -17,8 +17,8 @@ public class BacktestService(
         if (strategy is null)
             throw new ArgumentException($"策略不存在: {strategyId}");
 
-        if (string.IsNullOrWhiteSpace(strategy.EntryCondition) || strategy.EntryCondition == "{}")
-            throw new ArgumentException("策略缺少入场条件");
+        if (string.IsNullOrWhiteSpace(strategy.ExecutionRule) || strategy.ExecutionRule == "{}")
+            throw new ArgumentException("策略缺少执行规则集");
 
         var task = new BacktestTask
         {
