@@ -330,9 +330,9 @@ public sealed class ApplicationUseCaseTests
         var traderField = typeof(Trader).GetProperty(nameof(Trader.Id))!;
         traderField.SetValue(trader, traderId);
 
-        var binding1 = StrategyBinding.Create(Guid.NewGuid(), "B1", traderId, Guid.NewGuid(), "BTCUSDT", "15m", userId);
+        var binding1 = StrategyBinding.Create(Guid.NewGuid(), "B1", traderId, Guid.NewGuid(), "BTCUSDT", "15m", MarketType.Spot, userId);
         binding1.Activate(); // 设为 Active
-        var binding2 = StrategyBinding.Create(Guid.NewGuid(), "B2", traderId, Guid.NewGuid(), "ETHUSDT", "15m", userId);
+        var binding2 = StrategyBinding.Create(Guid.NewGuid(), "B2", traderId, Guid.NewGuid(), "ETHUSDT", "15m", MarketType.Spot, userId);
         // binding2 默认 Disabled
 
         var traderRepo = Substitute.For<ITraderRepository>();
@@ -405,7 +405,7 @@ public sealed class ApplicationUseCaseTests
         var traderField = typeof(Trader).GetProperty(nameof(Trader.Id))!;
         traderField.SetValue(trader, traderId);
 
-        var binding = StrategyBinding.Create(Guid.NewGuid(), "Active Binding", traderId, Guid.NewGuid(), "BTCUSDT", "15m", userId);
+        var binding = StrategyBinding.Create(Guid.NewGuid(), "Active Binding", traderId, Guid.NewGuid(), "BTCUSDT", "15m", MarketType.Spot, userId);
         binding.Activate();
 
         var traderRepo = Substitute.For<ITraderRepository>();

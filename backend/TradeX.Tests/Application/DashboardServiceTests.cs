@@ -20,8 +20,8 @@ public sealed class DashboardServiceTests
         // 模拟策略绑定
         var strategyBindings = new List<StrategyBinding>
         {
-            StrategyBinding.Create(Guid.NewGuid(), "Strategy A", Guid.NewGuid(), Guid.NewGuid(), "BTCUSDT", "15m", Guid.NewGuid()),
-            StrategyBinding.Create(Guid.NewGuid(), "Strategy B", Guid.NewGuid(), Guid.NewGuid(), "ETHUSDT", "15m", Guid.NewGuid()),
+            StrategyBinding.Create(Guid.NewGuid(), "Strategy A", Guid.NewGuid(), Guid.NewGuid(), "BTCUSDT", "15m", MarketType.Spot, Guid.NewGuid()),
+            StrategyBinding.Create(Guid.NewGuid(), "Strategy B", Guid.NewGuid(), Guid.NewGuid(), "ETHUSDT", "15m", MarketType.Spot, Guid.NewGuid()),
         };
         bindingRepo.GetAllActiveAsync(default).Returns(strategyBindings);
         bindingRepo.GetActiveByExchangeAndPairAsync(Guid.Empty, string.Empty, default)

@@ -3,6 +3,7 @@ using TradeX.Core.Interfaces;
 using TradeX.Indicators;
 using TradeX.Trading.Execution;
 using TradeX.Trading.Risk;
+using TradeX.Trading.Rules;
 
 namespace TradeX.Trading.Engine;
 
@@ -18,7 +19,7 @@ internal sealed class TradingCycleScope(IServiceScopeFactory scopeFactory) : IDi
     public IPortfolioRiskManager RiskManager => _scope.ServiceProvider.GetRequiredService<IPortfolioRiskManager>();
     public ITradeExecutor TradeExecutor => _scope.ServiceProvider.GetRequiredService<ITradeExecutor>();
     public IOrderRepository OrderRepo => _scope.ServiceProvider.GetRequiredService<IOrderRepository>();
-    public IStrategyDecisionEngine DecisionEngine => _scope.ServiceProvider.GetRequiredService<IStrategyDecisionEngine>();
+    public StrategyEvaluator StrategyEvaluator => _scope.ServiceProvider.GetRequiredService<StrategyEvaluator>();
 
     public void Dispose() => _scope.Dispose();
 }

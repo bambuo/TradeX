@@ -49,12 +49,12 @@ public class BacktestServiceTests
     }
 
     [Fact]
-    public async Task StartBacktestAsync_NoExecutionRule_Throws()
+    public async Task StartBacktestAsync_NoRuleChain_Throws()
     {
         using var sp = BuildProvider();
         var strategyRepo = sp.GetRequiredService<IStrategyRepository>();
         strategyRepo.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns(new Strategy { ExecutionRule = "{}" });
+            .Returns(new Strategy { Mode = Core.Enums.StrategyMode.RuleChain });
 
         var service = sp.GetRequiredService<IBacktestService>();
 
@@ -73,8 +73,9 @@ public class BacktestServiceTests
             {
                 Id = strategyId,
                 Name = "测试策略",
-                ExecutionRule = RuleSetJson.EntryOnly(RuleSetJson.Leaf("RSI", ">", 30), """{"action":"buy"}"""),
-                CreatedBy = Guid.NewGuid()
+                CreatedBy = Guid.NewGuid(),
+                Mode = StrategyMode.RuleChain,
+                Chains = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>("[]")
             });
 
         var taskRepo = sp.GetRequiredService<IBacktestTaskRepository>();

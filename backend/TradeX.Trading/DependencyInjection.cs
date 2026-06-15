@@ -3,13 +3,14 @@ using System.Threading.Channels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using TradeX.Core.Interfaces;
-using TradeX.Rules;
 using TradeX.Trading.Backtest;
 using TradeX.Trading.Commands;
 using TradeX.Trading.Engine;
 using TradeX.Trading.Execution;
 using TradeX.Trading.Indicators;
 using TradeX.Trading.Risk;
+using TradeX.Trading.Rules;
+using TradeX.Trading.Rules.Nodes;
 using TradeX.Trading.Streaming;
 
 namespace TradeX.Trading;
@@ -28,10 +29,21 @@ public static class DependencyInjection
         services.RegisterDomainEventHandlers(tradingAssembly);
 
         services.TryAddSingleton<IClock, SystemClock>();
-        services.AddScoped<IStrategyDecisionEngine, StrategyDecisionEngine>();
-        services.AddScoped<ConditionTreeValidator>();
-        services.AddScoped<RuleSetValidator>();
-        services.AddRulesEngine();
+
+        // ──────── 规则链引擎 (P10) ────────
+        services.AddSingleton<NodeRegistry>(sp =>
+        {
+            var registry = new NodeRegistry();
+            registry.RegisterAllNodes();
+            return registry;
+        });
+        services.AddSingleton<CoordinatorCache>();
+        services.AddSingleton<ChainWorkerPool>(_ =>
+            new ChainWorkerPool(
+                Environment.ProcessorCount,
+                entrySize: 512,
+                exitSize: 128));
+        services.AddScoped<StrategyEvaluator>();
         services.AddScoped<IPortfolioRiskManager, PortfolioRiskManager>();
         services.AddScoped<IFillProjector, FillProjector>();
         services.AddScoped<ITradeExecutor, TradeExecutor>();

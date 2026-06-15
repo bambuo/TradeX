@@ -17,8 +17,8 @@ public class BacktestService(
         if (strategy is null)
             throw new ArgumentException($"策略不存在: {strategyId}");
 
-        if (string.IsNullOrWhiteSpace(strategy.ExecutionRule) || strategy.ExecutionRule == "{}")
-            throw new ArgumentException("策略缺少执行规则集");
+        if (strategy.Mode != Core.Enums.StrategyMode.RuleChain || strategy.Chains.ValueKind == System.Text.Json.JsonValueKind.Undefined)
+            throw new ArgumentException("策略缺少规则链定义");
 
         var task = new BacktestTask
         {

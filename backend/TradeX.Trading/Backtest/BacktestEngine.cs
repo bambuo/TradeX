@@ -2,11 +2,11 @@ using System.Text.Json;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 using TradeX.Indicators;
-using TradeX.Trading.Engine;
+using TradeX.Trading.Rules;
 
 namespace TradeX.Trading.Backtest;
 
-public class BacktestEngine(IIndicatorRegistry indicators, IStrategyDecisionEngine decisionEngine)
+public class BacktestEngine(IIndicatorRegistry indicators, StrategyEvaluator strategyEvaluator)
 {
     private const int MaxKlines = 100_000;
 
@@ -32,22 +32,16 @@ public class BacktestEngine(IIndicatorRegistry indicators, IStrategyDecisionEngi
         var prices = klines.Select(c => c.Close).ToArray();
         var volumes = klines.Select(c => (long)c.Volume).ToArray();
 
-        // 每次 Run 用唯一作用域键，隔离 MinInterval 冷却状态——回测 Worker 中 ITriggerTracker
-        // 为进程级单例，固定键会让不同回测任务（甚至同名规则）的冷却互相串扰。
+        // 每次 Run 用唯一作用域键，隔离 MinInterval 冷却状态
         var scopeKey = $"backtest:{Guid.NewGuid():N}";
 
-        // 历史指标快照列表：每根 K 线评估后记录指标值，供 lookback 规则使用
+        // 历史指标快照列表
         List<Dictionary<string, decimal>> historicalSnapshots = [];
 
-        // FIFO 持仓队列：每次加仓（buy）追加一笔 lot，减仓（reduceOneLot）平掉最早一笔，
-        // 全平（sellAll）逐笔平掉，与实盘"按持仓逐笔下单/平仓"行为对齐，支持网格/金字塔加仓。
         var lots = new List<Lot>();
-        // 现金 + 持仓市值 = 账户权益。现金随平仓回笼，全仓模式下次入场即用最新现金 → 自然复利。
         var cash = initialCapital;
-        // 每根 K 线的账户权益序列，用于回撤 / Sharpe（基于策略资金曲线而非标的价格）。
         List<decimal> equityCurve = [];
 
-        // 平掉一笔 lot：记录 trade（含两腿手续费的已实现盈亏），返回回笼现金。
         decimal CloseLot(Lot lot, int exitIndex, Kline exitOhlc)
         {
             var exitPrice = exitOhlc.Close;
@@ -62,6 +56,18 @@ public class BacktestEngine(IIndicatorRegistry indicators, IStrategyDecisionEngi
             return lot.Quantity * exitPrice - exitFee;
         }
 
+        // 创建回测用的 StrategyBinding
+        var binding = new StrategyBinding
+        {
+            Id = Guid.NewGuid(),
+            StrategyId = strategy.Id,
+            TraderId = strategy.CreatedBy,
+            Pairs = pair,
+            Timeframe = timeframe ?? "1h",
+            Status = Core.Enums.BindingStatus.Active,
+            Name = strategy.Name,
+        };
+
         for (var i = 50; i < prices.Length; i++)
         {
             ct.ThrowIfCancellationRequested();
@@ -74,95 +80,30 @@ public class BacktestEngine(IIndicatorRegistry indicators, IStrategyDecisionEngi
             var quantityHeld = lots.Sum(l => l.Quantity);
             var avgEntry = quantityHeld > 0 ? lots.Sum(l => l.EntryPrice * l.Quantity) / quantityHeld : 0m;
 
-            // 记录当前指标快照（供后续 lookback 规则使用）
             historicalSnapshots.Add(new Dictionary<string, decimal>(currentValues));
 
-            // 统一决策：通过 IStrategyDecisionEngine 评估。回测作用域键固定 "backtest"，
-            // 评估时间用当前 K 线时间，使 MinInterval 约束按模拟时间生效。
-            var decision = decisionEngine.Decide(new StrategyDecisionInput(
-                ExecutionRule: strategy.ExecutionRule,
-                IndicatorValues: currentValues,
-                PreviousIndicatorValues: previousValues,
-                CurrentPrice: price,
-                AverageEntryPrice: avgEntry,
-                QuantityHeld: quantityHeld,
-                LotCount: lots.Count,
-                ScopeKey: scopeKey,
-                EvaluationTime: ohlc.Timestamp,
-                HistoricalSnapshots: historicalSnapshots));
-
-            var didBuy = false;
-            var didSell = false;
-
-            switch (decision.Action)
+            // 通过 StrategyEvaluator 评估规则链
+            if (strategy.Mode == Core.Enums.StrategyMode.RuleChain)
             {
-                case StrategyAction.EnterMarket when price > 0:
-                    // 入场金额优先级：入参 positionSize > 规则定义的 Size > 全仓（复利）
-                    var capitalToUse = positionSize.HasValue
-                        ? Math.Min(positionSize.Value, cash)
-                        : decision.QuoteSize > 0
-                            ? Math.Min(decision.QuoteSize, cash)
-                            : cash;
-                    if (capitalToUse > 0)
-                    {
-                        // 含手续费入场：capitalToUse 同时覆盖 base 成本与买入手续费（feeRate=0 时与原逻辑等价）
-                        var qty = capitalToUse / (price * (1 + feeRate));
-                        if (qty > 0)
-                        {
-                            var fee = qty * price * feeRate;
-                            lots.Add(new Lot(price, qty, fee, i, ohlc.Timestamp));
-                            cash -= qty * price + fee;
-                            didBuy = true;
-                        }
-                    }
-                    break;
-
-                case StrategyAction.Reduce when lots.Count > 0:
-                    // QuoteSize>0 且价格可用：自最早 lot 累计名义价值平仓直到达到目标金额（含跨过阈值的那笔）；
-                    // 否则（金额无效或价格不可用）只平最早一笔，避免累计名义价值恒为 0 误平全部。
-                    if (decision.QuoteSize <= 0m || price <= 0m)
-                    {
-                        cash += CloseLot(lots[0], i, ohlc);
-                        lots.RemoveAt(0);
-                    }
-                    else
-                    {
-                        var reduced = 0m;
-                        while (lots.Count > 0 && reduced < decision.QuoteSize)
-                        {
-                            reduced += lots[0].Quantity * price;
-                            cash += CloseLot(lots[0], i, ohlc);
-                            lots.RemoveAt(0);
-                        }
-                    }
-                    didSell = true;
-                    break;
-
-                case StrategyAction.ExitAll when lots.Count > 0:
-                    foreach (var lot in lots)
-                        cash += CloseLot(lot, i, ohlc);
-                    lots.Clear();
-                    didSell = true;
-                    break;
+                strategyEvaluator.EvaluateBindingChain(
+                    binding, pair, price, Guid.Empty,
+                    klines, ct);
             }
 
-            // 末根强制平掉全部剩余持仓，保证交易账目完整（与原引擎"末根收盘平仓"一致）
+            // 末根强制平掉全部剩余持仓
             if (i == prices.Length - 1 && lots.Count > 0)
             {
                 foreach (var lot in lots)
                     cash += CloseLot(lot, i, ohlc);
                 lots.Clear();
-                didSell = true;
             }
 
-            // 处理后聚合持仓，用于本根分析行与权益
             var qtyAfter = lots.Sum(l => l.Quantity);
             var avgAfter = qtyAfter > 0 ? lots.Sum(l => l.EntryPrice * l.Quantity) / qtyAfter : 0m;
-            var action = didBuy ? "enter" : didSell ? "exit" : "none";
 
             analysis.Add(new BacktestKlineAnalysis(
                 i, ohlc.Timestamp, ohlc.Open, ohlc.High, ohlc.Low, ohlc.Close, ohlc.Volume,
-                currentValues, didBuy, didSell, qtyAfter > 0, action,
+                currentValues, null, null, qtyAfter > 0, "none",
                 avgAfter > 0 ? avgAfter : null,
                 qtyAfter > 0 ? qtyAfter : null,
                 qtyAfter > 0 ? avgAfter * qtyAfter : null,
@@ -170,9 +111,7 @@ public class BacktestEngine(IIndicatorRegistry indicators, IStrategyDecisionEngi
                 qtyAfter > 0 ? (price - avgAfter) * qtyAfter : null,
                 avgAfter > 0 ? (price - avgAfter) / avgAfter * 100m : null));
 
-            // 账户权益 = 现金 + 当前持仓市值
             equityCurve.Add(cash + qtyAfter * price);
-
             onAnalysis?.Invoke(analysis[^1]);
         }
 
@@ -181,7 +120,6 @@ public class BacktestEngine(IIndicatorRegistry indicators, IStrategyDecisionEngi
         return (result, trades, analysis);
     }
 
-    /// <summary>回测持仓中的一笔（FIFO 队列元素）。</summary>
     private sealed record Lot(decimal EntryPrice, decimal Quantity, decimal EntryFee, int EntryIndex, DateTime EntryTime);
 
     private static BacktestResult CalculateMetrics(
@@ -212,7 +150,6 @@ public class BacktestEngine(IIndicatorRegistry indicators, IStrategyDecisionEngi
         var wins = trades.Count(t => t.PnL > 0);
         var winRate = (decimal)wins / trades.Count * 100;
 
-        // 总收益基于账户权益（期末/期初），而非各笔百分比简单累加
         var totalReturn = initialCapital > 0 ? (finalEquity - initialCapital) / initialCapital * 100 : 0;
 
         var totalDays = (klines[^1].Timestamp - klines[0].Timestamp).TotalDays;
@@ -223,17 +160,13 @@ public class BacktestEngine(IIndicatorRegistry indicators, IStrategyDecisionEngi
             annualizedReturn = (decimal)Math.Max(-9999, Math.Min(9999, Math.Pow(growth, 365.0 / totalDays) - 1)) * 100;
         }
 
-        // 最大回撤基于账户权益曲线（策略真实回撤），而非标的价格
         var maxDrawdown = ComputeMaxDrawdown(equityCurve);
-
-        // Sharpe：账户权益的逐根收益率，按 timeframe 推导的年化周期数缩放
         var sharpe = ComputeSharpe(equityCurve, timeframe);
 
         var totalWin = trades.Where(t => t.PnL > 0).Sum(t => t.PnL);
         var totalLoss = trades.Where(t => t.PnL <= 0).Sum(t => Math.Abs(t.PnL));
         var profitLossRatio = totalLoss > 0 ? totalWin / totalLoss : totalWin > 0 ? totalWin : 0;
 
-        // 保持与历史 BacktestResult.Details 一致的字段名 (pnL/pnLPercent), 避免前端读取失败.
         var details = JsonSerializer.Serialize(trades.Select(t => new
         {
             t.EnteredAt, t.ExitedAt, t.EntryPrice, t.ExitPrice,
@@ -291,13 +224,10 @@ public class BacktestEngine(IIndicatorRegistry indicators, IStrategyDecisionEngi
         if (stdDev <= 0) return 0m;
 
         var periodsPerYear = PeriodsPerYear(timeframe);
-        // 约定无风险利率 rf = 0，故超额收益 ≈ 逐根平均收益 mean。
-        // 在加密市场短周期回测下 rf 影响可忽略；若需精确可在此减去按周期折算的 rf。
         var sharpe = mean / stdDev * Math.Sqrt(periodsPerYear);
         return (decimal)Math.Max(-9999, Math.Min(9999, sharpe));
     }
 
-    // 一年内该周期的 K 线根数，用于把逐根收益率年化
     private static double PeriodsPerYear(string? timeframe) => timeframe switch
     {
         "1m" => 525_600,

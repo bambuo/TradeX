@@ -6,7 +6,6 @@ namespace TradeX.Application.Strategies;
 public sealed record StrategyDto(
     Guid Id,
     string Name,
-    string ExecutionRule,
     int Version,
     DateTime CreatedAt,
     DateTime UpdatedAt);
@@ -25,7 +24,7 @@ public sealed class GetStrategiesUseCase(
     }
 
     private static StrategyDto MapToDto(Core.Models.Strategy s) => new(
-        s.Id, s.Name, s.ExecutionRule,
+        s.Id, s.Name,
         s.Version, s.CreatedAt, s.UpdatedAt);
 }
 
@@ -42,13 +41,12 @@ public sealed class GetStrategyByIdUseCase(
             return Result<StrategyDto>.NotFound("策略不存在");
 
         return Result<StrategyDto>.Ok(new StrategyDto(
-            strategy.Id, strategy.Name, strategy.ExecutionRule,
+            strategy.Id, strategy.Name,
             strategy.Version, strategy.CreatedAt, strategy.UpdatedAt));
     }
 }
 
-public sealed record CreateStrategyCommand(
-    string Name, string? ExecutionRule);
+public sealed record CreateStrategyCommand(string Name);
 
 /// <summary>创建策略用例。</summary>
 public sealed class CreateStrategyUseCase(
@@ -59,21 +57,17 @@ public sealed class CreateStrategyUseCase(
         if (string.IsNullOrWhiteSpace(cmd.Name))
             return Result<StrategyDto>.BadRequest("策略名称不能为空");
 
-        var strategy = Core.Models.Strategy.CreateWithRule(
-            cmd.Name,
-            cmd.ExecutionRule ?? "{}",
-            Guid.Empty);
+        var strategy = Core.Models.Strategy.Create(cmd.Name, Guid.Empty);
 
         await strategyRepo.AddAsync(strategy, ct);
 
         return Result<StrategyDto>.Ok(new StrategyDto(
-            strategy.Id, strategy.Name, strategy.ExecutionRule,
+            strategy.Id, strategy.Name,
             strategy.Version, strategy.CreatedAt, strategy.UpdatedAt));
     }
 }
 
-public sealed record UpdateStrategyCommand(
-    Guid Id, string? Name = null, string? ExecutionRule = null);
+public sealed record UpdateStrategyCommand(Guid Id, string? Name = null);
 
 /// <summary>更新策略用例。</summary>
 public sealed class UpdateStrategyUseCase(
@@ -87,14 +81,12 @@ public sealed class UpdateStrategyUseCase(
 
         if (cmd.Name is not null)
             strategy.Name = cmd.Name;
-        if (cmd.ExecutionRule is not null)
-            strategy.ExecutionRule = cmd.ExecutionRule;
 
         strategy.Version++;
         await strategyRepo.UpdateAsync(strategy, ct);
 
         return Result<StrategyDto>.Ok(new StrategyDto(
-            strategy.Id, strategy.Name, strategy.ExecutionRule,
+            strategy.Id, strategy.Name,
             strategy.Version, strategy.CreatedAt, strategy.UpdatedAt));
     }
 }

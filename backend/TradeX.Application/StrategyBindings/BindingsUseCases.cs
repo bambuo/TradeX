@@ -76,7 +76,8 @@ public sealed class CreateBindingUseCase(
 
         var binding = Core.Models.StrategyBinding.Create(
             cmd.StrategyId, cmd.Name, cmd.TraderId,
-            cmd.ExchangeId, cmd.Pairs, cmd.Timeframe, cmd.CurrentUserId);
+            cmd.ExchangeId, cmd.Pairs, cmd.Timeframe,
+            Core.Enums.MarketType.Spot, cmd.CurrentUserId);
 
         await bindingRepo.AddAsync(binding, ct);
 

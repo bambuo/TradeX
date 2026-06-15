@@ -8,18 +8,18 @@ using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 using TradeX.Indicators;
 using TradeX.Trading.Engine;
-using TradeX.Trading.Execution;
 using TradeX.Trading.Events;
 using TradeX.Trading.EventBus;
 using TradeX.Trading.Indicators;
 using TradeX.Trading.Observability;
 using TradeX.Trading.Risk;
+using TradeX.Trading.Rules;
 
 namespace TradeX.Trading.Streaming;
 
 /// <summary>
 /// 逐笔成交（Trade）和 K 线收盘（Kline）双驱动的策略评估消费者。
-/// 替代原 <see cref="TradingEngine"/> 的 15s 轮询循环。
+/// 替代原 15s 轮询循环。
 ///
 /// <b>Trade 事件路径</b>：
 /// 1. 维护价格序列（Trade 价格逐步填充）
@@ -278,86 +278,23 @@ public sealed class StrategyEvaluationConsumer(
         var indicatorValues = indicatorRegistry.ComputeAll(currentWindow);
         var previousValues = indicatorRegistry.ComputeAll(prevWindow);
 
-        // 获取规则集 JSON
+        // ──────── 规则链模式评估 ────────
         var strategyTemplate = binding.StrategyId != Guid.Empty
             ? await cycle.StrategyRepo.GetByIdAsync(binding.StrategyId, ct)
             : null;
-        var executionRuleJson = strategyTemplate?.ExecutionRule ?? "{}";
 
-        // 检查持仓
-        var openPositions = await cycle.PositionRepo.GetByStrategyIdAsync(binding.Id, ct);
-        var openPairPositions = openPositions
-            .Where(p => p.Status == PositionStatus.Open && p.Pair.Equals(pair, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(p => p.OpenedAt)
-            .ToList();
-        var hasOpenPosition = openPairPositions.Count > 0;
-
-        // 仅 K 线收盘路径刷新持仓市价（限频到 K 线周期），使风控的未实现盈亏/敞口接近真实。
-        // Trade 逐笔路径不落库，避免高频写放大。
-        if (refreshPositionPrice && currentPrice > 0)
+        if (strategyTemplate is { Mode: StrategyMode.RuleChain } && strategyTemplate.Chains.ValueKind == System.Text.Json.JsonValueKind.Array)
         {
-            foreach (var position in openPairPositions)
+            var evaluator = cycle.StrategyEvaluator;
+            if (evaluator.HasChainEngine())
             {
-                position.UpdateMarketPrice(currentPrice);
-                await cycle.PositionRepo.UpdateAsync(position, ct);
+                evaluator.EvaluateBindingChain(binding, pair, currentPrice, binding.ExchangeId, null, ct);
+                return;
             }
+            logger.LogWarning("链引擎未配置，跳过评估 BindingId={BindingId}", binding.Id);
+            return;
         }
 
-        // 聚合持仓状态
-        var quantityHeld = openPairPositions.Sum(p => p.Quantity);
-        var avgEntry = quantityHeld > 0
-            ? openPairPositions.Sum(p => p.EntryPrice * p.Quantity) / quantityHeld
-            : 0m;
-
-        // 记录当前指标快照（供 lookback 规则使用）
-        var scopeKey = $"{binding.Id}:{pair}";
-        historicalIndicatorStore.RecordSnapshot(scopeKey, indicatorValues);
-
-        // 构建统一决策输入。ScopeKey 按 (binding, pair) 隔离 MinInterval 冷却，
-        // 避免不同策略绑定/交易对的同名规则互相串扰；评估时间用 IClock（实盘=墙钟）。
-        var historicalSnapshots = historicalIndicatorStore.GetSnapshots(scopeKey, maxCount: 100);
-        var input = new StrategyDecisionInput(
-            ExecutionRule: executionRuleJson,
-            IndicatorValues: indicatorValues,
-            PreviousIndicatorValues: previousValues,
-            CurrentPrice: currentPrice,
-            AverageEntryPrice: avgEntry,
-            QuantityHeld: quantityHeld,
-            LotCount: openPairPositions.Count,
-            ScopeKey: scopeKey,
-            EvaluationTime: clock.UtcNow,
-            HistoricalSnapshots: historicalSnapshots);
-
-        // 通过 StrategyDecisionEngine（内部用 RuleEvaluator）评估
-        var decision = cycle.DecisionEngine.Decide(input);
-
-        // 执行决策结果
-        switch (decision.Action)
-        {
-            case StrategyAction.EnterMarket:
-                var orderSize = decision.QuoteSize > 0 ? decision.QuoteSize : FallbackEntryQuoteSize;
-                if (decision.QuoteSize <= 0)
-                    logger.LogWarning("策略 {BindingId}: 入场规则未指定下单金额，回退默认 {Size}", binding.Id, FallbackEntryQuoteSize);
-                if (await PassesRiskAsync(binding, pair, orderSize, decision.RuleSlippageTolerance, cycle, ct))
-                    await PlaceMarketBuyAsync(binding, pair, orderSize, cycle, ct);
-                break;
-
-            case StrategyAction.Reduce:
-                // QuoteSize>0：自最早持仓起逐笔平仓，累计名义价值达到目标即止（整笔 lot 粒度）；
-                // QuoteSize<=0：平掉最早一笔。
-                foreach (var position in SelectPositionsToReduce(openPairPositions, decision.QuoteSize, currentPrice))
-                    await CloseGridPositionAsync(binding, pair, position, currentPrice, cycle, ct);
-                break;
-
-            case StrategyAction.ExitAll:
-                foreach (var position in openPairPositions)
-                    await CloseGridPositionAsync(binding, pair, position, currentPrice, cycle, ct);
-                break;
-
-            default:
-                logger.LogDebug("策略 {BindingId}: Hold, {Reason}", binding.Id, decision.Reason);
-                break;
-        }
     }
 
     /// <summary>

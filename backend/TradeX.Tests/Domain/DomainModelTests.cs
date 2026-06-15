@@ -1,7 +1,6 @@
 using TradeX.Core.Enums;
 using TradeX.Core.Events;
 using TradeX.Core.Models;
-using TradeX.Core.ValueObjects;
 
 namespace TradeX.Tests.Domain;
 
@@ -191,7 +190,7 @@ public sealed class DomainModelTests
     {
         var binding = StrategyBinding.Create(
             Guid.NewGuid(), "测试策略", Guid.NewGuid(),
-            Guid.NewGuid(), "BTCUSDT", "15m", Guid.NewGuid());
+            Guid.NewGuid(), "BTCUSDT", "15m", MarketType.Spot, Guid.NewGuid());
         binding.Activate();
 
         Assert.Equal(BindingStatus.Active, binding.Status);
@@ -269,46 +268,6 @@ public sealed class DomainModelTests
         Assert.Equal(BacktestTaskStatus.Completed, task.Status);
     }
 
-    // ─────────────── ConditionTree 值对象 ───────────────
-
-    [Fact]
-    public void ConditionTree_Empty_ShouldReturnFalse()
-    {
-        var tree = ConditionTree.FromJson("{}");
-        Assert.False(tree.HasConditions);
-        Assert.False(tree.Evaluate([], []));
-    }
-
-    [Fact]
-    public void ConditionTree_NullJson_ShouldBeEmpty()
-    {
-        var tree = ConditionTree.FromJson(null!);
-        Assert.False(tree.HasConditions);
-    }
-
-    [Fact]
-    public void ConditionTree_SimpleComparison_ShouldEvaluate()
-    {
-        var tree = ConditionTree.FromJson("""{"indicator":"RSI","comparison":">","value":70}""");
-        Assert.True(tree.HasConditions);
-        Assert.True(tree.Evaluate(new() { ["RSI"] = 75 }, []));
-        Assert.False(tree.Evaluate(new() { ["RSI"] = 65 }, []));
-    }
-
-    [Fact]
-    public void ConditionTree_CrossAbove_ShouldDetectCrossover()
-    {
-        // Ref 语义：compareValue = refVal * Value（乘数），此处 Value=1 表示取同值
-        var tree = ConditionTree.FromJson("""{"indicator":"EMA","comparison":"CA","value":1,"ref":"50"}""");
-        // 前值 <= 基准 && 当前 > 基准
-        Assert.True(tree.Evaluate(
-            new() { ["EMA"] = 65, ["50"] = 60 },
-            new() { ["EMA"] = 55, ["50"] = 60 }));
-        Assert.False(tree.Evaluate(
-            new() { ["EMA"] = 65, ["50"] = 60 },
-            new() { ["EMA"] = 65, ["50"] = 60 })); // 前值 == 基准，不触发
-    }
-
     // ─────────────── Strategy 工厂方法与领域事件 ───────────────
 
     [Fact]
@@ -321,18 +280,7 @@ public sealed class DomainModelTests
         Assert.Equal("测试策略", strategy.Name);
         Assert.Equal(userId, strategy.CreatedBy);
         Assert.Equal(1, strategy.Version);
-        Assert.Equal("{}", strategy.ExecutionRule);
-        Assert.Empty(strategy.DomainEvents);
-    }
-
-    [Fact]
-    public void Strategy_UpdateExecutionRule_SetsRuleWithoutEvent()
-    {
-        var strategy = Strategy.Create("测试策略", Guid.NewGuid());
-
-        strategy.UpdateExecutionRule("""{"code":"s","name":"s","rules":[]}""");
-
-        Assert.Equal("""{"code":"s","name":"s","rules":[]}""", strategy.ExecutionRule);
+        Assert.Equal(Core.Enums.StrategyMode.RuleChain, strategy.Mode);
         Assert.Empty(strategy.DomainEvents);
     }
 
