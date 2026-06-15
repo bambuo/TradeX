@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TradeX.Application.Backtesting;
 using TradeX.Application.Common;
+using TradeX.Core.ErrorCodes;
 using TradeX.Core.Models;
 using TradeX.Trading;
 using TradeX.Trading.Backtest;
@@ -41,7 +42,7 @@ public class BacktestingController(
         try
         {
             var task = await backtestService.StartBacktestAsync(request.StrategyId, request.ExchangeId, request.Pair, request.Timeframe, request.StartAt, request.EndAt, request.InitialCapital, request.PositionSize, ct);
-            return Ok(new
+            return Ok(ApiResponse.Ok(new
             {
                 taskId = task.Id,
                 status = task.Status.ToString(),
@@ -49,11 +50,11 @@ public class BacktestingController(
                 strategyName = task.StrategyName,
                 pair = task.Pair,
                 timeframe = task.Timeframe
-            });
+            }));
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(new { error = ex.Message });
+            return BadRequest(ApiResponse.Error(BusinessErrorCode.ValidationError, ex.Message));
         }
     }
 
@@ -63,16 +64,16 @@ public class BacktestingController(
         var query = new GetBacktestTasksQuery(strategyId, Guid.Empty);
         var result = await getBacktestTasks.ExecuteAsync(query, ct);
         if (!result.Success)
-            return BadRequest(new { error = result.Error });
+            return BadRequest(ApiResponse.Error(BusinessErrorCode.ValidationError, result.Error!));
 
-        return Ok(result.Data!.Select(t => new
+        return Ok(ApiResponse.Ok(result.Data!.Select(t => new
         {
             t.Id, t.StrategyName, t.Pair, t.Timeframe,
             status = t.Status, phase = t.Phase,
             t.InitialCapital, t.CreatedAt, t.CompletedAt,
             startAt = t.StartAt.ToString("yyyy-MM-dd HH:mm:ss"),
             endAt = t.EndAt.ToString("yyyy-MM-dd HH:mm:ss")
-        }));
+        })));
     }
 
     [HttpGet("tasks/{taskId:guid}")]
@@ -81,10 +82,10 @@ public class BacktestingController(
         var query = new GetBacktestTaskByIdQuery(taskId, Guid.Empty);
         var result = await getBacktestTaskById.ExecuteAsync(query, ct);
         if (!result.Success)
-            return NotFound(new { error = "回测任务不存在" });
+            return NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, "回测任务不存在"));
 
         var t = result.Data!;
-        return Ok(new
+        return Ok(ApiResponse.Ok(new
         {
             t.Id, t.StrategyName, t.StrategyId,
             t.Pair, t.Timeframe,
@@ -92,14 +93,14 @@ public class BacktestingController(
             t.InitialCapital, t.CreatedAt, t.CompletedAt,
             startAt = t.StartAt.ToString("yyyy-MM-dd HH:mm:ss"),
             endAt = t.EndAt.ToString("yyyy-MM-dd HH:mm:ss")
-        });
+        }));
     }
 
     [HttpGet("tasks/{taskId:guid}/result")]
     public async Task<IActionResult> GetResult(Guid taskId, CancellationToken ct)
     {
         var task = await backtestService.GetTaskAsync(taskId, ct);
-        if (task is null) return NotFound(new { error = "回测任务不存在" });
+        if (task is null) return NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, "回测任务不存在"));
 
         object? resultData = null;
         if (task.Status == Core.Models.BacktestTaskStatus.Completed)
@@ -124,11 +125,11 @@ public class BacktestingController(
             }
         }
 
-        return Ok(new
+        return Ok(ApiResponse.Ok(new
         {
             result = resultData,
             status = task.Status.ToString()
-        });
+        }));
     }
 
     [HttpDelete("tasks/{taskId:guid}")]
@@ -137,12 +138,12 @@ public class BacktestingController(
         var query = new CancelBacktestCommand(taskId, Guid.Empty);
         var result = await cancelBacktest.ExecuteAsync(query, ct);
         if (!result.Success)
-            return BadRequest(new { error = result.Error ?? "任务不存在或已处于终态，无法取消" });
+            return BadRequest(ApiResponse.Error(BusinessErrorCode.ValidationError, result.Error ?? "任务不存在或已处于终态，无法取消"));
 
         // 事件驱动：发布取消事件到 Redis Stream，Worker 端 BacktestCancellationConsumer 立即响应
         await cancellationNotifier.NotifyCancellationAsync(taskId, ct);
 
-        return Ok(new { taskId, status = "Cancelled" });
+        return Ok(ApiResponse.Ok(new { taskId, status = "Cancelled" }));
     }
 
     [HttpGet("tasks/{taskId:guid}/analysis")]
@@ -157,16 +158,16 @@ public class BacktestingController(
 
         var task = await backtestService.GetTaskAsync(taskId, ct);
         if (task is null)
-            return NotFound(new { error = "回测任务不存在" });
+            return NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, "回测任务不存在"));
 
         var result = await getBacktestAnalysisPage.ExecuteAsync(
             new GetBacktestAnalysisPageQuery(taskId, page, pageSize, action), ct);
 
         if (!result.Success)
-            return BadRequest(new { error = result.Error });
+            return BadRequest(ApiResponse.Error(BusinessErrorCode.ValidationError, result.Error!));
 
         var data = result.Data!;
-        return Ok(new
+        return Ok(ApiResponse.Ok(new
         {
             data.Total,
             data.Page,
@@ -174,7 +175,7 @@ public class BacktestingController(
             data.TotalPages,
             items = data.Items.Select(FormatItem).ToList(),
             status = task.Status.ToString()
-        });
+        }));
     }
 
     [HttpGet("tasks/{taskId:guid}/analysis/stream")]

@@ -76,7 +76,7 @@ export const strategiesApi = {
   },
 
   getAllPure() {
-    return client.get<{ data: Strategy[] }>('/strategies')
+    return client.get<Strategy[]>('/strategies')
   },
   getPureById(id: string) {
     return client.get<Strategy>(`/strategies/${id}`)

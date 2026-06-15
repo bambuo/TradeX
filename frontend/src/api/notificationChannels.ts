@@ -12,7 +12,7 @@ export interface NotificationChannel {
 
 export const notificationChannelsApi = {
   getAll() {
-    return client.get<{ data: NotificationChannel[] }>('/notifications/channels')
+    return client.get<NotificationChannel[]>('/notifications/channels')
   },
   create(data: { name: string; type: string; config: Record<string, string>; isDefault?: boolean }) {
     return client.post<NotificationChannel>('/notifications/channels', data)

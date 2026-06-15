@@ -7,7 +7,7 @@ export interface Setting {
 
 export const settingsApi = {
   getAll() {
-    return client.get<{ data: Setting[] }>('/settings')
+    return client.get<Setting[]>('/settings')
   },
   update(settings: { key: string; value: string }[]) {
     return client.put<{ message: string }>('/settings', { settings })

@@ -27,7 +27,7 @@ interface InterceptorError {
 /** 视图层 API 错误形状，用于替代 catch(err: any) */
 export interface ApiError {
   _mfaCancelled?: boolean
-  response?: { data?: { message?: string } }
+  response?: { data?: { message?: string; code?: number } }
 }
 
 const client = axios.create({
@@ -48,6 +48,21 @@ let mfaModal: { requestCode: (error?: string) => Promise<string> } | null = null
 export function registerMfaModal(modal: { requestCode: (error?: string) => Promise<string> }) {
   mfaModal = modal
 }
+
+/** 解包统一响应格式 { code, message, data }，提取内层 data 给调用方。 */
+client.interceptors.response.use(
+  response => {
+    if (response.data && typeof response.data === 'object' && 'code' in response.data) {
+      if (response.data.code === 0) {
+        response.data = response.data.data
+        return response
+      }
+      // 业务错误码非 0 → 按错误处理
+      return Promise.reject({ response, config: response.config })
+    }
+    return response
+  }
+)
 
 client.interceptors.response.use(
   response => response,
@@ -89,11 +104,12 @@ client.interceptors.response.use(
       const refreshToken = localStorage.getItem('refreshToken')
       if (refreshToken) {
         try {
-          const { data } = await axios.post('/api/v1/auth/refresh', { refreshToken })
-          localStorage.setItem('accessToken', data.accessToken)
-          localStorage.setItem('refreshToken', data.refreshToken)
+          const resp = await axios.post('/api/v1/auth/refresh', { refreshToken })
+          const body = resp.data.data ?? resp.data
+          localStorage.setItem('accessToken', body.accessToken)
+          localStorage.setItem('refreshToken', body.refreshToken)
           if (!originalRequest.headers) originalRequest.headers = {}
-      originalRequest.headers.Authorization = `Bearer ${data.accessToken}`
+      originalRequest.headers.Authorization = `Bearer ${body.accessToken}`
           return client(originalRequest)
         } catch {
           localStorage.clear()

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TradeX.Application.Common;
 using TradeX.Application.System;
+using TradeX.Core.ErrorCodes;
 
 namespace TradeX.Api.Controllers;
 
@@ -19,15 +20,15 @@ public class SystemController(
         var result = await emergencyStop.ExecuteAsync(cmd, ct);
 
         if (!result.Success)
-            return StatusCode(500, new { code = "EMERGENCY_STOP_FAILED", message = result.Error });
+            return StatusCode(500, ApiResponse.Error(BusinessErrorCode.InternalError, result.Error!));
 
         var dto = result.Data!;
-        return Ok(new
+        return Ok(ApiResponse.Ok(new
         {
             success = dto.Success,
             disabledExchanges = dto.DisabledExchanges,
             cancelledOrders = dto.CancelledOrders,
             message = dto.Message
-        });
+        }));
     }
 }

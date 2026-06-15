@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using TradeX.Application.Common;
+using TradeX.Core.ErrorCodes;
 
 namespace TradeX.Api.Controllers;
 
@@ -11,7 +12,7 @@ public class SetupController(ISetupService setup) : ControllerBase
     public async Task<IActionResult> GetStatus(CancellationToken ct)
     {
         var hasSuperAdmin = await setup.GetStatusAsync(ct);
-        return Ok(new { isInitialized = hasSuperAdmin });
+        return Ok(ApiResponse.Ok(new { isInitialized = hasSuperAdmin }));
     }
 
     [HttpPost("initialize")]

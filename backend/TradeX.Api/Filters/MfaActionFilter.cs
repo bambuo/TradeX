@@ -33,7 +33,10 @@ public sealed class MfaActionFilter(
         var userIdClaim = http.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (!Guid.TryParse(userIdClaim, out var userId))
         {
-            context.Result = new UnauthorizedObjectResult(new ErrorResponse(BusinessErrorCode.Unauthenticated, "未认证", http.TraceIdentifier));
+            context.Result = new ObjectResult(ApiResponse.Error(BusinessErrorCode.Unauthenticated, "未认证"))
+            {
+                StatusCode = StatusCodes.Status401Unauthorized
+            };
             return;
         }
 
@@ -41,7 +44,7 @@ public sealed class MfaActionFilter(
             || string.IsNullOrWhiteSpace(headerValues.ToString()))
         {
             metrics.MfaAttempts.Add(1, new KeyValuePair<string, object?>("result", "missing"));
-            context.Result = new ObjectResult(new ErrorResponse(BusinessErrorCode.AuthMfaRequired, $"敏感操作需在请求头 {HeaderName} 中携带 TOTP 验证码", http.TraceIdentifier))
+            context.Result = new ObjectResult(ApiResponse.Error(BusinessErrorCode.AuthMfaRequired, $"敏感操作需在请求头 {HeaderName} 中携带 TOTP 验证码"))
             {
                 StatusCode = StatusCodes.Status401Unauthorized
             };
@@ -53,7 +56,7 @@ public sealed class MfaActionFilter(
         if (user is null || !user.IsMfaEnabled || string.IsNullOrWhiteSpace(user.MfaSecretEncrypted))
         {
             metrics.MfaAttempts.Add(1, new KeyValuePair<string, object?>("result", "not_configured"));
-            context.Result = new ObjectResult(new ErrorResponse(BusinessErrorCode.AuthMfaNotConfigured, "当前账户未启用 MFA，无法执行敏感操作。请先在账户设置中启用 MFA。", http.TraceIdentifier))
+            context.Result = new ObjectResult(ApiResponse.Error(BusinessErrorCode.AuthMfaNotConfigured, "当前账户未启用 MFA，无法执行敏感操作。请先在账户设置中启用 MFA。"))
             {
                 StatusCode = StatusCodes.Status403Forbidden
             };
@@ -68,7 +71,7 @@ public sealed class MfaActionFilter(
         catch (Exception ex)
         {
             logger.LogError(ex, "MFA secret 解密失败, UserId={UserId}", userId);
-            context.Result = new ObjectResult(new ErrorResponse(BusinessErrorCode.AuthMfaSecretInvalid, "MFA 密钥无效", http.TraceIdentifier))
+            context.Result = new ObjectResult(ApiResponse.Error(BusinessErrorCode.AuthMfaSecretInvalid, "MFA 密钥无效"))
             {
                 StatusCode = StatusCodes.Status500InternalServerError
             };
@@ -79,7 +82,7 @@ public sealed class MfaActionFilter(
         {
             metrics.MfaAttempts.Add(1, new KeyValuePair<string, object?>("result", "invalid"));
             logger.LogWarning("MFA 校验失败, UserId={UserId}, Endpoint={Endpoint}", userId, http.Request.Path);
-            context.Result = new ObjectResult(new ErrorResponse(BusinessErrorCode.AuthMfaInvalidCode, "TOTP 验证码错误或已过期", http.TraceIdentifier))
+            context.Result = new ObjectResult(ApiResponse.Error(BusinessErrorCode.AuthMfaInvalidCode, "TOTP 验证码错误或已过期"))
             {
                 StatusCode = StatusCodes.Status401Unauthorized
             };
@@ -95,7 +98,7 @@ public sealed class MfaActionFilter(
             {
                 metrics.MfaAttempts.Add(1, new KeyValuePair<string, object?>("result", "replay"));
                 logger.LogWarning("MFA 重放尝试被拒, UserId={UserId}, Endpoint={Endpoint}", userId, http.Request.Path);
-                context.Result = new ObjectResult(new ErrorResponse(BusinessErrorCode.AuthMfaReplayDetected, "TOTP 验证码已被使用过，请等待下一个 30 秒周期", http.TraceIdentifier))
+                context.Result = new ObjectResult(ApiResponse.Error(BusinessErrorCode.AuthMfaReplayDetected, "TOTP 验证码已被使用过，请等待下一个 30 秒周期"))
                 {
                     StatusCode = StatusCodes.Status401Unauthorized
                 };

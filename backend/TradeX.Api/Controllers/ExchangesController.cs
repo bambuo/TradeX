@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TradeX.Application.Common;
 using TradeX.Application.Exchanges;
+using TradeX.Core.ErrorCodes;
 using TradeX.Core.Interfaces;
 
 namespace TradeX.Api.Controllers;
@@ -28,7 +29,7 @@ public class ExchangesController(
     public async Task<IActionResult> GetAll(CancellationToken ct)
     {
         var result = await getExchanges.ExecuteAsync(new GetExchangesQuery(UserId), ct);
-        return Ok(new { data = result.Data });
+        return Ok(ApiResponse.Ok(new { data = result.Data }));
     }
 
     [HttpGet("{id:guid}")]
@@ -36,8 +37,8 @@ public class ExchangesController(
     {
         var result = await getExchangeById.ExecuteAsync(new GetExchangeByIdQuery(id, UserId), ct);
         if (!result.Success)
-            return NotFound(new { message = result.Error });
-        return Ok(result.Data);
+            return NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, result.Error!));
+        return Ok(ApiResponse.Ok(result.Data));
     }
 
     [HttpPost]
@@ -75,12 +76,12 @@ public class ExchangesController(
         if (!result.Success)
             return result.StatusCode switch
             {
-                404 => NotFound(new { message = result.Error }),
-                409 => Conflict(new { message = result.Error }),
-                _ => BadRequest(new { message = result.Error })
+                404 => NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, result.Error!)),
+                409 => Conflict(ApiResponse.Error(BusinessErrorCode.Conflict, result.Error!)),
+                _ => BadRequest(ApiResponse.Error(BusinessErrorCode.ValidationError, result.Error!))
             };
 
-        return Ok(new { result.Data!.Id, result.Data.Name, result.Data.UpdatedAt });
+        return Ok(ApiResponse.Ok(new { result.Data!.Id, result.Data.Name, result.Data.UpdatedAt }));
     }
 
     [HttpPost("{id:guid}/test")]
@@ -90,19 +91,19 @@ public class ExchangesController(
         if (!result.Success)
             return result.StatusCode switch
             {
-                404 => NotFound(new { message = result.Error }),
-                _ => BadRequest(new { message = result.Error })
+                404 => NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, result.Error!)),
+                _ => BadRequest(ApiResponse.Error(BusinessErrorCode.ValidationError, result.Error!))
             };
 
         var dto = result.Data!;
-        return Ok(new
+        return Ok(ApiResponse.Ok(new
         {
             connected = dto.Connected,
             error = dto.Error,
             message = dto.Message,
             permissions = dto.Permissions,
             hasWarning = dto.HasWarning
-        });
+        }));
     }
 
     [HttpGet("{id:guid}/orders")]
@@ -121,12 +122,12 @@ public class ExchangesController(
         if (!result.Success)
             return result.StatusCode switch
             {
-                404 => NotFound(new { message = result.Error }),
-                _ => StatusCode(502, new { message = result.Error, HttpContext.TraceIdentifier })
+                404 => NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, result.Error!)),
+                _ => StatusCode(502, ApiResponse.Error(BusinessErrorCode.InternalError, result.Error!))
             };
 
         var dto = result.Data!;
-        return Ok(new { data = dto.Data, total = dto.Total, page = dto.Page, pageSize = dto.PageSize });
+        return Ok(ApiResponse.Ok(new { data = dto.Data, total = dto.Total, page = dto.Page, pageSize = dto.PageSize }));
     }
 
     [HttpPost("{id:guid}/toggle")]
@@ -134,9 +135,9 @@ public class ExchangesController(
     {
         var result = await toggleExchange.ExecuteAsync(new ToggleExchangeCommand(id, UserId, request.Enable), ct);
         if (!result.Success)
-            return NotFound(new { message = result.Error });
+            return NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, result.Error!));
 
-        return Ok(new { id, isEnabled = request.Enable });
+        return Ok(ApiResponse.Ok(new { id, isEnabled = request.Enable }));
     }
 
     [HttpDelete("{id:guid}")]
@@ -144,7 +145,7 @@ public class ExchangesController(
     {
         var result = await deleteExchange.ExecuteAsync(new DeleteExchangeCommand(id, UserId), ct);
         if (!result.Success)
-            return NotFound(new { message = result.Error });
+            return NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, result.Error!));
 
         return NoContent();
     }
@@ -156,11 +157,11 @@ public class ExchangesController(
         if (!result.Success)
             return result.StatusCode switch
             {
-                404 => NotFound(new { message = result.Error }),
-                _ => StatusCode(502, new { message = result.Error, HttpContext.TraceIdentifier })
+                404 => NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, result.Error!)),
+                _ => StatusCode(502, ApiResponse.Error(BusinessErrorCode.InternalError, result.Error!))
             };
 
-        return Ok(new { data = result.Data });
+        return Ok(ApiResponse.Ok(new { data = result.Data }));
     }
 
     [HttpGet("{id:guid}/pairs")]
@@ -170,11 +171,11 @@ public class ExchangesController(
         if (!result.Success)
             return result.StatusCode switch
             {
-                404 => NotFound(new { message = result.Error }),
-                _ => StatusCode(502, new { message = result.Error, HttpContext.TraceIdentifier })
+                404 => NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, result.Error!)),
+                _ => StatusCode(502, ApiResponse.Error(BusinessErrorCode.InternalError, result.Error!))
             };
 
-        return Ok(new { data = result.Data });
+        return Ok(ApiResponse.Ok(new { data = result.Data }));
     }
 
     public record CreateExchangeRequest(string Name, string ExchangeType, string ApiKey, string SecretKey, string? Passphrase = null);

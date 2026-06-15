@@ -1,6 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
-using System.Text.Json;
+using TradeX.Core.ErrorCodes;
 
 namespace TradeX.Api.Middleware;
 
@@ -28,11 +28,7 @@ public class IpWhitelistMiddleware(RequestDelegate next)
         {
             context.Response.StatusCode = 403;
             context.Response.ContentType = "application/json";
-            await context.Response.WriteAsync(JsonSerializer.Serialize(new
-            {
-                code = "IP_NOT_ALLOWED",
-                message = "IP 地址不在白名单中"
-            }));
+            await context.Response.WriteAsync(ApiResponse.Error(BusinessErrorCode.Forbidden, "IP 地址不在白名单中").ToJson());
             return;
         }
 

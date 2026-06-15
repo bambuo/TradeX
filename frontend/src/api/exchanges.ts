@@ -48,7 +48,7 @@ export interface PagedResult<T> {
 
 export const exchangesApi = {
   getAll() {
-    return client.get<{ data: Exchange[] }>('/exchanges')
+    return client.get<Exchange[]>('/exchanges')
   },
   create(data: CreateExchangeRequest) {
     return client.post<Exchange>('/exchanges', data)
@@ -66,10 +66,10 @@ export const exchangesApi = {
     return client.post<void>(`/exchanges/${id}/toggle`, { enable })
   },
   getPairs(id: string) {
-    return client.get<{ data: { pair: string; pricePrecision: number; quantityPrecision: number; minNotional: number; price: number; priceChangePercent: number; volume: number; highPrice: number; lowPrice: number }[] }>(`/exchanges/${id}/pairs`)
+    return client.get<{ pair: string; pricePrecision: number; quantityPrecision: number; minNotional: number; price: number; priceChangePercent: number; volume: number; highPrice: number; lowPrice: number }[]>(`/exchanges/${id}/pairs`)
   },
   getAssets(id: string) {
-    return client.get<{ data: { currency: string; balance: number }[] }>(`/exchanges/${id}/assets`)
+    return client.get<{ currency: string; balance: number }[]>(`/exchanges/${id}/assets`)
   },
   getOrders(id: string, type: 'open' | 'history' = 'open', page = 1, pageSize = 10, pair?: string, side?: string, orderType?: string, status?: string) {
     let url = `/exchanges/${id}/orders?type=${type}&page=${page}&pageSize=${pageSize}`

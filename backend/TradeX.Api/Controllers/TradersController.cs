@@ -5,6 +5,7 @@ using TradeX.Api.Filters;
 using TradeX.Application.Common;
 using TradeX.Application.Traders;
 using TradeX.Application.Traders.DTOs;
+using TradeX.Core.ErrorCodes;
 
 namespace TradeX.Api.Controllers;
 
@@ -47,11 +48,11 @@ public class TradersController(
         if (!result.Success)
             return result.StatusCode switch
             {
-                409 => Conflict(new { message = result.Error }),
-                _ => BadRequest(new { message = result.Error })
+                409 => Conflict(ApiResponse.Error(BusinessErrorCode.Conflict, result.Error!)),
+                _ => BadRequest(ApiResponse.Error(BusinessErrorCode.ValidationError, result.Error!))
             };
 
-        return CreatedAtAction(nameof(GetById), new { id = result.Data!.Id }, result.Data);
+        return CreatedAtAction(nameof(GetById), new { id = result.Data!.Id }, ApiResponse.Ok(result.Data));
     }
 
     [HttpPut("{id:guid}")]
@@ -65,12 +66,12 @@ public class TradersController(
         if (!result.Success)
             return result.StatusCode switch
             {
-                404 => NotFound(new { message = result.Error }),
-                409 => Conflict(new { message = result.Error }),
-                _ => BadRequest(new { message = result.Error })
+                404 => NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, result.Error!)),
+                409 => Conflict(ApiResponse.Error(BusinessErrorCode.Conflict, result.Error!)),
+                _ => BadRequest(ApiResponse.Error(BusinessErrorCode.ValidationError, result.Error!))
             };
 
-        return Ok(result.Data);
+        return Ok(ApiResponse.Ok(result.Data));
     }
 
     [HttpDelete("{id:guid}")]
@@ -81,8 +82,8 @@ public class TradersController(
         if (!result.Success)
             return result.StatusCode switch
             {
-                404 => NotFound(new { message = result.Error }),
-                _ => Conflict(new { message = result.Error })
+                404 => NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, result.Error!)),
+                _ => Conflict(ApiResponse.Error(BusinessErrorCode.Conflict, result.Error!))
             };
 
         return NoContent();
@@ -93,14 +94,14 @@ public class TradersController(
     {
         var trader = await getTraderById.ExecuteAsync(new GetTraderByIdQuery(id, UserId), ct);
         if (!trader.Success)
-            return NotFound(new { message = "交易员不存在" });
+            return NotFound(ApiResponse.Error(BusinessErrorCode.TraderNotFound, "交易员不存在"));
 
         if (file is null || file.Length == 0)
-            return BadRequest(new { message = "请选择图片文件" });
+            return BadRequest(ApiResponse.Error(BusinessErrorCode.ValidationError, "请选择图片文件"));
 
         var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
         if (ext is not ".jpg" and not ".jpeg" and not ".png" and not ".webp" and not ".gif")
-            return BadRequest(new { message = "仅支持 JPG/PNG/WebP/GIF 格式" });
+            return BadRequest(ApiResponse.Error(BusinessErrorCode.ValidationError, "仅支持 JPG/PNG/WebP/GIF 格式"));
 
         var dir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "avatars");
         Directory.CreateDirectory(dir);
@@ -115,9 +116,9 @@ public class TradersController(
             new UpdateTraderCommand(id, UserId, AvatarUrl: $"/uploads/avatars/{fileName}"), ct);
 
         if (!avatarResult.Success)
-            return StatusCode(500, new { message = "头像更新失败" });
+            return StatusCode(500, ApiResponse.Error(BusinessErrorCode.InternalError, "头像更新失败"));
 
-        return Ok(new { avatarUrl = avatarResult.Data!.AvatarUrl });
+        return Ok(ApiResponse.Ok(new { avatarUrl = avatarResult.Data!.AvatarUrl }));
     }
 
     [HttpGet("{id:guid}/stats")]

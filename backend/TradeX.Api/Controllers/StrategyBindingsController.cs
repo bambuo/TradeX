@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using TradeX.Api.Filters;
 using TradeX.Application.Common;
 using TradeX.Application.StrategyBindings;
+using TradeX.Core.ErrorCodes;
 using TradeX.Trading.Commands;
 
 namespace TradeX.Api.Controllers;
@@ -43,13 +44,13 @@ public class StrategyBindingsController(
     {
         var result = await getBindings.ExecuteAsync(new GetBindingsQuery(traderId, UserId), ct);
         if (!result.Success)
-            return NotFound(new { message = result.Error });
+            return NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, result.Error!));
 
-        return Ok(result.Data!.Select(d => new
+        return Ok(ApiResponse.Ok(result.Data!.Select(d => new
         {
             d.Id, d.StrategyId, traderId, scope = ResolveScope(d.Pairs, Guid.Empty),
             d.Name, d.Pairs, d.Timeframe, d.Status, d.CreatedAt
-        }));
+        })));
     }
 
     [HttpGet("{id:guid}")]
@@ -57,16 +58,16 @@ public class StrategyBindingsController(
     {
         var result = await getBindingById.ExecuteAsync(new GetBindingByIdQuery(id, traderId, UserId), ct);
         if (!result.Success)
-            return NotFound(new { message = result.Error });
+            return NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, result.Error!));
 
         var d = result.Data!;
-        return Ok(new
+        return Ok(ApiResponse.Ok(new
         {
             d.Id, d.StrategyId, d.Name, traderId,
             scope = ResolveScope(d.Pairs, Guid.Empty),
             d.Pairs, d.Timeframe, d.Status,
             CreatedAt = Fmt(d.CreatedAt)
-        });
+        }));
     }
 
     [HttpPost]
@@ -84,18 +85,18 @@ public class StrategyBindingsController(
         if (!result.Success)
             return result.StatusCode switch
             {
-                404 => NotFound(new { message = result.Error }),
-                _ => BadRequest(new { message = result.Error })
+                404 => NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, result.Error!)),
+                _ => BadRequest(ApiResponse.Error(BusinessErrorCode.ValidationError, result.Error!))
             };
 
         var d = result.Data!;
-        return CreatedAtAction(nameof(GetById), new { traderId, id = d.Id }, new
+        return CreatedAtAction(nameof(GetById), new { traderId, id = d.Id }, ApiResponse.Ok(new
         {
             d.Id, d.StrategyId, traderId,
             scope = ResolveScope(d.Pairs, Guid.Empty),
             d.Pairs, d.Timeframe, d.Status,
             CreatedAt = Fmt(d.CreatedAt)
-        });
+        }));
     }
 
     [HttpPut("{id:guid}")]
@@ -108,18 +109,18 @@ public class StrategyBindingsController(
         if (!result.Success)
             return result.StatusCode switch
             {
-                404 => NotFound(new { message = result.Error }),
-                409 => Conflict(new { message = result.Error }),
-                _ => BadRequest(new { message = result.Error })
+                404 => NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, result.Error!)),
+                409 => Conflict(ApiResponse.Error(BusinessErrorCode.Conflict, result.Error!)),
+                _ => BadRequest(ApiResponse.Error(BusinessErrorCode.ValidationError, result.Error!))
             };
 
         var d = result.Data!;
-        return Ok(new
+        return Ok(ApiResponse.Ok(new
         {
             d.Id, d.StrategyId, traderId,
             scope = ResolveScope(d.Pairs, Guid.Empty),
             d.Pairs, d.Timeframe, d.Status
-        });
+        }));
     }
 
     [HttpDelete("{id:guid}")]
@@ -130,8 +131,8 @@ public class StrategyBindingsController(
         if (!result.Success)
             return result.StatusCode switch
             {
-                404 => NotFound(new { message = result.Error }),
-                _ => BadRequest(new { message = result.Error })
+                404 => NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, result.Error!)),
+                _ => BadRequest(ApiResponse.Error(BusinessErrorCode.ValidationError, result.Error!))
             };
 
         return NoContent();
@@ -154,15 +155,15 @@ public class StrategyBindingsController(
         if (!result.Success)
             return result.StatusCode switch
             {
-                404 => NotFound(new { message = result.Error }),
-                409 => Conflict(new { message = result.Error }),
-                _ => BadRequest(new { message = result.Error })
+                404 => NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, result.Error!)),
+                409 => Conflict(ApiResponse.Error(BusinessErrorCode.Conflict, result.Error!)),
+                _ => BadRequest(ApiResponse.Error(BusinessErrorCode.ValidationError, result.Error!))
             };
 
         // 通知 Worker 刷新 K 线订阅（仅 Redis 可用时生效）
         await commandPublisher.PublishAsync(WorkerCommandTypes.RefreshSubscriptions, ct: ct);
 
-        return Ok(new { result.Data!.Id, Status = result.Data.Status, UpdatedAt = Fmt(DateTime.UtcNow) });
+        return Ok(ApiResponse.Ok(new { result.Data!.Id, Status = result.Data.Status, UpdatedAt = Fmt(DateTime.UtcNow) }));
     }
 
     public record CreateBindingRequest(Guid StrategyId, Guid? ExchangeId, string? Pairs = null, string? Timeframe = null, string? Name = null);

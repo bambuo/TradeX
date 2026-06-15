@@ -137,7 +137,7 @@ async function fetchAssets(exchangeId?: string) {
   assetLoading.value = true
   try {
     const results = await Promise.allSettled(
-      enabled.map(a => exchangesApi.getAssets(a.id).then(r => ({ id: a.id, items: r.data.data })))
+      enabled.map(a => exchangesApi.getAssets(a.id).then(r => ({ id: a.id, items: r.data })))
     )
     for (const r of results) {
       if (r.status === 'fulfilled') {

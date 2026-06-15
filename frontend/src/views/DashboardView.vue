@@ -122,7 +122,7 @@ async function fetchExchangeBalances() {
     const enabled = (data.data ?? []).filter(a => a.status === 'Enabled')
     const results = await Promise.allSettled(
       enabled.map(a =>
-        exchangesApi.getAssets(a.id).then(r => ({ id: a.type.toLowerCase(), items: r.data.data }))
+        exchangesApi.getAssets(a.id).then(r => ({ id: a.type.toLowerCase(), items: r.data }))
       )
     )
     for (const r of results) {

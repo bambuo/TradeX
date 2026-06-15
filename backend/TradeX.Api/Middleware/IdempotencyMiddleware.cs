@@ -1,5 +1,6 @@
 using System.Text;
 using StackExchange.Redis;
+using TradeX.Core.ErrorCodes;
 
 namespace TradeX.Api.Middleware;
 
@@ -62,7 +63,7 @@ public sealed class IdempotencyMiddleware(RequestDelegate next, ILogger<Idempote
             }
             // 占座存在但响应尚未写入（首次请求处理中）→ 拒绝并发同 key
             ctx.Response.StatusCode = StatusCodes.Status409Conflict;
-            await ctx.Response.WriteAsync($"{{\"error\":\"idempotency_in_flight\",\"key\":\"{keyHeader}\"}}");
+            await ctx.Response.WriteAsync(ApiResponse.Error(BusinessErrorCode.Conflict, $"操作正在进行中: {keyHeader}").ToJson());
             return;
         }
 

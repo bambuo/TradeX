@@ -45,7 +45,7 @@ async function load() {
       exchangesApi.getAll()
     ])
     orders.value = orderRes.data ?? []
-    exchanges.value = accRes.data.data ?? []
+    exchanges.value = accRes.data ?? []
   } finally {
     loading.value = false
   }

@@ -7,6 +7,7 @@ using QRCoder;
 using TradeX.Api.Services;
 using TradeX.Application.Auth;
 using TradeX.Application.Common;
+using TradeX.Core.ErrorCodes;
 using TradeX.Core.Interfaces;
 using TradeX.Core.Models;
 
@@ -49,24 +50,24 @@ public class AuthController(
         // MFA 流程
         if (dto.MfaSetupRequired || dto.MfaRequired)
         {
-            return Ok(new
+            return Ok(ApiResponse.Ok(new
             {
                 mfaRequired = dto.MfaRequired,
                 mfaSetupRequired = dto.MfaSetupRequired,
                 message = dto.Message,
                 mfaToken = dto.MfaToken,
                 expiresIn = 300
-            });
+            }));
         }
 
         // 直接登录成功
-        return Ok(new
+        return Ok(ApiResponse.Ok(new
         {
             accessToken = dto.AccessToken,
             refreshToken = dto.RefreshToken,
             expiresIn = jwtService.AccessTokenExpirationSeconds,
             role = dto.Role
-        });
+        }));
     }
 
     [HttpPost("verify-mfa")]
@@ -128,13 +129,13 @@ public class AuthController(
         };
         await refreshTokenRepo.AddAsync(refreshToken, ct);
 
-        return Ok(new
+        return Ok(ApiResponse.Ok(new
         {
             accessToken,
             refreshToken = refreshTokenStr,
             expiresIn = jwtService.AccessTokenExpirationSeconds,
             role = user.Role.ToString()
-        });
+        }));
     }
 
     [HttpPost("refresh")]
@@ -154,7 +155,7 @@ public class AuthController(
 
         var newAccessToken = jwtService.GenerateAccessToken(user);
 
-        return Ok(new { accessToken = newAccessToken, refreshToken = result.Data.RefreshToken, expiresIn = jwtService.AccessTokenExpirationSeconds });
+        return Ok(ApiResponse.Ok(new { accessToken = newAccessToken, refreshToken = result.Data.RefreshToken, expiresIn = jwtService.AccessTokenExpirationSeconds }));
     }
 
     [HttpPost("logout")]
@@ -163,7 +164,7 @@ public class AuthController(
     {
         var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
         await refreshTokenRepo.RevokeAllForUserAsync(userId, ct);
-        return Ok(new { message = "已登出" });
+        return Ok(ApiResponse.Ok(new { message = "已登出" }));
     }
 
     [HttpPost("mfa/setup")]
@@ -193,12 +194,12 @@ public class AuthController(
         var pngBytes = png.GetGraphic(4);
         var qrBase64 = Convert.ToBase64String(pngBytes);
 
-        return Ok(new MfaSetupResponse(
+        return Ok(ApiResponse.Ok(new MfaSetupResponse(
             secret.SecretKey,
             otpauthUrl,
             $"data:image/png;base64,{qrBase64}",
             recoveryCodes.Select(c => c.Code).ToList()
-        ));
+        )));
     }
 
     [HttpPost("mfa/verify")]
@@ -235,13 +236,13 @@ public class AuthController(
 
         var recoveryCodes = JsonSerializer.Deserialize<List<string>>(user.RecoveryCodesJson) ?? [];
 
-        return Ok(new
+        return Ok(ApiResponse.Ok(new
         {
             recoveryCodes,
             accessToken,
             refreshToken = refreshTokenStr,
             expiresIn = jwtService.AccessTokenExpirationSeconds
-        });
+        }));
     }
 
     [HttpPost("send-recovery-codes")]
@@ -264,6 +265,6 @@ public class AuthController(
         user.RecoveryCodesJson = JsonSerializer.Serialize(recoveryCodes.Select(c => c.Code).ToList());
         await userRepo.UpdateAsync(user, ct);
 
-        return Ok(new { recoveryCodes = recoveryCodes.Select(c => c.Code).ToList() });
+        return Ok(ApiResponse.Ok(new { recoveryCodes = recoveryCodes.Select(c => c.Code).ToList() }));
     }
 }

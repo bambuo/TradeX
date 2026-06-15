@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TradeX.Application.Common;
 using TradeX.Application.Strategies;
+using TradeX.Core.ErrorCodes;
 
 namespace TradeX.Api.Controllers;
 
@@ -20,15 +21,15 @@ public class StrategiesController(
     {
         var result = await getStrategies.ExecuteAsync(new GetStrategiesQuery(), ct);
         if (!result.Success)
-            return BadRequest(new { error = result.Error });
+            return BadRequest(ApiResponse.Error(BusinessErrorCode.ValidationError, result.Error!));
 
-        return Ok(new
+        return Ok(ApiResponse.Ok(new
         {
             data = result.Data!.Select(s => new
             {
                 s.Id, s.Name, s.Version, s.CreatedAt, s.UpdatedAt
             })
-        });
+        }));
     }
 
     [HttpGet("{id:guid}")]
@@ -52,13 +53,13 @@ public class StrategiesController(
         var result = await createStrategy.ExecuteAsync(cmd, ct);
 
         if (!result.Success)
-            return BadRequest(new { error = result.Error });
+            return BadRequest(ApiResponse.Error(BusinessErrorCode.ValidationError, result.Error!));
 
         var s = result.Data!;
-        return CreatedAtAction(nameof(GetById), new { id = s.Id }, new
+        return CreatedAtAction(nameof(GetById), new { id = s.Id }, ApiResponse.Ok(new
         {
             s.Id, s.Name, s.Version, s.CreatedAt
-        });
+        }));
     }
 
     [HttpPut("{id:guid}")]
@@ -68,10 +69,10 @@ public class StrategiesController(
         var result = await updateStrategy.ExecuteAsync(cmd, ct);
 
         if (!result.Success)
-            return NotFound(new { error = result.Error });
+            return NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, result.Error!));
 
         var s = result.Data!;
-        return Ok(new { s.Id, s.Name, s.Version, s.UpdatedAt });
+        return Ok(ApiResponse.Ok(new { s.Id, s.Name, s.Version, s.UpdatedAt }));
     }
 
     [HttpDelete("{id:guid}")]
@@ -79,7 +80,7 @@ public class StrategiesController(
     {
         var result = await deleteStrategy.ExecuteAsync(new DeleteStrategyCommand(id), ct);
         if (!result.Success)
-            return NotFound(new { error = "策略不存在" });
+            return NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, "策略不存在"));
 
         return NoContent();
     }

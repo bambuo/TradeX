@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using System.Text.Json;
+using TradeX.Core.ErrorCodes;
 using TradeX.Infrastructure.Casbin;
 
 namespace TradeX.Api.Middleware;
@@ -40,11 +40,7 @@ public class CasbinAuthorizationMiddleware(RequestDelegate next)
         {
             context.Response.StatusCode = 401;
             context.Response.ContentType = "application/json";
-            await context.Response.WriteAsync(JsonSerializer.Serialize(new
-            {
-                code = "UNAUTHORIZED",
-                message = "需要身份验证"
-            }));
+            await context.Response.WriteAsync(ApiResponse.Error(BusinessErrorCode.Unauthenticated, "需要身份验证").ToJson());
             return;
         }
 
@@ -53,11 +49,7 @@ public class CasbinAuthorizationMiddleware(RequestDelegate next)
         {
             context.Response.StatusCode = 403;
             context.Response.ContentType = "application/json";
-            await context.Response.WriteAsync(JsonSerializer.Serialize(new
-            {
-                code = "AUTH_FORBIDDEN",
-                message = "无法识别用户角色"
-            }));
+            await context.Response.WriteAsync(ApiResponse.Error(BusinessErrorCode.AuthInsufficientPermissions, "无法识别用户角色").ToJson());
             return;
         }
 
@@ -68,11 +60,7 @@ public class CasbinAuthorizationMiddleware(RequestDelegate next)
         {
             context.Response.StatusCode = 403;
             context.Response.ContentType = "application/json";
-            await context.Response.WriteAsync(JsonSerializer.Serialize(new
-            {
-                code = "AUTH_FORBIDDEN",
-                message = $"权限不足: 角色 {role} 不允许 {method} {path}"
-            }));
+            await context.Response.WriteAsync(ApiResponse.Error(BusinessErrorCode.AuthInsufficientPermissions, $"权限不足: 角色 {role} 不允许 {method} {path}").ToJson());
             return;
         }
 

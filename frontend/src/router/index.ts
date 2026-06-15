@@ -115,8 +115,8 @@ let _isInitialized = true
 router.beforeEach(async (to, _from, next) => {
   if (!_initChecked && to.name !== 'Setup') {
     try {
-      const { data: resp } = await client.get('/setup/status')
-      _isInitialized = resp.data?.initialized ?? true
+      const { data } = await client.get('/setup/status')
+      _isInitialized = data.isInitialized ?? true
     } catch {
       _isInitialized = true
     }

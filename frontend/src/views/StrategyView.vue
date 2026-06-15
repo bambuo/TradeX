@@ -143,8 +143,8 @@ async function load() {
       exchangesApi.getAll()
     ])
     deployments.value = depRes.data ?? []
-    templates.value = tmplRes.data.data ?? []
-    exchanges.value = accRes.data.data ?? []
+    templates.value = tmplRes.data ?? []
+    exchanges.value = accRes.data ?? []
   } finally {
     loading.value = false
   }

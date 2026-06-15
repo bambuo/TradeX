@@ -1,6 +1,6 @@
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using TradeX.Core.Enums;
+using TradeX.Core.ErrorCodes;
 using TradeX.Infrastructure.Data;
 
 namespace TradeX.Api.Middleware;
@@ -29,11 +29,7 @@ public class SetupGuardMiddleware(RequestDelegate next)
         {
             context.Response.StatusCode = 503;
             context.Response.ContentType = "application/json";
-            await context.Response.WriteAsync(JsonSerializer.Serialize(new
-            {
-                code = "SYSTEM_NOT_INITIALIZED",
-                message = "系统尚未初始化"
-            }));
+            await context.Response.WriteAsync(ApiResponse.Error(BusinessErrorCode.SystemNotInitialized, "系统尚未初始化").ToJson());
             return;
         }
 

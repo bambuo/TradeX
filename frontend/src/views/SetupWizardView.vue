@@ -16,8 +16,8 @@ const loading = ref(false)
 
 onMounted(async () => {
   try {
-    const { data: resp } = await client.get('/setup/status')
-    if (resp.data?.initialized) {
+    const { data } = await client.get('/setup/status')
+    if (data.isInitialized) {
       router.replace('/login')
       return
     }

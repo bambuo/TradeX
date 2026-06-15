@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using TradeX.Application.Common;
 using TradeX.Application.Users;
 using TradeX.Application.Users.DTOs;
+using TradeX.Core.ErrorCodes;
 
 namespace TradeX.Api.Controllers;
 
@@ -20,7 +21,7 @@ public class UsersController(
     public async Task<IActionResult> GetAll(CancellationToken ct)
     {
         var result = await getUsersUseCase.ExecuteAsync(new GetUsersQuery(), ct);
-        return Ok(result.Data);
+        return Ok(ApiResponse.Ok(result.Data));
     }
 
     [HttpGet("{id:guid}")]
@@ -40,12 +41,12 @@ public class UsersController(
         if (!result.Success)
             return result.StatusCode switch
             {
-                404 => NotFound(new { message = result.Error }),
-                400 => BadRequest(new { message = result.Error }),
-                _ => BadRequest(new { message = result.Error })
+                404 => NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, result.Error!)),
+                400 => BadRequest(ApiResponse.Error(BusinessErrorCode.ValidationError, result.Error!)),
+                _ => BadRequest(ApiResponse.Error(BusinessErrorCode.ValidationError, result.Error!))
             };
 
-        return Ok(new { message = "用户已更新" });
+        return Ok(ApiResponse.Ok(new { message = "用户已更新" }));
     }
 
     [HttpDelete("{id:guid}")]
@@ -55,12 +56,12 @@ public class UsersController(
         if (!result.Success)
             return result.StatusCode switch
             {
-                404 => NotFound(new { message = result.Error }),
-                400 => BadRequest(new { message = result.Error }),
-                _ => BadRequest(new { message = result.Error })
+                404 => NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, result.Error!)),
+                400 => BadRequest(ApiResponse.Error(BusinessErrorCode.ValidationError, result.Error!)),
+                _ => BadRequest(ApiResponse.Error(BusinessErrorCode.ValidationError, result.Error!))
             };
 
-        return Ok(new { message = "用户已删除" });
+        return Ok(ApiResponse.Ok(new { message = "用户已删除" }));
     }
 
     [HttpPut("{id:guid}/role")]
@@ -70,12 +71,12 @@ public class UsersController(
         if (!result.Success)
             return result.StatusCode switch
             {
-                404 => NotFound(new { message = result.Error }),
-                400 => BadRequest(new { message = result.Error }),
-                _ => BadRequest(new { message = result.Error })
+                404 => NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, result.Error!)),
+                400 => BadRequest(ApiResponse.Error(BusinessErrorCode.ValidationError, result.Error!)),
+                _ => BadRequest(ApiResponse.Error(BusinessErrorCode.ValidationError, result.Error!))
             };
 
-        return Ok(new { message = "角色已更新" });
+        return Ok(ApiResponse.Ok(new { message = "角色已更新" }));
     }
 
     public record UpdateRoleRequest(string Role);

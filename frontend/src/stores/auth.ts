@@ -1,16 +1,23 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { authApi, type AuthResponse } from '../api/auth'
+import { authApi } from '../api/auth'
+
+export interface AuthUser {
+  id: string
+  username: string
+  email: string
+  role: string
+  isMfaEnabled: boolean
+}
 
 export const useAuthStore = defineStore('auth', () => {
-  const user = ref<AuthResponse['user'] | null>(null)
+  const user = ref<AuthUser | null>(null)
   const mfaToken = ref<string | null>(null)
   const isAuthenticated = computed(() => !!user.value)
   const needsMfa = computed(() => !!mfaToken.value)
 
   async function login(username: string, password: string) {
-    const { data: resp } = await authApi.login({ username, password })
-    const body = resp.data
+    const { data: body } = await authApi.login({ username, password })
     if (body.mfaRequired) {
       mfaToken.value = body.mfaToken ?? null
       return { mfaRequired: true }
@@ -27,8 +34,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function verifyMfa(totpCode: string) {
     if (!mfaToken.value) throw new Error('No MFA token')
-    const { data: resp } = await authApi.verifyMfa({ mfaToken: mfaToken.value, totpCode })
-    const body = resp.data
+    const { data: body } = await authApi.verifyMfa({ mfaToken: mfaToken.value, totpCode })
     localStorage.setItem('accessToken', body.accessToken)
     localStorage.setItem('refreshToken', body.refreshToken)
     mfaToken.value = null
@@ -38,8 +44,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function verifyMfaWithRecoveryCode(recoveryCode: string) {
     if (!mfaToken.value) throw new Error('No MFA token')
-    const { data: resp } = await authApi.verifyMfa({ mfaToken: mfaToken.value, recoveryCode })
-    const body = resp.data
+    const { data: body } = await authApi.verifyMfa({ mfaToken: mfaToken.value, recoveryCode })
     localStorage.setItem('accessToken', body.accessToken)
     localStorage.setItem('refreshToken', body.refreshToken)
     mfaToken.value = null

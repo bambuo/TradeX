@@ -11,6 +11,9 @@ export interface LoginResponse {
   mfaSetupRequired?: boolean
   userId?: string
   expiresIn?: number
+  accessToken?: string
+  refreshToken?: string
+  role?: string
 }
 
 export interface VerifyMfaRequest {

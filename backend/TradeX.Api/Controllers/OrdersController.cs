@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using TradeX.Application.Common;
 using TradeX.Application.Orders;
 using TradeX.Application.Orders.DTOs;
+using TradeX.Core.ErrorCodes;
 
 namespace TradeX.Api.Controllers;
 
@@ -21,8 +22,8 @@ public class OrdersController(
     {
         var result = await getOrders.ExecuteAsync(new GetTraderOrdersQuery(traderId, UserId), ct);
         if (!result.Success)
-            return NotFound(new { message = result.Error });
-        return Ok(result.Data);
+            return NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, result.Error!));
+        return Ok(ApiResponse.Ok(result.Data));
     }
 
     [HttpGet("{id:guid}")]
@@ -30,13 +31,13 @@ public class OrdersController(
     {
         var result = await getOrders.ExecuteAsync(new GetTraderOrdersQuery(traderId, UserId), ct);
         if (!result.Success)
-            return NotFound(new { message = result.Error });
+            return NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, result.Error!));
 
         var order = result.Data!.FirstOrDefault(o => o.Id == id);
         if (order is null)
-            return NotFound(new { message = "订单不存在" });
+            return NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, "订单不存在"));
 
-        return Ok(order);
+        return Ok(ApiResponse.Ok(order));
     }
 
     [HttpPost("manual")]
@@ -51,11 +52,11 @@ public class OrdersController(
         if (!result.Success)
             return result.StatusCode switch
             {
-                404 => NotFound(new { message = result.Error }),
-                _ => BadRequest(new { message = result.Error })
+                404 => NotFound(ApiResponse.Error(BusinessErrorCode.NotFound, result.Error!)),
+                _ => BadRequest(ApiResponse.Error(BusinessErrorCode.ValidationError, result.Error!))
             };
 
-        return CreatedAtAction(nameof(GetById), new { traderId, id = result.Data!.Id }, result.Data);
+        return CreatedAtAction(nameof(GetById), new { traderId, id = result.Data!.Id }, ApiResponse.Ok(result.Data));
     }
 
     public record CreateManualOrderRequest(Guid ExchangeId, string Pair, string Side, string Type, decimal Quantity, decimal? Price = null, Guid? StrategyId = null);
