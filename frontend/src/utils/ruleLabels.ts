@@ -3,14 +3,28 @@ export const indicatorLabels: Record<string, string> = {
   RSI: 'RSI 相对强弱指数',
   SMA_20: 'SMA 20 简单移动均线',
   SMA_50: 'SMA 50 简单移动均线',
+  SMA_200: 'SMA 200 简单移动均线',
+  EMA_12: 'EMA 12 指数移动均线',
+  EMA_26: 'EMA 26 指数移动均线',
   EMA_20: 'EMA 20 指数移动均线',
   MACD_LINE: 'MACD 快线',
   MACD_SIGNAL: 'MACD 信号线',
+  MACD_HIST: 'MACD 柱',
+  BB_MID: '布林带中轨',
   BB_UPPER: '布林带上轨',
   BB_LOWER: '布林带下轨',
+  ATR_14: 'ATR 14 平均真实波幅',
+  ADX_14: 'ADX 14 平均趋向指标',
+  STOCH_K: '随机指标 %K',
+  STOCH_D: '随机指标 %D',
   OBV: 'OBV 能量潮',
   VOLUME_SMA: 'VOLUME 均量线',
   RANGE_PCT: 'RANGE_PCT 振幅%',
+  FUNDING_RATE: '资金费率',
+  VOLATILITY_24H: '24H 波动率',
+  VOLUME_RATIO: '成交量比',
+  BID_ASK_RATIO: '买卖比',
+  LIQUIDITY_DEPTH: '流动性深度',
 }
 
 /** 上下文指标 → 中文标签 */
@@ -20,6 +34,10 @@ export const contextIndicatorLabels: Record<string, string> = {
   POSITION_NOTIONAL: 'POSITION_NOTIONAL 持仓市值',
   POSITION_PNL_PCT: 'POSITION_PNL_PCT 持仓盈亏%',
   POSITION_COUNT: 'POSITION_COUNT 持仓笔数',
+  PORTFOLIO_DRAWDOWN: 'PORTFOLIO_DRAWDOWN 组合回撤%',
+  AVAILABLE_CASH: 'AVAILABLE_CASH 可用资金',
+  MARKET_REGIME: 'MARKET_REGIME 市场体制',
+  SIGNAL_QUALITY: 'SIGNAL_QUALITY 信号质量',
 }
 
 /** 逻辑运算符 → 中文标签 */
@@ -80,7 +98,16 @@ export function labelForOperator(key: string): string {
 /** 运算符列表（保留供选择使用） */
 export const operatorKeys = ['AND', 'OR', 'NOT', 'TRUE']
 /** 默认指标列表 */
-export const defaultIndicatorKeys = ['RSI', 'SMA_20', 'SMA_50', 'EMA_20', 'MACD_LINE', 'MACD_SIGNAL', 'BB_UPPER', 'BB_LOWER', 'OBV', 'VOLUME_SMA', 'RANGE_PCT']
+export const defaultIndicatorKeys = [
+  'RSI', 'SMA_20', 'SMA_50', 'SMA_200',
+  'EMA_12', 'EMA_26', 'EMA_20',
+  'MACD_LINE', 'MACD_SIGNAL', 'MACD_HIST',
+  'BB_MID', 'BB_UPPER', 'BB_LOWER',
+  'ATR_14', 'ADX_14', 'STOCH_K', 'STOCH_D',
+  'OBV', 'VOLUME_SMA', 'RANGE_PCT',
+  'FUNDING_RATE', 'VOLATILITY_24H', 'VOLUME_RATIO',
+  'BID_ASK_RATIO', 'LIQUIDITY_DEPTH',
+]
 /** 比较符列表 */
 export const comparisonKeys: string[] = ['>', '<', '>=', '<=', '==', 'CA', 'CB']
 

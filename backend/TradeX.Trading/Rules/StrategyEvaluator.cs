@@ -34,8 +34,20 @@ public interface ISignalBus
 /// <summary>单个信号生成器。</summary>
 public interface ISignalGenerator
 {
+    /// <summary>生成器唯一名称（如 "RSI_14"）。</summary>
     string Name { get; }
+
+    /// <summary>声明依赖的其他信号名称。Pipeline 据此构建依赖图并拓扑排序执行。</summary>
+    string[] Deps { get; }
+
     Task<Dictionary<string, Signal>> GenerateAsync(SignalContext ctx, CancellationToken ct = default);
+}
+
+/// <summary>昂贵信号生成器标记接口。实现此接口的生成器走异步抢先计算路径（R7），
+/// 实盘结果缓存供下一轮使用，回测则同步计算。</summary>
+public interface IExpensiveSignalGenerator : ISignalGenerator
+{
+    bool IsExpensive { get; }
 }
 
 /// <summary>信号快照存储（可选），记录每轮评估的信号以便回溯分析。</summary>

@@ -8,6 +8,7 @@ using TradeX.Trading.Commands;
 using TradeX.Trading.Engine;
 using TradeX.Trading.Execution;
 using TradeX.Trading.Indicators;
+using TradeX.Trading.Observability;
 using TradeX.Trading.Risk;
 using TradeX.Trading.Rules;
 using TradeX.Trading.Rules.Nodes;
@@ -44,6 +45,7 @@ public static class DependencyInjection
                 entrySize: 512,
                 exitSize: 128));
         services.AddScoped<StrategyEvaluator>();
+        services.AddScoped<PortfolioRiskManager>();
         services.AddScoped<IPortfolioRiskManager, PortfolioRiskManager>();
         services.AddScoped<IFillProjector, FillProjector>();
         services.AddScoped<ITradeExecutor, TradeExecutor>();
@@ -52,12 +54,29 @@ public static class DependencyInjection
         services.AddScoped<IBacktestService, BacktestService>();
         services.AddScoped<BacktestEngine>();
 
+        services.AddSingleton<TradeXMetrics>();
         services.AddSingleton<IKillSwitch, KillSwitch>();
         services.AddSingleton<TaskAnalysisStore>();
         services.AddSingleton<OrderBookSlippageGuard>();
         services.AddSingleton<IHistoricalIndicatorStore, HistoricalIndicatorStore>();
         services.AddSingleton<Execution.PairRuleCache>();
         services.AddSingleton<Execution.KlineGapDetector>();
+
+        // Trade / Kline 事件通道 + StreamManager（StrategyEvaluator 依赖）
+        services.AddSingleton(_ => Channel.CreateBounded<TradeEvent>(new BoundedChannelOptions(TradeEventChannelCapacity)
+        {
+            FullMode = BoundedChannelFullMode.DropOldest,
+            SingleReader = false,
+            SingleWriter = false
+        }));
+        services.AddSingleton<TradeStreamManager>();
+        services.AddSingleton(_ => Channel.CreateBounded<KlineEvent>(new BoundedChannelOptions(KlineEventChannelCapacity)
+        {
+            FullMode = BoundedChannelFullMode.DropOldest,
+            SingleReader = false,
+            SingleWriter = false
+        }));
+        services.AddSingleton<KlineStreamManager>();
         services.AddScoped<DailyLossHandler>();
         services.AddScoped<DrawdownHandler>();
         services.AddScoped<ConsecutiveLossHandler>();
@@ -100,24 +119,6 @@ public static class DependencyInjection
     {
         services.AddSingleton<IResourceProvider, SystemResourceProvider>();
         services.AddSingleton<ResourceMonitor>();
-
-        // Trade 逐笔成交事件通道
-        services.AddSingleton(_ => Channel.CreateBounded<TradeEvent>(new BoundedChannelOptions(TradeEventChannelCapacity)
-        {
-            FullMode = BoundedChannelFullMode.DropOldest,
-            SingleReader = false,
-            SingleWriter = false
-        }));
-        services.AddSingleton<TradeStreamManager>();
-
-        // K 线收盘事件通道（独立于 Trade，因推送频率低且需要不同订阅参数）
-        services.AddSingleton(_ => Channel.CreateBounded<KlineEvent>(new BoundedChannelOptions(KlineEventChannelCapacity)
-        {
-            FullMode = BoundedChannelFullMode.DropOldest,
-            SingleReader = false,
-            SingleWriter = false
-        }));
-        services.AddSingleton<KlineStreamManager>();
 
         services.AddSingleton<StrategyEvaluationConsumer>();
         services.AddHostedService<ResourceMonitor>(sp => sp.GetRequiredService<ResourceMonitor>());

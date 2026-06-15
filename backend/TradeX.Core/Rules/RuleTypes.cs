@@ -16,6 +16,12 @@ public sealed class Signal
 
     /// <summary>前一周期值（用于计算动量/背离/穿越）。</summary>
     public decimal PrevValue { get; set; }
+
+    /// <summary>信号质量等级。</summary>
+    public SignalQuality Quality { get; set; } = SignalQuality.High;
+
+    /// <summary>扩展元数据（可选）。用于携带额外信息，如 MACD 的 signal/hist 值。</summary>
+    public Dictionary<string, string>? Meta { get; set; }
 }
 
 /// <summary>信号上下文（输入，只读）。传递给信号管线的纯数据。</summary>
@@ -26,6 +32,15 @@ public sealed class SignalContext
     public IReadOnlyList<Kline> KlineWindow { get; set; } = [];
     public PositionSnapshot? Position { get; set; }
     public PortfolioSnapshot? Portfolio { get; set; }
+
+    /// <summary>上一轮的信号快照（由 Pipeline 注入，用于穿越判断 R1）。</summary>
+    public Dictionary<string, Signal> PrevSignals { get; set; } = [];
+
+    /// <summary>资金费率（可选，现货策略无需关心）。</summary>
+    public decimal? FundingRate { get; set; }
+
+    /// <summary>未平仓合约量（可选，现货策略无需关心）。</summary>
+    public decimal? OpenInterest { get; set; }
 }
 
 /// <summary>评估上下文。规则链评估所需的全部上下文数据。</summary>
