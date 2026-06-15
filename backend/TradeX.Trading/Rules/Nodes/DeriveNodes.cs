@@ -315,13 +315,164 @@ public static class DeriveNodesRegistration
 {
     public static void RegisterDeriveNodes(this NodeRegistry reg)
     {
-        reg.Register("crossover_check", p => new CrossoverCheckNode(p));
-        reg.Register("atr_stop_calc", p => new AtrStopCalcNode(p));
-        reg.Register("grid_price_level", p => new GridPriceLevelNode(p));
-        reg.Register("volatility_scaling", p => new VolatilityScalingNode(p));
-        reg.Register("trailing_stop_calc", p => new TrailingStopCalcNode(p));
-        reg.Register("kelly", p => new KellyNode(p));
-        reg.Register("divergence_detect", p => new DivergenceDetectNode(p));
-        reg.Register("correlation_score", p => new CorrelationScoreNode(p));
+        reg.Register("crossover_check", new NodeDescriptor
+        {
+            Kind = "crossover_check", Phase = RulePhase.Derive,
+            Description = "交叉检测：判断快慢信号的金叉/死叉",
+            Category = "Derive", AllowDuplicate = true,
+            Params = [
+                new() { Name = "fastSignal", Type = "ref", Required = true, RefScope = "signal",
+                    Description = "快速信号名称" },
+                new() { Name = "slowSignal", Type = "ref", Required = true, RefScope = "signal",
+                    Description = "慢速信号名称" },
+                new() { Name = "outputKey", Type = "string", Required = true,
+                    Description = "输出到 DerivedValues 的键名" }
+            ],
+            EmitNames = ["{outputKey}"], EmitScope = "chain",
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "EMA 快慢线交叉", ["params"] = new Dictionary<string, object> { ["fastSignal"] = "EMA_9", ["slowSignal"] = "EMA_21", ["outputKey"] = "EMA_CROSS" } }
+            ]
+        }, p => new CrossoverCheckNode(p));
+
+        reg.Register("atr_stop_calc", new NodeDescriptor
+        {
+            Kind = "atr_stop_calc", Phase = RulePhase.Derive,
+            Description = "ATR 止损/止盈计算：基于 ATR 计算多空止损止盈价",
+            Category = "Derive",
+            Params = [
+                new() { Name = "atrSignal", Type = "ref", Required = false, Default = "ATR_14", RefScope = "signal",
+                    Description = "ATR 信号名称" },
+                new() { Name = "multiplier", Type = "float", Required = true, Min = 0,
+                    Description = "ATR 乘数" },
+                new() { Name = "longStopKey", Type = "string", Required = true,
+                    Description = "多仓止损输出键" },
+                new() { Name = "longTpKey", Type = "string", Required = true,
+                    Description = "多仓止盈输出键" },
+                new() { Name = "shortStopKey", Type = "string", Required = true,
+                    Description = "空仓止损输出键" },
+                new() { Name = "shortTpKey", Type = "string", Required = true,
+                    Description = "空仓止盈输出键" }
+            ],
+            EmitNames = ["{longStopKey}", "{longTpKey}", "{shortStopKey}", "{shortTpKey}"], EmitScope = "chain",
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "2倍 ATR 止损", ["params"] = new Dictionary<string, object> { ["atrSignal"] = "ATR_14", ["multiplier"] = 2m, ["longStopKey"] = "LONG_STOP", ["longTpKey"] = "LONG_TP", ["shortStopKey"] = "SHORT_STOP", ["shortTpKey"] = "SHORT_TP" } }
+            ]
+        }, p => new AtrStopCalcNode(p));
+
+        reg.Register("grid_price_level", new NodeDescriptor
+        {
+            Kind = "grid_price_level", Phase = RulePhase.Derive,
+            Description = "网格价格水平：计算等差/等比网格价格",
+            Category = "Derive",
+            Params = [
+                new() { Name = "topPrice", Type = "float", Required = true, Min = 0,
+                    Description = "网格上界价格", Unit = "USDT" },
+                new() { Name = "bottomPrice", Type = "float", Required = true, Min = 0,
+                    Description = "网格下界价格", Unit = "USDT" },
+                new() { Name = "gridCount", Type = "int", Required = true, Min = 2,
+                    Description = "网格数量" },
+                new() { Name = "mode", Type = "string", Required = true,
+                    Enum = ["LINEAR", "GEOMETRIC"], Description = "网格模式" },
+                new() { Name = "outputKey", Type = "string", Required = true,
+                    Description = "输出前缀键名" }
+            ],
+            EmitNames = ["{outputKey}_COUNT", "{outputKey}_0..N"], EmitScope = "chain",
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "10 档线性网格", ["params"] = new Dictionary<string, object> { ["topPrice"] = 100m, ["bottomPrice"] = 80m, ["gridCount"] = 10, ["mode"] = "LINEAR", ["outputKey"] = "GRID" } }
+            ]
+        }, p => new GridPriceLevelNode(p));
+
+        reg.Register("volatility_scaling", new NodeDescriptor
+        {
+            Kind = "volatility_scaling", Phase = RulePhase.Derive,
+            Description = "波动率缩放：根据波动率反向缩放基准值",
+            Category = "Derive", AllowDuplicate = true,
+            Params = [
+                new() { Name = "signal", Type = "ref", Required = false, Default = "VOLATILITY_24H", RefScope = "signal",
+                    Description = "波动率信号名称" },
+                new() { Name = "baseValue", Type = "float", Required = true,
+                    Description = "基准值" },
+                new() { Name = "outputKey", Type = "string", Required = true,
+                    Description = "输出键名" }
+            ],
+            EmitNames = ["{outputKey}"], EmitScope = "chain",
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "基准 100 按波动率缩放", ["params"] = new Dictionary<string, object> { ["signal"] = "VOLATILITY_24H", ["baseValue"] = 100m, ["outputKey"] = "SCALED_SIZE" } }
+            ]
+        }, p => new VolatilityScalingNode(p));
+
+        reg.Register("trailing_stop_calc", new NodeDescriptor
+        {
+            Kind = "trailing_stop_calc", Phase = RulePhase.Derive,
+            Description = "追踪止损计算：根据当前价格和持仓计算追踪止损价",
+            Category = "Derive",
+            Params = [
+                new() { Name = "trailPercent", Type = "float", Required = true,
+                    Min = 0, Max = 100, Description = "追踪距离百分比", Unit = "%" },
+                new() { Name = "outputKey", Type = "string", Required = true,
+                    Description = "输出键名" }
+            ],
+            EmitNames = ["{outputKey}"], EmitScope = "chain",
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "2% 追踪止损", ["params"] = new Dictionary<string, object> { ["trailPercent"] = 2m, ["outputKey"] = "TRAIL_STOP" } }
+            ]
+        }, p => new TrailingStopCalcNode(p));
+
+        reg.Register("kelly", new NodeDescriptor
+        {
+            Kind = "kelly", Phase = RulePhase.Derive,
+            Description = "凯利公式：根据胜率和盈亏比计算最优仓位比例",
+            Category = "Derive",
+            Params = [
+                new() { Name = "winRate", Type = "float", Required = true,
+                    Min = 0, Max = 1, Description = "胜率 (0~1)" },
+                new() { Name = "avgWinLossRatio", Type = "float", Required = true,
+                    Min = 0, Description = "平均盈亏比" },
+                new() { Name = "outputKey", Type = "string", Required = true,
+                    Description = "输出键名" }
+            ],
+            EmitNames = ["{outputKey}"], EmitScope = "chain",
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "60% 胜率 / 1.5 盈亏比", ["params"] = new Dictionary<string, object> { ["winRate"] = 0.6m, ["avgWinLossRatio"] = 1.5m, ["outputKey"] = "KELLY_F" } }
+            ]
+        }, p => new KellyNode(p));
+
+        reg.Register("divergence_detect", new NodeDescriptor
+        {
+            Kind = "divergence_detect", Phase = RulePhase.Derive,
+            Description = "背离检测：检测价格与成交量的顶/底背离",
+            Category = "Derive", AllowDuplicate = true,
+            Params = [
+                new() { Name = "priceSignal", Type = "ref", Required = true, RefScope = "signal",
+                    Description = "价格信号名称" },
+                new() { Name = "volumeSignal", Type = "ref", Required = true, RefScope = "signal",
+                    Description = "成交量信号名称" },
+                new() { Name = "outputKey", Type = "string", Required = true,
+                    Description = "输出键名 (+1=底背离, -1=顶背离)" }
+            ],
+            EmitNames = ["{outputKey}"], EmitScope = "chain",
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "价格与成交量背离", ["params"] = new Dictionary<string, object> { ["priceSignal"] = "PRICE", ["volumeSignal"] = "VOLUME", ["outputKey"] = "DIVERGENCE" } }
+            ]
+        }, p => new DivergenceDetectNode(p));
+
+        reg.Register("correlation_score", new NodeDescriptor
+        {
+            Kind = "correlation_score", Phase = RulePhase.Derive,
+            Description = "相关性评分：计算两个信号的瞬时方向相关性",
+            Category = "Derive", AllowDuplicate = true,
+            Params = [
+                new() { Name = "signalA", Type = "ref", Required = true, RefScope = "signal",
+                    Description = "信号 A 名称" },
+                new() { Name = "signalB", Type = "ref", Required = true, RefScope = "signal",
+                    Description = "信号 B 名称" },
+                new() { Name = "outputKey", Type = "string", Required = true,
+                    Description = "输出键名 (+1=同向, -1=反向)" }
+            ],
+            EmitNames = ["{outputKey}"], EmitScope = "chain",
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "BTC 与 ETH 相关性", ["params"] = new Dictionary<string, object> { ["signalA"] = "BTC_MOMENTUM", ["signalB"] = "ETH_MOMENTUM", ["outputKey"] = "CORRELATION" } }
+            ]
+        }, p => new CorrelationScoreNode(p));
     }
 }

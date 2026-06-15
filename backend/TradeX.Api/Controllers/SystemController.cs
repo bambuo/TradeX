@@ -9,9 +9,7 @@ namespace TradeX.Api.Controllers;
 [Authorize]
 [Route("api/v1/system")]
 public class SystemController(
-    IUseCase<GetExchangeStatusQuery, Result<List<ExchangeStatusDto>>> getExchangeStatus,
-    IUseCase<EmergencyStopCommand, Result<EmergencyStopResultDto>> emergencyStop,
-    IUseCase<GetSystemLogsQuery, Result<List<SystemLogEntryDto>>> getSystemLogs) : ControllerBase
+    IUseCase<EmergencyStopCommand, Result<EmergencyStopResultDto>> emergencyStop) : ControllerBase
 {
     [HttpPost("emergency-stop")]
     public async Task<IActionResult> EmergencyStop(CancellationToken ct)

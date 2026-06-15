@@ -41,7 +41,7 @@ public sealed class DomainEventInterceptor(
         CancellationToken cancellationToken = default)
     {
         var events = _pendingEvents.Value;
-        _pendingEvents.Value = null;
+        _pendingEvents.Value = [];
 
         if (events is { Count: > 0 })
         {

@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FlexLabs.EntityFrameworkCore.Upsert" Version="9.1.1" />
+    <PackageReference Include="FlexLabs.EntityFrameworkCore.Upsert" Version="9.100.0" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
     <PackageReference Include="Casbin.NET" Version="2.14.0" />
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />

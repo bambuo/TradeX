@@ -153,9 +153,64 @@ public static class OverrideNodesRegistration
 {
     public static void RegisterOverrideNodes(this NodeRegistry reg)
     {
-        reg.Register("kill_switch", p => new KillSwitchNode(p));
-        reg.Register("emergency_exit", p => new EmergencyExitNode(p));
-        reg.Register("manual_block", p => new ManualBlockNode(p));
-        reg.Register("exchange_health", p => new ExchangeHealthNode(p));
+        reg.Register("kill_switch", new NodeDescriptor
+        {
+            Kind = "kill_switch", Phase = RulePhase.Override,
+            Description = "紧急停止开关：激活时清空所有操作并终止",
+            Category = "Override",
+            Params = [
+                new() { Name = "key", Type = "string", Required = true,
+                    Description = "开关标识键" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "全局停止", ["params"] = new Dictionary<string, object> { ["key"] = "GLOBAL_KILL" } }
+            ]
+        }, p => new KillSwitchNode(p));
+
+        reg.Register("emergency_exit", new NodeDescriptor
+        {
+            Kind = "emergency_exit", Phase = RulePhase.Override,
+            Description = "紧急平仓：信号触发时立即全平并终止",
+            Category = "Override",
+            Params = [
+                new() { Name = "signal", Type = "ref", Required = true, RefScope = "signal",
+                    Description = "触发信号名称" },
+                new() { Name = "threshold", Type = "float", Required = true,
+                    Description = "触发阈值" },
+                new() { Name = "op", Type = "string", Required = true,
+                    Enum = ["<=", ">=", "<", ">", "=="], Description = "比较运算符" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "RSI 超买紧急平仓", ["params"] = new Dictionary<string, object> { ["signal"] = "RSI_14", ["op"] = ">=", ["threshold"] = 90m } }
+            ]
+        }, p => new EmergencyExitNode(p));
+
+        reg.Register("manual_block", new NodeDescriptor
+        {
+            Kind = "manual_block", Phase = RulePhase.Override,
+            Description = "手动屏蔽：通过外部状态手动阻止交易",
+            Category = "Override",
+            Params = [
+                new() { Name = "blockedKey", Type = "string", Required = true,
+                    Description = "屏蔽状态键名 (在 StateStore 中查找)" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "手动暂停", ["params"] = new Dictionary<string, object> { ["blockedKey"] = "MANUAL_BLOCK" } }
+            ]
+        }, p => new ManualBlockNode(p));
+
+        reg.Register("exchange_health", new NodeDescriptor
+        {
+            Kind = "exchange_health", Phase = RulePhase.Override,
+            Description = "交易所健康检查：延迟超过阈值时终止",
+            Category = "Override",
+            Params = [
+                new() { Name = "maxLatencyMs", Type = "float", Required = true,
+                    Min = 0, Description = "最大允许延迟", Unit = "ms" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "延迟不超过 5 秒", ["params"] = new Dictionary<string, object> { ["maxLatencyMs"] = 5000m } }
+            ]
+        }, p => new ExchangeHealthNode(p));
     }
 }

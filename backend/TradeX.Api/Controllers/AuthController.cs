@@ -20,8 +20,7 @@ public class AuthController(
     JwtService jwtService,
     MfaService mfaService,
     IUseCase<LoginCommand, Result<AuthResultDto>> loginUseCase,
-    IUseCase<RefreshTokenCommand, Result<AuthResultDto>> refreshTokenUseCase,
-    IUseCase<GetCurrentUserQuery, Result<AuthResultDto>> getCurrentUserUseCase) : ControllerBase
+    IUseCase<RefreshTokenCommand, Result<AuthResultDto>> refreshTokenUseCase) : ControllerBase
 {
     public record LoginRequest(string Username, string Password);
     public record VerifyMfaRequest(string MfaToken, string? TotpCode, string? RecoveryCode);

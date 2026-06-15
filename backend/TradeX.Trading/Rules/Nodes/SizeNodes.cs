@@ -269,12 +269,119 @@ public static class SizeNodesRegistration
 {
     public static void RegisterSizeNodes(this NodeRegistry reg)
     {
-        reg.Register("fixed_size", p => new FixedSizeNode(p));
-        reg.Register("pyramiding_size", p => new PyramidingSizeNode(p));
-        reg.Register("account_ratio_size", p => new AccountRatioSizeNode(p));
-        reg.Register("volatility_adjusted_size", p => new VolatilityAdjustedSizeNode(p));
-        reg.Register("grid_size", p => new GridSizeNode(p));
-        reg.Register("kelly_size", p => new KellySizeNode(p));
-        reg.Register("portfolio_alloc_size", p => new PortfolioAllocSizeNode(p));
+        reg.Register("fixed_size", new NodeDescriptor
+        {
+            Kind = "fixed_size", Phase = RulePhase.Size,
+            Description = "固定仓位：每次开仓固定金额",
+            Category = "Size", ProducesDecisions = true,
+            Params = [
+                new() { Name = "amount", Type = "float", Required = true,
+                    Min = 0, Description = "开仓金额", Unit = "USDT" },
+                new() { Name = "currency", Type = "string", Required = false, Default = "USDT",
+                    Description = "计价币种" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "每次 50 USDT", ["params"] = new Dictionary<string, object> { ["amount"] = 50m, ["currency"] = "USDT" } }
+            ]
+        }, p => new FixedSizeNode(p));
+
+        reg.Register("pyramiding_size", new NodeDescriptor
+        {
+            Kind = "pyramiding_size", Phase = RulePhase.Size,
+            Description = "金字塔加仓：按层级指数级调整仓位",
+            Category = "Size", ProducesDecisions = true,
+            Params = [
+                new() { Name = "baseAmount", Type = "float", Required = true,
+                    Min = 0, Description = "基础金额", Unit = "USDT" },
+                new() { Name = "multiplier", Type = "float", Required = true,
+                    Min = 0, Description = "层级乘数" },
+                new() { Name = "maxLevel", Type = "int", Required = true,
+                    Min = 1, Description = "最大加仓层数" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "3 层金字塔", ["params"] = new Dictionary<string, object> { ["baseAmount"] = 100m, ["multiplier"] = 0.5m, ["maxLevel"] = 3 } }
+            ]
+        }, p => new PyramidingSizeNode(p));
+
+        reg.Register("account_ratio_size", new NodeDescriptor
+        {
+            Kind = "account_ratio_size", Phase = RulePhase.Size,
+            Description = "账户比例仓位：按账户总权益的固定比例计算仓位",
+            Category = "Size", ProducesDecisions = true,
+            Params = [
+                new() { Name = "ratio", Type = "float", Required = true,
+                    Min = 0, Max = 1, Description = "账户权益比例 (0~1)" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "账户 10%", ["params"] = new Dictionary<string, object> { ["ratio"] = 0.1m } }
+            ]
+        }, p => new AccountRatioSizeNode(p));
+
+        reg.Register("volatility_adjusted_size", new NodeDescriptor
+        {
+            Kind = "volatility_adjusted_size", Phase = RulePhase.Size,
+            Description = "波动率调整仓位：波动率越高仓位越小",
+            Category = "Size", ProducesDecisions = true,
+            Params = [
+                new() { Name = "baseSize", Type = "float", Required = true,
+                    Min = 0, Description = "基准仓位金额", Unit = "USDT" },
+                new() { Name = "volSignal", Type = "ref", Required = false, Default = "VOLATILITY_24H", RefScope = "signal",
+                    Description = "波动率信号名称" },
+                new() { Name = "referenceVol", Type = "float", Required = false,
+                    Min = 0, Description = "参考波动率 (留空用当前值)" },
+                new() { Name = "outputKey", Type = "string", Required = true,
+                    Description = "输出键名" }
+            ],
+            EmitNames = ["{outputKey}"], EmitScope = "chain",
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "基准 100 按波动率调整", ["params"] = new Dictionary<string, object> { ["baseSize"] = 100m, ["volSignal"] = "VOLATILITY_24H", ["outputKey"] = "ADJ_SIZE" } }
+            ]
+        }, p => new VolatilityAdjustedSizeNode(p));
+
+        reg.Register("grid_size", new NodeDescriptor
+        {
+            Kind = "grid_size", Phase = RulePhase.Size,
+            Description = "网格仓位：按等差/等比分配每格资金",
+            Category = "Size", ProducesDecisions = true,
+            Params = [
+                new() { Name = "totalAmount", Type = "float", Required = true,
+                    Min = 0, Description = "总资金", Unit = "USDT" },
+                new() { Name = "gridCount", Type = "int", Required = true,
+                    Min = 1, Description = "网格数量" },
+                new() { Name = "mode", Type = "string", Required = true,
+                    Enum = ["LINEAR", "GEOMETRIC"], Description = "分配模式" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "10 格线性分配 1000 USDT", ["params"] = new Dictionary<string, object> { ["totalAmount"] = 1000m, ["gridCount"] = 10, ["mode"] = "LINEAR" } }
+            ]
+        }, p => new GridSizeNode(p));
+
+        reg.Register("kelly_size", new NodeDescriptor
+        {
+            Kind = "kelly_size", Phase = RulePhase.Size,
+            Description = "凯利仓位：根据凯利公式计算仓位金额",
+            Category = "Size", ProducesDecisions = true,
+            Params = [
+                new() { Name = "kellyFraction", Type = "float", Required = true,
+                    Min = 0, Max = 1, Description = "凯利比例系数 (0~1)" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "半凯利", ["params"] = new Dictionary<string, object> { ["kellyFraction"] = 0.5m } }
+            ]
+        }, p => new KellySizeNode(p));
+
+        reg.Register("portfolio_alloc_size", new NodeDescriptor
+        {
+            Kind = "portfolio_alloc_size", Phase = RulePhase.Size,
+            Description = "组合分配仓位：按账户权益百分比计算仓位",
+            Category = "Size", ProducesDecisions = true,
+            Params = [
+                new() { Name = "allocationPercent", Type = "float", Required = true,
+                    Min = 0, Max = 100, Description = "分配百分比", Unit = "%" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "5% 仓位", ["params"] = new Dictionary<string, object> { ["allocationPercent"] = 5m } }
+            ]
+        }, p => new PortfolioAllocSizeNode(p));
     }
 }

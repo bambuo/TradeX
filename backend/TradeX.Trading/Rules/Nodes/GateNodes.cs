@@ -196,11 +196,98 @@ public static class GateNodesRegistration
 {
     public static void RegisterGateNodes(this NodeRegistry reg)
     {
-        reg.Register("regime_gate", p => new RegimeGateNode(p));
-        reg.Register("time_gate", p => new TimeGateNode(p));
-        reg.Register("pair_gate", p => new PairGateNode(p));
-        reg.Register("signal_gate", p => new SignalGateNode(p));
-        reg.Register("capital_gate", p => new CapitalGateNode(p));
-        reg.Register("position_gate", p => new PositionGateNode(p));
+        reg.Register("regime_gate", new NodeDescriptor
+        {
+            Kind = "regime_gate", Phase = RulePhase.Gate,
+            Description = "市场体制匹配：只在指定的市场体制下放行",
+            Category = "Gate",
+            Params = [
+                new() { Name = "allowedRegimes", Type = "string[]", Required = true,
+                    Enum = ["RANGING", "TRENDING", "HIGH_VOL", "CRASH", "LOW_VOL"],
+                    Description = "允许执行的市场体制列表" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "仅震荡行情", ["params"] = new Dictionary<string, object> { ["allowedRegimes"] = new[] { "RANGING" } } }
+            ]
+        }, p => new RegimeGateNode(p));
+
+        reg.Register("time_gate", new NodeDescriptor
+        {
+            Kind = "time_gate", Phase = RulePhase.Gate,
+            Description = "时间门：在指定时间周期/区间内放行",
+            Category = "Gate",
+            Params = [
+                new() { Name = "mode", Type = "string", Required = true,
+                    Enum = ["WINDOW", "INTERVAL"], Description = "时间模式" },
+                new() { Name = "windows", Type = "string[]", Required = false,
+                    Description = "时间窗口列表 (mode=WINDOW 时)" },
+                new() { Name = "intervalMinutes", Type = "int", Required = false, Default = 60,
+                    Min = 1, Description = "执行间隔（分钟）", Unit = "min" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "每 4 小时", ["params"] = new Dictionary<string, object> { ["mode"] = "INTERVAL", ["intervalMinutes"] = 240 } }
+            ]
+        }, p => new TimeGateNode(p));
+
+        reg.Register("pair_gate", new NodeDescriptor
+        {
+            Kind = "pair_gate", Phase = RulePhase.Gate,
+            Description = "交易对白名单：仅指定交易对放行",
+            Category = "Gate",
+            Params = [
+                new() { Name = "whitelist", Type = "string[]", Required = true,
+                    Description = "允许的交易对列表" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "仅 BTC/USDT", ["params"] = new Dictionary<string, object> { ["whitelist"] = new[] { "BTCUSDT" } } }
+            ]
+        }, p => new PairGateNode(p));
+
+        reg.Register("signal_gate", new NodeDescriptor
+        {
+            Kind = "signal_gate", Phase = RulePhase.Gate,
+            Description = "信号门：根据信号值与阈值的比较结果放行",
+            Category = "Gate",
+            Params = [
+                new() { Name = "signal", Type = "ref", Required = true, RefScope = "signal",
+                    Description = "信号名称" },
+                new() { Name = "op", Type = "string", Required = true,
+                    Enum = ["<=", ">=", "<", ">", "=="], Description = "比较运算符" },
+                new() { Name = "threshold", Type = "float", Required = true,
+                    Description = "阈值" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "RSI 超卖", ["params"] = new Dictionary<string, object> { ["signal"] = "RSI_14", ["op"] = "<=", ["threshold"] = 30m } }
+            ]
+        }, p => new SignalGateNode(p));
+
+        reg.Register("capital_gate", new NodeDescriptor
+        {
+            Kind = "capital_gate", Phase = RulePhase.Gate,
+            Description = "资金门：可用资金不足时拒绝交易",
+            Category = "Gate",
+            Params = [
+                new() { Name = "minAvailableCash", Type = "float", Required = true,
+                    Min = 0, Description = "最低可用资金", Unit = "USDT" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "至少 100 USDT", ["params"] = new Dictionary<string, object> { ["minAvailableCash"] = 100m } }
+            ]
+        }, p => new CapitalGateNode(p));
+
+        reg.Register("position_gate", new NodeDescriptor
+        {
+            Kind = "position_gate", Phase = RulePhase.Gate,
+            Description = "持仓状态门：仅在指定持仓状态下放行",
+            Category = "Gate",
+            Params = [
+                new() { Name = "require", Type = "string", Required = true,
+                    Enum = ["OPEN", "CLOSED", "ANY"], Description = "要求的持仓状态" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "空仓才放行", ["params"] = new Dictionary<string, object> { ["require"] = "CLOSED" } },
+                new Dictionary<string, object> { ["title"] = "持仓才放行", ["params"] = new Dictionary<string, object> { ["require"] = "OPEN" } }
+            ]
+        }, p => new PositionGateNode(p));
     }
 }

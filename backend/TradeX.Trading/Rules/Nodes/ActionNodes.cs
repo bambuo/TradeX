@@ -377,12 +377,122 @@ public static class ActionNodesRegistration
 {
     public static void RegisterActionNodes(this NodeRegistry reg)
     {
-        reg.Register("signal_action", p => new SignalActionNode(p));
-        reg.Register("grid_action", p => new GridActionNode(p));
-        reg.Register("trailing_stop_action", p => new TrailingStopActionNode(p));
-        reg.Register("take_profit_action", p => new TakeProfitActionNode(p));
-        reg.Register("dca_action", p => new DcaActionNode(p));
-        reg.Register("trend_action", p => new TrendActionNode(p));
-        reg.Register("martingale_action", p => new MartingaleActionNode(p));
+        reg.Register("signal_action", new NodeDescriptor
+        {
+            Kind = "signal_action", Phase = RulePhase.Action,
+            Description = "信号动作：根据信号值与阈值的比较生成买卖决策",
+            Category = "Action", ProducesDecisions = true,
+            Params = [
+                new() { Name = "buySignal", Type = "ref", Required = false, RefScope = "signal",
+                    Description = "买入信号名称" },
+                new() { Name = "sellSignal", Type = "ref", Required = false, RefScope = "signal",
+                    Description = "卖出信号名称" },
+                new() { Name = "threshold", Type = "float", Required = true,
+                    Description = "触发阈值" },
+                new() { Name = "direction", Type = "string", Required = true,
+                    Enum = ["ABOVE", "BELOW"], Description = "触发方向" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "RSI 超卖买入", ["params"] = new Dictionary<string, object> { ["buySignal"] = "RSI_14", ["threshold"] = 30m, ["direction"] = "BELOW" } }
+            ]
+        }, p => new SignalActionNode(p));
+
+        reg.Register("grid_action", new NodeDescriptor
+        {
+            Kind = "grid_action", Phase = RulePhase.Action,
+            Description = "网格动作：价格偏离基准超过阈值时反向操作",
+            Category = "Action", ProducesDecisions = true,
+            Params = [
+                new() { Name = "deviationPercent", Type = "float", Required = true,
+                    Min = 0, Max = 100, Description = "偏离阈值", Unit = "%" },
+                new() { Name = "basePrice", Type = "float", Required = true,
+                    Min = 0, Description = "基准价格", Unit = "USDT" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "1% 偏离再平衡", ["params"] = new Dictionary<string, object> { ["deviationPercent"] = 1m, ["basePrice"] = 50000m } }
+            ]
+        }, p => new GridActionNode(p));
+
+        reg.Register("trailing_stop_action", new NodeDescriptor
+        {
+            Kind = "trailing_stop_action", Phase = RulePhase.Action,
+            Description = "追踪止损动作：价格回撤超过百分比时平仓",
+            Category = "Action", ProducesDecisions = true,
+            Params = [
+                new() { Name = "trailPercent", Type = "float", Required = true,
+                    Min = 0, Max = 100, Description = "追踪距离百分比", Unit = "%" },
+                new() { Name = "activationPrice", Type = "float", Required = false,
+                    Min = 0, Description = "激活价格 (留空立即激活)" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "3% 追踪止损", ["params"] = new Dictionary<string, object> { ["trailPercent"] = 3m } }
+            ]
+        }, p => new TrailingStopActionNode(p));
+
+        reg.Register("take_profit_action", new NodeDescriptor
+        {
+            Kind = "take_profit_action", Phase = RulePhase.Action,
+            Description = "止盈动作：盈利达到百分比阈值时平仓",
+            Category = "Action", ProducesDecisions = true,
+            Params = [
+                new() { Name = "tpPercent", Type = "float", Required = true,
+                    Min = 0, Max = 100, Description = "止盈百分比", Unit = "%" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "5% 止盈", ["params"] = new Dictionary<string, object> { ["tpPercent"] = 5m } }
+            ]
+        }, p => new TakeProfitActionNode(p));
+
+        reg.Register("dca_action", new NodeDescriptor
+        {
+            Kind = "dca_action", Phase = RulePhase.Action,
+            Description = "定投动作：按固定时间间隔定期买入",
+            Category = "Action", ProducesDecisions = true,
+            Params = [
+                new() { Name = "intervalHours", Type = "int", Required = true,
+                    Min = 1, Description = "定投间隔", Unit = "h" },
+                new() { Name = "amount", Type = "float", Required = true,
+                    Min = 0, Description = "每次定投金额", Unit = "USDT" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "每 24 小时投 100 USDT", ["params"] = new Dictionary<string, object> { ["intervalHours"] = 24, ["amount"] = 100m } }
+            ]
+        }, p => new DcaActionNode(p));
+
+        reg.Register("trend_action", new NodeDescriptor
+        {
+            Kind = "trend_action", Phase = RulePhase.Action,
+            Description = "趋势动作：根据趋势信号方向顺势开仓",
+            Category = "Action", ProducesDecisions = true,
+            Params = [
+                new() { Name = "trendSignal", Type = "ref", Required = true, RefScope = "signal",
+                    Description = "趋势信号名称" },
+                new() { Name = "threshold", Type = "float", Required = true,
+                    Description = "触发阈值" },
+                new() { Name = "direction", Type = "string", Required = true,
+                    Enum = ["ABOVE", "BELOW"], Description = "触发方向" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "MACD 趋势跟踪", ["params"] = new Dictionary<string, object> { ["trendSignal"] = "MACD_HIST", ["threshold"] = 0m, ["direction"] = "ABOVE" } }
+            ]
+        }, p => new TrendActionNode(p));
+
+        reg.Register("martingale_action", new NodeDescriptor
+        {
+            Kind = "martingale_action", Phase = RulePhase.Action,
+            Description = "马丁格尔动作：每次亏损后加倍买入",
+            Category = "Action", ProducesDecisions = true,
+            Params = [
+                new() { Name = "baseAmount", Type = "float", Required = true,
+                    Min = 0, Description = "基础金额", Unit = "USDT" },
+                new() { Name = "multiplier", Type = "float", Required = true,
+                    Min = 1, Description = "加倍乘数" },
+                new() { Name = "maxSteps", Type = "int", Required = true,
+                    Min = 1, Description = "最大加倍步数" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "2 倍马丁格尔最多 5 步", ["params"] = new Dictionary<string, object> { ["baseAmount"] = 50m, ["multiplier"] = 2m, ["maxSteps"] = 5 } }
+            ]
+        }, p => new MartingaleActionNode(p));
     }
 }

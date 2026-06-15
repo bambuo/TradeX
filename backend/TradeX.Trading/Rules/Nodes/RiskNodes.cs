@@ -298,14 +298,132 @@ public static class RiskNodesRegistration
 {
     public static void RegisterRiskNodes(this NodeRegistry reg)
     {
-        reg.Register("max_position_size", p => new MaxPositionSizeNode(p));
-        reg.Register("max_pyramiding", p => new MaxPyramidingNode(p));
-        reg.Register("max_drawdown", p => new MaxDrawdownNode(p));
-        reg.Register("daily_loss_limit", p => new DailyLossLimitNode(p));
-        reg.Register("cooldown", p => new CooldownNode(p));
-        reg.Register("consecutive_loss_stop", p => new ConsecutiveLossStopNode(p));
-        reg.Register("quality_filter", p => new QualityFilterNode(p));
-        reg.Register("max_positions", p => new MaxPositionsNode(p));
-        reg.Register("max_correlation", p => new MaxCorrelationNode(p));
+        reg.Register("max_position_size", new NodeDescriptor
+        {
+            Kind = "max_position_size", Phase = RulePhase.Risk,
+            Description = "最大仓位限制：买单名义值超过上限时缩放",
+            Category = "Risk",
+            Params = [
+                new() { Name = "maxNotional", Type = "float", Required = true,
+                    Min = 0, Description = "最大名义值", Unit = "USDT" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "单笔不超过 1000 USDT", ["params"] = new Dictionary<string, object> { ["maxNotional"] = 1000m } }
+            ]
+        }, p => new MaxPositionSizeNode(p));
+
+        reg.Register("max_pyramiding", new NodeDescriptor
+        {
+            Kind = "max_pyramiding", Phase = RulePhase.Risk,
+            Description = "最大加仓层数：达到层数上限后禁止新开仓",
+            Category = "Risk",
+            Params = [
+                new() { Name = "maxLevel", Type = "int", Required = true,
+                    Min = 1, Description = "最大加仓层数" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "最多 3 层加仓", ["params"] = new Dictionary<string, object> { ["maxLevel"] = 3 } }
+            ]
+        }, p => new MaxPyramidingNode(p));
+
+        reg.Register("max_drawdown", new NodeDescriptor
+        {
+            Kind = "max_drawdown", Phase = RulePhase.Risk,
+            Description = "最大回撤：回撤超过阈值时清空操作并终止",
+            Category = "Risk",
+            Params = [
+                new() { Name = "maxDrawdownPercent", Type = "float", Required = true,
+                    Min = 0, Max = 100, Description = "最大回撤百分比", Unit = "%" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "20% 回撤熔断", ["params"] = new Dictionary<string, object> { ["maxDrawdownPercent"] = 20m } }
+            ]
+        }, p => new MaxDrawdownNode(p));
+
+        reg.Register("daily_loss_limit", new NodeDescriptor
+        {
+            Kind = "daily_loss_limit", Phase = RulePhase.Risk,
+            Description = "单日亏损上限：当日亏损超过限额时终止",
+            Category = "Risk",
+            Params = [
+                new() { Name = "maxDailyLoss", Type = "float", Required = true,
+                    Min = 0, Description = "单日最大亏损", Unit = "USDT" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "日亏损不超过 500 USDT", ["params"] = new Dictionary<string, object> { ["maxDailyLoss"] = 500m } }
+            ]
+        }, p => new DailyLossLimitNode(p));
+
+        reg.Register("cooldown", new NodeDescriptor
+        {
+            Kind = "cooldown", Phase = RulePhase.Risk,
+            Description = "冷却期：上次交易后等待指定时间再允许新交易",
+            Category = "Risk",
+            Params = [
+                new() { Name = "cooldownMinutes", Type = "int", Required = true,
+                    Min = 1, Description = "冷却时间", Unit = "min" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "15 分钟冷却", ["params"] = new Dictionary<string, object> { ["cooldownMinutes"] = 15 } }
+            ]
+        }, p => new CooldownNode(p));
+
+        reg.Register("consecutive_loss_stop", new NodeDescriptor
+        {
+            Kind = "consecutive_loss_stop", Phase = RulePhase.Risk,
+            Description = "连续亏损停止：连续亏损次数达到上限时终止",
+            Category = "Risk",
+            Params = [
+                new() { Name = "maxConsecutiveLosses", Type = "int", Required = true,
+                    Min = 1, Description = "最大连续亏损次数" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "连续 3 次亏损停止", ["params"] = new Dictionary<string, object> { ["maxConsecutiveLosses"] = 3 } }
+            ]
+        }, p => new ConsecutiveLossStopNode(p));
+
+        reg.Register("quality_filter", new NodeDescriptor
+        {
+            Kind = "quality_filter", Phase = RulePhase.Risk,
+            Description = "质量过滤：根据信号质量系数缩放操作数量",
+            Category = "Risk",
+            Params = [
+                new() { Name = "degradeMap", Type = "object", Required = true,
+                    Description = "信号名→权重映射，如 {\"RSI_14\": 0.6, \"MACD_HIST\": 0.4}" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "RSI+MACD 质量评估", ["params"] = new Dictionary<string, object> { ["degradeMap"] = new Dictionary<string, decimal> { ["RSI_14"] = 0.6m, ["MACD_HIST"] = 0.4m } } }
+            ]
+        }, p => new QualityFilterNode(p));
+
+        reg.Register("max_positions", new NodeDescriptor
+        {
+            Kind = "max_positions", Phase = RulePhase.Risk,
+            Description = "最大持仓数：超过上限后禁止新开仓",
+            Category = "Risk",
+            Params = [
+                new() { Name = "maxCount", Type = "int", Required = true,
+                    Min = 1, Description = "最大同时持仓数" },
+                new() { Name = "scope", Type = "string", Required = false, Default = "global",
+                    Enum = ["global", "exchange", "pair"], Description = "统计范围" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "全局最多 5 个持仓", ["params"] = new Dictionary<string, object> { ["maxCount"] = 5, ["scope"] = "global" } }
+            ]
+        }, p => new MaxPositionsNode(p));
+
+        reg.Register("max_correlation", new NodeDescriptor
+        {
+            Kind = "max_correlation", Phase = RulePhase.Risk,
+            Description = "最大相关性：与现有持仓相关性过高时禁止开仓",
+            Category = "Risk",
+            Params = [
+                new() { Name = "maxCorrelation", Type = "float", Required = true,
+                    Min = 0, Max = 1, Description = "最大允许相关性 (0~1)" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "相关性不超过 0.8", ["params"] = new Dictionary<string, object> { ["maxCorrelation"] = 0.8m } }
+            ]
+        }, p => new MaxCorrelationNode(p));
     }
 }

@@ -89,6 +89,20 @@ public static class CostAnchorNodeRegistration
 {
     public static void RegisterCostAnchorNode(this NodeRegistry reg)
     {
-        reg.Register("cost_anchored_rebalance", p => new CostAnchoredRebalanceNode(p));
+        reg.Register("cost_anchored_rebalance", new NodeDescriptor
+        {
+            Kind = "cost_anchored_rebalance", Phase = RulePhase.Derive,
+            Description = "成本锚点再平衡：价格偏离持仓成本超过阈值时反向再平衡",
+            Category = "Derive", ProducesDecisions = true,
+            Params = [
+                new() { Name = "deviationThreshold", Type = "float", Required = true,
+                    Min = 0, Max = 100, Description = "偏离阈值", Unit = "%" },
+                new() { Name = "baseQuantity", Type = "float", Required = true,
+                    Min = 0, Description = "再平衡数量" }
+            ],
+            Examples = [
+                new Dictionary<string, object> { ["title"] = "5% 偏离再平衡 0.01", ["params"] = new Dictionary<string, object> { ["deviationThreshold"] = 5m, ["baseQuantity"] = 0.01m } }
+            ]
+        }, p => new CostAnchoredRebalanceNode(p));
     }
 }
