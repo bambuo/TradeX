@@ -94,6 +94,23 @@ const enumOptions = computed(() => {
       </a-select>
     </template>
 
+    <template v-else-if="descriptor.type === 'string' && enumOptions.length > 0">
+      <a-select
+        :model-value="model as string"
+        :placeholder="descriptor.description"
+        allow-clear
+        size="mini"
+        @update:model-value="emit('update', $event || '')"
+      >
+        <a-option
+          v-for="opt in enumOptions"
+          :key="opt"
+          :value="opt"
+          :label="opt"
+        />
+      </a-select>
+    </template>
+
     <template v-else-if="descriptor.type === 'ref'">
       <a-select
         :model-value="model as string"

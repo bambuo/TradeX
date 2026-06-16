@@ -62,18 +62,19 @@ async function openEdit(s: Strategy) {
   showForm.value = true
 }
 
-function handleClose(done: () => void) {
+function handleClose() {
   if (dirty.value) {
+    showForm.value = true // 阻止 v-model 自动关闭（X/ESC 触发时 showForm 已被置为 false）
     Modal.confirm({
       title: '放弃编辑',
       content: '当前编辑尚未保存，确定放弃吗？',
       okText: '确定放弃',
       cancelText: '取消',
       okButtonProps: { status: 'danger' },
-      onOk: () => done()
+      onOk: () => { showForm.value = false }
     })
   } else {
-    done()
+    showForm.value = false
   }
 }
 
@@ -180,7 +181,7 @@ onMounted(() => {
       :title="editId ? '编辑策略' : '新建策略'"
       width="960px"
       :mask-closable="false"
-      @before-close="handleClose"
+      @cancel="handleClose"
     >
       <div class="form-body">
         <!-- 预设选择（仅新建时显示） -->
@@ -221,7 +222,7 @@ onMounted(() => {
       </div>
 
       <template #footer>
-        <a-button @click="showForm = false">取消</a-button>
+        <a-button @click="handleClose">取消</a-button>
         <a-button type="primary" :disabled="!formName.trim() || saving" :loading="saving" @click="save">
           {{ editId ? '保存' : '创建策略' }}
         </a-button>
