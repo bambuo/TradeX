@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import { exchangesApi, type Exchange, type ExchangeOrder } from '../api/exchanges'
 import { getExchangeInfo } from '../api/exchangeInfo'
@@ -114,11 +114,13 @@ function onPageSizeChange(size: number) {
   loadOrders(ordersExchangeId.value, ordersExchangeLabel.value, ordersType.value, 1)
 }
 
-const formLabel = ref('')
-const formExchangeType = ref('')
-const formApiKey = ref('')
-const formSecretKey = ref('')
-const formPassphrase = ref('')
+const formModel = reactive({
+  label: '',
+  exchangeType: '',
+  apiKey: '',
+  secretKey: '',
+  passphrase: ''
+})
 const formIsTestnet = ref(false)
 
 async function loadAll() {
@@ -161,22 +163,22 @@ async function fetchAssets(exchangeId?: string) {
 
 function openCreate() {
   editId.value = null
-  formLabel.value = ''
-  formExchangeType.value = ''
-  formApiKey.value = ''
-  formSecretKey.value = ''
-  formPassphrase.value = ''
+  formModel.label = ''
+  formModel.exchangeType = ''
+  formModel.apiKey = ''
+  formModel.secretKey = ''
+  formModel.passphrase = ''
   formIsTestnet.value = false
   showForm.value = true
 }
 
 function openEdit(account: Exchange) {
   editId.value = account.id
-  formLabel.value = account.name
-  formExchangeType.value = account.type
-  formApiKey.value = ''
-  formSecretKey.value = ''
-  formPassphrase.value = ''
+  formModel.label = account.name
+  formModel.exchangeType = account.type
+  formModel.apiKey = ''
+  formModel.secretKey = ''
+  formModel.passphrase = ''
   formIsTestnet.value = false
   showForm.value = true
 }
@@ -186,18 +188,18 @@ async function save() {
     const errors = await formRef.value?.validate()
     if (errors) return
     if (editId.value) {
-      const payload: Record<string, unknown> = { name: formLabel.value }
-      if (formApiKey.value) payload.apiKey = formApiKey.value
-      if (formSecretKey.value) payload.secretKey = formSecretKey.value
-      if (formPassphrase.value) payload.passphrase = formPassphrase.value
+      const payload: Record<string, unknown> = { name: formModel.label }
+      if (formModel.apiKey) payload.apiKey = formModel.apiKey
+      if (formModel.secretKey) payload.secretKey = formModel.secretKey
+      if (formModel.passphrase) payload.passphrase = formModel.passphrase
       await exchangesApi.update(editId.value, payload)
     } else {
       await exchangesApi.create({
-        name: formLabel.value,
-        exchangeType: formExchangeType.value,
-        apiKey: formApiKey.value,
-        secretKey: formSecretKey.value,
-        passphrase: formPassphrase.value || undefined,
+        name: formModel.label,
+        exchangeType: formModel.exchangeType,
+        apiKey: formModel.apiKey,
+        secretKey: formModel.secretKey,
+        passphrase: formModel.passphrase || undefined,
         isTestnet: formIsTestnet.value
       })
     }
@@ -268,22 +270,22 @@ onMounted(loadAll)
     </header>
 
     <a-modal v-model:visible="showForm" :title="editId ? '编辑交易所' : '添加交易所'" width="sm" :mask-closable="false">
-      <a-form ref="formRef" :model="{ label: formLabel, exchangeType: formExchangeType, apiKey: formApiKey, secretKey: formSecretKey, passphrase: formPassphrase }" layout="vertical" :style="{ width: '100%' }">
-        <a-form-item field="label" label="名称" :rules="[{ required: true, message: '请输入名称' }]">
-          <a-input v-model="formLabel" placeholder="如：币安主账户" />
-        </a-form-item>
-        <a-form-item field="exchangeType" label="交易所类型" :rules="[{ required: true, message: '请选择交易所类型' }]">
-          <ExchangeTypeSelect v-model="formExchangeType" :disabled="!!editId" />
-        </a-form-item>
-        <a-form-item field="apiKey" label="API Key" :rules="editId ? [] : [{ required: true, message: '请输入 API Key' }]">
-          <a-input-password v-model="formApiKey" :placeholder="editId ? '留空则不修改' : '必填'" />
-        </a-form-item>
-        <a-form-item field="secretKey" label="Secret Key" :rules="editId ? [] : [{ required: true, message: '请输入 Secret Key' }]">
-          <a-input-password v-model="formSecretKey" :placeholder="editId ? '留空则不修改' : '必填'" />
-        </a-form-item>
-        <a-form-item field="passphrase" label="Passphrase">
-          <a-input-password v-model="formPassphrase" placeholder="选填" />
-        </a-form-item>
+      <a-form ref="formRef" :model="formModel" layout="vertical" validate-trigger="change" :style="{ width: '100%' }">
+          <a-form-item field="label" label="名称" :rules="[{ required: true, message: '请输入名称' }]">
+            <a-input v-model="formModel.label" placeholder="如：币安主账户" />
+          </a-form-item>
+          <a-form-item field="exchangeType" label="交易所类型" :rules="[{ required: true, message: '请选择交易所类型' }]">
+            <ExchangeTypeSelect v-model="formModel.exchangeType" :disabled="!!editId" />
+          </a-form-item>
+          <a-form-item field="apiKey" label="API Key" :rules="editId ? [] : [{ required: true, message: '请输入 API Key' }]">
+            <a-input-password v-model="formModel.apiKey" :placeholder="editId ? '留空则不修改' : '必填'" />
+          </a-form-item>
+          <a-form-item field="secretKey" label="Secret Key" :rules="editId ? [] : [{ required: true, message: '请输入 Secret Key' }]">
+            <a-input-password v-model="formModel.secretKey" :placeholder="editId ? '留空则不修改' : '必填'" />
+          </a-form-item>
+          <a-form-item field="passphrase" label="Passphrase">
+            <a-input-password v-model="formModel.passphrase" placeholder="选填" />
+          </a-form-item>
         <a-form-item>
           <a-checkbox v-model="formIsTestnet">测试网</a-checkbox>
         </a-form-item>
