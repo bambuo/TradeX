@@ -18,11 +18,6 @@ const options = computed(() =>
   exchangeInfos.map(info => ({ label: info.label, value: info.type }))
 )
 
-function safeExchangeInfo(type: string) {
-  if (!type) return exchangeInfos[0]
-  return getExchangeInfo(type)
-}
-
 function onSelect(value: string | number | boolean | Record<string, unknown> | (string | number | boolean | Record<string, unknown>)[]) {
   emit('update:modelValue', String(value))
 }
@@ -32,12 +27,15 @@ function onSelect(value: string | number | boolean | Record<string, unknown> | (
   <a-select
     :model-value="modelValue"
     :disabled="disabled"
+    placeholder="选择交易所类型"
     style="width: 100%"
     @change="onSelect"
   >
-    <template #label="{ data }">
-      <span class="exchange-icon"><img :src="safeExchangeInfo(String(data?.value ?? modelValue)).icon" alt="" /></span>
-      <span class="exchange-label">{{ data?.label ?? safeExchangeInfo(modelValue).label }}</span>
+    <template #label>
+      <span v-if="modelValue" class="exchange-option">
+        <span class="exchange-icon"><img :src="getExchangeInfo(modelValue).icon" :alt="getExchangeInfo(modelValue).label" /></span>
+        <span class="exchange-label">{{ getExchangeInfo(modelValue).label }}</span>
+      </span>
     </template>
     <a-option
       v-for="opt in options"
@@ -45,8 +43,10 @@ function onSelect(value: string | number | boolean | Record<string, unknown> | (
       :value="opt.value"
       :label="opt.label"
     >
-      <span class="exchange-icon"><img :src="getExchangeInfo(opt.value).icon" :alt="opt.label" /></span>
-      <span class="exchange-label">{{ opt.label }}</span>
+      <span class="exchange-option">
+        <span class="exchange-icon"><img :src="getExchangeInfo(opt.value).icon" :alt="opt.label" /></span>
+        <span class="exchange-label">{{ opt.label }}</span>
+      </span>
     </a-option>
   </a-select>
 </template>
@@ -67,5 +67,9 @@ function onSelect(value: string | number | boolean | Record<string, unknown> | (
 }
 .exchange-label {
   font-size: 0.9rem;
+}
+.exchange-option {
+  display: inline-flex;
+  align-items: center;
 }
 </style>

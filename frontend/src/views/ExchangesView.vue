@@ -12,6 +12,7 @@ const assets = ref<Record<string, { currency: string; balance: number }[]>>({})
 const assetLoading = ref(false)
 const expandedAssets = ref<Record<string, boolean>>({})
 const showForm = ref(false)
+const formRef = ref<InstanceType<typeof import('@arco-design/web-vue')['Form']>>()
 const editId = ref<string | null>(null)
 const testingId = ref<string | null>(null)
 const testResult = ref<{ id: string; connected: boolean; error?: string } | null>(null)
@@ -39,6 +40,15 @@ const orderColumns = [
   { title: '已成交', slotName: 'filled' },
   { title: '下单时间', slotName: 'placedAt' },
 ]
+
+const orderPagination = computed((): Record<string, unknown> => ({
+  current: currentPage.value,
+  pageSize: pageSize.value,
+  total: totalOrders.value,
+  showTotal: true,
+  pageSizeChangeable: true,
+  pageSizeOptionValues: [10, 20, 50, 100]
+}))
 
 const orderStatusColor = computed(() => (status: string) => {
   const colors: Record<string, string> = {
@@ -105,7 +115,7 @@ function onPageSizeChange(size: number) {
 }
 
 const formLabel = ref('')
-const formExchangeType = ref('Binance')
+const formExchangeType = ref('')
 const formApiKey = ref('')
 const formSecretKey = ref('')
 const formPassphrase = ref('')
@@ -115,7 +125,7 @@ async function loadAll() {
   loading.value = true
   try {
     const { data } = await exchangesApi.getAll()
-    accounts.value = data.data ?? []
+    accounts.value = (data as any).data ?? []
   } finally {
     loading.value = false
   }
@@ -126,7 +136,7 @@ async function fetchAssets(exchangeId?: string) {
   if (exchangeId) {
     try {
       const { data } = await exchangesApi.getAssets(exchangeId)
-      assets.value[exchangeId] = data.data ?? []
+      assets.value[exchangeId] = (data as any).data ?? []
     } catch {
       Message.error('获取资产失败')
     }
@@ -152,7 +162,7 @@ async function fetchAssets(exchangeId?: string) {
 function openCreate() {
   editId.value = null
   formLabel.value = ''
-  formExchangeType.value = 'Binance'
+  formExchangeType.value = ''
   formApiKey.value = ''
   formSecretKey.value = ''
   formPassphrase.value = ''
@@ -173,6 +183,8 @@ function openEdit(account: Exchange) {
 
 async function save() {
   try {
+    const errors = await formRef.value?.validate()
+    if (errors) return
     if (editId.value) {
       const payload: Record<string, unknown> = { name: formLabel.value }
       if (formApiKey.value) payload.apiKey = formApiKey.value
@@ -256,14 +268,26 @@ onMounted(loadAll)
     </header>
 
     <a-modal v-model:visible="showForm" :title="editId ? '编辑交易所' : '添加交易所'" width="sm" :mask-closable="false">
-      <div class="form-body">
-        <a-input v-model="formLabel" placeholder="名称（如：币安主账户）" />
-        <ExchangeTypeSelect v-model="formExchangeType" :disabled="!!editId" />
-        <a-input-password v-model="formApiKey" :placeholder="editId ? 'API Key（留空则不修改）' : 'API Key'" />
-        <a-input-password v-model="formSecretKey" :placeholder="editId ? 'Secret Key（留空则不修改）' : 'Secret Key'" />
-        <a-input-password v-model="formPassphrase" :placeholder="editId ? 'Passphrase（留空则不修改）' : 'Passphrase（选填）'" />
-        <a-checkbox v-model="formIsTestnet">测试网</a-checkbox>
-      </div>
+      <a-form ref="formRef" :model="{ label: formLabel, exchangeType: formExchangeType, apiKey: formApiKey, secretKey: formSecretKey, passphrase: formPassphrase }" layout="vertical" :style="{ width: '100%' }">
+        <a-form-item field="label" label="名称" :rules="[{ required: true, message: '请输入名称' }]">
+          <a-input v-model="formLabel" placeholder="如：币安主账户" />
+        </a-form-item>
+        <a-form-item field="exchangeType" label="交易所类型" :rules="[{ required: true, message: '请选择交易所类型' }]">
+          <ExchangeTypeSelect v-model="formExchangeType" :disabled="!!editId" />
+        </a-form-item>
+        <a-form-item field="apiKey" label="API Key" :rules="editId ? [] : [{ required: true, message: '请输入 API Key' }]">
+          <a-input-password v-model="formApiKey" :placeholder="editId ? '留空则不修改' : '必填'" />
+        </a-form-item>
+        <a-form-item field="secretKey" label="Secret Key" :rules="editId ? [] : [{ required: true, message: '请输入 Secret Key' }]">
+          <a-input-password v-model="formSecretKey" :placeholder="editId ? '留空则不修改' : '必填'" />
+        </a-form-item>
+        <a-form-item field="passphrase" label="Passphrase">
+          <a-input-password v-model="formPassphrase" placeholder="选填" />
+        </a-form-item>
+        <a-form-item>
+          <a-checkbox v-model="formIsTestnet">测试网</a-checkbox>
+        </a-form-item>
+      </a-form>
       <template #footer>
         <a-button type="primary" @click="save">
           <template #icon><icon-save /></template>
@@ -308,14 +332,7 @@ onMounted(loadAll)
         :columns="orderColumns"
         :data="orders"
         :loading="ordersLoading"
-        :pagination="{
-          current: currentPage,
-          pageSize: pageSize,
-          total: totalOrders,
-          showTotal: true,
-          pageSizeChangeable: true,
-          pageSizeOptionValues: [10, 20, 50, 100]
-        }"
+        :pagination="orderPagination"
         row-key="exchangeOrderId"
         @page-change="onPageChange"
         @page-size-change="onPageSizeChange"

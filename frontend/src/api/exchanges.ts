@@ -5,6 +5,7 @@ export interface Exchange {
   name: string
   type: string
   status: string
+  isTestnet: boolean
   lastTestedAt: string | null
   testResult: string | null
   createdAt: string

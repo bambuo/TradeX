@@ -166,8 +166,8 @@ onMounted(async () => {
       exchangesApi.getAll()
     ])
     traders.value = tradersRes.data
-    strategies.value = strategiesRes.data ?? []
-    exchanges.value = exchangesRes.data ?? []
+    strategies.value = (strategiesRes as any).data?.data || []
+    exchanges.value = (exchangesRes as any).data?.data || []
     await loadTasks(false)
   } catch (e) {
     if (!error.value) error.value = getErrorMessage(e, '加载回测任务失败')

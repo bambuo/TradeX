@@ -136,6 +136,12 @@ router.beforeEach(async (to, _from, next) => {
   }
 })
 
+// 捕获路由层面的错误，防止异常导致后续导航失效
+router.onError((err) => {
+  console.error('[router] navigation error:', err)
+  // onError 内部不做额外处理，由 App.vue 的 onErrorCaptured 负责 UI 降级
+})
+
 export function resetInitCheck() {
   _initChecked = false
   _isInitialized = true
