@@ -1,7 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using TradeX.Api.Filters;
+using TradeX.Application.Strategies;
 using TradeX.Application.Common;
 using TradeX.Application.StrategyBindings;
 using TradeX.Core.ErrorCodes;
@@ -71,7 +71,6 @@ public class StrategyBindingsController(
     }
 
     [HttpPost]
-    [RequireMfa]
     public async Task<IActionResult> Create(Guid traderId, [FromBody] CreateBindingRequest request, CancellationToken ct)
     {
         var exchangeId = request.ExchangeId ?? Guid.Empty;
@@ -100,7 +99,6 @@ public class StrategyBindingsController(
     }
 
     [HttpPut("{id:guid}")]
-    [RequireMfa]
     public async Task<IActionResult> Update(Guid traderId, Guid id, [FromBody] UpdateBindingRequest request, CancellationToken ct)
     {
         var result = await updateBinding.ExecuteAsync(new UpdateBindingCommand(
@@ -124,7 +122,6 @@ public class StrategyBindingsController(
     }
 
     [HttpDelete("{id:guid}")]
-    [RequireMfa]
     public async Task<IActionResult> Delete(Guid traderId, Guid id, CancellationToken ct)
     {
         var result = await deleteBinding.ExecuteAsync(new DeleteBindingCommand(id, traderId, UserId), ct);
@@ -139,7 +136,6 @@ public class StrategyBindingsController(
     }
 
     [HttpPost("{id:guid}/toggle")]
-    [RequireMfa]
     public async Task<IActionResult> Toggle(Guid traderId, Guid id, [FromBody] ToggleBindingRequest request, CancellationToken ct)
     {
         Result<BindingDto> result;

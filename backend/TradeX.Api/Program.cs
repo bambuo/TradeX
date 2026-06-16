@@ -142,8 +142,7 @@ try
                 }));
     });
 
-    builder.Services.AddScoped<TradeX.Api.Filters.MfaActionFilter>();
-    builder.Services.AddControllers(o => o.Filters.AddService<TradeX.Api.Filters.MfaActionFilter>())
+    builder.Services.AddControllers()
         .AddJsonOptions(o => o.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase);
     builder.Services.AddSwaggerGen();
 

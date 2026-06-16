@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using TradeX.Api.Filters;
 using TradeX.Application.Common;
 using TradeX.Application.Traders;
 using TradeX.Application.Traders.DTOs;
@@ -39,7 +38,6 @@ public class TradersController(
     }
 
     [HttpPost]
-    [RequireMfa]
     public async Task<IActionResult> Create([FromBody] CreateTraderRequest request, CancellationToken ct)
     {
         var result = await createTrader.ExecuteAsync(
@@ -56,7 +54,6 @@ public class TradersController(
     }
 
     [HttpPut("{id:guid}")]
-    [RequireMfa]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateTraderRequest request, CancellationToken ct)
     {
         var result = await updateTrader.ExecuteAsync(
@@ -75,7 +72,6 @@ public class TradersController(
     }
 
     [HttpDelete("{id:guid}")]
-    [RequireMfa]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
         var result = await deleteTrader.ExecuteAsync(new DeleteTraderCommand(id, UserId), ct);
