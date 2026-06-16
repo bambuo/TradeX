@@ -47,8 +47,21 @@ public sealed class ChainCoordinator
             }
         }
 
-        // 按 priority 升序排序
-        actions.Sort((a, b) => a.Priority.CompareTo(b.Priority));
+        // 按 priority 升序排序（同 priority 时 SELL 优先于 BUY — 平仓安全侧）
+        actions.Sort((a, b) =>
+        {
+            var cmp = a.Priority.CompareTo(b.Priority);
+            if (cmp != 0) return cmp;
+            // SELL/SELL_ALL < BUY/HOLD: 卖出优先
+            return SellFirst(a.Intent).CompareTo(SellFirst(b.Intent));
+        });
+
+        static int SellFirst(string intent) => intent switch
+        {
+            "SELL_ALL" => 0,
+            "SELL" => 1,
+            _ => 2 // BUY, HOLD etc.
+        };
 
         // 按 pair 分组
         var byPair = new Dictionary<string, List<ActionDecision>>();

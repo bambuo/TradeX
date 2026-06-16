@@ -54,6 +54,21 @@ try
                 IssuerSigningKey = new SymmetricSecurityKey(
                     Encoding.UTF8.GetBytes(jwtSettings.SecretKey))
             };
+
+            // SignalR：从查询参数读取 access_token（SSE/LongPolling 传输无法设置 Authorization 头）
+            options.Events = new JwtBearerEvents
+            {
+                OnMessageReceived = context =>
+                {
+                    var accessToken = context.Request.Query["access_token"];
+                    if (!string.IsNullOrEmpty(accessToken)
+                        && context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                    {
+                        context.Token = accessToken;
+                    }
+                    return Task.CompletedTask;
+                }
+            };
         });
 
     builder.Services.AddAuthorization();
@@ -154,6 +169,16 @@ try
                 tracing.AddOtlpExporter();
         });
 
+    // 开发环境 CORS — 允许 Vite 前端直连后端（用于 SignalR 绕过 Vite 代理）
+    if (builder.Environment.IsDevelopment())
+    {
+        builder.Services.AddCors(options => options.AddPolicy("DevSignalR", policy =>
+            policy.WithOrigins("http://localhost:3000")
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .AllowCredentials()));
+    }
+
     var app = builder.Build();
 
     // 配置 IP 白名单
@@ -178,6 +203,15 @@ try
         app.UseMiddleware<IpWhitelistMiddleware>();
     app.UseMiddleware<SetupGuardMiddleware>();
 
+    // CORS — 开发环境直连 SignalR 时必需
+    app.UseCors("DevSignalR");
+
+    // WebSocket — SignalR 需要此中间件来处理 WebSocket 传输升级
+    app.UseWebSockets(new WebSocketOptions
+    {
+        KeepAliveInterval = TimeSpan.FromSeconds(30)
+    });
+
     // 静态文件无需认证 — 必须在 auth 之前注册
     // SPA HTML 禁止浏览器缓存 — 确保 JS 资源 hash 变更后即时更新
     app.Use(async (context, next) =>
@@ -193,8 +227,6 @@ try
 
     app.UseDefaultFiles();
     app.UseStaticFiles();
-
-    app.MapFallbackToFile("index.html");
 
     app.UseAuthentication();
     app.UseAuthorization();
@@ -212,6 +244,9 @@ try
 
     app.MapControllers();
     app.MapHub<TradingHub>("/hubs/trading");
+
+    // SPA fallback 必须在所有终结点注册之后，确保 API/Hub 等路由优先匹配
+    app.MapFallbackToFile("index.html");
 
     using (var scope = app.Services.CreateScope())
     {

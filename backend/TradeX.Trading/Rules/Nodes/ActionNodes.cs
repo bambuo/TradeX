@@ -38,29 +38,7 @@ internal sealed class SignalActionNode(JsonElement @params) : IRuleNode
 
         var isAbove = string.Equals(p.Direction, "ABOVE", StringComparison.OrdinalIgnoreCase);
 
-        // 买入信号检查
-        if (!string.IsNullOrWhiteSpace(p.BuySignal) &&
-            state.Signals.TryGetValue(p.BuySignal, out var buySig))
-        {
-            var triggered = isAbove ? buySig.Value > p.Threshold : buySig.Value < p.Threshold;
-            if (triggered && state.SizeDecisions.Count > 0)
-            {
-                foreach (var sd in state.SizeDecisions.Where(s => s.Intent == "ENTER"))
-                {
-                    state.Actions.Add(new ActionDecision
-                    {
-                        Intent = "BUY",
-                        Quantity = sd.Amount / state.Context.CurrentPrice,
-                        OrderType = "MARKET",
-                        Priority = 10,
-                        Pair = state.Context.Pair,
-                        Reason = $"signal_action:BUY:{p.BuySignal}={buySig.Value}"
-                    });
-                }
-            }
-        }
-
-        // 卖出信号检查
+        // 卖出信号检查（优先于买入 — 平仓安全侧优先）
         if (!string.IsNullOrWhiteSpace(p.SellSignal) &&
             state.Signals.TryGetValue(p.SellSignal, out var sellSig))
         {
@@ -83,12 +61,38 @@ internal sealed class SignalActionNode(JsonElement @params) : IRuleNode
             }
         }
 
+        // 买入信号检查（仅在未触发卖出时执行，SELL 优先原则）
+        if (state.Actions.Count == 0 &&
+            !string.IsNullOrWhiteSpace(p.BuySignal) &&
+            state.Signals.TryGetValue(p.BuySignal, out var buySig))
+        {
+            var triggered = isAbove ? buySig.Value > p.Threshold : buySig.Value < p.Threshold;
+            if (triggered && state.SizeDecisions.Count > 0)
+            {
+                foreach (var sd in state.SizeDecisions.Where(s => s.Intent == "ENTER"))
+                {
+                    state.Actions.Add(new ActionDecision
+                    {
+                        Intent = "BUY",
+                        Quantity = sd.Amount / state.Context.CurrentPrice,
+                        OrderType = "MARKET",
+                        Priority = 10,
+                        Pair = state.Context.Pair,
+                        Reason = $"signal_action:BUY:{p.BuySignal}={buySig.Value}"
+                    });
+                }
+            }
+        }
+
         return Task.CompletedTask;
     }
 }
 
 // ── grid_action ──
-internal sealed record GridActionParams(decimal DeviationPercent, decimal BasePrice);
+internal sealed record GridActionParams(
+    string PriceLevelKey,        // 对应 grid_price_level 的 outputKey，非空时启用层级匹配模式
+    decimal DeviationPercent,    // 简单模式：偏离百分比阈值
+    decimal BasePrice);          // 简单模式：基准价
 
 internal sealed class GridActionNode(JsonElement @params) : IRuleNode
 {
@@ -96,36 +100,120 @@ internal sealed class GridActionNode(JsonElement @params) : IRuleNode
     public RulePhase Phase => RulePhase.Action;
     public IReadOnlyList<string> Deps => [];
 
-    public Task ProcessAsync(ChainState state, CancellationToken ct)
+    public async Task ProcessAsync(ChainState state, CancellationToken ct)
     {
         var p = JsonSerializer.Deserialize<GridActionParams>(@params, RuleJsonOptions.Default);
-        if (p is null || p.BasePrice <= decimal.Zero) return Task.CompletedTask;
+        if (p is null) return;
+
+        // ═══ 模式 1: 价格层级匹配（与 grid_price_level 联动） ═══
+        if (!string.IsNullOrWhiteSpace(p.PriceLevelKey))
+        {
+            await ProcessLevelMatchAsync(state, p, ct);
+            return;
+        }
+
+        // ═══ 模式 2: 简单偏离检查（独立使用，向后兼容） ═══
+        if (p.BasePrice <= decimal.Zero) return;
 
         var basePrice = p.BasePrice;
         var currentPrice = state.Context.CurrentPrice;
         var deviation = (currentPrice - basePrice) / basePrice * 100m;
 
-        // 偏离超过阈值 → 反向操作再平衡
         if (Math.Abs(deviation) >= p.DeviationPercent)
         {
             var intent = deviation > 0 ? "SELL" : "BUY";
-
-            // 取网格 SizeDecision 中对应的网格层
             var sizeDec = state.SizeDecisions.FirstOrDefault();
             var quantity = sizeDec?.Amount / currentPrice ?? decimal.Zero;
 
-            state.Actions.Add(new ActionDecision
+            if (quantity > decimal.Zero)
             {
-                Intent = intent,
-                Quantity = quantity,
-                OrderType = "MARKET",
-                Priority = 20,
-                Pair = state.Context.Pair,
-                Reason = $"grid_action:deviation={deviation:F2}%"
-            });
+                state.Actions.Add(new ActionDecision
+                {
+                    Intent = intent, Quantity = quantity,
+                    OrderType = "MARKET", Priority = 20,
+                    Pair = state.Context.Pair,
+                    Reason = $"grid_action:deviation={deviation:F2}%"
+                });
+            }
         }
+    }
 
-        return Task.CompletedTask;
+    /// <summary>层级匹配模式：读取 grid_price_level 的 {key}_0..N，按当前价格匹配层级。</summary>
+    private static async Task ProcessLevelMatchAsync(
+        ChainState state, GridActionParams p, CancellationToken ct)
+    {
+        // 读取 grid_price_level 产出的价格层级
+        if (!state.DerivedValues.TryGetValue($"{p.PriceLevelKey}_COUNT", out var countVal))
+            return;
+        var count = (int)countVal;
+        if (count <= 0 || state.SizeDecisions.Count == 0) return;
+
+        var levels = new List<decimal>(count);
+        for (var i = 0; i < count; i++)
+        {
+            if (!state.DerivedValues.TryGetValue($"{p.PriceLevelKey}_{i}", out var lv)) break;
+            levels.Add(lv);
+        }
+        if (levels.Count == 0) return;
+
+        var currentPrice = state.Context.CurrentPrice;
+        var currIdx = FindLevelIndex(levels, currentPrice);
+        if (currIdx < 0) return; // 价格在网格范围外
+
+        // 读取上次所在层级（跨层才触发交易）
+        var prevIdx = currIdx;
+        var store = state.Context.StateStore;
+        if (store is not null)
+        {
+            var ns = await store.ReadStateAsync(state.Context.ScopeKey, "grid_action", ct);
+            if (ns?.Data.TryGetValue("levelIdx", out var liEl) == true)
+                prevIdx = liEl.GetInt32();
+        }
+        if (currIdx == prevIdx) return;
+
+        // 跨层：向上 → 卖出，向下 → 买入
+        var intent = currIdx > prevIdx ? "SELL" : "BUY";
+
+        // 取对应层级 SizeDecision（索引与 grid_price_level 对齐，0=底价层）
+        var sdIdx = Math.Min(currIdx, state.SizeDecisions.Count - 1);
+        var sizeDec = state.SizeDecisions[sdIdx];
+        var quantity = sizeDec.Amount / currentPrice;
+        if (quantity <= decimal.Zero) return;
+
+        state.Actions.Add(new ActionDecision
+        {
+            Intent = intent, Quantity = quantity,
+            OrderType = "MARKET", Priority = 20,
+            Pair = state.Context.Pair,
+            Reason = $"grid_action:layer={currIdx},price={currentPrice}"
+        });
+
+        // 写回当前层级
+        if (store is not null)
+        {
+            var newState = new NodeState
+            {
+                Data = new Dictionary<string, JsonElement>
+                {
+                    ["levelIdx"] = JsonSerializer.SerializeToElement(currIdx)
+                }
+            };
+            await store.WriteStateAsync(state.Context.ScopeKey, "grid_action", newState, ct);
+        }
+    }
+
+    /// <summary>二分查找当前价格所在的网格区间索引。</summary>
+    private static int FindLevelIndex(List<decimal> levels, decimal price)
+    {
+        if (levels.Count < 2 || price < levels[0] || price > levels[^1]) return -1;
+        for (var i = 0; i < levels.Count - 1; i++)
+        {
+            if (price >= levels[i] && price < levels[i + 1])
+                return i;
+        }
+        // 价格等于最高层
+        if (price == levels[^1]) return levels.Count - 2;
+        return -1;
     }
 }
 
@@ -168,7 +256,7 @@ internal sealed class TrailingStopActionNode(JsonElement @params) : IRuleNode
         {
             state.Actions.Add(new ActionDecision
             {
-                Intent = "SELL",
+                Intent = isLong ? "SELL" : "BUY",
                 Quantity = Math.Abs(pos.Quantity),
                 OrderType = "MARKET",
                 Priority = 5,
@@ -269,6 +357,16 @@ internal sealed class DcaActionNode(JsonElement @params) : IRuleNode
             Pair = state.Context.Pair,
             Reason = $"dca_action:interval={p.IntervalHours}h"
         });
+
+        // 写回本次执行时间
+        var newState = new NodeState
+        {
+            Data = new Dictionary<string, JsonElement>
+            {
+                ["lastAt"] = JsonSerializer.SerializeToElement(state.Context.EvaluationTime)
+            }
+        };
+        await store.WriteStateAsync(state.Context.ScopeKey, Kind, newState, ct);
     }
 }
 
@@ -366,6 +464,17 @@ internal sealed class MartingaleActionNode(JsonElement @params) : IRuleNode
             Pair = state.Context.Pair,
             Reason = $"martingale_action:step={step}"
         });
+
+        // 递增 step 并写回
+        step++;
+        var newState = new NodeState
+        {
+            Data = new Dictionary<string, JsonElement>
+            {
+                ["step"] = JsonSerializer.SerializeToElement(step)
+            }
+        };
+        await store.WriteStateAsync(state.Context.ScopeKey, Kind, newState, ct);
     }
 }
 
@@ -400,16 +509,19 @@ public static class ActionNodesRegistration
         reg.Register("grid_action", new NodeDescriptor
         {
             Kind = "grid_action", Phase = RulePhase.Action,
-            Description = "网格动作：价格偏离基准超过阈值时反向操作",
+            Description = "网格动作：价格偏离基准超过阈值时反向操作，或按价格层级匹配",
             Category = "Action", ProducesDecisions = true,
             Params = [
-                new() { Name = "deviationPercent", Type = "float", Required = true,
-                    Min = 0, Max = 100, Description = "偏离阈值", Unit = "%" },
-                new() { Name = "basePrice", Type = "float", Required = true,
-                    Min = 0, Description = "基准价格", Unit = "USDT" }
+                new() { Name = "priceLevelKey", Type = "string", Required = false,
+                    Description = "价格层级键名（非空时启用层级匹配，对应 grid_price_level 的 outputKey）" },
+                new() { Name = "deviationPercent", Type = "float", Required = false,
+                    Min = 0, Max = 100, Description = "简单模式偏离阈值", Unit = "%" },
+                new() { Name = "basePrice", Type = "float", Required = false,
+                    Min = 0, Description = "简单模式基准价格", Unit = "USDT" }
             ],
             Examples = [
-                new Dictionary<string, object> { ["title"] = "1% 偏离再平衡", ["params"] = new Dictionary<string, object> { ["deviationPercent"] = 1m, ["basePrice"] = 50000m } }
+                new Dictionary<string, object> { ["title"] = "1% 偏离再平衡", ["params"] = new Dictionary<string, object> { ["deviationPercent"] = 1m, ["basePrice"] = 50000m } },
+                new Dictionary<string, object> { ["title"] = "层级匹配网格", ["params"] = new Dictionary<string, object> { ["priceLevelKey"] = "grid_prices" } }
             ]
         }, p => new GridActionNode(p));
 

@@ -1,0 +1,13 @@
+- [x] 双均线趋势策略：`signal_action.buySignal` 使用信号管线原生信号名（非 crossover_check 输出名）
+- [x] 双均线趋势策略：`signal_action.sellSignal` 使用信号管线原生信号名
+- [x] 双均线趋势策略：出场链不包含 `daily_loss_limit` 或 `max_drawdown`
+- [x] MACD 趋势策略：`signal_action.buySignal` 使用信号管线原生信号名
+- [x] MACD 趋势策略：`signal_action.sellSignal` 使用信号管线原生信号名
+- [x] MACD 趋势策略：出场链不包含 `daily_loss_limit` 或 `max_drawdown`
+- [x] 波动率突破：`signal_action.buySignal` 使用信号管线原生信号名
+- [x] 波动率突破：`signal_action.sellSignal` 使用信号管线原生信号名
+- [x] 波动率突破：入场链保留 `max_drawdown`、`daily_loss_limit`、`consecutive_loss_stop`
+- [x] 马丁格尔：加仓链 `signal_action.buySignal` 使用 `DEVIATION_FROM_AVG`（信号管线信号）
+- [x] 马丁格尔：出场链 `signal_action.sellSignal` 使用 `DEVIATION_FROM_AVG`（信号管线信号）
+- [x] 马丁格尔：出场链移除 `daily_loss_limit` 和 `max_drawdown`
+- [x] `npx vite build` 无编译错误

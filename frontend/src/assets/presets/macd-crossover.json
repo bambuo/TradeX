@@ -1,85 +1,33 @@
 {
-  "name": "MACD 金叉死叉",
-  "description": "纯 MACD 信号交易。MACD 线上穿信号线金叉入场，下穿信号线死叉离场，配合硬止损控制最大亏损",
+  "name": "MACD 趋势策略",
+  "description": "基于 MACD_LINE 零轴判断的趋势策略。MACD_LINE 上穿零轴入场，RSI 超买出场",
   "notes": [
-    "MACD 金叉/死叉使用 CA/CB 穿越运算符，ref=MACD_SIGNAL 实现两线交叉检测",
-    "入场后启动 -3% 硬止损：当前 PnL 低于 -3% 即无条件离场，保护本金",
-    "金叉/死叉在 1h 级别信号质量较好（月均 8~15 次），15m 级别信号过多不建议使用",
-    "MACD 自带趋势方向过滤，震荡市中零轴附近反复金叉死叉时建议暂停策略",
-    "该策略适合 ETH/SOL 等中等波动品种，BTC 波动较小可放宽止损至 2%"
+    "MACD_LINE > 0 表示短期趋势向上，此时入场做多；MACD_LINE < 0 表示趋势转弱",
+    "signal_gate 确保 MACD_LINE 在零轴上方才放行",
+    "signal_action 直接读取信号管线中的 MACD_LINE、RSI 信号值",
+    "出场用 RSI > 75 超买信号，避免趋势逆转后继续持仓"
   ],
-  "executionRule": {
-    "code": "macd_crossover",
-    "name": "MACD 金叉死叉",
-    "rules": [
-      {
-        "code": "entry_macd_golden",
-        "name": "MACD 金叉入场",
-        "when": {
-          "operator": "",
-          "indicator": "MACD_LINE",
-          "comparison": "CA",
-          "value": 1,
-          "ref": "MACD_SIGNAL"
-        },
-        "then": {
-          "action": "buy",
-          "size": 100,
-          "sizeType": "fixed",
-          "reason": "MACD 线上穿信号线金叉，入场做多"
-        },
-        "context": "noPosition",
-        "priority": 0,
-        "constraints": {
-          "minInterval": 300
-        }
-      },
-      {
-        "code": "exit_macd_death",
-        "name": "MACD 死叉出场",
-        "when": {
-          "operator": "",
-          "indicator": "MACD_LINE",
-          "comparison": "CB",
-          "value": 1,
-          "ref": "MACD_SIGNAL"
-        },
-        "then": {
-          "action": "sellAll",
-          "reason": "MACD 线下穿信号线死叉，全部平仓"
-        },
-        "context": "hasPosition",
-        "priority": 1,
-        "constraints": {
-          "minInterval": 120
-        }
-      },
-      {
-        "code": "exit_hard_stop",
-        "name": "硬止损",
-        "when": {
-          "operator": "",
-          "indicator": "POSITION_PNL_PCT",
-          "comparison": "<=",
-          "value": -3
-        },
-        "then": {
-          "action": "sellAll",
-          "reason": "亏损 {POSITION_PNL_PCT}% <= -3%，硬止损平仓"
-        },
-        "context": "hasPosition",
-        "priority": 0,
-        "constraints": {
-          "minInterval": 60
-        }
-      }
-    ],
-    "params": {
-      "basePositionSize": 100,
-      "maxPositionSize": 100,
-      "stopLossPercent": 3.0,
-      "maxDailyLoss": 200,
-      "slippageTolerance": 0.0005
+  "chains": [
+    {
+      "key": "entry",
+      "name": "入场链",
+      "schemaVersion": 1,
+      "nodes": [
+        { "nodeKind": "position_gate", "params": { "require": "CLOSED" }, "priority": 1 },
+        { "nodeKind": "signal_gate", "params": { "signal": "MACD_LINE", "op": ">", "threshold": 0 }, "priority": 2 },
+        { "nodeKind": "fixed_size", "params": { "amount": 100, "currency": "USDT" }, "priority": 1 },
+        { "nodeKind": "signal_action", "params": { "buySignal": "MACD_LINE", "sellSignal": "", "threshold": 0, "direction": "ABOVE" }, "priority": 1 },
+        { "nodeKind": "max_drawdown", "params": { "maxDrawdownPercent": 3 }, "priority": 1 }
+      ]
+    },
+    {
+      "key": "exit",
+      "name": "出场链",
+      "schemaVersion": 1,
+      "nodes": [
+        { "nodeKind": "position_gate", "params": { "require": "OPEN" }, "priority": 1 },
+        { "nodeKind": "signal_action", "params": { "buySignal": "", "sellSignal": "RSI", "threshold": 75, "direction": "ABOVE" }, "priority": 1 }
+      ]
     }
-  }
+  ]
 }

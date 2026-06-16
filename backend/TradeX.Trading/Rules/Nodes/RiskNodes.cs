@@ -139,10 +139,9 @@ internal sealed class CooldownNode(JsonElement @params) : IRuleNode
             var lastTradeAt = lastTradeEl.GetDateTime();
             if (state.Context.EvaluationTime - lastTradeAt < TimeSpan.FromMinutes(p.CooldownMinutes))
             {
-                // 冷却期内清空所有 BUY/SELL 操作
+                // 冷却期内仅阻止新开仓，不阻止平仓
                 state.Actions.RemoveAll(a =>
-                    string.Equals(a.Intent, "BUY", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(a.Intent, "SELL", StringComparison.OrdinalIgnoreCase));
+                    string.Equals(a.Intent, "BUY", StringComparison.OrdinalIgnoreCase));
             }
         }
     }
@@ -260,23 +259,32 @@ internal sealed class MaxPositionsNode(JsonElement @params) : IRuleNode
 }
 
 // ── max_correlation ──
-internal sealed record MaxCorrelationParams(decimal MaxCorrelation);
+internal sealed record MaxCorrelationParams(decimal MaxCorrelation, string CorrKey = "CORRELATION");
 
 internal sealed class MaxCorrelationNode(JsonElement @params) : IRuleNode
 {
     public string Kind => "max_correlation";
     public RulePhase Phase => RulePhase.Risk;
-    public IReadOnlyList<string> Deps => ["CORRELATION"];
+    public IReadOnlyList<string> Deps
+    {
+        get
+        {
+            var p = JsonSerializer.Deserialize<MaxCorrelationParams>(@params, RuleJsonOptions.Default);
+            var key = string.IsNullOrWhiteSpace(p?.CorrKey) ? "CORRELATION" : p.CorrKey;
+            return [key];
+        }
+    }
 
     public Task ProcessAsync(ChainState state, CancellationToken ct)
     {
         var p = JsonSerializer.Deserialize<MaxCorrelationParams>(@params, RuleJsonOptions.Default);
         if (p is null) return Task.CompletedTask;
 
+        var key = string.IsNullOrWhiteSpace(p.CorrKey) ? "CORRELATION" : p.CorrKey;
         var corr = decimal.Zero;
-        if (state.DerivedValues.TryGetValue("CORRELATION", out var dv))
+        if (state.DerivedValues.TryGetValue(key, out var dv))
             corr = dv;
-        else if (state.Signals.TryGetValue("CORRELATION", out var sig))
+        else if (state.Signals.TryGetValue(key, out var sig))
             corr = sig.Value;
 
         if (Math.Abs(corr) >= p.MaxCorrelation)
@@ -418,6 +426,8 @@ public static class RiskNodesRegistration
             Description = "最大相关性：与现有持仓相关性过高时禁止开仓",
             Category = "Risk",
             Params = [
+                new() { Name = "corrKey", Type = "string", Required = false,
+                    Default = "CORRELATION", Description = "相关性信号键名（来自 correlation_score 的 outputKey）" },
                 new() { Name = "maxCorrelation", Type = "float", Required = true,
                     Min = 0, Max = 1, Description = "最大允许相关性 (0~1)" }
             ],

@@ -7,14 +7,14 @@ export interface StrategyPreset {
   name: string
   description: string
   notes: string[]
-  executionRule: string
+  chains: string
 }
 
 interface PresetJson {
   name: string
   description: string
   notes: string[]
-  executionRule: Record<string, unknown>
+  chains: Record<string, unknown>[]
 }
 
 function loadPreset(json: PresetJson): StrategyPreset {
@@ -22,13 +22,13 @@ function loadPreset(json: PresetJson): StrategyPreset {
     name: json.name,
     description: json.description,
     notes: json.notes,
-    executionRule: JSON.stringify(json.executionRule)
+    chains: JSON.stringify(json.chains)
   }
 }
 
 export const strategyPresets: StrategyPreset[] = [
-  loadPreset(martingale as PresetJson),
-  loadPreset(maCrossover as PresetJson),
-  loadPreset(macdCrossover as PresetJson),
-  loadPreset(breakoutStrategy as PresetJson)
+  loadPreset(maCrossover as unknown as PresetJson),
+  loadPreset(macdCrossover as unknown as PresetJson),
+  loadPreset(breakoutStrategy as unknown as PresetJson),
+  loadPreset(martingale as unknown as PresetJson)
 ]

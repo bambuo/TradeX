@@ -3,10 +3,10 @@ import client from './client'
 export interface Strategy {
   id: string
   name: string
-  executionRule: string
   version: number
   createdAt: string
   updatedAt: string
+  chainsJson?: string
 }
 
 export interface StrategyBinding {
@@ -41,22 +41,50 @@ export interface UpdateBindingRequest {
 
 export interface CreateStrategyRequest {
   name: string
-  executionRule?: string
+  chains?: string
 }
 
 export interface UpdateStrategyRequest {
   name?: string
-  executionRule?: string
+  chains?: string
+}
+
+export interface ParamDescriptor {
+  name: string
+  type: string
+  required: boolean
+  default?: unknown
+  min?: number
+  max?: number
+  enum?: string[]
+  description: string
+  refScope?: string
+  unit?: string
+}
+
+export interface NodeDescriptor {
+  kind: string
+  phase: number
+  category: string
+  description: string
+  allowDuplicate: boolean
+  producesDecisions: boolean
+  emitNames: string[]
+  emitScope?: string
+  params: ParamDescriptor[]
+  examples: Record<string, unknown>[]
+}
+
+export interface PhaseInfo {
+  value: number
+  name: string
+  label: string
+  description?: string
 }
 
 export interface StrategySchema {
-  indicators: string[]
-  contextIndicators: string[]
-  comparisons: string[]
-  groupOperators: string[]
-  actions: string[]
-  contexts: string[]
-  sizeTypes: string[]
+  nodes: NodeDescriptor[]
+  phases: PhaseInfo[]
 }
 
 export interface ValidationResult {
@@ -76,7 +104,7 @@ export const strategiesApi = {
   },
 
   getAllPure() {
-    return client.get<Strategy[]>('/strategies')
+    return client.get<{ data: Strategy[] }>('/strategies')
   },
   getPureById(id: string) {
     return client.get<Strategy>(`/strategies/${id}`)

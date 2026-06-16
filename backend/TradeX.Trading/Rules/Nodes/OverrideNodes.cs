@@ -68,14 +68,15 @@ internal sealed class EmergencyExitNode(JsonElement @params) : IRuleNode
 
         if (!triggered) return Task.CompletedTask;
 
-        // 紧急平仓：追加 SELL_ALL，清空其他 Actions
+        // 紧急平仓：追加 SELL_ALL（多）或 BUY（空），清空其他 Actions
         var pos = state.Context.Position;
         if (pos?.HasPosition() == true)
         {
             state.Actions.Clear();
+            var isLong = pos.Quantity > decimal.Zero;
             state.Actions.Add(new ActionDecision
             {
-                Intent = "SELL_ALL",
+                Intent = isLong ? "SELL_ALL" : "BUY",
                 Quantity = Math.Abs(pos.Quantity),
                 OrderType = "MARKET",
                 Priority = 0,

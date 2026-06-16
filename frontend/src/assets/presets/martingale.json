@@ -1,108 +1,47 @@
 {
   "name": "马丁格尔策略",
-  "description": "经典马丁格尔仓位管理。首次 RSI < 40 回调入场，价格每偏离均价 -2% 按层数线性加仓一次，反弹到偏离 +3% 全部平仓获利",
+  "description": "经典马丁格尔仓位管理。RSI < 40 回调入场，价格每偏离均价 -2% 线性加仓，偏离 +3% 全平获利",
   "notes": [
-    "每次加仓 sizeType=multiplier 自动按 POSITION_COUNT 乘数线性放大仓位：第 1 次 100（乘数 1），第 2 次 100（乘数 1），第 3 次 200（乘数 2），第 4 次 300（乘数 3）",
-    "maxPositions=4 限制最多追加 3 次（共 4 层），防止无限倍投导致爆仓",
-    "止损设在偏离 -5%：一旦价格跌破 4 层均价再跌 2% 即认赔全平，截断亏损",
-    "马丁格尔风险极高，建议只用于 BTC/ETH 等流动性好的标的，且总敞口不超过账户资金的 10%",
-    "层间距 2% 适合 1h~4h 级别，15m 短线需收窄至 1%~1.5%"
+    "RSI、DEVIATION_FROM_AVG 均为信号管线已注册的原生信号，signal_action 可直接读取",
+    "首仓链：RSI < 40 时 signal_action 触发 BUY",
+    "加仓链：偏离均价 -2% 时 pyramiding_size 计算仓位 + signal_action 触发 BUY，max_pyramiding(4) 限制层数",
+    "出场链：偏离均价 +3% 时 signal_action 触发 SELL 全平获利",
+    "马丁格尔风险极高，建议只用于 BTC/ETH 等流动性好的标的"
   ],
-  "executionRule": {
-    "code": "martingale",
-    "name": "马丁格尔策略",
-    "rules": [
-      {
-        "code": "entry_initial_buy",
-        "name": "回调首次入场",
-        "when": {
-          "operator": "",
-          "indicator": "RSI",
-          "comparison": "<",
-          "value": 40
-        },
-        "then": {
-          "action": "buy",
-          "size": 100,
-          "sizeType": "fixed",
-          "reason": "RSI {RSI} < 40 回调，首仓入场"
-        },
-        "context": "noPosition",
-        "priority": 0,
-        "constraints": {
-          "minInterval": 600
-        }
-      },
-      {
-        "code": "add_double_down",
-        "name": "加倍加仓",
-        "when": {
-          "operator": "",
-          "indicator": "DEVIATION_FROM_AVG",
-          "comparison": "<=",
-          "value": -2
-        },
-        "then": {
-          "action": "buy",
-          "size": 100,
-          "sizeType": "multiplier",
-          "sizeMultiplierRef": "POSITION_COUNT",
-          "reason": "偏离 {DEVIATION_FROM_AVG}% <= -2%，线性加仓"
-        },
-        "context": "hasPosition",
-        "priority": 1,
-        "constraints": {
-          "maxPositions": 4,
-          "maxPositionValue": 1500,
-          "minInterval": 300
-        }
-      },
-      {
-        "code": "exit_take_profit",
-        "name": "反弹获利平仓",
-        "when": {
-          "operator": "",
-          "indicator": "DEVIATION_FROM_AVG",
-          "comparison": ">=",
-          "value": 3
-        },
-        "then": {
-          "action": "sellAll",
-          "reason": "偏离 {DEVIATION_FROM_AVG}% >= 3%，全部平仓获利"
-        },
-        "context": "hasPosition",
-        "priority": 0,
-        "constraints": {
-          "minInterval": 120
-        }
-      },
-      {
-        "code": "exit_stop_loss",
-        "name": "止损退出",
-        "when": {
-          "operator": "",
-          "indicator": "POSITION_PNL_PCT",
-          "comparison": "<=",
-          "value": -5
-        },
-        "then": {
-          "action": "sellAll",
-          "reason": "亏损 {POSITION_PNL_PCT}% <= -5%，止损平仓"
-        },
-        "context": "hasPosition",
-        "priority": 0,
-        "constraints": {}
-      }
-    ],
-    "params": {
-      "basePositionSize": 100,
-      "maxPositionSize": 1500,
-      "maxPositions": 4,
-      "doubleDownDeviation": 2.0,
-      "takeProfitDeviation": 3.0,
-      "stopLossPct": 5.0,
-      "maxDailyLoss": 300,
-      "slippageTolerance": 0.001
+  "chains": [
+    {
+      "key": "entry",
+      "name": "首仓链",
+      "schemaVersion": 1,
+      "nodes": [
+        { "nodeKind": "position_gate", "params": { "require": "CLOSED" }, "priority": 1 },
+        { "nodeKind": "signal_gate", "params": { "signal": "RSI", "op": "<", "threshold": 40 }, "priority": 2 },
+        { "nodeKind": "fixed_size", "params": { "amount": 100, "currency": "USDT" }, "priority": 1 },
+        { "nodeKind": "signal_action", "params": { "buySignal": "RSI", "sellSignal": "", "threshold": 40, "direction": "BELOW" }, "priority": 1 },
+        { "nodeKind": "max_drawdown", "params": { "maxDrawdownPercent": 5 }, "priority": 1 }
+      ]
+    },
+    {
+      "key": "add_position",
+      "name": "加仓链",
+      "schemaVersion": 1,
+      "nodes": [
+        { "nodeKind": "position_gate", "params": { "require": "OPEN" }, "priority": 1 },
+        { "nodeKind": "signal_gate", "params": { "signal": "DEVIATION_FROM_AVG", "op": "<=", "threshold": -2 }, "priority": 2 },
+        { "nodeKind": "pyramiding_size", "params": { "baseAmount": 100, "multiplier": 1, "maxLevel": 4 }, "priority": 1 },
+        { "nodeKind": "signal_action", "params": { "buySignal": "DEVIATION_FROM_AVG", "sellSignal": "", "threshold": -2, "direction": "BELOW" }, "priority": 1 },
+        { "nodeKind": "max_pyramiding", "params": { "maxLevel": 4 }, "priority": 1 }
+      ]
+    },
+    {
+      "key": "exit",
+      "name": "出场链",
+      "schemaVersion": 1,
+      "nodes": [
+        { "nodeKind": "position_gate", "params": { "require": "OPEN" }, "priority": 1 },
+        { "nodeKind": "signal_gate", "params": { "signal": "DEVIATION_FROM_AVG", "op": ">=", "threshold": 3 }, "priority": 2 },
+        { "nodeKind": "signal_action", "params": { "buySignal": "", "sellSignal": "DEVIATION_FROM_AVG", "threshold": 3, "direction": "ABOVE" }, "priority": 1 }
+      ]
     }
-  }
+  ]
 }

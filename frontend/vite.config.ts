@@ -19,7 +19,9 @@ export default defineConfig({
       '/hubs': {
         target: 'http://localhost:5283',
         changeOrigin: true,
-        ws: true
+        ws: true,
+        timeout: 60000,
+        proxyTimeout: 60000
       },
       '/uploads': {
         target: 'http://localhost:5283',

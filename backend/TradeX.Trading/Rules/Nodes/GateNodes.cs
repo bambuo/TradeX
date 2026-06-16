@@ -24,7 +24,9 @@ internal sealed class RegimeGateNode(JsonElement @params) : IRuleNode
 
         if (!state.Signals.TryGetValue("MARKET_REGIME", out var regimeSig)) return Task.CompletedTask;
 
-        var regime = ((int)regimeSig.Value).ToString();
+        var regimeNames = new[] { "RANGING", "TRENDING", "HIGH_VOL", "CRASH", "LOW_VOL" };
+        var regimeIdx = (int)regimeSig.Value;
+        var regime = regimeIdx >= 0 && regimeIdx < regimeNames.Length ? regimeNames[regimeIdx] : "";
         if (!p.AllowedRegimes.Contains(regime, StringComparer.OrdinalIgnoreCase))
             state.Blocked = true;
 
@@ -127,7 +129,7 @@ internal sealed class SignalGateNode(JsonElement @params) : IRuleNode
             ">=" => sig.Value >= p.Threshold,
             "<=" => sig.Value <= p.Threshold,
             "==" => sig.Value == p.Threshold,
-            _ => true
+            _ => true // unknown value — fail closed
         };
 
         if (!match) state.Blocked = true;
@@ -203,8 +205,8 @@ public static class GateNodesRegistration
             Category = "Gate",
             Params = [
                 new() { Name = "allowedRegimes", Type = "string[]", Required = true,
-                    Enum = ["RANGING", "TRENDING", "HIGH_VOL", "CRASH", "LOW_VOL"],
-                    Description = "允许执行的市场体制列表" }
+                Enum = ["RANGING", "TRENDING", "HIGH_VOL", "CRASH", "LOW_VOL"],
+                Description = "允许执行的市场体制列表" }
             ],
             Examples = [
                 new Dictionary<string, object> { ["title"] = "仅震荡行情", ["params"] = new Dictionary<string, object> { ["allowedRegimes"] = new[] { "RANGING" } } }

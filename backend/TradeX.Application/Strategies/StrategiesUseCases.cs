@@ -8,7 +8,8 @@ public sealed record StrategyDto(
     string Name,
     int Version,
     DateTime CreatedAt,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    string? ChainsJson = null);
 
 public sealed record GetStrategiesQuery;
 
@@ -25,7 +26,8 @@ public sealed class GetStrategiesUseCase(
 
     private static StrategyDto MapToDto(Core.Models.Strategy s) => new(
         s.Id, s.Name,
-        s.Version, s.CreatedAt, s.UpdatedAt);
+        s.Version, s.CreatedAt, s.UpdatedAt,
+        s.Chains.ValueKind == global::System.Text.Json.JsonValueKind.Array ? global::System.Text.Json.JsonSerializer.Serialize(s.Chains) : null);
 }
 
 public sealed record GetStrategyByIdQuery(Guid Id);
@@ -46,7 +48,7 @@ public sealed class GetStrategyByIdUseCase(
     }
 }
 
-public sealed record CreateStrategyCommand(string Name);
+public sealed record CreateStrategyCommand(string Name, string? ChainsJson = null);
 
 /// <summary>创建策略用例。</summary>
 public sealed class CreateStrategyUseCase(
@@ -57,7 +59,9 @@ public sealed class CreateStrategyUseCase(
         if (string.IsNullOrWhiteSpace(cmd.Name))
             return Result<StrategyDto>.BadRequest("策略名称不能为空");
 
-        var strategy = Core.Models.Strategy.Create(cmd.Name, Guid.Empty);
+        var strategy = string.IsNullOrWhiteSpace(cmd.ChainsJson)
+            ? Core.Models.Strategy.Create(cmd.Name, Guid.Empty)
+            : Core.Models.Strategy.CreateRuleChain(cmd.Name, global::System.Text.Json.JsonDocument.Parse(cmd.ChainsJson).RootElement, Guid.Empty);
 
         await strategyRepo.AddAsync(strategy, ct);
 
@@ -67,7 +71,7 @@ public sealed class CreateStrategyUseCase(
     }
 }
 
-public sealed record UpdateStrategyCommand(Guid Id, string? Name = null);
+public sealed record UpdateStrategyCommand(Guid Id, string? Name = null, string? ChainsJson = null);
 
 /// <summary>更新策略用例。</summary>
 public sealed class UpdateStrategyUseCase(
@@ -81,6 +85,9 @@ public sealed class UpdateStrategyUseCase(
 
         if (cmd.Name is not null)
             strategy.Name = cmd.Name;
+
+        if (cmd.ChainsJson is not null)
+            strategy.Chains = global::System.Text.Json.JsonDocument.Parse(cmd.ChainsJson).RootElement;
 
         strategy.Version++;
         await strategyRepo.UpdateAsync(strategy, ct);

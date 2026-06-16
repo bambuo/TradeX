@@ -1,0 +1,11 @@
+- [x] Task 1: regime_gate ProcessAsync 使用枚举名称映射
+- [x] Task 2: dca_action 写回 lastAt 到 StateStore
+- [x] Task 2: martingale_action 递增并写回 step 到 StateStore
+- [x] Task 3: trailing_stop_action 做空时 Intent 为 BUY
+- [x] Task 3: emergency_exit 做空时 Intent 为 BUY
+- [x] Task 4: grid_action quantity<=0 时不追加 Action
+- [x] Task 5: cost_anchored_rebalance 首次写回 anchoredCost
+- [x] Task 6: cooldown RemoveAll 仅匹配 BUY
+- [x] Task 7: signal_gate 未知 Op → false
+- [x] Task 7: position_gate 未知 Require → true
+- [x] Task 8: dotnet build 通过 (0 errors)

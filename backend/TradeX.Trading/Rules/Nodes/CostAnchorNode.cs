@@ -40,7 +40,21 @@ internal sealed class CostAnchoredRebalanceNode(JsonElement @params) : IRuleNode
         {
             // 首次使用：以当前持仓均价为锚
             if (pos?.EntryPrice > decimal.Zero)
+            {
                 anchoredCost = pos.EntryPrice;
+                // 写回StateStore避免锚点漂移
+                if (store is not null)
+                {
+                    var initState = new NodeState
+                    {
+                        Data = new Dictionary<string, JsonElement>
+                        {
+                            ["anchoredCost"] = JsonSerializer.SerializeToElement(anchoredCost)
+                        }
+                    };
+                    await store.WriteStateAsync(state.Context.ScopeKey, Kind, initState, ct);
+                }
+            }
             else
                 return;
         }

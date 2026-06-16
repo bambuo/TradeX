@@ -1,98 +1,80 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { Message } from '@arco-design/web-vue'
+import { ref, computed, onMounted } from 'vue'
+import { Message, Modal } from '@arco-design/web-vue'
 import { strategiesApi, type Strategy, type StrategySchema } from '../api/strategies'
 import { strategyPresets } from '../api/strategyPresets'
-import RuleSetEditor from '../components/RuleSetEditor.vue'
-import {
-  labelForIndicator,
-  actionLabels,
-} from '../utils/ruleLabels'
-
-const cmpLabels: Record<string, string> = {
-  '>': '>', '<': '<', '>=': '≥', '<=': '≤', '==': '＝', CA: '↗ 上穿', CB: '↘ 下穿'
-}
-
-/** 从 RuleSet JSON 中提取可读的描述 */
-function humanizeRuleSet(json: string): string {
-  try {
-    const parsed = JSON.parse(json)
-    if (!parsed.rules || !Array.isArray(parsed.rules)) return '未配置'
-    const parts = parsed.rules.map((r: any) => {
-      const name = r.name || r.code || '规则'
-      const action = r.then?.action || 'hold'
-      const actionLabel = actionLabels[action] ? `→ ${actionLabels[action]}` : ''
-      const displayIndicator = (ind: string) => labelForIndicator(ind)
-      if (r.when && r.when.indicator) {
-        const cmp = cmpLabels[r.when.comparison ?? ''] || r.when.comparison || '?'
-        const lb = r.when.lookback ? `(回看${r.when.lookback}根)` : ''
-        return `${name}: ${displayIndicator(r.when.indicator)} ${cmp} ${r.when.value ?? ''} ${lb} ${actionLabel}`
-      }
-      if (r.when && r.when.conditions && r.when.conditions.length > 0) {
-        const condText = r.when.conditions.map((c: any) => {
-          if (c.indicator) {
-            const lb = c.lookback ? `(回看${c.lookback}根)` : ''
-            return `${displayIndicator(c.indicator)} ${cmpLabels[c.comparison ?? ''] || c.comparison || '?'} ${c.value ?? ''} ${lb}`
-          }
-          return '多条件'
-        }).join(r.when.operator === 'OR' ? ' 或 ' : ' 且 ')
-        return `${name}: ${condText} ${actionLabel}`
-      }
-      return `${name} ${actionLabel}`
-    })
-    return parts.join('；')
-  } catch { return json }
-}
-
-function humanizeExecutionRule(json: string): string {
-  try {
-    const obj = JSON.parse(json)
-    const ruleCount = obj.rules?.length ?? 0
-    const actions = new Set((obj.rules ?? []).map((r: any) => r.then?.action))
-    const labels: string[] = []
-    if (actions.has('buy')) labels.push('入场')
-    if (actions.has('sell') || actions.has('sellAll')) labels.push('出场')
-    return `${ruleCount} 条规则${labels.length ? ` (${labels.join('/')})` : ''}`
-  } catch { return '自定义' }
-}
+import ChainCanvas from '../components/chain/ChainCanvas.vue'
+import { createDefaultChain } from '../components/chain/types'
 
 const schema = ref<StrategySchema | null>(null)
 const strategies = ref<Strategy[]>([])
 const loading = ref(true)
 const showForm = ref(false)
 const editId = ref<string | null>(null)
-const showPresets = ref(false)
-
-const activePreset = ref<typeof strategyPresets[0] | null>(null)
+const showPresets = ref(true)
 const formName = ref('')
-const formExecutionRule = ref('{}')
+const formChains = ref('')
+const saving = ref(false)
+
+/** 初始值快照（用于脏检测） */
+const initialName = ref('')
+const initialChains = ref('')
+
+const dirty = computed(() =>
+  formName.value !== initialName.value || formChains.value !== initialChains.value
+)
+
+function captureInitial() {
+  initialName.value = formName.value
+  initialChains.value = formChains.value
+}
 
 function resetForm() {
-  activePreset.value = null
   formName.value = ''
-  formExecutionRule.value = '{}'
+  formChains.value = JSON.stringify([createDefaultChain()])
 }
 
 function openCreate() {
   editId.value = null
   resetForm()
+  captureInitial()
   showPresets.value = true
-  showForm.value = true
-}
-
-function openEdit(s: Strategy) {
-  editId.value = s.id
-  formName.value = s.name
-  formExecutionRule.value = s.executionRule
-  showPresets.value = false
   showForm.value = true
 }
 
 function applyPreset(preset: typeof strategyPresets[0]) {
   formName.value = preset.name
-  formExecutionRule.value = preset.executionRule
-  activePreset.value = preset
+  formChains.value = preset.chains
   showPresets.value = false
+}
+
+async function openEdit(s: Strategy) {
+  editId.value = s.id
+  try {
+    const { data } = await strategiesApi.getPureById(s.id)
+    formName.value = data.name
+    formChains.value = data.chainsJson ?? JSON.stringify([createDefaultChain()])
+  } catch {
+    formName.value = s.name
+    formChains.value = JSON.stringify([createDefaultChain()])
+  }
+  captureInitial()
+  showForm.value = true
+}
+
+function handleClose(done: () => void) {
+  if (dirty.value) {
+    Modal.confirm({
+      title: '放弃编辑',
+      content: '当前编辑尚未保存，确定放弃吗？',
+      okText: '确定放弃',
+      cancelText: '取消',
+      okButtonProps: { status: 'danger' },
+      onOk: () => done()
+    })
+  } else {
+    done()
+  }
 }
 
 async function save() {
@@ -101,41 +83,68 @@ async function save() {
     return
   }
 
+  saving.value = true
   try {
     if (editId.value) {
       await strategiesApi.updatePure(editId.value, {
         name: formName.value,
-        executionRule: formExecutionRule.value
+        chains: formChains.value
       })
     } else {
       await strategiesApi.createPure({
         name: formName.value,
-        executionRule: formExecutionRule.value
+        chains: formChains.value
       })
     }
     showForm.value = false
     await load()
+    Message.success(`策略「${formName.value}」${editId.value ? '更新' : '创建'}成功`)
   } catch (e: any) {
-    const msg = e?.response?.data?.error || e?.message || '保存失败'
+    const msg = e?.response?.data?.message || e?.message || '保存失败'
     Message.error(msg)
+  } finally {
+    saving.value = false
   }
 }
 
-async function remove(id: string) {
+async function remove(id: string, name: string) {
+  Modal.confirm({
+    title: '删除策略',
+    content: `确定删除策略「${name}」吗？此操作不可撤销。`,
+    okText: '确定删除',
+    okButtonProps: { status: 'danger' },
+    onOk: async () => {
+      try {
+        await strategiesApi.deletePure(id)
+        await load()
+      } catch (e: any) {
+        const msg = e?.response?.data?.message || e?.message || '删除失败'
+        Message.error(msg)
+      }
+    }
+  })
+}
+
+function humanizeChains(chainsJson: string): string {
   try {
-    await strategiesApi.deletePure(id)
-    await load()
-  } catch (e: any) {
-    const msg = e?.response?.data?.error || e?.message || '删除失败'
-    Message.error(msg)
+    const chains = JSON.parse(chainsJson)
+    if (!Array.isArray(chains)) return '未配置'
+    return chains.map((c: any) => `${c.name} (${c.nodes?.length ?? 0} 节点)`).join('；')
+  } catch {
+    return '自定义'
   }
 }
 
 async function load() {
   loading.value = true
   try {
-    const { data: sch } = await strategiesApi.getSchema()
-    schema.value = sch
+    // 加载 schema（可选，不存在时降级）
+    try {
+      const { data: sch } = await strategiesApi.getSchema()
+      schema.value = sch
+    } catch {
+      schema.value = null
+    }
 
     const { data } = await strategiesApi.getAllPure()
     strategies.value = data.data ?? []
@@ -144,61 +153,83 @@ async function load() {
   }
 }
 
-onMounted(load)
+function onBeforeUnload(e: BeforeUnloadEvent) {
+  if (dirty.value) {
+    e.preventDefault()
+  }
+}
+
+onMounted(() => {
+  load()
+  window.addEventListener('beforeunload', onBeforeUnload)
+})
 </script>
 
 <template>
   <div class="strategies-page">
     <header class="page-header">
-      <h2>策略模板</h2>
+      <h2>策略</h2>
       <a-button type="primary" @click="openCreate">
         <template #icon><icon-plus /></template>
         新建策略
       </a-button>
     </header>
 
-    <a-modal v-model:visible="showForm" :title="editId ? '编辑策略模板' : '新建策略模板'" width="1100px" :mask-closable="false">
-      <div v-if="showPresets && !editId" class="presets-section">
-        <p class="presets-hint">选择一个预设模板快速创建，或直接编辑下方规则集</p>
-        <div class="preset-cards">
-          <div
-            v-for="preset in strategyPresets"
-            :key="preset.name"
-            class="preset-card"
-            @click="applyPreset(preset)"
-          >
-            <strong class="preset-name">{{ preset.name }}</strong>
-            <span class="preset-desc">{{ preset.description }}</span>
+    <a-modal
+      v-model:visible="showForm"
+      :title="editId ? '编辑策略' : '新建策略'"
+      width="960px"
+      :mask-closable="false"
+      @before-close="handleClose"
+    >
+      <div class="form-body">
+        <!-- 预设选择（仅新建时显示） -->
+        <div v-if="showPresets && !editId" class="presets-section">
+          <p class="presets-hint">选择一个预设模板快速创建，或直接编辑下方规则链</p>
+          <div class="preset-grid">
+            <div
+              v-for="preset in strategyPresets"
+              :key="preset.name"
+              class="preset-card"
+              @click="applyPreset(preset)"
+            >
+              <strong class="preset-name">{{ preset.name }}</strong>
+              <span class="preset-desc">{{ preset.description }}</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="form-body">
-        <div v-if="activePreset && !showPresets" class="notes-section">
-          <span class="notes-title">最佳实践参考</span>
-          <ul class="notes-list">
-            <li v-for="(note, i) in activePreset.notes" :key="i">{{ note }}</li>
-          </ul>
+        <div class="basic-info">
+          <a-input
+            v-model="formName"
+            placeholder="策略名称"
+            size="large"
+            :max-length="100"
+            show-word-limit
+          />
         </div>
 
-        <a-input v-model="formName" placeholder="策略名称" />
-
-        <div class="section">
-          <span class="section-label">规则集 (RuleSet)</span>
-          <RuleSetEditor v-model="formExecutionRule" :schema="schema || undefined" />
+        <div class="chain-section" v-if="schema">
+          <ChainCanvas
+            v-model="formChains"
+            :schema="schema"
+          />
+        </div>
+        <div v-else class="chain-section">
+          <a-empty description="无法加载策略配置模板，请刷新重试" />
         </div>
       </div>
 
       <template #footer>
-        <a-button type="primary" @click="save">
-          <template #icon><icon-save /></template>
-          保存
+        <a-button @click="showForm = false">取消</a-button>
+        <a-button type="primary" :disabled="!formName.trim() || saving" :loading="saving" @click="save">
+          {{ editId ? '保存' : '创建策略' }}
         </a-button>
       </template>
     </a-modal>
 
     <div v-if="loading" class="loading">加载中...</div>
-    <div v-else-if="strategies.length === 0" class="empty">暂无策略模板</div>
+    <div v-else-if="strategies.length === 0" class="empty">暂无策略</div>
     <div v-else class="card-grid">
       <div
         v-for="s in strategies"
@@ -209,21 +240,10 @@ onMounted(load)
         <div class="card-header">
           <div class="card-title-area">
             <h3>{{ s.name }}</h3>
-            <span class="card-badge">{{ humanizeExecutionRule(s.executionRule) }}</span>
+            <span class="card-badge">{{ humanizeChains(s.chainsJson ?? '[]') }}</span>
           </div>
           <div class="card-header-actions">
             <span class="card-meta">v{{ s.version }}</span>
-          </div>
-        </div>
-
-        <div class="card-body">
-          <div class="info-row">
-            <span class="info-label">规则</span>
-            <span class="info-value cond-text">{{ humanizeRuleSet(s.executionRule) }}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">更新</span>
-            <span class="info-value">{{ new Date(s.updatedAt).toLocaleString('zh-CN', { hour12: false }) }}</span>
           </div>
         </div>
 
@@ -232,7 +252,7 @@ onMounted(load)
             <template #icon><icon-edit /></template>
             编辑
           </a-button>
-          <a-button size="small" status="danger" @click="remove(s.id)">
+          <a-button size="small" status="danger" @click="remove(s.id, s.name)">
             <template #icon><icon-delete /></template>
             删除
           </a-button>
@@ -253,7 +273,6 @@ onMounted(load)
   grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
   gap: 1rem;
 }
-
 .strategy-card {
   background: var(--card-bg, #fff);
   border: 1px solid var(--glass-border);
@@ -266,14 +285,12 @@ onMounted(load)
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.06);
   transform: translateY(-2px);
 }
-
 .card-header {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   padding: 1rem 1.25rem 0.5rem;
 }
-
 .card-title-area {
   flex: 1;
   min-width: 0;
@@ -285,14 +302,12 @@ onMounted(load)
   font-weight: 600;
   line-height: 1.3;
 }
-
 .card-header-actions {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   align-self: flex-start;
 }
-
 .card-badge {
   display: inline-block;
   padding: 0.1rem 0.5rem;
@@ -303,46 +318,10 @@ onMounted(load)
   background: rgba(79, 126, 201, 0.10);
   color: var(--accent-blue);
 }
-
 .card-meta {
   font-size: 0.78rem;
   color: var(--text-muted);
 }
-
-.card-body {
-  padding: 0.5rem 1.25rem 0.75rem;
-}
-
-.info-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.3rem 0;
-  font-size: 0.85rem;
-}
-
-.info-label {
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.info-value {
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.4rem;
-}
-
-.cond-text {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .card-footer {
   display: flex;
   gap: 0.5rem;
@@ -352,49 +331,18 @@ onMounted(load)
 .card-footer :deep(.arco-btn) {
   flex: 1;
 }
-.form-body { max-height: 65vh; overflow-y: auto; margin-bottom: 1rem; }
-.section { margin-bottom: 1rem; }
-.section-label { display: block; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.375rem; font-weight: 600; }
-.presets-section { margin-bottom: 1rem; }
-.presets-hint { color: var(--text-muted); font-size: 0.85rem; margin: 0 0 0.75rem; }
-.preset-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.form-body { display: flex; flex-direction: column; gap: 16px; min-height: 0; flex: 1; }
+.basic-info { flex-shrink: 0; }
+.chain-section { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.presets-section { }
+.presets-hint { color: var(--color-text-3); font-size: 13px; margin: 0 0 8px; }
+.preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .preset-card {
-  display: flex; flex-direction: column; gap: 0.25rem;
-  padding: 0.75rem 1rem; border: 1px solid var(--glass-border); border-radius: 6px;
-  cursor: pointer; background: rgba(255,255,255,0.35); transition: border-color 0.15s;
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 10px 12px; border: 1px solid var(--color-border-2); border-radius: 8px;
+  cursor: pointer; transition: all 0.15s; background: var(--color-bg-1);
 }
-.preset-card:hover { border-color: var(--accent-blue); background: rgba(79, 126, 201, 0.05); }
-.preset-name { color: var(--text-primary); font-size: 0.9rem; }
-.preset-desc { color: var(--text-muted); font-size: 0.8rem; line-height: 1.4; }
-.notes-section {
-  background: rgba(79, 126, 201, 0.06);
-  border: 1px solid rgba(79, 126, 201, 0.2);
-  border-radius: 6px;
-  padding: 0.75rem 1rem;
-  margin-bottom: 1rem;
-}
-.notes-title {
-  display: block;
-  color: var(--accent-blue);
-  font-size: 0.8rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-}
-.notes-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.notes-list li {
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  line-height: 1.5;
-  padding: 0.125rem 0;
-}
-.notes-list li::before {
-  content: '·';
-  color: var(--accent-blue);
-  font-weight: 700;
-  margin-right: 0.5rem;
-}
+.preset-card:hover { border-color: rgb(var(--arcoblue-6)); box-shadow: 0 2px 8px rgba(var(--arcoblue-6), 0.08); }
+.preset-name { font-size: 14px; font-weight: 600; color: var(--color-text-1); }
+.preset-desc { font-size: 12px; color: var(--color-text-3); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 </style>

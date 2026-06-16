@@ -24,12 +24,16 @@ public class CasbinAuthorizationMiddleware(RequestDelegate next)
     {
         var path = context.Request.Path.Value?.TrimEnd('/') ?? "";
 
-        // 放行公开路径和非 API 路径（静态文件、SPA 路由等）
-        var isApiOrHub = path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase)
-            || path.StartsWith("/hubs/", StringComparison.OrdinalIgnoreCase);
+        // 放行 SignalR Hub 路径（JWT 认证由 Hub 的 [Authorize] 属性自行处理）
+        if (path.StartsWith("/hubs/", StringComparison.OrdinalIgnoreCase))
+        {
+            await next(context);
+            return;
+        }
 
+        // 放行公开路径和非 API 路径（静态文件、SPA 路由等）
         if (string.IsNullOrEmpty(path)
-            || !isApiOrHub
+            || !path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase)
             || PublicPaths.Any(p => path.Equals(p, StringComparison.OrdinalIgnoreCase)))
         {
             await next(context);
